@@ -29,6 +29,7 @@ Solo usa la biblioteca estandar (corre tambien con el Python de la PC).
 """
 import argparse
 import datetime
+import glob
 import json
 import os
 import re
@@ -44,12 +45,14 @@ EXE = ".exe" if os.name == "nt" else ""
 MV = os.path.join(WORK, "marioverify" + EXE)
 ORACLE = os.path.join(WORK, "oracle_yi1.bin")
 PY = sys.executable
+# los sprites nuevos van en player/spr_*.c y entran solos (I1)
+SPR_C = ["player/" + os.path.basename(f) for f in sorted(glob.glob(os.path.join(ROOT, "player", "spr_*.c")))]
 CSRC = ["tools/marioverify.c", "player/mario.c", "player/mcoll.c", "player/manim.c",
-        "player/mgfx.c", "player/mcam.c", "player/msprite.c", "player/gen/smwrom00.c"]
+        "player/mgfx.c", "player/mcam.c", "player/msprite.c"] + SPR_C + ["player/gen/smwrom00.c"]
 # el C del port como biblioteca, con las opciones del build de la Amiga (-DNOOAM),
 # para el cruce de la RAM entera con el binario del 68000 (m68kverify --cross)
 LIBSRC = ["player/mario.c", "player/mcoll.c", "player/manim.c", "player/mgfx.c", "player/mcam.c",
-          "player/msprite.c", "player/mspr.c", "player/gen/smwrom00.c"]
+          "player/msprite.c", "player/mspr.c"] + SPR_C + ["player/gen/smwrom00.c"]
 LIB = os.path.join(WORK, "libport.so")
 SCROLL_X = (500, 1000, 1700, 2500, 3500, 4500)
 

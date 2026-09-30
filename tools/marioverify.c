@@ -14,7 +14,7 @@
  * Los frames donde aterriza, choca un techo o pisa un enemigo fallan por
  * construccion hasta la 8b; se cuentan aparte (columna "suelo/aire").
  *
- *   gcc -O2 -Iplayer -o work/marioverify tools/marioverify.c player/mario.c player/mcoll.c player/manim.c player/mgfx.c player/mcam.c player/msprite.c player/gen/smwrom00.c
+ *   gcc -O2 -Iplayer -o work/marioverify tools/marioverify.c player/mario.c player/mcoll.c player/manim.c player/mgfx.c player/mcam.c player/msprite.c player/spr_*.c player/gen/smwrom00.c
  *   work/marioverify work/oracle_yi1.bin
  *   work/marioverify work/oracle_yi1.bin full [work/yi1_map16.bin [CAMPO]]   (8b)
  *   work/marioverify work/oracle_yi1.bin fulldump FRAME salida.bin   (estado para logicbench)

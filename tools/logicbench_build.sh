@@ -28,7 +28,9 @@ if [ -n "$PROF" ]; then
     OUT=work/prof; CC=work/prof/cc; EXTRA=-inline-size=0
 fi
 mkdir -p $CC
-for f in mario mcoll manim mgfx mcam msprite mspr gen/smwrom00; do
+# los sprites nuevos van solos en player/spr_*.c y entran por glob (I1)
+SPRS=$(cd player && ls spr_*.c 2>/dev/null | sed 's/\.c$//')
+for f in mario mcoll manim mgfx mcam msprite mspr $SPRS gen/smwrom00; do
     b=$(basename $f)
     src=player/$f.c
     if [ -n "$PROF" ]; then
@@ -45,6 +47,13 @@ for f in mario mcoll manim mgfx mcam msprite mspr gen/smwrom00; do
         { if (mode == "d") print > D; else print > C }
     ' $CC/$b.s
     touch $CC/$b.data.s $CC/$b.code.s
+done
+# Los spr_*.c se anexan a msprite.data.s / msprite.code.s: los arneses
+# (game.s, logicbench.s) incluyen por nombre y asi no hay que tocarlos al
+# agregar un sprite. Los datos siguen yendo antes que todo el codigo (P36).
+for b in $SPRS; do
+    cat $CC/$b.data.s >> $CC/msprite.data.s
+    cat $CC/$b.code.s >> $CC/msprite.code.s
 done
 # El binario se carga en cualquier direccion: el codigo del C solo puede
 # llegar a sus datos por (a4) y a su codigo por (pc)/bsr. vbcc puede emitir
