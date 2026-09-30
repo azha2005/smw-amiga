@@ -45,13 +45,24 @@ Formato (big-endian):
        x = $7FFF. La Amiga escribe las de x en [s0, s0 + LASTX]
        (la primera, siempre con WAIT) y esa escritura, fija en pantalla,
        sigue bien mientras s0 + a <= s < s0 + b (el MOVE cae entre x y
-       x + 7: ver scroll.s, build_mid). MLX apunta a la primera carga
+       x + 7: ver scroll.s, build_mid). Una carga "tarde" (a > 0 o
+       b <= 0: con la base s no cae en su ventana, P50) se clasifica ACA,
+       fija (P71): su clase lleva + 4 (4 = WAIT, 5 = detras, 6, 7 = con
+       rellenos). La Amiga no usa su a y b: la linea con una tarde escrita
+       es canonica (s0 = s) y lo escrito vale mientras la h del WAIT del
+       que cuelga la tarde no cambie (celdas de 8 px de s, scroll.s
+       build_mid, .td). MLX apunta a la primera carga
   LNS  lineas que build_mid tiene que mirar: u16 x (W/16 + 1) desplazamientos
-       (desde LNS) de listas de u16 (linea * 32, $FFFF al final), una por
-       cada 16 px de s (k = s >> 4): las lineas con alguna carga en pantalla
-       para alguna s en [16k - 16, 16k + 32). Asi tambien se limpian las
-       que se quedan sin cargas (la camara no se mueve mas de 16 px entre
-       dos escrituras de la misma lista)
+       (desde LNS) de listas, una por cada 16 px de s (k = s >> 4): las
+       lineas con alguna carga en pantalla para alguna s en
+       [16k - 16, 16k + 32). Asi tambien se limpian las que se quedan sin
+       cargas (la camara no se mueve mas de 16 px entre dos escrituras de
+       la misma lista). Cada lista va por grupos de 16 lineas (S2), solo los
+       que tienen alguna: s16 goff (estado del grupo en scroll.s, relativo a
+       linetab: GSZ * (g - NGRP)), u16 hid = id << 6 | 2 * n (id: 1..1022,
+       distinto para cada conjunto de lineas distinto del mismo grupo en k
+       seguidos: con el mismo hid, el agregado de scroll.s vale), n x u16
+       (linea * 32); al final, $FFFF
 
     python3 tools/mkscroll.py
 """
@@ -69,6 +80,8 @@ WORK = os.path.join(HERE, "..", "work")
 Y0, LINES = 192, 224
 LASTXMAX = 316              # LASTX de scroll.s a 320 px (a 256: 255); MSK con el mayor
 SEG = 220                   # bytes por linea en la lista del copper (scroll.s: SEG)
+NGRP, GSZ = LINES // 16, 8  # LNS por grupos de 16 lineas (scroll.s: NGRP, GSZ)
+TARDE = 4                   # clase + TARDE: carga "tarde" en MLD (scroll.s: build_mid, .td)
 
 
 def plan(loads):
@@ -142,27 +155,44 @@ def main():
     chg.sort()
     mlx, mldb = [], bytearray()
     pxs = [[] for _ in range(LINES)]
-    late = 0
+    late = tardes = 0
     for L in range(LINES):
         mldb += struct.pack(">HHHHHH", 0, 0xFFFF, 0, 0, 0, 0)
         mlx.append(len(mldb) // 12)
         out, lt = plan(mld[L])
         late += lt
         for tx, k, (pe, cs, r, c) in out:
-            mldb += struct.pack(">HHHHhh", k, tx, r, c, pe + 1 - tx, cs - tx - 6)
+            a, b = pe + 1 - tx, cs - tx - 6
+            if a > 0 or b <= 0:                 # "tarde": fija, decidida aca (P71)
+                k += TARDE
+                tardes += 1
+            mldb += struct.pack(">HHHHhh", k, tx, r, c, a, b)
             pxs[L].append(tx)
         mldb += struct.pack(">HHHHHH", 0, 0x7FFF, 0, 0, 0, 0)
     mlx.append(len(mldb) // 12)
     print("cargas a mitad de linea que llegan tarde en el plan (modelo medido): %d de %d"
           % (late, len(mldb) // 12 - 2 * LINES))
+    print("cargas \"tarde\" (a > 0 o b <= 0, fijas en MLD): %d" % tardes)
     nk = W // 16 + 1
     lns_o, lns_d = [], bytearray()
+    gid, gprev = [0] * NGRP, [None] * NGRP
     for k in range(nk):
         lo, hi = 16 * k - 16, 16 * k + 31 + LASTXMAX
         lns_o.append(2 * nk + len(lns_d))
-        ls = [32 * L for L in range(LINES) if any(lo <= x <= hi for x in pxs[L])]
-        lns_d += struct.pack(">%dH" % (len(ls) + 1), *ls, 0xFFFF)
+        ls = [L for L in range(LINES) if any(lo <= x <= hi for x in pxs[L])]
+        for g in range(NGRP):
+            gl = [L for L in ls if L // 16 == g]
+            if not gl:
+                continue
+            if gl != gprev[g]:                  # otro conjunto: otro id
+                gid[g] += 1
+                gprev[g] = gl
+                assert gid[g] < 1023            # 1023: alllines de scroll.s
+            lns_d += struct.pack(">hH%dH" % len(gl), GSZ * (g - NGRP), gid[g] << 6 | 2 * len(gl),
+                                 *[32 * L for L in gl])
+        lns_d += struct.pack(">H", 0xFFFF)
     lns = struct.pack(">%dH" % nk, *lns_o) + bytes(lns_d)
+    assert len(lns) < 0x10000                   # scroll.s: desplazamientos u16
     rows0 = Y0 // 16
     mp = bytearray()
     for c in range(cols):
