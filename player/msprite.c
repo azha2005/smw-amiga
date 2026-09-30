@@ -17,14 +17,27 @@
 #include "gen/smwtabx.h"
 #include "smwmac.h"
 
-/* build de la Amiga: rutinas de player/logic68k.s en vez del C; lo que el
-   asm llama deja de ser static (MSS) */
-#if defined(__VBCC__) && !defined(NOASM)
-#define LOGIC68K 1
-#define MSS
-#else
-#define MSS static
-#endif
+#include "msprite.h"
+
+/* BoostMarioSpeed: el rebote al pisar (mas alto con el boton apretado) */
+void boost_mario(void)
+{
+    if (!R8(wm_IsClimbing))
+        W8(wm_MarioSpeedY, NEG(R8(wm_JoyPadA)) ? 0xA8 : 0xD0);
+}
+
+/* CODE_01AB46: puntos por pisoton en cadena (la puntuacion y su sprite,
+   GivePoints, son de la etapa 10: MEV_SPRITE) */
+void chain_points(u8 x)
+{
+    u8 y = (u8)(R8(wm_SprChainStomped) + SPR(wm_SprChainKillTbl, x) + 1);
+    W8(wm_SprChainStomped, R8(wm_SprChainStomped) + 1);
+    if (y < 8)
+        W8(wm_SoundCh1, tx_01A61E[y - 1]);   /* DATA_01A61E */
+    mario_events |= MEV_SPRITE;
+}
+
+void spr_unsup(void) { if (!mario_unsupported) mario_unsupported = MARIO_UNSUP_TILE; }
 const u8 *spr_level;        /* spr.lv del nivel (cabecera incluida) */
 static void init_sprite_tables(u8 x);
 
@@ -150,8 +163,6 @@ static void load_column(void)
     }
 }
 
-static void spr_unsup(void);
-
 /* CODE_02ABF2 + CODE_02ACA1 (lv_read.s llama a CODE_02A751 al cargar el
    nivel, antes de CODE_01808C): vacia las ranuras y wm_SprLoadStatus y
    crea los sprites de las 32 columnas desde Bg1HOfs - $60 (dos llamadas
@@ -199,11 +210,6 @@ void sprite_level_start(void)
 /* ------------------------------------------------------------------ */
 /* Motor de sprites (sprite_1-main.s, sprite_3-1.s), lo que usa el Rex.
    Convenciones de mario.c: x = ranura (el registro X del 65816). */
-
-#define SPR(t, x)       RX8(t, x)
-#define SETSPR(t, x, v) (RX8(t, x) = (u8)(v))
-
-static void spr_unsup(void) { if (!mario_unsupported) mario_unsupported = MARIO_UNSUP_TILE; }
 
 /* ZeroSpriteTables + LoadSpriteTables (sprite_tables.s) */
 static void init_sprite_tables(u8 x)
@@ -552,11 +558,8 @@ MSS void spr_obj_interact(u8 x)
 }
 
 /* SubUpdateSprPos */
-#ifdef LOGIC68K
-void spr_update_pos_asm(u8 x);
-#define spr_update_pos spr_update_pos_asm   /* player/logic68k.s */
-#else
-static void spr_update_pos(u8 x)
+#ifndef LOGIC68K            /* con LOGIC68K: msprite.h y player/logic68k.s */
+void spr_update_pos(u8 x)
 {
     u8 v, keep;
     spr_pos_axis(x, 0);
@@ -577,11 +580,8 @@ static void spr_update_pos(u8 x)
 
 /* GetDrawInfoBnk3: solo los flags de fuera de pantalla (el dibujo, en la
    etapa 6). Devuelve 0 si el sprite esta lejos (PLA/PLA: no se dibuja). */
-#ifdef LOGIC68K
-int get_draw_info_asm(u8 x);
-#define get_draw_info get_draw_info_asm     /* player/logic68k.s */
-#else
-static int get_draw_info(u8 x)
+#ifndef LOGIC68K            /* con LOGIC68K: msprite.h y player/logic68k.s */
+int get_draw_info(u8 x)
 {
     u16 sx = (u16)(SPR(wm_SpriteXLo, x) | SPR(wm_SpriteXHi, x) << 8), cam = R16(wm_Bg1HOfs);
     u8 y;
@@ -633,7 +633,7 @@ static int get_draw_info1(u8 x)
 }
 
 /* SubOffscreen0Bnk3 (nivel horizontal) */
-MSS void sub_offscreen3(u8 x)
+MSX void sub_offscreen3(u8 x)
 {
     u8 y, e = 0;
     if (!(SPR(wm_OffscreenHorz, x) | SPR(wm_OffscreenVert, x)))
@@ -696,24 +696,6 @@ static int spr_mario_contact(u8 x)
     return 1;
 }
 #endif
-
-/* BoostMarioSpeed: el rebote al pisar (mas alto con el boton apretado) */
-static void boost_mario(void)
-{
-    if (!R8(wm_IsClimbing))
-        W8(wm_MarioSpeedY, NEG(R8(wm_JoyPadA)) ? 0xA8 : 0xD0);
-}
-
-/* CODE_01AB46: puntos por pisoton en cadena (la puntuacion y su sprite,
-   GivePoints, son de la etapa 10: MEV_SPRITE) */
-static void chain_points(u8 x)
-{
-    u8 y = (u8)(R8(wm_SprChainStomped) + SPR(wm_SprChainKillTbl, x) + 1);
-    W8(wm_SprChainStomped, R8(wm_SprChainStomped) + 1);
-    if (y < 8)
-        W8(wm_SoundCh1, tx_01A61E[y - 1]);   /* DATA_01A61E */
-    mario_events |= MEV_SPRITE;
-}
 
 /* _01A8D8: rebote de Mario (DisplayContactGfx: la estrellita, grafico) */
 static void stomp_bounce(void)
@@ -819,7 +801,7 @@ static void default_interact(u8 x)
    la hace el propio sprite (Tweaker167A bit 7, el Rex); si no, la hace
    DefaultInteractR y devuelve 0. */
 static int process_interact(u8 x);
-MSS int mario_spr_interact(u8 x)
+MSX int mario_spr_interact(u8 x)
 {
     if (!(SPR(wm_Tweaker167A, x) & 0x20)
         && (((x ^ R8(wm_FrameA)) & 1) | SPR(wm_OffscreenHorz, x)))
@@ -908,7 +890,7 @@ static void invis_blk(u8 x)
 }
 
 /* FlyingBlock (sprite_1-1.s), el $83: vuela hacia la izquierda en onda */
-MSS void spr_spr_interact(u8 y);
+MSX void spr_spr_interact(u8 y);
 
 static void flying_block(u8 x)
 {
@@ -966,7 +948,7 @@ static void info_box(u8 x)
 /* SubSprSprInteract: la ranura y (la que corre) contra las de abajo.
    Portado el caso estado 8 contra estado 8 (CODE_01A56D: se dan vuelta);
    el resto marca mario_unsupported. */
-MSS void spr_spr_interact(u8 y)
+MSX void spr_spr_interact(u8 y)
 {
     int x;
     if (!y || !((y ^ R8(wm_FrameA)) & 1))
@@ -1026,87 +1008,6 @@ void sprite_tweakers(u8 x)
     SETSPR(wm_Tweaker167A, x, tx_167A[n]);
     SETSPR(wm_Tweaker1686, x, tx_1686[n]);
     SETSPR(wm_Tweaker190F, x, tx_190F[n]);
-}
-
-/* RexMainRt */
-/* el Rex toco a Mario (mario_spr_interact): pisoton, giro o golpe */
-MSS void rex_contact(u8 x);
-
-#ifdef LOGIC68K
-void rex_main_asm(u8 x);
-#define rex_main rex_main_asm               /* player/logic68k.s */
-#else
-static void rex_main(u8 x)
-{
-    u8 a, y;
-    /* RexGfxRt: la pose y los flags de pantalla */
-    if (SPR(wm_SpriteDecTbl3, x)) SETSPR(wm_SpriteGfxTbl, x, 5);
-    if (SPR(wm_DisSprCapeContact, x)) SETSPR(wm_SpriteGfxTbl, x, 2);
-    get_draw_info(x);
-    if (SPR(wm_SpriteStatus, x) != 0x08 || R8(wm_SpritesLocked))
-        return;
-    a = SPR(wm_SpriteDecTbl3, x);
-    if (a) {
-        SETSPR(wm_SpriteEatenTbl, x, a);
-        if (a == 1)
-            SETSPR(wm_SpriteStatus, x, 0);
-        return;
-    }
-    sub_offscreen3(x);
-    SETSPR(wm_SpriteMiscTbl6, x, SPR(wm_SpriteMiscTbl6, x) + 1);
-    a = (u8)(SPR(wm_SpriteMiscTbl6, x) >> 2);
-    a = SPR(wm_SpriteState, x) ? (u8)((a & 1) + 3) : (u8)((a >> 1) & 1);
-    SETSPR(wm_SpriteGfxTbl, x, a);
-    if (SPR(wm_SprObjStatus, x) & 0x04) {
-        SETSPR(wm_SpriteSpeedY, x, 0x10);
-        y = SPR(wm_SpriteDir, x);
-        if (SPR(wm_SpriteState, x))
-            y += 2;
-        SETSPR(wm_SpriteSpeedX, x, tx_RexSpeed[y]);
-    }
-    if (!SPR(wm_DisSprCapeContact, x))
-        spr_update_pos(x);
-    if (SPR(wm_SprObjStatus, x) & 0x03)
-        SETSPR(wm_SpriteDir, x, SPR(wm_SpriteDir, x) ^ 1);
-    spr_spr_interact(x);
-    if (!mario_spr_interact(x))
-        return;
-    rex_contact(x);
-}
-#endif
-
-MSS void rex_contact(u8 x)
-{
-    if (R8(wm_StarPowerTimer)) { spr_unsup(); return; }     /* RexStarKill */
-    if (SPR(wm_SpriteDecTbl2, x))
-        return;
-    SETSPR(wm_SpriteDecTbl2, x, 0x08);
-    if (NEG((u8)(R8(wm_MarioSpeedY) - 0x10))) {             /* RexWins */
-        u16 d;
-        if (R8(wm_PlayerHurtTimer) | R8(wm_OnYoshi))
-            return;
-        d = (u16)(R16(wm_MarioXPos) - (SPR(wm_SpriteXLo, x) | SPR(wm_SpriteXHi, x) << 8));
-        W8(m15, (u8)d);                     /* SubHorzPosBnk3: mira a Mario */
-        SETSPR(wm_SpriteDir, x, (d & 0x8000) ? 1 : 0);
-        mario_events |= MEV_HURT;
-        spr_unsup();                        /* HurtMario */
-        return;
-    }
-    chain_points(x);                       /* RexPoints (DATA_038000 = DATA_01A61E) */
-    boost_mario();                          /* BoostMarioSpeed, DisplayContactGfx */
-    if (R8(wm_IsSpinJump) | R8(wm_OnYoshi)) {   /* RexSpinKill */
-        SETSPR(wm_SpriteStatus, x, 0x04);
-        SETSPR(wm_SpriteDecTbl1, x, 0x1F);
-        W8(wm_SoundCh1, 0x08);
-        return;
-    }
-    SETSPR(wm_SpriteState, x, SPR(wm_SpriteState, x) + 1);
-    if (SPR(wm_SpriteState, x) == 2) {
-        SETSPR(wm_SpriteDecTbl3, x, 0x20);
-        return;
-    }
-    SETSPR(wm_DisSprCapeContact, x, 0x0C);  /* SmushRex */
-    SETSPR(wm_Tweaker1662, x, 0);
 }
 
 /* SubOffscreen0Bnk1 = SubOffscreen0Bnk3 con m3 = 0 (mismas tablas en las
