@@ -76,7 +76,34 @@ def runs(frames, key_of):
     return res
 
 
+def s8(v):
+    return v - 256 if v >= 128 else v
+
+
+def stomps(frames):
+    """Pisotones: frames en que Mario, EN EL AIRE ($72 != 0), pasa de caer (o casi
+    parado) a subir de golpe (SpeedY $7D <= -$20, salto de >= $20 en un frame) con
+    un sprite a menos de $20 px en X y de 0 a $38 px por debajo de sus pies.
+    -> lista de (indice de frame, numero de sprite)."""
+    out = []
+    for i in range(1, len(frames)):
+        a, b = frames[i - 1], frames[i]
+        if b["f"] != a["f"] + 1 or not a["air"]:
+            continue
+        va, vb = s8(a["dp"][0x7D]), s8(b["dp"][0x7D])
+        if vb > -0x20 or vb - va > -0x20:
+            continue
+        for (nm, st, sx, sy, k) in b["spr"]:
+            if st in (8, 9, 0xA, 0xB, 1) and abs(sx - b["x"]) <= 0x20 and 0 <= sy - b["y"] <= 0x38:
+                out.append((i, nm))
+                break
+    return out
+
+
 def sprite_report(frames, only, min_len):
+    sp = {}
+    for i, nm in stomps(frames):
+        sp.setdefault(nm, []).append(i)
     nums = sorted({s[0] for fr in frames for s in fr["spr"]})
     if only is not None:
         nums = [n for n in nums if n == only]
@@ -85,7 +112,8 @@ def sprite_report(frames, only, min_len):
     for num in nums:
         present = [any(s[0] == num for s in fr["spr"]) for fr in frames]
         total = sum(present)
-        print("sprite $%02X: %d frames en total" % (num, total))
+        print("sprite $%02X: %d frames en total%s" % (num, total, ("; pisotones de Mario: %d (frames %s)" % (
+            len(sp[num]), " ".join(str(frames[i]["f"]) for i in sp[num][:12]))) if num in sp else ""))
         for i0, i1 in runs(frames, lambda fr: any(s[0] == num for s in fr["spr"])):
             if not any(s[0] == num for s in frames[i0]["spr"]):
                 continue
