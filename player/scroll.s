@@ -583,10 +583,10 @@ apply_colors:
 init_lines:
         lea     linetab_a(pc),a0
         move.l  V_COP(a5),d4
-        bsr.s   .tab
+        bsr     .tab
         lea     linetab_b(pc),a0
         move.l  V_COP2(a5),d4
-        bsr.s   .tab
+        bsr     .tab
         move.w  #$8000,V_LSA(a5)
         move.w  #$8000,V_LSB(a5)
         lea     htab(pc),a0                 ; h para cambiar en x >= objetivo
@@ -609,6 +609,37 @@ init_lines:
         addq.w  #1,d1
         cmp.w   #LASTX,d1
         bls.s   .h
+        ; celltab (build_mid, cargas tarde): para cada t = x - s, la celda
+        ; [cs, ce] de t con la misma htab; se guarda relativa a s: t - ce
+        ; (s' - s >= esto) y t - cs + 1 (s' - s < esto)
+        lea     htab(pc),a0
+        lea     celltab(pc),a1
+        moveq   #0,d1                       ; t
+.c:     move.b  (a0,d1.w),d0
+        move.w  d1,d2                       ; cs
+.cs:    tst.w   d2
+        beq.s   .cs2
+        cmp.b   -1(a0,d2.w),d0
+        bne.s   .cs2
+        subq.w  #1,d2
+        bra.s   .cs
+.cs2:   move.w  d1,d3                       ; ce
+.ce:    cmp.w   #LASTX,d3
+        beq.s   .ce2
+        cmp.b   1(a0,d3.w),d0
+        bne.s   .ce2
+        addq.w  #1,d3
+        bra.s   .ce
+.ce2:   move.w  d1,d4
+        sub.w   d3,d4
+        move.w  d4,(a1)+                    ; t - ce
+        move.w  d1,d4
+        sub.w   d2,d4
+        addq.w  #1,d4
+        move.w  d4,(a1)+                    ; t - cs + 1
+        addq.w  #1,d1
+        cmp.w   #LASTX,d1
+        bls.s   .c
         rts
 ; una tabla: a0 = tabla, d4 = lista
 .tab:   add.l   #CL_LINES,d4                ; d4 = segmento
@@ -669,6 +700,8 @@ init_lines:
 ; vuelve a entrar por la izquierda (s <= x[lo - 1]) o la ultima sale por
 ; la derecha (s < x[hi - 1] - LASTX). Las que salen por la izquierda NO:
 ; escriben el color que el borrado ya puso. No depende de la direccion.
+; Una linea con una carga "tarde" escrita (clase 4-7 en MLD, fija) vale
+; ademas solo mientras no cambia la h del WAIT de la tarde: 8 px de s (.td).
 ;----------------------------------------------------------------------
 build_mid:
         move.l  V_BACK(a5),a0
@@ -759,10 +792,10 @@ build_mid:
         sub.w   d6,d4                       ; comparan con a y b
         move.w  16(a4),d7                   ; WAIT: v << 8
         addq.l  #2,a1                       ; la primera, siempre con WAIT
-        bra.s   .w
+        bra.s   .w                          ; (si es una tarde: .late)
 .ld:    move.w  (a1)+,d1                    ; clase
         bne.s   .ch
-.w:     move.w  (a1)+,d0                    ; x
+.w:     move.w  (a1)+,d0                    ; x (d0 = x del ultimo WAIT)
         move.b  (a2,d0.w),d7                ; h | 1 para x - s
         move.w  d7,(a3)+
         move.w  d2,(a3)+                    ; $FFFE
@@ -782,24 +815,70 @@ build_mid:
         subq.w  #2,d1                       ; 1: MOVE detras del anterior
         bmi.s   .mv
         beq.s   .f1                         ; 2: un relleno; 3: dos
+        subq.w  #1,d1
+        bne     .td                         ; 4-7: una tarde
         move.l  #$01fe0000,(a3)+
 .f1:    move.l  #$01fe0000,(a3)+
         bra.s   .mv
 .jump:  move.l  18(a4),(a3)+                ; el salto al segmento siguiente
         move.l  22(a4),(a3)+
         move.l  26(a4),(a3)+
-        cmp.w   d6,d3                       ; si no vale ni en s (una carga
-        bgt.s   .late                       ; que ya llega tarde o temprano),
-        cmp.w   d6,d4                       ; vl = s y vu = s + 1: se
-        bgt.s   .j2                         ; reescribe en cada frame, vaya
-.late:  move.w  d6,d3                       ; hacia donde vaya la camara (si
+        cmp.w   d6,d3                       ; no vale ni en s: la primera
+        bgt.s   .late                       ; escrita es una tarde (fue por
+        cmp.w   d6,d4                       ; .w con su a y b): como antes,
+        bgt.s   .j2                         ; vl = s y vu = s + 1, se
+.late:  move.w  d6,d3                       ; reescribe en cada frame (si
         move.w  d6,d4                       ; solo se corrigiera vu, al
-        addq.w  #1,d4                       ; volver valdria lo escrito antes
-.j2:    move.w  d3,12(a4)                   ; y la ida y la vuelta darian
-        move.w  d4,14(a4)                   ; imagenes distintas: P50)
+        addq.w  #1,d4                       ; volver valdria lo escrito
+.j2:    move.w  d3,12(a4)                   ; antes y la ida y la vuelta
+        move.w  d4,14(a4)                   ; darian imagenes distintas: P50)
         bra     .line
 .done:  movem.l (sp)+,d2-d7/a2-a6
         rts
+; Una carga "tarde" (clase 4-7 en MLD: 4 + la clase de siempre; fija,
+; tools/mkscroll.py, P71): con ninguna base cae en su ventana, asi que
+; su a y b no sirven. La linea que tiene una escrita es CANONICA: se
+; escribe con s0 = s, como todas, y lo escrito es, byte a byte, lo que
+; se escribiria en s' mientras la h del WAIT del que cuelga la tarde (d0:
+; el ultimo WAIT, o la primera escrita) no cambie: htab[d0 - s'] =
+; htab[d0 - s], la celda de 8 px de P42 (4 px en la cola, TAILH). Las no
+; tarde valen con cualquier base (su a y b) y las cotas de las que entran
+; y salen son las de siempre: la imagen de cada s' es la de antes (que
+; reescribia la linea en cada frame) y no depende de la direccion (ida =
+; vuelta, P50). celltab: la celda relativa a s. d1 = clase - 3 (1..4).
+.td:    subq.w  #1,d1
+        bne.s   .td1
+        move.w  -2(a1),d0                   ; 4: con WAIT propio, en su x
+        move.b  (a2,d0.w),d7
+        move.w  d7,(a3)+
+        move.w  d2,(a3)+
+        bra.s   .tdm
+.td1:   subq.w  #1,d1                       ; 5: detras del anterior
+        beq.s   .tdm
+        subq.w  #1,d1                       ; 6: un relleno; 7: dos
+        beq.s   .td2
+        move.l  #$01fe0000,(a3)+
+.td2:   move.l  #$01fe0000,(a3)+
+.tdm:   move.l  (a1)+,(a3)+                 ; MOVE registro, color
+        addq.l  #4,a1                       ; (a y b: no sirven)
+        move.w  d0,d1
+        sub.w   d6,d1
+        add.w   d1,d1
+        add.w   d1,d1                       ; 4 (x del WAIT - s)
+        move.l  celltab(pc,d1.w),d1         ; s' - s: >= alto, < bajo
+        cmp.w   d1,d4
+        ble.s   .tu
+        move.w  d1,d4
+.tu:    swap    d1
+        cmp.w   d1,d3
+        bge     .k2
+        move.w  d1,d3
+        bra     .k2
+; para cada t = x - s (0..LASTX), la celda [cs, ce] de t con la misma
+; htab, relativa a s: .w t - ce y .w t - cs + 1 (init_lines). Aca, cerca
+; de .td: se lee con (d8,pc,d1.w)
+celltab: ds.w   2*(LASTX+1)
+        even
 
 ;----------------------------------------------------------------------
 ; --- draw_column ---
