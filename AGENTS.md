@@ -1313,6 +1313,94 @@ tiene scroll vertical": vale **2** ("solo en algunos casos",
 (`Bg1VOfs` = `$BC`). La Amiga no lee `Bg1VOfs` (ROADMAP §10.2b). Para las
 cabeceras, la fuente de verdad es `lv_read.s`.
 
+**P78 — vbcc y los `spr_*.c` (I1, 2026-09-30).** Tres reglas para un
+sprite en fichero propio: (1) las tablas `static const` de
+`gen/smwtab*.h` se emiten aunque no se usen: incluirlas en un `spr_*.c`
+metió 16,5 KB de datos duplicados y rompe P36; `msprite.h` no las incluye
+y un `spr_*.c` las incluye solo si las usa (`spr_rex.c`: bajo
+`#ifndef LOGIC68K`). (2) Un helper `static` en un header se emite una vez
+por fichero que lo incluye (+124 B cada uno): los helpers compartidos son
+extern en `msprite.c`. (3) Todos los `.s` van a un solo vasm plano: dos
+`static` con el mismo nombre en distintos `.c` chocan; los nombres son
+únicos en todo el C. `logicbench_build.sh` anexa los `spr_*` a
+`msprite.data.s`/`msprite.code.s` porque `game.s` y `logicbench.s`
+incluyen por nombre.
+
+**P79 — `cmp.b`/`bhs` es sin signo, y un registro reusado arrastra valor
+(L1a).** En `_f7f4` hacia arriba, con `wm_OnYoshi` y `YoshiHasWings` < 2
+hay que poner `d5` a 0 antes de mirar el nado (`.swim: moveq #0,d5`); si
+no, queda el 1 de `YoshiHasWings` y se habilita el scroll vertical.
+
+**P80 — `game.s -DBENCH` (O1).** `-DBENCH` en `game.s` activa también los
+bloques `ifd BENCH` de `scroll.s` (`readtimer`, `res`...): las etiquetas
+del bench del juego llevan prefijo `gb_`. Cada sello de CIA cuesta 33
+ticks (~330 ciclos): `gb_init` lo calibra y se resta. `tst.w label(pc)` no
+existe en 68000 (`move.w label(pc),d0`). **`gb_scroll_frame` es una copia
+del cuerpo de `scroll_frame`**: si cambia el cuerpo en `scroll.s`, cambiar
+la copia o el bench mide otra cosa (reemplazarla por marcas dentro de
+`scroll.s` cuando se pueda tocar). `game_read.py --auto` ignora el marco
+de la ventana de WinUAE; `bench_read.py` no.
+
+**P81 — El pico de los postes de la meta no baja agrupando (S1a+S2).** Las
+cargas "tarde" de los postes son un borde vertical: todas cruzan su celda
+de 8 px en el mismo frame en que entran por la derecha las cargas de los
+mismos postes, y a 4 px/frame cada lista avanza 8 px por escritura y
+cruza siempre. Un agregado por grupo de LNS solo compensa si no cuesta
+nada al reescribir (a la vuelta casi todo se reescribe, P72): por eso el
+agregado se calcula solo en grupos fríos y hasta la primera reescritura, y
+el indicador es `a4`. S2 ahorra en los frames tranquilos (LNS 5494 → 806
+ciclos en s = 1000) y **cuesta ~120 ciclos por grupo cuando todos se
+reescriben**: el peor frame subió 0,5-1,9 puntos (aceptado el 2026-09-30:
+se recupera con S4/S5). `(d8,pc,Xn)` llega a ±127 bytes: `celltab` va
+dentro del código de `build_mid`, detrás de un `bra`.
+
+**P82 — La PC Windows (2026-09-30).** (1) `/c/msys64/ucrt64/bin` primero
+en el PATH: si no, gcc llamado desde Python sale con 1 sin mensaje
+(choque de DLLs con `/mingw64/bin`). (2) `python3` es el stub de
+WindowsApps: `python` y `PY=python`. (3) La base de la PC es
+`tools/baseline_pc.json` (`regress.py --baseline tools/baseline_pc.json`;
+el vbcc de 2022 da otros ciclos). (4) No hay FS-UAE: capturas con
+`tools/shot.ps1 -Exact`, `shots6.ps1`, `shots63.ps1`, **de a un WinUAE
+por vez** (`C:\Users\JC\Downloads\sma\winuae_lock.ps1 <script> <args>`,
+fuera del repo: las esperas son en segundos de reloj). (5) Con capturas
+de WinUAE: `scroll_check.py --sc 2` (la escala por defecto es la de
+FS-UAE y da 60 % de fallos falsos) e `imgdiff.py --crop 130,69,642,517`
+(la barra de título y de estado cambian). (6) `scrollprof.py` escribe
+siempre `work/scrollprof.bin`: de a una corrida. (7) `core.autocrlf=true`:
+los `.orc` y `oracle_*.txt` salen en CRLF y `snesorc --replay` lee 0
+registros; pasarlos a LF para correr snesorc (`snesorc_make.sh` ya quita
+los `\r` de lo que genera). (8) snesrev está en
+`C:/msys64/home/JC/.cache/snesrev-smw`: un `snesorc.exe` suelto necesita
+`SNESORC_ASSETS=C:/msys64/home/JC/.cache/snesrev-smw/smw_assets.dat`
+(`snesorc_make.sh` lo exporta solo). SDL2 y `make` están instalados con
+pacman de msys2.
+
+**P83 — Guiones de snesorc.** Un `until` que ya se cumple no espera: el
+`N BOTONES` siguiente corre con Mario en el aire y no salta (empezar los
+saltos con `until $0072==00`). `until w$0094<=X` también se cumple
+después de morir (el nivel vuelve a x = `$000D`): comprobar además
+`assert $0100==14`. Cruzar la cinta de la meta (`$12DB`-`$12E0`) termina
+el nivel y ya no se puede volver. El Chuck (x `$12A0`) mata a Mario si va
+andando: saltarlo desde x ≥ `$1260` con salto largo.
+
+**P84 — La cámara vertical de YI1 solo se mueve con `$13F1`
+(`wm_EnableVertScroll`) ≠ 0**, y en YI1 lo pone `$149F`
+(`wm_GlideTimer`, ~80 tras un salto a plena carrera): un salto normal no
+la mueve. Con él activo, la cámara sigue a Mario a 3 px/frame hasta
+dejarlo a ~100 px del borde de arriba y vuelve sola a `$C0`. Mínimo visto
+de `Bg1VOfs`: `$AF` (`oracle_chuck`). Para S8, `stress_vert` todavía no
+está grabado.
+
+**P85 — Datos de sprites de las grabaciones.** El caparazón rojo `$DB` de
+`spr.lv` aparece en las ranuras como sprite `$05`. En `$19`, 03 es la flor
+de fuego y 02 la capa. La flor `$75` se queda encima del bloque `?` (no
+cae); el cabezazo tiene que dar con x + 8 dentro del bloque. El Chuck
+sobrevive a los pisotones (su HP está en `$1500`+, fuera del registro). Un
+Banzai que pasa por la x de Mario lo mata si Mario salta dentro de su caja.
+El pozo de x `$C10`-`$C5F` atrapa a los sprites (un caparazón rebota ahí
+para siempre). El `$C7` de x `$0660` se convierte en `$74` sin que Mario
+lo toque (`oracle_chuck`, frame 2568).
+
 **P44 — Los "derrames" de la etapa 5 alargan el tramo anterior.**
 `mkleveld.py` asigna los píxeles que quedan fuera de todo tramo al registro
 que *todavía conserva* el color: después del fin de un tramo puede haber

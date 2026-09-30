@@ -66,16 +66,16 @@
 | 3-4 | Esqueleto Amiga y viabilidad | **hecho**; D1, D8 y D9 cerrados | `player/boot.s`, `bench*.s`, `copbench.s` |
 | 5 | Conversor del nivel al formato (d) | **hecho en cloud**; falta compararlo contra la referencia en la PC (→ 7) | `tools/mkbg.py`, `mkd8in.py`, `mkleveld.py`, `render_d.py` |
 | 6.1-6.3 | Scroll a 256 px, ida y vuelta, lo mueve la cámara del port | **hecho** (2026-09-27). El 2026-09-30: el copper no corría las líneas 212-223 (P59), arreglado | `player/scroll.s`, `tools/mkscroll.py` |
-| 6.4 | Scroll ≤ 25 % en el peor frame | **NO hecha**. Ida: Musashi máx. 54,1 % (2 px/frame), FS-UAE máx. 78,8 % (4 px/frame, s = 4584). **Vuelta: Musashi media 36,6 %, máx. 94,8 %** (P72, no estaba medida). Perfil por zonas (`scrollprof.py --zones`), ida/vuelta simulada (`scrollsim.py --ret`); diseño incremental en `tools/wip64/` | Etapa 6.4 |
+| 6.4 | Scroll ≤ 25 % en el peor frame | **NO hecha**. **S1a+S2 integradas (2026-09-30)**: cargas "tarde" fijas en MLD con celda de 8 px y LNS por grupos de 16 líneas; imagen idéntica; media de la ida 9,9 → 8,4 % (2 px) pero el peor frame sube 0,5-1,9 puntos (P81, aceptado: se recupera con S4/S5). Antes de S1a+S2: Ida: Musashi máx. 54,1 % (2 px/frame), FS-UAE máx. 78,8 % (4 px/frame, s = 4584). **Vuelta: Musashi media 36,6 %, máx. 94,8 %** (P72, no estaba medida). Perfil por zonas (`scrollprof.py --zones`), ida/vuelta simulada (`scrollsim.py --ret`); diseño incremental en `tools/wip64/` | Etapa 6.4 |
 | 7 | Capa 2 contra la referencia | pendiente (solo PC) | — |
 | 8a/8b | Física y colisión de Mario | **hecho**: `full` 6510/6547 en `oracle_yi1`; en las grabaciones nuevas, 99,6-99,8 % (los fallos son contactos con sprites) | `player/mario.c`, `mcoll.c`, `manim.c` |
 | 8 (gfx, cámara) | Gráficos y cámara | **hecho**; `gfx` 100 % en los 5 oráculos. Cámara vertical hacia arriba arreglada (P69) | `player/mgfx.c`, `mcam.c` |
-| 8c | Pendientes | **casi cerrada**: `oracle_hills` (colinas 1-4 a toda carrera en los dos sentidos, parado, deslizándose y saltando) da las pendientes 2154/2154 exactas. Falta la colina grande de x = `$AE0` (pendiente hacia el otro lado, 5 Rex encima) | `work/oracle_hills.txt` |
-| 8.1 | Grabaciones | **oráculos sin usuario**: `work/snesorc` corre la ROM (U) en el emulador de snesrev/smw con entrada guionizada (`tools/snesorc/*.orc`) y reproduce `oracle_yi1` línea a línea (6871/6871). Grabadas: `normal`, `diagpipe`, `hills`, `banzai` | `tools/snesorc/`, `snesorc_setup.sh`, `snesorc_make.sh` |
-| 8.2 | Optimizar la lógica | **hecha** el 2026-09-27 (peor frame con sprites 40,1 % en WinUAE). Con los sprites nuevos, peor frame en Musashi 43 116 → **45 896** (frame 9715: 2 pirañas, 1 Rex, `$8E`, `$C7`), **~45 % estimado** en la A500 (por encima del 40 %) | `player/logic68k.s` |
-| 9.1 | Sprites: lógica | Rex, `$83`, `$B9`, **`$BD` Koopa deslizante, `$02` Koopa sin caparazón, `$9F` Banzai Bill, `$4F` piraña, `$8E` warp, `$C7` seta invisible**. `game`: **0 resincronizaciones** de Mario en los 5 oráculos; sprites exactos por tipo en `regress.py`. Faltan Chuck `$95`, caparazón rojo `$DB`, cinta de meta `$7B` y lo de D12 (la seta `$74` del bloque volador ya aparece en `oracle_yi1`) | `player/msprite.c` |
+| 8c | Pendientes | **casi cerrada**: `oracle_hills` (colinas 1-4 a toda carrera en los dos sentidos, parado, deslizándose y saltando) da las pendientes 2154/2154 exactas. La colina grande de x = `$AE0` grabada el 2026-09-30 (`oracle_hills2`: `full` sin fallos de pendiente; los 12 fallos son SpeedY `$7D` en pisotones) | `work/oracle_hills.txt`, `oracle_hills2.txt` |
+| 8.1 | Grabaciones | **oráculos sin usuario**: `work/snesorc` corre la ROM (U) en el emulador de snesrev/smw con entrada guionizada (`tools/snesorc/*.orc`) y reproduce `oracle_yi1` línea a línea (6871/6871). Grabadas: `normal`, `diagpipe`, `hills`, `banzai`; **ola 1 (2026-09-30, en la PC Windows, P82)**: `hills2`, `chuck`, `shells` (sin pisar al `$02`), `goal` (una altura), `pw_seta`, `pw_flor` (Mario grande por `poke`), `pw_morir_enemigo`, `pw_morir_caida`, `stress_piranha`; `tools/orc_has.py` (qué sprites y qué Mario hay en un oráculo). **Faltan**: `goal_low`/`goal_miss`, R9 `pipe` (notas abajo), punto medio, monedas de Yoshi, estrella, 1-UP, 3-UP, `$C7`, bloques `!`, `stress_back` (a medias: `tools/wipr/`, llega a x `$0BC0`), `stress_sprites`, `stress_vert` (P84) | `tools/snesorc/`, `snesorc_setup.sh`, `snesorc_make.sh` |
+| 8.2 | Optimizar la lógica | **hecha** el 2026-09-27 (peor frame con sprites 40,1 % en WinUAE). Con los sprites nuevos, peor frame en Musashi 43 116 → **45 896** (frame 9715: 2 pirañas, 1 Rex, `$8E`, `$C7`), **~45 % estimado** en la A500 (por encima del 40 %). **L1a (2026-09-30)**: `f7f4` hacia arriba en asm, peor frame con sprites en Musashi (vbcc de la PC) 46 000 → 45 054 | `player/logic68k.s` |
+| 9.1 | Sprites: lógica | Rex, `$83`, `$B9`, **`$BD` Koopa deslizante, `$02` Koopa sin caparazón, `$9F` Banzai Bill, `$4F` piraña, `$8E` warp, `$C7` seta invisible**. `game`: **0 resincronizaciones** de Mario en los 5 oráculos; sprites exactos por tipo en `regress.py`. Faltan Chuck `$95`, caparazón rojo `$DB`, cinta de meta `$7B` y lo de D12 (grabados: `oracle_chuck`, `shells`, `goal`, `pw_*`). **I1 (2026-09-30)**: cada sprite nuevo va en su `player/spr_*.c` (entra por glob en los tres builds; el Rex ya está en `spr_rex.c`, P78) | `player/msprite.c`, `spr_*.c` |
 | 9.2 | Sprites: dibujo | Mario hecho; los del nivel sin empezar (se simulan, no se ven) | `player/mspr.c`, `mspr68k.s` |
-| 6b | Integración | primer ADF jugable (2026-09-27) + **6b.7** (2026-09-30): entrada como `ControllerUpdate` (P60) y **modo diagnóstico** (P58) con historial del joypad y reproducción en el PC desde una captura. Faltan 6b.1 (vlink, compresión) y **6b.6 (compuerta D1)** | `player/game.s`, `tools/diag_read.py`, `gamesim.py`, `inputtest.py` |
+| 6b | Integración | primer ADF jugable (2026-09-27) + **6b.7** (2026-09-30): entrada como `ControllerUpdate` (P60) y **modo diagnóstico** (P58) con historial del joypad y reproducción en el PC desde una captura. **6b.6 medida (O1, 2026-09-30)**: `game.s -DBENCH` + `game_read.py`; en WinUAE (antes de S1a+S2) peor `build_mid` 84,8 % (s = 1825), `level_frame` 35,6 %, total 127 %, media 46 %, 362 de 6312 frames pasados. Falta la decisión D1 (O4) y 6b.1 (vlink, compresión) | `player/game.s`, `tools/diag_read.py`, `gamesim.py`, `inputtest.py` |
 | 10-12 | HUD, audio, pulido | no empezados | — |
 
 ### 1.3 Números de regresión (2026-09-30, cloud)
@@ -193,6 +193,20 @@ le llevan los números al usuario (D1).
 
 ### Lo último que se hizo y lo siguiente
 
+- **Ola 1 (2026-09-30, tarde, en la PC Windows; parcial, cerrada por uso):**
+  integradas L1a, I1, O1 (6b.6 medida) y S1a+S2, y 9 grabaciones nuevas
+  (ver 8.1 en §1.2). Worktrees con `tools/wt_new.sh` y las adaptaciones de
+  P82. Queda de la ola 1: las grabaciones de la lista de 8.1 y volver a
+  medir el juego entero con O1 sobre el scroll de S1a+S2
+  (`GDEFS="-DREPLAY -DBENCH" OUT=work/bench sh tools/game_build.sh`, captura
+  con `shot.ps1 -Exact -Wait 220` por `winuae_lock.ps1`, `game_read.py
+  --auto`). Notas para R9 (`pipe.orc`): la tubería del frame 11425 de
+  `oracle_yi1` está en x `$780`-`$79F` (boca en y `$160`), al fondo de la
+  caja de cemento de `$770`/`$7A0`, con dos bloques giratorios encima (y
+  `$140`); con Mario chico, salto con giro para romperlos y DOWN cerca de
+  x `$787`. `diagpipe.orc` no sirve de modelo (tuberías diagonales).
+  Modelos de subagente preferidos por el usuario: optimización → Opus
+  (medium), grabaciones → Sonnet (low), el resto → Sonnet (high).
 - **Hecho el 2026-09-30:** los oráculos en cloud, la 9.1 sin
   resincronizaciones en `game`, la 6b.7 y tres bugs que ningún verificador
   veía (P59, P62, P69). La 6.4 no se cerró: se midió y se entendió (P71,
