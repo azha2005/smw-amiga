@@ -1,16 +1,16 @@
 {
  "_meta": {
-  "commit": "11797f2+cambios",
-  "fecha": "2026-09-27",
+  "commit": "9ed5799",
+  "fecha": "2026-09-30",
   "nota": "tools/regress.py; las medidas emu.* dependen del emulador"
  },
  "m68k.full.ciclos_max": {
   "how": "min",
-  "value": 32364
+  "value": 34688
  },
  "m68k.full.ciclos_media": {
   "how": "min",
-  "value": 16540
+  "value": 18835
  },
  "m68k.full.ok": {
   "how": "max",
@@ -18,15 +18,15 @@
  },
  "m68k.loop.ciclos_max": {
   "how": "min",
-  "value": 36178
+  "value": 38444
  },
  "m68k.loop.ciclos_media": {
   "how": "min",
-  "value": 20483
+  "value": 22725
  },
  "m68k.loop.ciclos_p99": {
   "how": "min",
-  "value": 22494
+  "value": 24772
  },
  "m68k.loop.resync": {
   "how": "min",
@@ -38,23 +38,199 @@
  },
  "m68k.spr.ciclos_max": {
   "how": "min",
-  "value": 40956
+  "value": 46000
  },
  "m68k.spr.ciclos_media": {
   "how": "min",
-  "value": 28598
+  "value": 32830
  },
  "m68k.spr.ciclos_p99": {
   "how": "min",
-  "value": 40328
+  "value": 43430
  },
  "m68k.spr.resync": {
   "how": "min",
-  "value": 4
+  "value": 0
  },
  "m68k.spr.tramo": {
   "how": "max",
-  "value": 2859
+  "value": 3824
+ },
+ "orc.banzai.full.ok": {
+  "how": "max",
+  "value": 1078
+ },
+ "orc.banzai.full.tot": {
+  "how": "eq",
+  "value": 1080
+ },
+ "orc.banzai.game.resync": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.banzai.game.spr_distintos": {
+  "how": "min",
+  "value": 1
+ },
+ "orc.banzai.game.tramo": {
+  "how": "max",
+  "value": 1080
+ },
+ "orc.banzai.gfx.oam_ok": {
+  "how": "max",
+  "value": 1080
+ },
+ "orc.banzai.gfx.scr_ok": {
+  "how": "max",
+  "value": 1080
+ },
+ "orc.banzai.loop.resync": {
+  "how": "min",
+  "value": 2
+ },
+ "orc.banzai.loop.tramo": {
+  "how": "max",
+  "value": 620
+ },
+ "orc.banzai.sprload.distintos": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.banzai.sprload.exactos": {
+  "how": "max",
+  "value": 2
+ },
+ "orc.diagpipe.full.ok": {
+  "how": "max",
+  "value": 2693
+ },
+ "orc.diagpipe.full.tot": {
+  "how": "eq",
+  "value": 2699
+ },
+ "orc.diagpipe.game.resync": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.diagpipe.game.spr_distintos": {
+  "how": "min",
+  "value": 1
+ },
+ "orc.diagpipe.game.tramo": {
+  "how": "max",
+  "value": 2699
+ },
+ "orc.diagpipe.gfx.oam_ok": {
+  "how": "max",
+  "value": 2699
+ },
+ "orc.diagpipe.gfx.scr_ok": {
+  "how": "max",
+  "value": 2699
+ },
+ "orc.diagpipe.loop.resync": {
+  "how": "min",
+  "value": 6
+ },
+ "orc.diagpipe.loop.tramo": {
+  "how": "max",
+  "value": 1730
+ },
+ "orc.diagpipe.sprload.distintos": {
+  "how": "min",
+  "value": 2
+ },
+ "orc.diagpipe.sprload.exactos": {
+  "how": "max",
+  "value": 31
+ },
+ "orc.hills.full.ok": {
+  "how": "max",
+  "value": 2147
+ },
+ "orc.hills.full.tot": {
+  "how": "eq",
+  "value": 2154
+ },
+ "orc.hills.game.resync": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.hills.game.spr_distintos": {
+  "how": "min",
+  "value": 1
+ },
+ "orc.hills.game.tramo": {
+  "how": "max",
+  "value": 2154
+ },
+ "orc.hills.gfx.oam_ok": {
+  "how": "max",
+  "value": 2154
+ },
+ "orc.hills.gfx.scr_ok": {
+  "how": "max",
+  "value": 2154
+ },
+ "orc.hills.loop.resync": {
+  "how": "min",
+  "value": 7
+ },
+ "orc.hills.loop.tramo": {
+  "how": "max",
+  "value": 1200
+ },
+ "orc.hills.sprload.distintos": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.hills.sprload.exactos": {
+  "how": "max",
+  "value": 9
+ },
+ "orc.normal.full.ok": {
+  "how": "max",
+  "value": 1249
+ },
+ "orc.normal.full.tot": {
+  "how": "eq",
+  "value": 1254
+ },
+ "orc.normal.game.resync": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.normal.game.spr_distintos": {
+  "how": "min",
+  "value": 1
+ },
+ "orc.normal.game.tramo": {
+  "how": "max",
+  "value": 1254
+ },
+ "orc.normal.gfx.oam_ok": {
+  "how": "max",
+  "value": 1254
+ },
+ "orc.normal.gfx.scr_ok": {
+  "how": "max",
+  "value": 1254
+ },
+ "orc.normal.loop.resync": {
+  "how": "min",
+  "value": 5
+ },
+ "orc.normal.loop.tramo": {
+  "how": "max",
+  "value": 567
+ },
+ "orc.normal.sprload.distintos": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.normal.sprload.exactos": {
+  "how": "max",
+  "value": 12
  },
  "pc.8a.aire.ok": {
   "how": "max",
@@ -90,15 +266,123 @@
  },
  "pc.game.resync": {
   "how": "min",
-  "value": 1
+  "value": 0
  },
  "pc.game.rex_exactos": {
   "how": "max",
-  "value": 3192
+  "value": 12607
  },
  "pc.game.rex_seguidos": {
   "how": "info",
-  "value": 3194
+  "value": 12607
+ },
+ "pc.game.spr_02.distintos": {
+  "how": "min",
+  "value": 0
+ },
+ "pc.game.spr_02.exactos": {
+  "how": "max",
+  "value": 252
+ },
+ "pc.game.spr_02.seguidos": {
+  "how": "info",
+  "value": 252
+ },
+ "pc.game.spr_4F.distintos": {
+  "how": "min",
+  "value": 0
+ },
+ "pc.game.spr_4F.exactos": {
+  "how": "max",
+  "value": 2599
+ },
+ "pc.game.spr_4F.seguidos": {
+  "how": "info",
+  "value": 2599
+ },
+ "pc.game.spr_83.distintos": {
+  "how": "min",
+  "value": 0
+ },
+ "pc.game.spr_83.exactos": {
+  "how": "max",
+  "value": 340
+ },
+ "pc.game.spr_83.seguidos": {
+  "how": "info",
+  "value": 340
+ },
+ "pc.game.spr_8E.distintos": {
+  "how": "min",
+  "value": 0
+ },
+ "pc.game.spr_8E.exactos": {
+  "how": "max",
+  "value": 2518
+ },
+ "pc.game.spr_8E.seguidos": {
+  "how": "info",
+  "value": 2518
+ },
+ "pc.game.spr_9F.distintos": {
+  "how": "min",
+  "value": 0
+ },
+ "pc.game.spr_9F.exactos": {
+  "how": "max",
+  "value": 454
+ },
+ "pc.game.spr_9F.seguidos": {
+  "how": "info",
+  "value": 454
+ },
+ "pc.game.spr_AB.distintos": {
+  "how": "min",
+  "value": 0
+ },
+ "pc.game.spr_AB.exactos": {
+  "how": "max",
+  "value": 2635
+ },
+ "pc.game.spr_AB.seguidos": {
+  "how": "info",
+  "value": 2635
+ },
+ "pc.game.spr_B9.distintos": {
+  "how": "min",
+  "value": 0
+ },
+ "pc.game.spr_B9.exactos": {
+  "how": "max",
+  "value": 309
+ },
+ "pc.game.spr_B9.seguidos": {
+  "how": "info",
+  "value": 309
+ },
+ "pc.game.spr_BD.distintos": {
+  "how": "min",
+  "value": 0
+ },
+ "pc.game.spr_BD.exactos": {
+  "how": "max",
+  "value": 322
+ },
+ "pc.game.spr_BD.seguidos": {
+  "how": "info",
+  "value": 322
+ },
+ "pc.game.spr_C7.distintos": {
+  "how": "min",
+  "value": 0
+ },
+ "pc.game.spr_C7.exactos": {
+  "how": "max",
+  "value": 3178
+ },
+ "pc.game.spr_C7.seguidos": {
+  "how": "info",
+  "value": 3178
  },
  "pc.game.tramo": {
   "how": "max",
@@ -138,11 +422,11 @@
  },
  "pc.sprloop.diferencia": {
   "how": "min",
-  "value": 1
+  "value": 0
  },
  "pc.sprloop.exactos": {
   "how": "max",
-  "value": 2593
+  "value": 2684
  },
  "pc.sprloop.rebotes_ok": {
   "how": "max",
@@ -150,6 +434,6 @@
  },
  "pc.sprloop.seguidos": {
   "how": "info",
-  "value": 2594
+  "value": 2684
  }
 }
