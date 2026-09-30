@@ -1,6 +1,6 @@
 {
  "_meta": {
-  "commit": "9ed5799",
+  "commit": "ab510d1",
   "fecha": "2026-09-30",
   "nota": "tools/regress.py; las medidas emu.* dependen del emulador"
  },
@@ -22,11 +22,11 @@
  },
  "m68k.loop.ciclos_media": {
   "how": "min",
-  "value": 22725
+  "value": 22375
  },
  "m68k.loop.ciclos_p99": {
   "how": "min",
-  "value": 24772
+  "value": 24184
  },
  "m68k.loop.resync": {
   "how": "min",
@@ -38,15 +38,15 @@
  },
  "m68k.spr.ciclos_max": {
   "how": "min",
-  "value": 46000
+  "value": 45054
  },
  "m68k.spr.ciclos_media": {
   "how": "min",
-  "value": 32830
+  "value": 32480
  },
  "m68k.spr.ciclos_p99": {
   "how": "min",
-  "value": 43430
+  "value": 42688
  },
  "m68k.spr.resync": {
   "how": "min",
