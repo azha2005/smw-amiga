@@ -54,6 +54,21 @@ GETBASE macro
         sub.l   #.b\@-binstart,\1
         endm
 
+        ifd     BENCH
+        ifnd    REPLAY
+        fail    "-DBENCH necesita -DREPLAY"
+        endc
+; GBS n: sella el timer A de CIA-B en gb_t[n] (no toca registros; si toca
+; los flags). Solo con -DBENCH (O1 / 6b.6): sin el, no genera nada.
+GBS macro
+        movem.l d0-d2/a0,-(sp)
+        bsr     gb_rt
+        lea     gb_t(pc),a0
+        move.w  d0,\1*2(a0)
+        movem.l (sp)+,d0-d2/a0
+        endm
+        endc
+
 binstart:
         bra.s   hdr_go                      ; el codigo queda a mas de 32 KB
         dc.b    "A5PL"
@@ -125,8 +140,13 @@ DIAG        equ 1                           ; en vivo, siempre
 DIAG        equ 1                           ; replay: solo para probarlo
         endc
         endc
+        ifd     BENCH
+        ifd     DIAG
+        fail    "-DBENCH no se lleva con el modo diagnostico"
+        endc
+        endc
         ifnd    DIAGSECS
-DIAGSECS    equ 0                           ; 0: solo con una tecla
+DIAGSECS    equ 0                          ; 0: solo con una tecla
         endc
         ifnd    DIAGPAGE
 DIAGPAGE    equ 1                           ; 1 = juego + franja, 2 = historial
@@ -331,6 +351,9 @@ entry:
         move.l  V_COP(a5),COP1LC(a4)
         move.w  #0,COPJMP1(a4)
         move.w  #$83e0,DMACON(a4)           ; MASTER|BPLEN|COPEN|BLTEN|SPREN
+        ifd     BENCH
+        bsr     gb_init                     ; timer, calibracion
+        endc
         ifnd    REPLAY
         lea     kb_int(pc),a0               ; teclado: nivel 2 (PORTS)
         move.l  a0,$68.w
@@ -352,14 +375,25 @@ gframe:
         and.w   #$1ff,d0
         cmp.w   #$110,d0
         blo.s   .w1
+        ifd     BENCH
+        bsr     gb_begin                    ; fin del replay: gb_show
+        endc
         ifd     DIAG
         move.w  g_diag(pc),d0
         bne.s   .dg                         ; congelado: solo el diagnostico
         endc
         bsr     game_step
+        ifd     BENCH
+        GBS     3
+        endc
         bsr     cam_to_s
         bsr     mario_draw
+        ifd     BENCH
+        bsr     gb_scroll_frame             ; = scroll_frame, con sellos
+        bsr     gb_end
+        else
         bsr     scroll_frame
+        endc
         ifd     DIAG
         move.w  g_diag(pc),d0               ; game_step no pudo seguir: la
         beq.s   .w2                         ; imagen de ese frame queda
@@ -453,11 +487,21 @@ game_step:
         move.l  (sp)+,d0
         cmp.b   #OP_RUNSYNC,d0
         bne.s   .done
-.sync:  move.l  g_sts(pc),a0
+.sync:
+        ifd     BENCH
+        lea     gb_rs(pc),a0                ; frame de resincronizacion:
+        st      (a0)                        ; no cuenta (loadstate no es del juego)
+        endc
+        move.l  g_sts(pc),a0
         lea     g_sts(pc),a1
         add.l   #576,(a1)
         bra     loadstate
-.level: move.l  g_sts(pc),a0
+.level:
+        ifd     BENCH
+        lea     gb_rs(pc),a0                ; frame de resincronizacion:
+        st      (a0)                        ; no cuenta (loadstate no es del juego)
+        endc
+        move.l  g_sts(pc),a0
         lea     g_sts(pc),a1
         add.l   #576,(a1)
         bra     levelstart
@@ -903,7 +947,15 @@ callframe:
         GETBASE a4
         move.l  a4,a0
         add.l   #_level_frame-binstart,a0
+        ifd     BENCH
+        GBS     1
+        endc
         jsr     (a0)
+        ifd     BENCH
+        GBS     2
+        lea     gb_lfd(pc),a0
+        move.w  #1,(a0)
+        endc
         movem.l (sp)+,d0-d7/a0-a6
         rts
 
@@ -924,7 +976,13 @@ mario_draw:
 .a:     GETBASE a4
         movem.l d2/a2,-(sp)                 ; (mspr_draw destruye d2)
         move.l  d2,a2                       ; = mario_sprite(d2, $2C, $A0)
+        ifd     BENCH
+        GBS     4
+        endc
         bsr     mspr_draw
+        ifd     BENCH
+        GBS     5
+        endc
         movem.l (sp)+,d2/a2
         GETBASE a4
         lea     CL_SPR+2(a2),a0
@@ -962,6 +1020,311 @@ mario_draw:
 g_spra: dc.l    0                           ; sprites de Mario (lista A)
 g_sprb: dc.l    0                           ; (lista B)
 g_null: dc.l    0                           ; sprite vacio
+
+        ifd     BENCH
+;----------------------------------------------------------------------
+; -DBENCH (O1 / 6b.6): el coste de cada parte del frame del juego, con el
+; timer A de CIA-B (709379 Hz, 1 tick = 1,41 us; 10 ciclos de CPU).
+; Solo con -DREPLAY; el replay corre entero (o hasta -DSTOPF) y al final
+; se pinta el peor de cada parte como bits. tools/game_read.py lo lee.
+;
+; Sellos (gb_t[n]), en orden de tiempo:
+;   0 = inicio del frame (gb_begin, ya pasada la linea $110)
+;   1/2 = antes/despues de level_frame (callframe)
+;   3 = despues de game_step
+;   4/5 = antes/despues de mspr_draw (mario_draw)
+;   6/7 = antes/despues de columns   8/9 = antes/despues de build_mid
+;   10 = fin de scroll_frame         11 = blitter libre (bwait)
+; Partes: 0 entrada (game_step sin level_frame), 1 level_frame, 2 mspr_draw,
+; 3 columns, 4 build_mid, 5 resto de scroll_frame (apply_colors,
+; set_pointers, el final), 6 total (hasta el blitter libre). Cada intervalo
+; entre sellos lleva el coste de un sello (gb_ovh, calibrado al arrancar);
+; se le resta. Los frames de resincronizacion (loadstate: no es del juego)
+; no cuentan en entrada ni total.
+;
+; gb_scroll_frame es una COPIA del cuerpo de scroll_frame (scroll.s) con
+; sellos: si scroll_frame cambia, esto tiene que cambiar igual.
+;----------------------------------------------------------------------
+GB_NP       equ 7
+
+gb_rt:                                      ; d0 = timer A (0..$FFFF); d1, d2
+.r:     moveq   #0,d0
+        move.b  CIAB_TAHI,d0
+        move.b  CIAB_TALO,d1
+        move.b  CIAB_TAHI,d2
+        cmp.b   d0,d2
+        bne.s   .r
+        lsl.w   #8,d0
+        move.b  d1,d0
+        rts
+
+gb_wl:                                      ; d3 = linea (< 256)
+.w:     move.l  VPOSR(a4),d1
+        lsr.l   #8,d1
+        and.w   #$1ff,d1
+        cmp.w   d3,d1
+        bne.s   .w
+        rts
+
+gb_init:
+        movem.l d0-d4/a0,-(sp)
+        move.b  #$7f,CIAB_ICR
+        move.b  #0,CIAB_CRA
+        move.b  #$ff,CIAB_TALO
+        move.b  #$ff,CIAB_TAHI
+        move.b  #$11,CIAB_CRA               ; START | LOAD, continuo
+        moveq   #$40,d3                     ; ticks por frame
+        bsr     gb_wl
+        moveq   #$41,d3
+        bsr     gb_wl
+        moveq   #$40,d3
+        bsr     gb_wl
+        bsr     gb_rt
+        move.w  d0,d4
+        moveq   #$41,d3
+        bsr     gb_wl
+        moveq   #$40,d3
+        bsr     gb_wl
+        bsr     gb_rt
+        sub.w   d0,d4
+        lea     gb_tpf(pc),a0
+        move.w  d4,(a0)
+        move.w  #$ffff,d4                   ; coste de un sello: el minimo de 8
+        moveq   #8-1,d3
+.o:     GBS     0
+        GBS     1
+        lea     gb_t(pc),a0
+        move.w  (a0),d0
+        sub.w   2(a0),d0
+        cmp.w   d4,d0
+        bhs.s   .o2
+        move.w  d0,d4
+.o2:    dbf     d3,.o
+        lea     gb_ovh(pc),a0
+        move.w  d4,(a0)
+        movem.l (sp)+,d0-d4/a0
+        rts
+
+; principio del frame (despues de la linea $110). Si el replay se acabo,
+; pinta los resultados y no vuelve.
+gb_begin:
+        lea     g_left(pc),a0
+        tst.w   (a0)
+        beq     gb_show
+        GBS     0
+        lea     gb_frn(pc),a0
+        addq.w  #1,(a0)
+        clr.w   gb_lfd-gb_frn(a0)
+        clr.w   gb_rs-gb_frn(a0)
+        rts
+
+; scroll_frame con sellos (copia: ver arriba)
+gb_scroll_frame:
+        GBS     6
+        bsr     columns
+        GBS     7
+        bsr     apply_colors
+        bsr     set_pointers
+        GBS     8
+        ifnd    NOMID
+        bsr     build_mid
+        endc
+        GBS     9
+        move.l  V_BACK(a5),COP1LC(a4)       ; se usa desde el proximo frame
+        move.l  V_COP(a5),d0                ; la otra, para el frame siguiente
+        cmp.l   V_BACK(a5),d0
+        bne.s   .sw
+        move.l  V_COP2(a5),d0
+.sw:    move.l  d0,V_BACK(a5)
+        GBS     10
+        bsr     bwait
+        GBS     11
+        rts
+
+; GBD a,b: d1 = gb_t[a] - gb_t[b] (a antes que b: el timer cuenta hacia
+; abajo); a0 = gb_t
+GBD macro
+        move.w  \1*2(a0),d1
+        sub.w   \2*2(a0),d1
+        endm
+
+; gb_sub: d1 = max(d1 - d3, 0)  (sin signo)
+gb_sub:
+        sub.w   d3,d1
+        bcc.s   .ok
+        moveq   #0,d1
+.ok:    rts
+
+; gb_upd: parte d0 = valor d1; si es el maximo, guarda el frame y la s
+gb_upd:
+        lea     gb_res(pc),a1
+        mulu    #6,d0
+        add.w   d0,a1
+        cmp.w   (a1),d1
+        bls.s   .n
+        move.w  d1,(a1)
+        move.w  gb_frn(pc),2(a1)
+        move.w  V_S(a5),4(a1)
+.n:     rts
+
+; fin del frame, con los sellos hechos. Destruye d0-d3/a0-a1.
+gb_end:
+        movem.l d4-d5,-(sp)
+        lea     gb_t(pc),a0
+        move.w  gb_ovh(pc),d2               ; d2 = coste de un sello
+        move.w  gb_lfd(pc),d0
+        beq.s   .nolf
+        GBD     1,2                         ; level_frame
+        move.w  d2,d3
+        bsr     gb_sub
+        moveq   #1,d0
+        bsr     gb_upd
+.nolf:  GBD     4,5                         ; mspr_draw
+        move.w  d2,d3
+        bsr     gb_sub
+        moveq   #2,d0
+        bsr     gb_upd
+        GBD     6,7                         ; columns
+        move.w  d2,d3
+        bsr     gb_sub
+        moveq   #3,d0
+        bsr     gb_upd
+        GBD     8,9                         ; build_mid
+        move.w  d2,d3
+        bsr     gb_sub
+        moveq   #4,d0
+        bsr     gb_upd
+        GBD     7,8                         ; resto: dos intervalos
+        move.w  d2,d3
+        bsr     gb_sub
+        move.w  d1,d5
+        GBD     9,10
+        move.w  d2,d3
+        bsr     gb_sub
+        add.w   d5,d1
+        moveq   #5,d0
+        bsr     gb_upd
+        move.w  gb_rs(pc),d0
+        bne.s   .rs
+        GBD     0,3                         ; entrada
+        move.w  d2,d3                       ; - 1 sello (sin level_frame)
+        move.w  gb_lfd(pc),d0
+        beq.s   .el
+        move.w  2(a0),d3                    ; con level_frame: - (t1-t2) - 2
+        sub.w   4(a0),d3                    ; sellos (los de 1 y 2 caen dentro
+        add.w   d2,d3                       ; de este intervalo)
+        add.w   d2,d3
+.el:    bsr     gb_sub
+        moveq   #0,d0
+        bsr     gb_upd
+        GBD     0,11                        ; total: 11 sellos
+        move.w  d2,d3
+        mulu    #11,d3
+        bsr     gb_sub
+        moveq   #6,d0
+        bsr     gb_upd
+        lea     gb_sum(pc),a1
+        moveq   #0,d0
+        move.w  d1,d0
+        add.l   d0,(a1)
+        addq.w  #1,gb_n-gb_sum(a1)
+        cmp.w   gb_tpf(pc),d1
+        bls.s   .x
+        addq.w  #1,gb_over-gb_sum(a1)
+        bra.s   .x
+.rs:    lea     gb_nrs(pc),a1
+        addq.w  #1,(a1)
+.x:     movem.l (sp)+,d4-d5
+        rts
+
+; el replay se acabo: 19 palabras largas como bits (celdas de 8 px, 32 por
+; fila; fila i = lineas 8+12i .. +7, desde x = 32) en un plano, sin sprites.
+;   f0 $A55A5AA5   f1 ticks/frame, coste de un sello   f2 frames, resync
+;   f3 media del total, frames pasados de un frame   f4+2p max, frame
+;   f5+2p s, 0 (p = parte 0..6)   f18 $5AA5A55A
+gb_show:
+        bsr     bwait
+        move.w  #$0020,DMACON(a4)           ; sin sprites
+        lea     gb_out(pc),a2
+        move.l  #$a55a5aa5,(a2)+
+        move.w  gb_tpf(pc),(a2)+
+        move.w  gb_ovh(pc),(a2)+
+        move.w  gb_frn(pc),(a2)+
+        move.w  gb_nrs(pc),(a2)+
+        move.l  gb_sum(pc),d0
+        move.w  gb_n(pc),d1
+        beq.s   .z
+        divu    d1,d0
+.z:     move.w  d0,(a2)+
+        move.w  gb_over(pc),(a2)+
+        lea     gb_res(pc),a0
+        moveq   #GB_NP-1,d7
+.p:     move.w  (a0)+,(a2)+                 ; max
+        move.w  (a0)+,(a2)+                 ; frame
+        move.w  (a0)+,(a2)+                 ; s
+        clr.w   (a2)+
+        dbf     d7,.p
+        move.l  #$5aa5a55a,(a2)+
+        move.l  V_BUF1(a5),a0               ; borrar la pantalla (40 B/linea)
+        move.w  #40*256/4-1,d0
+.clr:   clr.l   (a0)+
+        dbf     d0,.clr
+        lea     gb_out(pc),a2
+        move.l  V_BUF1(a5),a3
+        add.l   #8*40+4,a3
+        moveq   #19-1,d7
+.row:   move.l  (a2)+,d0
+        move.l  a3,a0
+        moveq   #32-1,d6
+.bit:   add.l   d0,d0
+        bcc.s   .zero
+        move.l  a0,a1
+        moveq   #8-1,d5
+.fill:  move.b  #$ff,(a1)
+        lea     40(a1),a1
+        dbf     d5,.fill
+.zero:  addq.w  #1,a0
+        dbf     d6,.bit
+        lea     12*40(a3),a3
+        dbf     d7,.row
+        move.l  V_COP(a5),a0                ; lista del resultado
+        move.l  #$008e2c81,(a0)+
+        move.l  #$00902cc1,(a0)+
+        move.l  #$00920038,(a0)+
+        move.l  #$009400d0,(a0)+
+        move.l  #$01001200,(a0)+
+        move.l  #$01020000,(a0)+
+        move.l  #$01040000,(a0)+
+        move.l  #$01080000,(a0)+
+        move.l  V_BUF1(a5),d0
+        move.w  #$00e0,(a0)+
+        swap    d0
+        move.w  d0,(a0)+
+        move.w  #$00e2,(a0)+
+        swap    d0
+        move.w  d0,(a0)+
+        move.l  #$01800000,(a0)+
+        move.l  #$01820fff,(a0)+
+        move.l  #$fffffffe,(a0)+
+        move.l  V_COP(a5),COP1LC(a4)
+        move.w  #0,COPJMP1(a4)
+.forever:
+        bra.s   .forever
+
+        even
+gb_t:    ds.w   12
+gb_res:  ds.w   3*GB_NP
+gb_out:  ds.l   19
+gb_sum:  dc.l   0
+gb_n:    dc.w   0
+gb_over: dc.w   0
+gb_nrs:  dc.w   0
+gb_tpf:  dc.w   0
+gb_ovh:  dc.w   0
+gb_frn:  dc.w   0
+gb_lfd:  dc.w   0
+gb_rs:   dc.w   0
+        endc
 
 ;----------------------------------------------------------------------
 ; --- build_sign --- g_build = firma de 16 bits del binario (datos del C
