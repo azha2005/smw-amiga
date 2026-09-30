@@ -44,7 +44,12 @@ if [ ! -f smw_assets.dat ]; then
 fi
 
 # todos los objetos de snesrev (su Makefile); main.o/opengl.o no se usan
-CFLAGS="-O2 -fno-strict-aliasing" make -j"$(nproc)" smw >/dev/null
+# En MSYS/MinGW el make de cygwin no pasa TEMP/TMP a gcc (sale "Cannot create
+# temporary file in C:\Windows\"): se los damos.
+MKX=
+case "$(uname -s)" in MSYS*|MINGW*|CYGWIN*) T=$(cygpath -m /tmp); MKX="TEMP=$T TMP=$T"; export TEMP=$T TMP=$T ;; esac
+JOBS=$(nproc 2>/dev/null || echo 2)
+CFLAGS="-O2 -fno-strict-aliasing" make -j"$JOBS" $MKX smw >/dev/null
 OBJS=$(ls smb1/*.o smbll/*.o src/*.o src/snes/*.o | grep -v -e 'src/main.o' -e 'src/opengl.o' -e 'src/glsl_shader.o')
 
 cd "$HERE"
