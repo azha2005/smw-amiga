@@ -149,6 +149,16 @@ D_MLX   equ 40
 D_MLD   equ 44
 D_LNS   equ 48
 
+; build_mid, LNS por grupos de 16 lineas (tools/mkscroll.py: NGRP, GSZ):
+; el estado de cada grupo va justo ANTES de linetab_a/b, en
+; linetab - GSZ * (NGRP - g) (LNS lo da como goff, negativo)
+NGRP    equ LINES/16
+GSZ     equ 8
+G_VL    equ 0                   ; [gvl, gvu): todas las lineas del grupo
+G_VU    equ 2                   ; valen
+G_ID    equ 4                   ; hid con que se calculo (0: no hay)
+G_HOT   equ 6                   ; reescrituras en el ultimo recorrido
+
 ; variables (a5)
 V_S     equ 0                   ; scroll de la capa 1 (px)
 V_P     equ 2                   ; palabra del puntero, (s - 1) >> 4
@@ -589,6 +599,12 @@ init_lines:
         bsr     .tab
         move.w  #$8000,V_LSA(a5)
         move.w  #$8000,V_LSB(a5)
+        lea     gst_a(pc),a0                ; grupos: sin agregado, frios
+        lea     gst_b(pc),a1
+        moveq   #GSZ*NGRP/2-1,d0
+.gz:    clr.w   (a0)+
+        clr.w   (a1)+
+        dbf     d0,.gz
         lea     htab(pc),a0                 ; h para cambiar en x >= objetivo
         moveq   #0,d1                       ; (P42, cabecera)
 .h:     move.w  d1,d2
@@ -741,13 +757,70 @@ build_mid:
         move.w  d6,d5
         add.w   #LASTX,d5                   ; d5 = s + LASTX
         move.w  #$fffe,d2
-.line:  move.w  (a6)+,d0                    ; linea * 32
-        bmi     .done
-        lea     (a5,d0.w),a4                ; a4 = linetab[L]
-        cmp.w   12(a4),d6
-        blt.s   .rw                         ; s < vl
-        cmp.w   14(a4),d6
-        blt.s   .line                       ; s < vu: lo escrito vale
+; LNS por grupos de 16 lineas (S2): para cada grupo con lineas en LNS[k],
+; su estado (antes de linetab, G_*) guarda [gvl, gvu) = la interseccion
+; de los [vl, vu) de sus lineas, y el hid (conjunto de lineas) con que se
+; calculo. Si el hid es el mismo y gvl <= s < gvu, todas valen: se salta
+; el grupo entero. Si no, se recorre linea por linea como antes. En un
+; grupo "frio" (sin reescrituras la ultima vez) se calcula el agregado de
+; paso (d7 = max vl, d1 = min vu) hasta la primera linea que haya que
+; reescribir: desde ahi sigue el recorrido de siempre (.pl) y el grupo
+; queda sin agregado y "caliente". Uno caliente (a la vuelta casi todas se
+; reescriben en cada paso, P72) va directo por .pl, sin agregado.
+.grp:   move.w  (a6)+,d0                    ; goff (< 0) o -1: fin
+.grp2:  cmp.w   #-1,d0
+        beq     .done
+        move.w  (a6)+,d1                    ; hid: id << 6 | bytes de lineas
+        cmp.w   G_ID(a5,d0.w),d1            ; (goff con signo, P40: a
+        bne.s   .gw                         ; proposito)
+        cmp.w   G_VL(a5,d0.w),d6
+        blt.s   .gw
+        cmp.w   G_VU(a5,d0.w),d6
+        bge.s   .gw
+        and.w   #63,d1                      ; todas valen: saltar sus lineas
+        add.w   d1,a6
+        bra.s   .grp
+.gw:    move.w  d0,-(sp)                    ; goff
+        sub.l   a4,a4                       ; a4 = 0: sin reescrituras (.rw
+        tst.w   G_HOT(a5,d0.w)              ; lo pone en linetab[L])
+        bne.s   .pl                         ; caliente (G_ID ya es 0)
+        move.w  d1,a3                       ; frio: a3 = hid,
+        move.w  #$8000,d7                   ; d7 = max vl, d1 = min vu
+        move.w  #$7fff,d1
+.ml:    move.w  (a6)+,d0                    ; linea * 32
+        bmi.s   .mend
+        movem.w 12(a5,d0.w),d3/d4           ; vl, vu
+        cmp.w   d3,d6
+        blt.s   .mrw                        ; s < vl
+        cmp.w   d4,d6
+        bge.s   .mrw                        ; s >= vu
+        cmp.w   d3,d7
+        bge.s   .mb
+        move.w  d3,d7
+.mb:    cmp.w   d4,d1
+        ble.s   .ml
+        move.w  d4,d1
+        bra.s   .ml
+.mend:  move.w  (sp)+,d3                    ; todas valian: el agregado es
+        lea     (a5,d3.w),a0                ; de este hid
+        move.w  d7,G_VL(a0)
+        move.w  d1,G_VU(a0)
+        move.w  a3,G_ID(a0)
+        bra.s   .grp2
+.mrw:   move.w  (sp),d3                     ; frio con una reescritura: el
+        clr.w   G_ID(a5,d3.w)               ; agregado guardado ya no vale
+        bra.s   .prw
+.pend:  move.w  (sp)+,d1
+        move.w  a4,G_HOT(a5,d1.w)           ; != 0: hubo reescrituras (casi
+        bra.s   .grp2                       ; siempre: la direccion baja de
+                                            ; una linea de linetab)
+.pl:    move.w  (a6)+,d0                    ; linea * 32
+        bmi.s   .pend
+        cmp.w   12(a5,d0.w),d6
+        blt.s   .prw                        ; s < vl
+        cmp.w   14(a5,d0.w),d6
+        blt.s   .pl                         ; s < vu: lo escrito vale
+.prw:   lea     (a5,d0.w),a4                ; a4 = linetab[L]
 .rw:    move.l  4(a4),a1                    ; a1 = lo (registros de 12 bytes:
 .lof:   cmp.w   2(a1),d6                    ; clase, x, MOVE, a, b)
         ble.s   .lob                        ; x < s: salio por la izquierda
@@ -832,7 +905,7 @@ build_mid:
         addq.w  #1,d4                       ; volver valdria lo escrito
 .j2:    move.w  d3,12(a4)                   ; antes y la ida y la vuelta
         move.w  d4,14(a4)                   ; darian imagenes distintas: P50)
-        bra     .line
+        bra     .pl
 .done:  movem.l (sp)+,d2-d7/a2-a6
         rts
 ; Una carga "tarde" (clase 4-7 en MLD: 4 + la clase de siempre; fija,
@@ -1284,16 +1357,22 @@ fail:   lea     CUSTOM,a4
 vars:   ds.b    V_SIZE
         endc
         even
+gst_a:  ds.b    GSZ*NGRP                    ; build_mid: estado de los grupos
 linetab_a: ds.b 32*LINES                    ; ver init_lines
+gst_b:  ds.b    GSZ*NGRP
 linetab_b: ds.b 32*LINES
 ldoff:  ds.w    LINES                       ; build_copper: inicio de las cargas
 htab:   ds.b    LASTX+1                     ; byte bajo del WAIT por x
         even
-alllines:                                   ; build_mid despues de un salto
-N       set     0
-        rept    LINES
+alllines:                                   ; build_mid despues de un salto:
+N       set     0                           ; los NGRP grupos enteros (hid
+        rept    NGRP                        ; con id 1023, que mkscroll.py
+        dc.w    GSZ*(N/16-NGRP)             ; no usa)
+        dc.w    (1023<<6)|32
+        rept    16
         dc.w    N*32
 N       set     N+1
+        endr
         endr
         dc.w    -1
         even
