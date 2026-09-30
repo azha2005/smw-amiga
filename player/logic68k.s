@@ -683,7 +683,7 @@ _f7f4:
         tst.w   d1
         bmi.s   .up
         clr.b   wm_ScrScrollToPlayer(a2)
-        T16Y    DATA_00F6A7,d5              ; _00F883: limita la velocidad
+.f883:  T16Y    DATA_00F6A7,d5              ; _00F883: limita la velocidad
         move.w  d1,d0
         sub.w   d5,d0
         eor.w   d5,d0
@@ -708,5 +708,42 @@ _f7f4:
         move.w  d3,d0
 .out:   movem.l (sp)+,d2-d5/a2
         rts
-.up:    movem.l (sp)+,d2-d5/a2              ; hacia arriba: el C
-        jmp     _f7f4_c
+.up:    move.b  wm_WallWalkStatus(a2),d5    ; CODE_00F82A: hacia arriba (P69)
+        cmp.b   #$06,d5
+        bhs.s   .xtst
+        move.b  wm_YoshiHasWingsB(a2),d5
+        lsr.b   #1,d5
+        or.b    wm_GlideTimer(a2),d5
+        or.b    wm_IsClimbing(a2),d5
+        or.b    wm_PBalloonFrame(a2),d5
+        or.b    wm_IsInLakituCloud(a2),d5
+        or.b    wm_BouncingWithYoshi(a2),d5
+.xtst:  tst.b   d5
+        bne.s   .xset
+        tst.b   wm_OnYoshi(a2)
+        beq.s   .swim
+        move.b  wm_YoshiHasWings(a2),d5
+        cmp.b   #$02,d5
+        bhs.s   .xset
+.swim:  moveq   #0,d5                       ; (con Yoshi con alas < 2 no hay x)
+        tst.b   wm_IsSwimming(a2)
+        beq.s   .xnone
+        move.b  wm_IsFlying(a2),d5
+        bne.s   .xset
+.xnone: cmp.b   #1,wm_VertScrollHead(a2)
+        beq.s   .en
+        tst.b   wm_EnableVertScroll(a2)
+        beq.s   .y4
+.en:    tst.b   wm_ScrScrollToPlayer(a2)
+        bne.s   .f881
+        tst.b   wm_IsFlying(a2)
+        bne.s   .same                       ; return bg1v
+        addq.b  #1,wm_ScrScrollToPlayer(a2)
+.f881:  bra     .f883                       ; a = v2 (d1), y en d2
+.xset:  move.b  d5,wm_EnableVertScroll(a2)
+        bra     .f883
+.y4:    moveq   #4,d2
+        bra     .f883
+.same:  moveq   #0,d0
+        move.w  d4,d0
+        bra     .out
