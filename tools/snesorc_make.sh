@@ -15,6 +15,10 @@
 set -e
 HERE=$(cd "$(dirname "$0")/.." && pwd)
 cd "$HERE"
+# En MSYS el snesorc.exe nativo ve otro $HOME que sh: le damos la ruta de assets.
+if [ -z "$SNESORC_ASSETS" ] && command -v cygpath >/dev/null 2>&1; then
+    SNESORC_ASSETS=$(cygpath -m "${SNESREV_DIR:-$HOME/.cache/snesrev-smw}/smw_assets.dat"); export SNESORC_ASSETS
+fi
 [ -x work/snesorc ] || { echo "falta work/snesorc: sh tools/snesorc_setup.sh"; exit 1; }
 [ -x work/marioverify ] || { echo "falta work/marioverify (sh tools/setup_cloud.sh)"; exit 1; }
 
@@ -22,6 +26,7 @@ if [ "$1" = "--replay" ]; then
     for seg in 1 2; do
         work/snesorc --script tools/snesorc/boot_yi1.orc --replay work/oracle_yi1.txt \
             --replay-seg $seg --out work/replay_yi1_$seg.txt 2>/dev/null
+        sed -i 's/'"$(printf '\r')"'$//' work/replay_yi1_$seg.txt   # Windows: fopen "w" escribe CRLF
     done
     python3 - <<'EOF'
 ref = {}
@@ -42,6 +47,7 @@ NAMES=$*
 [ -n "$NAMES" ] || NAMES=$(ls tools/snesorc/*.orc | xargs -n1 basename | sed 's/\.orc$//' | grep -v '^boot_')
 for n in $NAMES; do
     work/snesorc --script tools/snesorc/$n.orc --out work/oracle_$n.txt 2>&1 | tail -1
+    sed -i 's/'"$(printf '\r')"'$//' work/oracle_$n.txt   # Windows: fopen "w" escribe CRLF
     python3 tools/oracle2bin.py --inp work/oracle_$n.txt --out work/oracle_$n.bin >/dev/null
     echo "== $n"
     work/marioverify work/oracle_$n.bin full | grep -e 'TODOS' -e '^frames con'
