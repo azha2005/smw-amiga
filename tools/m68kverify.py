@@ -180,8 +180,10 @@ def main():
             return cpu.call(BASE + syms[sym], BASE)
         pc.before(cpu.read(RAM, 0x2000), cpu.read(MAP, len(map0)))
         cyc = cpu.call(BASE + syms[sym], BASE)
+        # fuera de ram[]: la OAM de Mario (NOOAM), su paleta y los eventos
+        ext = {n: cpu.read(BASE + syms["_" + n], k) for n, k in PCPort.EXTRA if "_" + n in syms}
         pc.after(sym[1:], cpu.read(RAM, 0x2000), cpu.read(MAP, len(map0)),
-                 struct.unpack(">i", cpu.read(BASE + syms["_mario_unsupported"], 4))[0])
+                 struct.unpack(">i", cpu.read(BASE + syms["_mario_unsupported"], 4))[0], ext)
         return cyc
 
     def rec(i):
@@ -286,6 +288,12 @@ class PCPort:
             self.spr = (ctypes.c_ubyte * len(data)).from_buffer_copy(data)
             ctypes.c_void_p.in_dll(self.lib, "spr_level").value = ctypes.addressof(self.spr)
             ctypes.c_ubyte.in_dll(self.lib, "level_sprites").value = 1
+        self.ext = {}
+        for n, k in self.EXTRA:
+            try:
+                self.ext[n] = (ctypes.c_ubyte * k).in_dll(self.lib, n)
+            except ValueError:
+                pass
         self.calls = self.bad = 0
         self.shown = []
 
@@ -294,11 +302,23 @@ class PCPort:
         self.C.memmove(self.map, mp, len(mp))
         self.unsup.value = 0
 
-    def after(self, fn, ram, mp, unsup):
+    # (nombre, bytes): globales de mgfx.c / mario.c que no estan en ram[]
+    # (mario_events es un unsigned de 32 bits: big endian en el 68000)
+    EXTRA = (("mario_oam", 16), ("mario_osz", 4), ("mario_pal", 1), ("mario_events", 4))
+
+    def after(self, fn, ram, mp, unsup, ext=None):
         getattr(self.lib, fn)()
         self.calls += 1
         pr, pm = bytes(self.ram), bytes(self.map)
-        if pr == ram and pm == mp and self.unsup.value == unsup:
+        xd = []
+        for n, k in self.EXTRA:
+            if ext and n in ext and n in self.ext:
+                a, b = bytes(ext[n]), bytes(self.ext[n])
+                if n == "mario_events":
+                    b = b[::-1]         # el PC es little endian
+                if a != b:
+                    xd.append("%s=%s/%s" % (n, a.hex(), b.hex()))
+        if pr == ram and pm == mp and self.unsup.value == unsup and not xd:
             return
         self.bad += 1
         if len(self.shown) < 10:
@@ -306,6 +326,7 @@ class PCPort:
             d += ["mapa+%d" % k for k in range(len(mp)) if mp[k] != pm[k]][:2]
             if self.unsup.value != unsup:
                 d.append("unsup %d/%d" % (unsup, self.unsup.value))
+            d += xd
             self.shown.append("%s: %s" % (fn, " ".join(d)))
 
     def report(self):

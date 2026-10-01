@@ -24,6 +24,7 @@ VBCC=${VBCC:-/c/Users/JC/vbcc}
 X=; [ -f "$VBCC/bin/vbccm68k.exe" ] && X=.exe
 OUT=work; CC=work/cc; EXTRA=
 CDEFS=${CDEFS--DNOOAM}          # build de la Amiga: sin OAM (8.2); CDEFS= la incluye
+case "$CDEFS" in *NOOAM*) ;; *) LBDEFS="$LBDEFS -DE2BD_OFF=1" ;; esac   # mario_E2BD en asm: solo NOOAM
 if [ -n "$PROF" ]; then
     OUT=work/prof; CC=work/prof/cc; EXTRA=-inline-size=0
 fi
