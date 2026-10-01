@@ -542,9 +542,13 @@ static int run_sprload(const char *sprpath)
         take(j, wm_Layer1ScrollDir); take(j, wm_FrameA);
         for (k = 0; k < 12; k++) {
             int si = orc(i, wm_SpriteStatus + k), sj = orc(j, wm_SpriteStatus + k);
-            if (si == 8 && sj == 0 && ram[wm_SprIndexInLvl + k] != 0xFF) {
+            if (si == 8 && sj <= 1 && ram[wm_SprIndexInLvl + k] != 0xFF) {
                 /* salio de pantalla (y no murio a la vista: un salto con
-                   giro mata de 8 a 0 y el indice queda cargado) */
+                   giro mata de 8 a 0 y el indice queda cargado). sj == 1: el
+                   cargador metio OTRO sprite en la ranura que acaba de dejar
+                   libre, en el mismo frame (P2: en diagpipe un Rex sale por
+                   la derecha y la piranha $4F nace en su ranura): el indice
+                   del primero tambien se libera, o el Rex no vuelve a nacer */
                 int sx = orc(i, wm_SpriteXLo + k) | orc(i, wm_SpriteXHi + k) << 8;
                 int cx = orc(i, wm_Bg1HOfs) | orc(i, wm_Bg1HOfs + 1) << 8;
                 if (sx < cx - 0x20 || sx > cx + 0x110)
