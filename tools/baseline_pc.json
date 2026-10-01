@@ -1,6 +1,6 @@
 {
  "_meta": {
-  "commit": "e104399",
+  "commit": "02ad234",
   "fecha": "2026-10-01",
   "nota": "tools/regress.py; las medidas emu.* dependen del emulador"
  },
@@ -134,7 +134,7 @@
  },
  "orc.banzai.game.spr_distintos": {
   "how": "min",
-  "value": 1
+  "value": 0
  },
  "orc.banzai.game.tramo": {
   "how": "max",
@@ -178,7 +178,7 @@
  },
  "orc.diagpipe.game.spr_distintos": {
   "how": "min",
-  "value": 1
+  "value": 0
  },
  "orc.diagpipe.game.tramo": {
   "how": "max",
@@ -202,11 +202,11 @@
  },
  "orc.diagpipe.sprload.distintos": {
   "how": "min",
-  "value": 2
+  "value": 0
  },
  "orc.diagpipe.sprload.exactos": {
   "how": "max",
-  "value": 31
+  "value": 33
  },
  "orc.hills.full.ok": {
   "how": "max",
@@ -222,7 +222,7 @@
  },
  "orc.hills.game.spr_distintos": {
   "how": "min",
-  "value": 1
+  "value": 0
  },
  "orc.hills.game.tramo": {
   "how": "max",
@@ -266,7 +266,7 @@
  },
  "orc.normal.game.spr_distintos": {
   "how": "min",
-  "value": 1
+  "value": 0
  },
  "orc.normal.game.tramo": {
   "how": "max",
