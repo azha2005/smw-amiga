@@ -193,6 +193,32 @@ le llevan los números al usuario (D1).
 
 ### Lo último que se hizo y lo siguiente
 
+- **Ola 2 (2026-10-01, PC Windows; cerrada por uso):** integradas I2
+  (`levels/yi1.json` + `tools/lvdesc.py`; falta en `mkscroll.py` y
+  `mkmario.py`), O3 (`regress.py` guarda `game.<parte>.max/.media` en
+  Musashi y `scroll.ida/vuelta.*`; `--shots DIR` lee `game_bench.png`),
+  P1+P2 (eran del verificador: alinear el primer registro de snesorc por
+  `$1404`, y liberar el índice del sprite que sale cuando otro nace en su
+  ranura), P3 Chuck (`spr_chuck.c`, 450/450), P4 caparazones
+  (`spr_shell.c`, `shells` 527/527 y 0 resincronizaciones), P5 cinta de la
+  meta (`spr_goal.c`, 138/211/417; `goalhit.orc` nuevo), L1c (`mario_E2BD`
+  en asm: `level_frame` media −8 %; `tools/e2bd_fuzz.py`; `lint_port` A1
+  vigila las tablas de las que depende) y MA1 (`mspr_draw` con caché por
+  pose: media −60 %; si otra rutina escribe `g_spra`/`g_sprb`, llamar a
+  `mspr_inval`). Medida del juego entero en WinUAE con S1a+S2 (antes de
+  L1c y MA1): peor `build_mid` 85,4 % (s = 1825), `level_frame` 34,6 %,
+  total 127 %, media 44,8 %, 359 frames pasados. En Musashi, después de
+  todo: `game.total.max` 135 290 (≈ 95 % del frame, sin DMA), media
+  45 828. **Quedan en ramas sin integrar** (revisar, repetir la puerta e
+  integrar): `wt/s4` (S4, `build_mid` en el sitio, opus), `wt/ra`
+  (`pipe`, `stress_vert` con `Bg1VOfs` mínimo `$81`, `stress_sprites`,
+  `stress_back`) y `wt/rb` (`pw_medio` y lo que haya llegado). Después:
+  O4 (informe y decisión D1 con el usuario), y el resto de la ola 2/3.
+  En Windows, `regress.py` no arma `work/libport.so` (los cruces de RAM):
+  `gcc -shared -O2 -DNOOAM -Iplayer -o work/libport.so player/mario.c
+  player/mcoll.c player/manim.c player/mgfx.c player/mcam.c
+  player/msprite.c player/mspr.c player/spr_*.c player/gen/smwrom00.c`.
+  WinUAE: `winuae_lock.ps1` es un semáforo de 3 lugares.
 - **Ola 1 (2026-09-30, tarde, en la PC Windows; parcial, cerrada por uso):**
   integradas L1a, I1, O1 (6b.6 medida) y S1a+S2, y 9 grabaciones nuevas
   (ver 8.1 en §1.2). Worktrees con `tools/wt_new.sh` y las adaptaciones de
