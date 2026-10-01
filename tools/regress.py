@@ -217,7 +217,7 @@ def game_sprite_checks(r, out):
 
 # oraculos guionizados de snesorc (tools/snesorc/*.orc -> work/oracle_X.txt,
 # en git): el .bin se regenera si falta o si el .txt es mas nuevo
-SNESORC = ("normal", "diagpipe", "hills", "banzai")
+SNESORC = ("normal", "diagpipe", "hills", "banzai", "chuck")
 
 
 def orc_checks(r):
@@ -261,6 +261,9 @@ def orc_checks(r):
                 bad = sum(int(a) - int(b) for a, b in
                           re.findall(r"sprite [0-9A-F]{2}: seguidos (\d+) exactos (\d+)", out))
                 r.put(k + "game.spr_distintos", bad, "min")
+                for sn, seg, ok in re.findall(r"sprite (95): seguidos (\d+) exactos (\d+)", out):
+                    r.put(k + "game.spr_%s.seguidos" % sn, int(seg), "info")   # el Chuck (P3)
+                    r.put(k + "game.spr_%s.exactos" % sn, int(ok), "max")
             elif mode == "sprload":
                 t = num(r"oraculo: (\d+)\s+del port: (\d+)\s+exactos: (\d+)\s+distintos: (\d+)", out)
                 if t:

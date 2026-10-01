@@ -61,22 +61,44 @@ WANT = [
     ("sprite_tables.s", "Sprite190FVals", "tx_190F"),
 ]
 
+# Tablas de un solo sprite (P3, Chuck): van en un bloque aparte, #ifdef
+# SMWTABX_CHUCK, para que solo las vea player/spr_chuck.c, que define la
+# macro antes de incluir este header. Asi msprite.c (que incluye todo lo
+# de arriba) no las emite y spr_chuck.c no emite las de arriba (P36/P78:
+# vbcc emite todo static const aunque no se use).
+WANT_CHUCK = [
+    ("sprite_1-main.s", "DATA_018526", "tc_018526"),
+    ("sprite_2-1.s", "DATA_02C213", "tc_02C213"),
+    ("sprite_2-1.s", "DATA_02C228", "tc_02C228"),
+    ("sprite_2-1.s", "DATA_02C22A", "tc_02C22A"),
+    ("sprite_2-1.s", "DATA_02C62E", "tc_02C62E"),
+    ("sprite_2-1.s", "DATA_02C639", "tc_02C639"),
+    ("sprite_2-1.s", "DATA_02C666", "tc_02C666"),
+    ("sprite_2-1.s", "DATA_02C69F", "tc_02C69F"),
+    ("sprite_2-1.s", "DATA_02C6A3", "tc_02C6A3"),
+    ("sprite_2-1.s", "DATA_02C73D", "tc_02C73D"),
+    ("sprite_2-1.s", "DATA_02C743", "tc_02C743"),
+    ("sprite_2-1.s", "DATA_02C79B", "tc_02C79B"),
+]
+
 
 def main():
     cache = {}
     with open(os.path.join(OUT, "smwtabx.h"), "w") as f:
         f.write("/* GENERADO por tools/smwtabx.py desde el fuente: no editar ni versionar */\n")
         f.write("#ifndef SMWTABX_H\n#define SMWTABX_H\n")
-        for fn, lab, name in WANT:
-            if fn not in cache:
-                cache[fn] = parse_tables(os.path.join(SRC, fn))
-            d = cache[fn].get(lab)
-            if not d:
-                sys.exit("no encuentro %s en %s" % (lab, fn))
-            f.write("static const unsigned char %s[%d] = {%s};\n"
-                    % (name, len(d), ",".join(str(b) for b in d)))
-        f.write("#endif\n")
-    print("smwtabx.h: %d tablas" % len(WANT))
+        for sect, want in (("#ifndef SMWTABX_CHUCK\n", WANT), ("#else\n", WANT_CHUCK)):
+            f.write(sect)
+            for fn, lab, name in want:
+                if fn not in cache:
+                    cache[fn] = parse_tables(os.path.join(SRC, fn))
+                d = cache[fn].get(lab)
+                if not d:
+                    sys.exit("no encuentro %s en %s" % (lab, fn))
+                f.write("static const unsigned char %s[%d] = {%s};\n"
+                        % (name, len(d), ",".join(str(b) for b in d)))
+        f.write("#endif\n#endif\n")
+    print("smwtabx.h: %d tablas (+ %d del Chuck)" % (len(WANT), len(WANT_CHUCK)))
 
 
 if __name__ == "__main__":

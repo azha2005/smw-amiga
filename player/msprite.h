@@ -58,6 +58,11 @@ void rex_main(u8 x);
 void sub_offscreen3(u8 x);
 int mario_spr_interact(u8 x);
 void spr_spr_interact(u8 y);
+void spr_obj_interact(u8 x);
+
+/* spr_chuck.c */
+void chuck_main(u8 x);
+void chuck_init(u8 x);
 
 /* spr_rex.c */
 void rex_contact(u8 x);
