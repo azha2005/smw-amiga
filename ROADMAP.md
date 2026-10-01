@@ -212,7 +212,20 @@ le llevan los números al usuario (D1).
   45 828. **Quedan en ramas sin integrar** (revisar, repetir la puerta e
   integrar): `wt/s4` (S4, `build_mid` en el sitio, opus), `wt/ra`
   (`pipe`, `stress_vert` con `Bg1VOfs` mínimo `$81`, `stress_sprites`,
-  `stress_back`) y `wt/rb` (`pw_medio` y lo que haya llegado). Después:
+  `stress_back`) y `wt/rb` (`pw_medio` y lo que haya llegado): **las tres ya
+  integradas al cierre** (RA: `stress_back` llega de `$1240` a x `$0500`; RB:
+  `pw_yoshicoin` 3 de 4, `goal_low`, `goal_miss`; sin grabar: estrella/1-UP,
+  `$C7`, bloques `!`, 3-UP). **S4 no entró en `scroll.s`: la edición en el
+  sitio SUBE el pico** (ida 77 498 → 105 496 en s = 4580; la media de la
+  vuelta sí baja 51 939 → 16 482): cada edición cuesta ~1000 ciclos por línea
+  contra 413 + 124 por carga de reescribir. Quedan `tools/wip64/s4_inplace.diff`
+  y `tools/wip64/midsim5.py` (modelo de eventos que reproduce los conteos del
+  asm). Siguiente para el scroll, según el modelo: **a la izquierda, base menor**
+  (s0 = max(s + 1 − min b, x_última − LASTX), con pista del min b; recorrido
+  duplicado por sentido para que la ida no cambie): vuelta peor 133k → 77,5k
+  (2 px); y **diferir la carga que entra por la derecha** hasta que su tramo se
+  ve (holgura de S5): ida peor ~71k → ~62k a 2 px. El pico de la ida a 4 px solo
+  baja con S5 (EDF) o con menos cargas (S7). Después:
   O4 (informe y decisión D1 con el usuario), y el resto de la ola 2/3.
   En Windows, `regress.py` no arma `work/libport.so` (los cruces de RAM):
   `gcc -shared -O2 -DNOOAM -Iplayer -o work/libport.so player/mario.c
