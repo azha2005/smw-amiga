@@ -233,7 +233,7 @@ def game_sprite_checks(r, out):
 
 # oraculos guionizados de snesorc (tools/snesorc/*.orc -> work/oracle_X.txt,
 # en git): el .bin se regenera si falta o si el .txt es mas nuevo
-SNESORC = ("normal", "diagpipe", "hills", "banzai", "chuck", "goal", "goalhit")
+SNESORC = ("normal", "diagpipe", "hills", "banzai", "chuck", "goal", "goalhit", "shells")
 
 
 def orc_checks(r):
@@ -277,8 +277,8 @@ def orc_checks(r):
                 bad = sum(int(a) - int(b) for a, b in
                           re.findall(r"sprite [0-9A-F]{2}: seguidos (\d+) exactos (\d+)", out))
                 r.put(k + "game.spr_distintos", bad, "min")
-                for sn, seg, ok in re.findall(r"sprite (95): seguidos (\d+) exactos (\d+)", out):
-                    r.put(k + "game.spr_%s.seguidos" % sn, int(seg), "info")   # el Chuck (P3)
+                for sn, seg, ok in re.findall(r"sprite (95|05): seguidos (\d+) exactos (\d+)", out):
+                    r.put(k + "game.spr_%s.seguidos" % sn, int(seg), "info")   # el Chuck (P3), los caparazones (P4)
                     r.put(k + "game.spr_%s.exactos" % sn, int(ok), "max")
                 for sn, seg, ok in re.findall(r"sprite (7B): seguidos (\d+) exactos (\d+)", out):
                     r.put(k + "game.spr_%s.seguidos" % sn, int(seg), "info")   # la cinta de la meta (P5)

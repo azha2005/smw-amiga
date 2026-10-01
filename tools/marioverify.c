@@ -555,7 +555,12 @@ static int run_sprload(const char *sprpath)
                     ram[wm_SprLoadStatus + ram[wm_SprIndexInLvl + k]] = 0;
             }
             ram[wm_SpriteStatus + k] = (u8)sj;
-            if (sj == 1 && si != 1) { expect |= (u8)(1 << k); ram[wm_SpriteStatus + k] = 0; }
+            /* nace en el 1, o (P85) como caparazon $DB: directo en el 9, numero 4-7 */
+            if ((sj == 1 && si != 1)
+                || (sj == 9 && si == 0 && orc(j, wm_SpriteNum + k) >= 4 && orc(j, wm_SpriteNum + k) <= 7)) {
+                expect |= (u8)(1 << k);
+                ram[wm_SpriteStatus + k] = 0;
+            }
         }
         mario_unsupported = 0;
         sprite_load_level();
@@ -743,7 +748,7 @@ static int run_sprloop(const char *sprpath, const char *mappath)
 static int game_ported(int n)
 {
     return n == 0xAB || n == 0xB9 || n == 0x83 || n == 0xBD || n == 0x02 || n == 0x9F || n == 0x4F
-        || n == 0x8E || n == 0xC7 || n == 0x95 || n == 0x7B;
+        || n == 0x8E || n == 0xC7 || n == 0x95 || n == 0x7B || (n >= 0x04 && n <= 0x07);
 }
 
 static const int scmp[] = { wm_SpriteStatus, wm_SpriteXLo, wm_SpriteXHi, wm_SpriteYLo,
@@ -915,7 +920,11 @@ static int run_game(const char *sprpath, const char *mappath)
                 if (was >= 8 && !ram[wm_SpriteStatus + k] && ram[wm_SprIndexInLvl + k] != 0xFF
                     && (sx < cx - 0x20 || sx > cx + 0x110))
                     ram[wm_SprLoadStatus + ram[wm_SprIndexInLvl + k]] = 0;
-                if (orc(i, wm_SpriteStatus + k) == 1 && (i == 0 || orc(i - 1, wm_SpriteStatus + k) != 1))
+                /* recien nacido (estado 1) o un caparazon $DB, que nace en el 9 (P85): lo
+                   crea sprite_load_level de este frame, no se copia */
+                if ((orc(i, wm_SpriteStatus + k) == 1 && (i == 0 || orc(i - 1, wm_SpriteStatus + k) != 1))
+                    || (orc(i, wm_SpriteStatus + k) == 9 && i > 0 && orc(i - 1, wm_SpriteStatus + k) == 0
+                        && orc(i, wm_SpriteNum + k) >= 4 && orc(i, wm_SpriteNum + k) <= 7))
                     ram[wm_SpriteStatus + k] = 0;
                 if (ram[wm_SpriteStatus + k]) sprite_tweakers((u8)k);
                 continue;

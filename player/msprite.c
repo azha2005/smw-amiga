@@ -254,6 +254,10 @@ static u8 sub_horiz_pos(u8 x)
     return (u8)(((u16)(m - s) & 0x8000) ? 1 : 0);
 }
 
+/* para spr_shell.c: la misma SubHorizPos (la static se sigue incorporando
+   en linea en los sitios de msprite.c) */
+u8 spr_horiz_pos(u8 x) { return sub_horiz_pos(x); }
+
 /* FlipSpriteDir: media vuelta (no si DecTbl5 corre: acaba de darla) */
 static void flip_sprite_dir(u8 x)
 {
@@ -519,6 +523,29 @@ l_B8:                                       /* _0193B8 */
     spr_obj_bit(x);
 }
 
+/* ++ de CODE_019140: un sprite con Tweaker190F bit 7 (los caparazones) pegado
+   a una pared se empuja 4 px hacia afuera (DATA_019284 / DATA_019285).
+   Extern (no engorda spr_obj_interact, que corre por cada sprite). Devuelve 1
+   si no esta portado (la pared de los dos lados: el hi sale de un byte de
+   codigo) */
+MSX int spr_obj_push(u8 x)
+{
+    u8 s = SPR(wm_SprObjStatus, x) & 0x03;
+    if (s == 3) {
+        spr_unsup();
+        return 1;
+    }
+    if (!SPR(wm_SpriteEatenTbl, x)) {
+        u16 v = (u16)((SPR(wm_SpriteXLo, x) | SPR(wm_SpriteXHi, x) << 8)
+                      + (u16)(tx_019284[s - 1] | tx_019285[s - 1] << 8));
+        SETSPR(wm_SpriteXLo, x, (u8)v);
+        SETSPR(wm_SpriteXHi, x, v >> 8);
+        if (!SPR(wm_SpriteSpeedX, x))
+            SETSPR(wm_SprObjStatus, x, SPR(wm_SprObjStatus, x) & 0xFC);
+    }
+    return 0;
+}
+
 /* CODE_019140 (nivel horizontal, capa 1, sin agua) */
 MSX void spr_obj_interact(u8 x)
 {
@@ -532,13 +559,18 @@ MSX void spr_obj_interact(u8 x)
     /* CODE_019211 */
     if (R8(wm_SpriteBuoyancy) || NEG(R8(wm_IsVerticalLvl))) { spr_unsup(); return; }
     if (!NEG(SPR(wm_Tweaker1686, x))) {
+        u8 y;
         spr_obj_vert(x);
-        if (NEG(SPR(wm_Tweaker190F, x)) && !(SPR(wm_SpriteSpeedX, x) | SPR(wm_SpriteDecTbl5, x))) {
-            spr_unsup();                    /* lados con la velocidad X a 0 */
-            return;
-        }
-        if (SPR(wm_SpriteSpeedX, x)) {      /* CODE_019288: el lado hacia donde va */
-            u8 y = (u8)(((SPR(wm_SpriteSpeedX, x) << 1) | (SPR(wm_SpriteSpeedX, x) >> 7)) & 1);
+        /* CODE_019288: el lado hacia donde va; parado y con Tweaker190F bit 7
+           (los caparazones), un lado por frame (_01928E con A = FrameA) */
+        y = SPR(wm_SpriteSpeedX, x);
+        if (y)
+            y = (u8)(((y << 1) | (y >> 7)) & 1);
+        else if (NEG(SPR(wm_Tweaker190F, x)) && !SPR(wm_SpriteDecTbl5, x))
+            y = R8(wm_FrameA) & 1;
+        else
+            y = 0xFF;
+        if (y != 0xFF) {
             a = spr_tile(x, y);
             W8(wm_SprOnTileXHi, a);
             if (a && R8(wm_Map16NumLo) >= 0x11 && R8(wm_Map16NumLo) < 0x6E) {
@@ -548,11 +580,8 @@ MSX void spr_obj_interact(u8 x)
             W8(wm_SprOnTileXLo, R8(wm_Map16NumLo));
         }
     }
-    /* ++ */
-    if (NEG(SPR(wm_Tweaker190F, x)) && (SPR(wm_SprObjStatus, x) & 0x03)) {
-        spr_unsup();                        /* empujar fuera de la pared */
+    if (NEG(SPR(wm_Tweaker190F, x)) && (SPR(wm_SprObjStatus, x) & 0x03) && spr_obj_push(x))
         return;
-    }
     if (SPR(wm_SprInWaterTbl, x) != R8(wm_CheckSprInter))
         spr_unsup();                        /* entrar/salir del agua */
 }
@@ -632,6 +661,9 @@ MSX int get_draw_info1(u8 x)
     return 1;
 }
 
+/* para spr_shell.c: GetDrawInfoBnk1 */
+int spr_draw_info1(u8 x) { return get_draw_info1(x); }
+
 /* SubOffscreen0Bnk3 (nivel horizontal) */
 MSX void sub_offscreen3(u8 x)
 {
@@ -705,12 +737,29 @@ static void stomp_bounce(void)
     mario_events |= MEV_SPRITE;
 }
 
+/* _01A924: el salto con giro (o Yoshi) sobre un sprite pisable lo deshace en
+   humo. Extern: tambien lo usa spr_shell.c (CODE_01AA42) */
+MSX void spr_spin_kill(u8 x)
+{
+    mario_events |= MEV_SPRITE;             /* DisplayContactGfx, CODE_07FC3B */
+    W8(wm_MarioSpeedY, 0xF8);
+    if (R8(wm_OnYoshi))
+        boost_mario();
+    SETSPR(wm_SpriteStatus, x, 0x04);       /* _019ACB */
+    SETSPR(wm_SpriteDecTbl1, x, 0x1F);
+    chain_points(x);
+    W8(wm_SoundCh1, 0x08);
+    if (SPR(wm_SpriteNum, x) == 0x1E)
+        spr_unsup();                        /* _01A9F2: Lakitu */
+}
+
 /* DefaultInteractR (sprite_1-main.s): el contacto de Mario con un sprite
    sin reaccion propia (Tweaker167A bit 7 = 0). Portado: el pisoton normal
    (rebote, puntos, aplastado / muerto / o solo rebote si es inmune), el
    salto con giro que lo deshace en humo y el dano a Mario (HurtMario:
-   MEV_HURT, como el Rex). Sin portar: estrella, deslizandose, caparazones,
-   sprites que al pisarlos se cambian por otro, aturdidos. */
+   MEV_HURT, como el Rex), patear / agarrar un sprite quieto (estado 9) y
+   aturdir al pisarlo (spr_shell.c). Sin portar: estrella, deslizandose,
+   sprites que al pisarlos se cambian por otro. */
 static void default_interact(u8 x)
 {
     u8 c;
@@ -724,7 +773,7 @@ static void default_interact(u8 x)
         return;
     SETSPR(wm_SpriteDecTbl2, x, 0x08);
     if (SPR(wm_SpriteStatus, x) == 0x09) {
-        spr_unsup();                        /* CODE_01AA42: patear o agarrar */
+        shell_kick_or_carry(x);             /* CODE_01AA42: patear o agarrar (spr_shell.c) */
         return;
     }
     /* CODE_01A897: m5/m11 = Y de la caja del sprite (GetSpriteClippingA) */
@@ -736,16 +785,7 @@ static void default_interact(u8 x)
         /* Mario por encima y bajando (o en cadena) */
         if (SPR(wm_Tweaker1656, x) & 0x10) {    /* CODE_01A91C: se puede pisar */
             if (R8(wm_IsSpinJump) | R8(wm_OnYoshi)) {   /* _01A924: se deshace en humo */
-                mario_events |= MEV_SPRITE; /* DisplayContactGfx, CODE_07FC3B */
-                W8(wm_MarioSpeedY, 0xF8);
-                if (R8(wm_OnYoshi))
-                    boost_mario();
-                SETSPR(wm_SpriteStatus, x, 0x04);   /* _019ACB */
-                SETSPR(wm_SpriteDecTbl1, x, 0x1F);
-                chain_points(x);
-                W8(wm_SoundCh1, 0x08);
-                if (SPR(wm_SpriteNum, x) == 0x1E)
-                    spr_unsup();            /* _01A9F2: Lakitu */
+                spr_spin_kill(x);
                 return;
             }
             stomp_bounce();                 /* CODE_01A947 */
@@ -774,7 +814,7 @@ static void default_interact(u8 x)
                     spr_unsup();            /* _01A9F2: Lakitu */
                 return;
             }
-            spr_unsup();                    /* CODE_01AA01: aturdido */
+            shell_stun(x);                  /* CODE_01AA01: aturdido (spr_shell.c) */
             return;
         }
         if (R8(wm_IsSpinJump) | R8(wm_OnYoshi)) {
@@ -945,9 +985,201 @@ static void info_box(u8 x)
     }
 }
 
+/* CODE_01A56D: dos sprites en estado 8 que se tocan se dan vuelta
+   (x = el de abajo, y = el que corre) */
+static void sprspr_bounce(u8 x, u8 y)
+{
+    u16 a, b;
+    u8 d, m0v, old;
+    a = (u16)(SPR(wm_SpriteXLo, x) | SPR(wm_SpriteXHi, x) << 8);
+    b = (u16)(SPR(wm_SpriteXLo, y) | SPR(wm_SpriteXHi, y) << 8);
+    m0v = (u8)(a >= b);                    /* ROL: el carry de la resta (sin prestamo) */
+    if (!(SPR(wm_Tweaker1686, y) & 0x10)) {
+        old = SPR(wm_SpriteDir, y);
+        SETSPR(wm_SpriteDir, y, m0v);
+        if (old != m0v && !SPR(wm_SpriteDecTbl5, y))
+            SETSPR(wm_SpriteDecTbl5, y, 0x08);
+    }
+    if (!(SPR(wm_Tweaker1686, x) & 0x10)) {
+        d = (u8)(m0v ^ 1);
+        old = SPR(wm_SpriteDir, x);
+        SETSPR(wm_SpriteDir, x, d);
+        if (old != d && !SPR(wm_SpriteDecTbl5, x))
+            SETSPR(wm_SpriteDecTbl5, x, 0x08);
+    }
+}
+
+/* CODE_01A77C: el Koopa sin caparazon ($02) que va hacia un caparazon
+   pateado lo agarra (sin portar). xx = el Koopa, yy = el caparazon.
+   Devuelve 1 si lo hace */
+static int sprspr_koopa02(u8 xx, u8 yy)
+{
+    if (SPR(wm_SpriteNum, xx) != 0x02 || SPR(wm_SprStompImmuneTbl, yy)
+        || SPR(wm_SpriteDir, xx) == SPR(wm_SpriteDir, yy))
+        return 0;
+    spr_unsup();
+    return 1;
+}
+
+/* el que mata por contacto (killer) suma la cadena de puntos; los puntos
+   mismos (GivePoints, CODE_02ACE1) y el humo (_01AB72) son graficos */
+static void sprspr_chain(u8 killer)
+{
+    u8 c = (u8)(SPR(wm_SprChainKillTbl, killer) + 1);
+    SETSPR(wm_SprChainKillTbl, killer, c);
+    if (c < 8)
+        W8(wm_SoundCh1, tx_01A61E[c - 1]);
+    mario_events |= MEV_SPRITE;
+}
+
+/* CODE_01A64A: el pateado / quieto en el aire (y) mata al otro (x) */
+static void sprspr_kill_x(u8 x, u8 y)
+{
+    sprspr_chain(y);
+    SETSPR(wm_SpriteStatus, x, 0x02);
+    SETSPR(wm_SpriteSpeedX, x, NEG(SPR(wm_SpriteSpeedX, y)) ? 0xF0 : 0x10);
+    SETSPR(wm_SpriteSpeedY, x, 0xD0);
+}
+
+/* CODE_01A5C4 / CODE_01A5DA: el pateado (x, el de abajo) mata al que corre
+   (y). Si el que corre es un bloque volador ($83 / $84) se da vuelta el
+   pateado: sin portar */
+static void sprspr_kill_y(u8 x, u8 y)
+{
+    if ((u8)(SPR(wm_SpriteNum, y) - 0x83) < 2) {
+        spr_unsup();
+        return;
+    }
+    if (sprspr_koopa02(y, x))
+        return;
+    sprspr_chain(x);
+    SETSPR(wm_SpriteStatus, y, 0x02);
+    SETSPR(wm_SpriteSpeedX, y, NEG(SPR(wm_SpriteSpeedX, x)) ? 0xF0 : 0x10);
+    SETSPR(wm_SpriteSpeedY, y, 0xD0);
+}
+
+/* CODE_01A625 / CODE_01A63D: el pateado (y, el que corre) mata al de abajo (x) */
+static void sprspr_kill_x_chk(u8 x, u8 y)
+{
+    if ((u8)(SPR(wm_SpriteNum, x) - 0x83) < 2) {
+        spr_unsup();                        /* bloque volador: se da vuelta (_01B4E2) */
+        return;
+    }
+    if (sprspr_koopa02(x, y))
+        return;
+    sprspr_kill_x(x, y);
+}
+
+/* CODE_01A685: los dos mueren (con $83 / $84 en medio: sin portar) */
+static void sprspr_both_die(u8 x, u8 y)
+{
+    u8 n = SPR(wm_SpriteNum, x), v;
+    if (n == 0x83 || n == 0x84) { spr_unsup(); return; }
+    SETSPR(wm_SpriteStatus, x, 0x02);
+    SETSPR(wm_SpriteSpeedY, x, 0xD0);
+    n = SPR(wm_SpriteNum, y);               /* _01A69D */
+    if (n != 0x80) {
+        if (n == 0x83 || n == 0x84) { spr_unsup(); return; }
+        SETSPR(wm_SpriteStatus, y, 0x02);
+        SETSPR(wm_SpriteSpeedY, y, 0xD0);
+    }
+    W8(wm_SoundCh1, 0x03);                  /* CODE_01AB6F: PlayKickSfx (+ humo) */
+    mario_events |= MEV_SPRITE;             /* GivePoints (4) */
+    v = NEG(SPR(wm_SpriteSpeedX, x)) ? 0x10 : 0xF0;
+    SETSPR(wm_SpriteSpeedX, x, v);
+    SETSPR(wm_SpriteSpeedX, y, (u8)-v);
+}
+
+/* CODE_01A6D9: un Koopa sin caparazon (Tweaker1656 bit 6) parado frente a
+   un caparazon se mete en el / lo patea (sin portar). xx = quien mira,
+   yy = el otro */
+static void sprspr_hop(u8 xx, u8 yy)
+{
+    u8 d, side = 0;
+    if (!(SPR(wm_SprObjStatus, xx) & 0x04) || !(SPR(wm_SprObjStatus, yy) & 0x04))
+        return;
+    if (!(SPR(wm_Tweaker1656, xx) & 0x40))
+        return;
+    if (SPR(wm_SpriteDecTbl3, yy) | SPR(wm_SpriteDecTbl3, xx))
+        return;
+    d = (u8)(SPR(wm_SpriteXLo, xx) - SPR(wm_SpriteXLo, yy));
+    if (!NEG(d))
+        side = 1;
+    if ((u8)(d + 8) < 0x10)
+        return;
+    if (SPR(wm_SpriteDir, xx) != side)
+        return;
+    spr_unsup();
+}
+
+/* CODE_01A540 + _01A555: el que corre (y) contra uno quieto (9, x): si el
+   de abajo esta en el aire, lo mata el pateado de abajo; si no, se dan
+   vuelta. Con hop = 1, antes pasa CODE_01A6D9 para los dos */
+static void sprspr_stun_hit(u8 x, u8 y, int hop)
+{
+    if (hop) {
+        sprspr_hop(x, y);
+        sprspr_hop(y, x);
+        if (SPR(wm_SpriteDecTbl3, x) | SPR(wm_SpriteDecTbl3, y))
+            return;
+    }
+    if (SPR(wm_SpriteStatus, x) != 0x09 || (SPR(wm_SprObjStatus, x) & 0x04)) {
+        sprspr_bounce(x, y);                /* CODE_01A56D */
+        return;
+    }
+    if (SPR(wm_SpriteNum, x) == 0x0F)
+        sprspr_both_die(x, y);
+    else
+        sprspr_kill_y(x, y);                /* CODE_01A56A -> CODE_01A5C4 */
+}
+
+/* CODE_01A4BA: lo que pasa cuando dos sprites (x = el de abajo, y = el que
+   corre) se tocan, segun los dos estados (8 normal, 9 aturdido, A pateado,
+   B llevado por Mario) */
+MSX void sprspr_react(u8 y, u8 x)       /* extern: vbcc no la incorpora en spr_spr_interact (P37) */
+{
+    u8 sy = SPR(wm_SpriteStatus, y), sx = SPR(wm_SpriteStatus, x);
+    if (sy == 0x08) {                       /* CODE_01A4CE */
+        if (sx == 0x08)      sprspr_bounce(x, y);
+        else if (sx == 0x09) sprspr_stun_hit(x, y, 1);
+        else if (sx == 0x0A) sprspr_kill_y(x, y);
+        else if (sx == 0x0B) sprspr_both_die(x, y);
+        return;
+    }
+    if (sy == 0x09) {                       /* CODE_01A4E2 */
+        if (SPR(wm_SprObjStatus, y) & 0x04) {   /* CODE_01A4F2: en el suelo */
+            if (sx == 0x08)      sprspr_stun_hit(x, y, 1);
+            else if (sx == 0x09) sprspr_stun_hit(x, y, 0);
+            else if (sx == 0x0A) sprspr_kill_y(x, y);
+            else if (sx == 0x0B) sprspr_both_die(x, y);
+            return;
+        }
+        if (SPR(wm_SpriteNum, y) == 0x0F) {
+            sprspr_both_die(x, y);
+            return;
+        }
+        sy = 0x0A;                          /* CODE_01A506 */
+    }
+    if (sy == 0x0A) {                       /* CODE_01A506 */
+        if (sx == 0x08)
+            sprspr_kill_x_chk(x, y);
+        else if (sx == 0x09) {              /* CODE_01A642 */
+            if (SPR(wm_SprObjStatus, x) & 0x04)
+                sprspr_kill_x(x, y);
+            else
+                sprspr_both_die(x, y);
+        } else if (sx == 0x0A || sx == 0x0B)
+            sprspr_both_die(x, y);
+        return;
+    }
+    if (sy == 0x0B && sx >= 0x08 && sx <= 0x0B)     /* CODE_01A51A */
+        sprspr_both_die(x, y);
+}
+
 /* SubSprSprInteract: la ranura y (la que corre) contra las de abajo.
-   Portado el caso estado 8 contra estado 8 (CODE_01A56D: se dan vuelta);
-   el resto marca mario_unsupported. */
+   Portados los estados 8, 9, A y B entre si (CODE_01A4BA); sin portar:
+   los bloques voladores ($83 / $84) en medio, el Koopa $02 agarrando un
+   caparazon, los puntos y el humo (graficos). */
 MSX void spr_spr_interact(u8 y)
 {
     int x;
@@ -955,7 +1187,6 @@ MSX void spr_spr_interact(u8 y)
         return;
     for (x = y - 1; x >= 0; x--) {
         u16 a, b;
-        u8 d, m0v, old;
         if (SPR(wm_SpriteStatus, x) < 0x08)
             continue;
         if ((((SPR(wm_Tweaker1686, x) | SPR(wm_Tweaker1686, y)) & 0x08) | SPR(wm_SpriteDecTbl4, x)
@@ -973,28 +1204,7 @@ MSX void spr_spr_interact(u8 y)
                   + ((SPR(wm_Tweaker1662, y) & 0x0F) ? 10 : 2));
         if ((u16)(a - b + 0x0C) >= 0x18)
             continue;
-        /* CODE_01A4BA */
-        if (SPR(wm_SpriteStatus, y) != 0x08 || SPR(wm_SpriteStatus, x) != 0x08) {
-            spr_unsup();
-            continue;
-        }
-        /* CODE_01A56D */
-        a = (u16)(SPR(wm_SpriteXLo, x) | SPR(wm_SpriteXHi, x) << 8);
-        b = (u16)(SPR(wm_SpriteXLo, y) | SPR(wm_SpriteXHi, y) << 8);
-        m0v = (u8)(a >= b);                /* ROL: el carry de la resta (sin prestamo) */
-        if (!(SPR(wm_Tweaker1686, y) & 0x10)) {
-            old = SPR(wm_SpriteDir, y);
-            SETSPR(wm_SpriteDir, y, m0v);
-            if (old != m0v && !SPR(wm_SpriteDecTbl5, y))
-                SETSPR(wm_SpriteDecTbl5, y, 0x08);
-        }
-        if (!(SPR(wm_Tweaker1686, x) & 0x10)) {
-            d = (u8)(m0v ^ 1);
-            old = SPR(wm_SpriteDir, x);
-            SETSPR(wm_SpriteDir, x, d);
-            if (old != d && !SPR(wm_SpriteDecTbl5, x))
-                SETSPR(wm_SpriteDecTbl5, x, 0x08);
-        }
+        sprspr_react(y, (u8)x);             /* CODE_01A4BA */
     }
 }
 
@@ -1415,5 +1625,9 @@ void sprite_run(u8 x)
     if (st == 0x03) { handle_smushed(x); return; }
     if (st == 0x04) { handle_spin_jump(x); return; }
     if (st == 0x06) { goal_lvlend(x); return; }    /* HandleSprLvlEnd (spr_goal.c) */
-    spr_unsup();                            /* muerto cayendo, aturdido... */
+    if (st >= 0x09 && st <= 0x0B) {         /* aturdido, pateado, llevado (spr_shell.c) */
+        shell_run(x, st);
+        return;
+    }
+    spr_unsup();                            /* muerto cayendo... */
 }
