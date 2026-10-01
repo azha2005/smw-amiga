@@ -23,7 +23,9 @@ son ciclos de CPU SIN DMA ni blitter (cota inferior, como scrollprof.py).
     python3 tools/gamecheck.py --engine musashi --no-scroll   # sin scroll_frame
     python3 tools/gamecheck.py --cams 5400,6500 # la camara en esos frames
     python3 tools/gamecheck.py --spr            # + mario_sprite (mspr.c, 6b.4)
-                                                #   contra un render de referencia
+                                                #   contra un render de referencia, y
+                                                #   mspr_draw (asm) suelto y con la cache
+                                                #   de dos buffers alternados (MA1)
 """
 import argparse
 import os
@@ -202,7 +204,14 @@ def main():
     if a.spr:
         cpu.write(B + syms["_gfx32"], struct.pack(">I", B + syms["gfx32"]))
         g32 = cpu.read(B + syms["gfx32"], 0x5D00)
-    sprbad = sprn = asmbad = 0
+    sprbad = sprn = asmbad = cachebad = 0
+    cyc_plain, cyc_cache = [], []
+    if a.spr:
+        # MA1: dos buffers de sprites que se alternan y NO se vuelven a rellenar,
+        # como g_spra / g_sprb en la Amiga (mspr_draw reusa lo que ya tienen)
+        for b in (BUFA, BUFB):
+            cpu.write(b, bytes([0x55]) * (8 * SPRW))
+    ctest = {"k": bytes(128), "flip": 0}            # fichas de la cache de la prueba
 
     rp = B + syms["replay"]
     nframes, first, nst = struct.unpack(">HHH", cpu.read(rp + 4, 6))
@@ -246,10 +255,16 @@ def main():
             cams[f] = (ram[0x1A] | ram[0x1B] << 8, want(f, 0x1A) | want(f, 0x1B) << 8)
         if a.spr and ops[k] != V.REP_SKIP:
             sprn += 1
-            if not spr_ok(cpu, B, syms, g32, False):
+            if not spr_ok(cpu, B, syms, g32, False)[0]:
                 sprbad += 1
-            if not spr_ok(cpu, B, syms, g32, True):
+            ok, cy = spr_ok(cpu, B, syms, g32, True)    # buffer suelto: siempre dibuja
+            if not ok:
                 asmbad += 1
+            cyc_plain.append(cy)
+            ok, cy = spr_cache(cpu, B, syms, g32, ctest)
+            if not ok:
+                cachebad += 1
+            cyc_cache.append(cy)
         if ops[k] == V.REP_SKIP:
             continue
         if ops[k] == V.REP_RUN:
@@ -268,6 +283,14 @@ def main():
         slow = struct.unpack(">H", cpu.read(B + syms["mspr_slow"], 2))[0]
         print("mario_sprite (vbcc) = referencia en %d de %d frames; mspr_draw (asm): %d "
               "(fue al C en %d)" % (sprn - sprbad, sprn, sprn - asmbad, slow))
+        print("mspr_draw con dos buffers alternados sin rellenar (como el juego): %d de %d"
+              % (sprn - cachebad, sprn))
+        if a.engine == "musashi" and cyc_cache:
+            for nm, cl in (("buffer suelto (siempre dibuja)", cyc_plain),
+                           ("buffers del juego (g_spra/g_sprb)", cyc_cache)):
+                print("  mspr_draw %s: media %.0f ciclos (%.1f %% del frame), peor %d (%.1f %%)"
+                      % (nm, sum(cl) / len(cl), 100 * sum(cl) / len(cl) / PAL_FRAME,
+                         max(cl), 100 * max(cl) / PAL_FRAME))
     for f in sorted(cams):
         print("  camara en el frame %d: %d (oraculo %d)" % (f, cams[f][0], cams[f][1]))
     if a.engine == "musashi" and costs:
@@ -277,7 +300,7 @@ def main():
               % (sum(c) / len(c), 100 * sum(c) / len(c) / PAL_FRAME, w[0], 100 * w[0] / PAL_FRAME, w[1]))
     if fr:
         parts_report(pstat)
-    return 1 if bad or (a.spr and (sprbad or asmbad)) else 0
+    return 1 if bad or (a.spr and (sprbad or asmbad or cachebad)) else 0
 
 
 def parts_report(pstat):
@@ -302,27 +325,46 @@ def parts_report(pstat):
 
 SPRW = 2 + 2 * 40 + 2           # mario.h: MSPR_WORDS
 SPRBUF = 0xE0000                # buffer de los sprites en la memoria del emulador
+BUFA, BUFB = 0xE2000, 0xE4000   # los dos buffers del juego (g_spra, g_sprb)
 
 
-def spr_ok(cpu, B, syms, g32, asm):
+def spr_cache(cpu, B, syms, g32, st):
+    """MA1: mspr_draw en un buffer que ya tenia una pose (BUFA/BUFB alternados, sin
+    rellenar), con g_spra/g_sprb = BUFA/BUFB y las fichas de la cache (mspr_kA/kB)
+    de la prueba; las del juego (si corre el scroll, con sus buffers) se guardan y
+    se devuelven, para no tocar lo que esa corrida cree que tienen sus buffers"""
+    ka, gs = B + syms["mspr_kA"], B + syms["g_spra"]
+    saved = (cpu.read(ka, 128), cpu.read(gs, 8))
+    cpu.write(ka, st["k"])
+    cpu.write(gs, struct.pack(">II", BUFA, BUFB))
+    res = spr_ok(cpu, B, syms, g32, True, BUFA if st["flip"] else BUFB, False)
+    st["k"] = cpu.read(ka, 128)
+    st["flip"] ^= 1
+    cpu.write(ka, saved[0])
+    cpu.write(gs, saved[1])
+    return res
+
+
+def spr_ok(cpu, B, syms, g32, asm, buf=SPRBUF, fill=True):
     """_mario_sprite(SPRBUF, $2C, $A0) (o mspr_draw con a2 = SPRBUF, asm)
     decodificado = render de la OAM de Mario (mario_oam) con la VRAM armada
     como el DMA del NMI (ver marioverify mspr)"""
     st = V.STACK - 4
-    cpu.write(st + 4, struct.pack(">III", SPRBUF, 0x2C, 0xA0))
-    cpu.write(SPRBUF, bytes([0x55]) * (8 * SPRW))
-    call_args(cpu, B + syms["mspr_draw" if asm else "_mario_sprite"], B, SPRBUF)
+    cpu.write(st + 4, struct.pack(">III", buf, 0x2C, 0xA0))
+    if fill:
+        cpu.write(buf, bytes([0x55]) * (8 * SPRW))
+    cy = call_args(cpu, B + syms["mspr_draw" if asm else "_mario_sprite"], B, buf)
     ram = cpu.read(B + syms["_ram"], 0x2000)
     oam = cpu.read(B + syms["_mario_oam"], 16)
     osz = cpu.read(B + syms["_mario_osz"], 4)
-    sp = struct.unpack(">%dH" % (4 * SPRW), cpu.read(SPRBUF, 8 * SPRW))
+    sp = struct.unpack(">%dH" % (4 * SPRW), cpu.read(buf, 8 * SPRW))
     got = {}
     for col in range(2):
         a, b = sp[2 * col * SPRW:(2 * col + 1) * SPRW], sp[(2 * col + 1) * SPRW:(2 * col + 2) * SPRW]
         if a[0] == 0 and a[1] == 0:
             continue
         if not b[1] & 0x80:
-            return False
+            return False, cy
         vs = (a[0] >> 8) | ((a[1] >> 2) & 1) << 8
         ve = (a[1] >> 8) | ((a[1] >> 1) & 1) << 8
         hs = ((a[0] & 0xFF) << 1) | (a[1] & 1)
@@ -366,7 +408,7 @@ def spr_ok(cpu, B, syms, g32, asm):
                     want[(ex + u, ey + v)] = c
     want = {k: v for k, v in want.items() if 0 <= k[0] < 256 and 0 <= k[1] < 240}
     got = {k: v for k, v in got.items() if 0 <= k[0] < 256 and 0 <= k[1] < 240}
-    return got == want
+    return got == want, cy
 
 
 def call_args(cpu, adr, a4, a2=0):
@@ -378,7 +420,7 @@ def call_args(cpu, adr, a4, a2=0):
         cpu.cpu.w_reg(M.Register.A7, V.STACK - 4)
         cpu.mem.w32(V.STACK - 4, V.RET)
         cpu.cpu.w_pc(adr)
-        cpu.m.execute(10_000_000)
+        return cpu.m.execute(10_000_000).cycles - 34    # (la excepcion de linea A del final)
     else:
         from unicorn.m68k_const import UC_M68K_REG_A2
         cpu.uc.reg_write(UC_M68K_REG_A2, a2)
@@ -386,6 +428,7 @@ def call_args(cpu, adr, a4, a2=0):
         cpu.uc.reg_write(cpu.A7, V.STACK - 4)
         cpu.uc.mem_write(V.STACK - 4, struct.pack(">I", V.RET))
         cpu.uc.emu_start(adr, V.RET)
+        return 0
 
 
 if __name__ == "__main__":
