@@ -542,9 +542,13 @@ static int run_sprload(const char *sprpath)
         take(j, wm_Layer1ScrollDir); take(j, wm_FrameA);
         for (k = 0; k < 12; k++) {
             int si = orc(i, wm_SpriteStatus + k), sj = orc(j, wm_SpriteStatus + k);
-            if (si == 8 && sj == 0 && ram[wm_SprIndexInLvl + k] != 0xFF) {
+            if (si == 8 && sj <= 1 && ram[wm_SprIndexInLvl + k] != 0xFF) {
                 /* salio de pantalla (y no murio a la vista: un salto con
-                   giro mata de 8 a 0 y el indice queda cargado) */
+                   giro mata de 8 a 0 y el indice queda cargado). sj == 1: el
+                   cargador metio OTRO sprite en la ranura que acaba de dejar
+                   libre, en el mismo frame (P2: en diagpipe un Rex sale por
+                   la derecha y la piranha $4F nace en su ranura): el indice
+                   del primero tambien se libera, o el Rex no vuelve a nacer */
                 int sx = orc(i, wm_SpriteXLo + k) | orc(i, wm_SpriteXHi + k) << 8;
                 int cx = orc(i, wm_Bg1HOfs) | orc(i, wm_Bg1HOfs + 1) << 8;
                 if (sx < cx - 0x20 || sx > cx + 0x110)
@@ -816,8 +820,21 @@ static int run_game(const char *sprpath, const char *mappath)
             mario_unsupported = 0;
             if (orc(i, wm_MarioAnimation) || orc(i, wm_SpritesLocked))
                 same = 0;                       /* el primer frame no se corre */
-            else
-                level_start_sprites();
+            else {
+                level_start_sprites();      /* LoadLevel + PrepareLevel: el estado de antes del frame C */
+                /* P1: el primer registro de un tramo de snesorc (rec on despues de
+                   "until $0100==14") es el del primer frame del nivel YA corrido (C:
+                   GameMode $14, tercera pasada de CODE_01808C), no el del ultimo frame
+                   del mosaico (oracle_yi1, la partida del port): ahi la camara todavia
+                   no consumio wm_ScrScrollToPlayer ($1404 != 0). Sin esa tercera
+                   pasada los temporizadores de los sprites iniciales (DecTbl1 = 4 del
+                   Koopa deslizante) llevan un descuento de menos */
+                if (orc(i, wm_ScrScrollToPlayer) == 0) {
+                    sprites_begin();
+                    sprites_all();
+                    sprite_load_level();
+                }
+            }
             for (k = 0; k < 12 && same; k++) same &= spr_same(i, k);
             if (same) {
                 lstart++;
