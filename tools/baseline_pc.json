@@ -1,6 +1,6 @@
 {
  "_meta": {
-  "commit": "daba296+cambios",
+  "commit": "79e1207",
   "fecha": "2026-10-01",
   "nota": "tools/regress.py; las medidas emu.* dependen del emulador"
  },
@@ -42,11 +42,11 @@
  },
  "game.mspr_draw.max": {
   "how": "min",
-  "value": 10526
+  "value": 7750
  },
  "game.mspr_draw.media": {
   "how": "min",
-  "value": 10393
+  "value": 4169
  },
  "game.resto.max": {
   "how": "min",
@@ -58,11 +58,11 @@
  },
  "game.total.max": {
   "how": "min",
-  "value": 138694
+  "value": 135290
  },
  "game.total.media": {
   "how": "min",
-  "value": 52051
+  "value": 45828
  },
  "game.total.pasados": {
   "how": "min",
