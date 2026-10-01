@@ -1,6 +1,6 @@
 {
  "_meta": {
-  "commit": "02ad234",
+  "commit": "f332d39",
   "fecha": "2026-10-01",
   "nota": "tools/regress.py; las medidas emu.* dependen del emulador"
  },
@@ -34,11 +34,11 @@
  },
  "game.level_frame.max": {
   "how": "min",
-  "value": 45084
+  "value": 45096
  },
  "game.level_frame.media": {
   "how": "min",
-  "value": 32499
+  "value": 32506
  },
  "game.mspr_draw.max": {
   "how": "min",
@@ -58,11 +58,11 @@
  },
  "game.total.max": {
   "how": "min",
-  "value": 141366
+  "value": 141378
  },
  "game.total.media": {
   "how": "min",
-  "value": 54668
+  "value": 54674
  },
  "game.total.pasados": {
   "how": "min",
@@ -102,15 +102,15 @@
  },
  "m68k.spr.ciclos_max": {
   "how": "min",
-  "value": 45054
+  "value": 45066
  },
  "m68k.spr.ciclos_media": {
   "how": "min",
-  "value": 32480
+  "value": 32486
  },
  "m68k.spr.ciclos_p99": {
   "how": "min",
-  "value": 42688
+  "value": 42700
  },
  "m68k.spr.resync": {
   "how": "min",
@@ -163,6 +163,58 @@
  "orc.banzai.sprload.exactos": {
   "how": "max",
   "value": 2
+ },
+ "orc.chuck.full.ok": {
+  "how": "max",
+  "value": 2820
+ },
+ "orc.chuck.full.tot": {
+  "how": "eq",
+  "value": 2839
+ },
+ "orc.chuck.game.resync": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.chuck.game.spr_95.exactos": {
+  "how": "max",
+  "value": 450
+ },
+ "orc.chuck.game.spr_95.seguidos": {
+  "how": "info",
+  "value": 450
+ },
+ "orc.chuck.game.spr_distintos": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.chuck.game.tramo": {
+  "how": "max",
+  "value": 2839
+ },
+ "orc.chuck.gfx.oam_ok": {
+  "how": "max",
+  "value": 2990
+ },
+ "orc.chuck.gfx.scr_ok": {
+  "how": "max",
+  "value": 2990
+ },
+ "orc.chuck.loop.resync": {
+  "how": "min",
+  "value": 19
+ },
+ "orc.chuck.loop.tramo": {
+  "how": "max",
+  "value": 567
+ },
+ "orc.chuck.sprload.distintos": {
+  "how": "min",
+  "value": 1
+ },
+ "orc.chuck.sprload.exactos": {
+  "how": "max",
+  "value": 33
  },
  "orc.diagpipe.full.ok": {
   "how": "max",
