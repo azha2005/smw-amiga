@@ -10,10 +10,26 @@ tools/baseline.json. Ver ROADMAP.md, regla V1.
     python3 tools/regress.py --level         # + conversor del nivel (render_d.py, numpy)
     python3 tools/regress.py --emu logic,scrollbench,scrollimg   # + FS-UAE (minutos)
     python3 tools/regress.py --shots DIR     # lee capturas ya hechas (p. ej. WinUAE en la PC):
-                                             #   DIR/logicbench.png, DIR/scrollb.png
+                                             #   DIR/logicbench.png, DIR/scrollb.png y
+                                             #   DIR/game_bench.png (game.s -DBENCH, O1 / 6b.6:
+                                             #   game_read.py --auto -> emu.game.<parte>_pct)
     python3 tools/regress.py --update        # la medida actual pasa a ser la base
     python3 tools/regress.py --accept-last   # la base toma lo medido en la ultima corrida
                                              # (work/regress_last.json), sin volver a correr
+
+Siempre que haya 68000 (no --quick) corre ademas, en Musashi (O3, Etapa 9.1),
+el peor frame del JUEGO ENTERO por parte: `gamecheck.py --engine musashi`
+arma game.s -DREPLAY (tools/game_build.sh, en work/rg_game) y corre el replay
+con game_step + cam_to_s + mario_draw + scroll_frame, como el bucle de game.s.
+Da `game.<parte>.max` y `.media` (ciclos de CPU SIN DMA ni blitter: cota
+inferior) de las mismas 7 partes que game.s -DBENCH (entrada, level_frame,
+mspr_draw, columna, build_mid, resto de scroll_frame, total), mas
+`game.total.pasados` (frames con el total por encima de un frame PAL) y
+`game.diferencias` (gamecheck: frames que no coinciden con el oraculo). Y el
+scroll solo, con scrollprof.py, a la ida y a la vuelta (`-D RETURN=4864
+--stopx 0`): `scroll.ida.*` y `scroll.vuelta.*` (`.max`, `.media`). Las
+capturas de WinUAE de game.s -DBENCH (`--shots DIR` con DIR/game_bench.png)
+dan lo mismo con DMA: `emu.game.<parte>_pct`. Ver P80 en AGENTS.md.
 
 Cada metrica tiene una direccion:
     eq    tiene que dar exactamente lo mismo (un cambio = cambio de alcance)
@@ -373,6 +389,76 @@ def read_scrollbench(r, shot):
         r.put("emu.scroll.%s_max_pct" % k, float(mx), "min", TOL["pct"])
 
 
+GAME_PARTS = ("entrada", "level_frame", "mspr_draw", "columna", "build_mid", "resto", "total")
+
+
+def game_checks(r):
+    """O3: el peor frame por parte del juego entero (Musashi) y el scroll a la
+    ida y a la vuelta. Necesita work/cc/*.s (logicbench_build.sh, ya corrido
+    por build())"""
+    try:
+        import machine68k  # noqa: F401
+    except ImportError:
+        return                                  # m68k_checks ya lo aviso
+    v = vbcc_dir()
+    if not v:
+        r.note("game (Musashi)", False, "no encuentro vbcc (VBCC=...): sin game.bin")
+        return
+    out_dir = "work/rg_game"
+    env = dict(os.environ, VBCC=v, NOCC="1", OUT=out_dir)
+    code, out = sh(["sh", "tools/game_build.sh"], env=env, timeout=1800)
+    r.logs["game_build"] = out
+    if code:
+        r.note("game_build", False, "codigo %d: %s" % (code, out[-400:]))
+        return
+    r.note("game_build", True, "%s/game.bin (game.s -DREPLAY)" % out_dir)
+    code, out = sh([PY, "tools/gamecheck.py", "--engine", "musashi", "--bin", out_dir + "/game.bin",
+                    "--lst", out_dir + "/game.lst"], timeout=1800)
+    r.logs["gamecheck"] = out
+    t = num(r"frames que no coinciden con el oraculo: (\d+)", out)
+    if t:
+        r.put("game.diferencias", t[0], "min")
+    rows = re.findall(r"^\s+(\w+)\s+max\s+(\d+)\s+media\s+(\d+)\s+\(", out, re.M)
+    if len(rows) != len(GAME_PARTS) or [x[0] for x in rows] != list(GAME_PARTS):
+        r.note("gamecheck (partes)", False, "codigo %d: %s" % (code, out[-400:]))
+        return
+    for name, mx, media in rows:
+        r.put("game.%s.max" % name, int(mx), "min", TOL["cyc"])
+        r.put("game.%s.media" % name, int(media), "min", TOL["cyc"])
+    t = num(r"por encima de un frame PAL \(\d+ ciclos\): (\d+) de (\d+)", out)
+    if t:
+        r.put("game.total.pasados", t[0], "min")
+    if code:
+        r.note("gamecheck", False, "el replay no sigue al oraculo: %s" % out.strip().splitlines()[0][:200])
+    for key, extra in (("ida", []), ("vuelta", ["-D", "RETURN=4864", "--stopx", "0"])):
+        code, out = sh([PY, "tools/scrollprof.py"] + extra, timeout=1800)
+        r.logs["scrollprof " + key] = out
+        t = num(r"media (\d+) = [\d.]+ %\s+max (\d+) = [\d.]+ % \(s = (\d+)\)", out)
+        if code or not t:
+            r.note("scrollprof " + key, False, "codigo %d: %s" % (code, out[-300:]))
+            continue
+        r.put("scroll.%s.media" % key, t[0], "min", TOL["cyc"])
+        r.put("scroll.%s.max" % key, t[1], "min", TOL["cyc"])
+        r.put("scroll.%s.max_s" % key, t[2], "info")
+
+
+def read_game(r, shot):
+    """DIR/game_bench.png: la tabla de game.s -DBENCH (O1) con game_read.py"""
+    code, out = sh([PY, "tools/game_read.py", "--shot", shot, "--auto"])
+    r.logs["game_read"] = out
+    rows = re.findall(r"^(entrada|level_frame|mspr_draw|columna|build_mid|resto|total)\b.*?\s"
+                      r"\d+\s+\d+\s+([\d.]+)%\s+\d+\s+\d+\s+(\d+)\s*$", out, re.M)
+    t = num(r"total medio\s*:\s*\d+ ticks = ([\d.]+)% del frame; (\d+) frames pasaron", out, float)
+    if code or len(rows) != len(GAME_PARTS) or not t:
+        r.note("game_bench (captura)", False, out[-300:])
+        return
+    for name, pct, sx in rows:
+        r.put("emu.game.%s_pct" % name, float(pct), "min", TOL["pct"])
+        r.put("emu.game.%s_s" % name, int(sx), "info")
+    r.put("emu.game.media_pct", t[0], "min", TOL["pct"])
+    r.put("emu.game.pasados", int(t[1]), "min", TOL["pct"])
+
+
 def vasm():
     v = vbcc_dir()
     return os.path.join(v, "bin", "vasmm68k_mot" + (".exe" if os.path.exists(
@@ -505,12 +591,14 @@ def main():
         orc_checks(r)
     if ok_68k:
         m68k_checks(r, pc)
+        game_checks(r)
     if a.level:
         level_checks(r)
     if a.emu:
         emu_checks(r, set(a.emu.split(",")), [int(x) for x in a.scroll_x.split(",")])
     if a.shots:
-        for f, fn in (("logicbench.png", read_logic), ("scrollb.png", read_scrollbench)):
+        for f, fn in (("logicbench.png", read_logic), ("scrollb.png", read_scrollbench),
+                      ("game_bench.png", read_game)):
             p = os.path.join(a.shots, f)
             if os.path.exists(p):
                 fn(r, p)
