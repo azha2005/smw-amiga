@@ -1,8 +1,72 @@
 {
  "_meta": {
-  "commit": "ab510d1",
-  "fecha": "2026-09-30",
+  "commit": "e104399",
+  "fecha": "2026-10-01",
   "nota": "tools/regress.py; las medidas emu.* dependen del emulador"
+ },
+ "game.build_mid.max": {
+  "how": "min",
+  "value": 90248
+ },
+ "game.build_mid.media": {
+  "how": "min",
+  "value": 8581
+ },
+ "game.columna.max": {
+  "how": "min",
+  "value": 3516
+ },
+ "game.columna.media": {
+  "how": "min",
+  "value": 426
+ },
+ "game.diferencias": {
+  "how": "min",
+  "value": 0
+ },
+ "game.entrada.max": {
+  "how": "min",
+  "value": 648
+ },
+ "game.entrada.media": {
+  "how": "min",
+  "value": 637
+ },
+ "game.level_frame.max": {
+  "how": "min",
+  "value": 45084
+ },
+ "game.level_frame.media": {
+  "how": "min",
+  "value": 32499
+ },
+ "game.mspr_draw.max": {
+  "how": "min",
+  "value": 10526
+ },
+ "game.mspr_draw.media": {
+  "how": "min",
+  "value": 10393
+ },
+ "game.resto.max": {
+  "how": "min",
+  "value": 6448
+ },
+ "game.resto.media": {
+  "how": "min",
+  "value": 1243
+ },
+ "game.total.max": {
+  "how": "min",
+  "value": 141366
+ },
+ "game.total.media": {
+  "how": "min",
+  "value": 54668
+ },
+ "game.total.pasados": {
+  "how": "min",
+  "value": 0
  },
  "m68k.full.ciclos_max": {
   "how": "min",
@@ -435,5 +499,29 @@
  "pc.sprloop.seguidos": {
   "how": "info",
   "value": 2684
+ },
+ "scroll.ida.max": {
+  "how": "min",
+  "value": 86672
+ },
+ "scroll.ida.max_s": {
+  "how": "info",
+  "value": 4584
+ },
+ "scroll.ida.media": {
+  "how": "min",
+  "value": 17865
+ },
+ "scroll.vuelta.max": {
+  "how": "min",
+  "value": 135498
+ },
+ "scroll.vuelta.max_s": {
+  "how": "info",
+  "value": 2832
+ },
+ "scroll.vuelta.media": {
+  "how": "min",
+  "value": 36133
  }
 }
