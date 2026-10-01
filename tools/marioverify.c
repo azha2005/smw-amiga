@@ -743,7 +743,7 @@ static int run_sprloop(const char *sprpath, const char *mappath)
 static int game_ported(int n)
 {
     return n == 0xAB || n == 0xB9 || n == 0x83 || n == 0xBD || n == 0x02 || n == 0x9F || n == 0x4F
-        || n == 0x8E || n == 0xC7 || n == 0x95;
+        || n == 0x8E || n == 0xC7 || n == 0x95 || n == 0x7B;
 }
 
 static const int scmp[] = { wm_SpriteStatus, wm_SpriteXLo, wm_SpriteXHi, wm_SpriteYLo,
@@ -786,7 +786,10 @@ static int run_game(const char *sprpath, const char *mappath)
     static long sfr[256], sok[256];
     long i, frames = 0, resync = 0, longest = 0, cur = 0, rexf = 0, rexok = 0, lstart = 0;
     long cause[NFF + 2];
-    int k, c, synced = 0, follow[12] = {0}, shown = 0, pnum[12], fresh = 0, skip, hurt;
+    int k, c, synced = 0, follow[12] = {0}, shown = 0, pnum[12], pst[12], fresh = 0, skip, hurt;
+    long cuts = 0, cutvars = 0, cutok = 0;
+    /* P5: lo que la cinta de la meta ($7B) escribe al cortarse (todo en el rango grabado) */
+    static const int goalvars[] = { wm_SecretGoalSprite, wm_EndLevelTimer, wm_StarPowerTimer, wm_PBalloonFrame };
     size_t mlen;
     FILE *f = fopen(sprpath, "rb");
     if (!f) { perror(sprpath); return 2; }
@@ -899,6 +902,7 @@ static int run_game(const char *sprpath, const char *mappath)
         hurt = 0;
         if (!mario_unsupported) sprites_begin();
         for (k = 0; k < 12; k++) pnum[k] = follow[k] ? ram[wm_SpriteNum + k] : -1;
+        for (k = 0; k < 12; k++) pst[k] = ram[wm_SpriteStatus + k];
         for (k = 11; k >= 0; k--) {
             if (!follow[k]) {
                 int was = ram[wm_SpriteStatus + k];
@@ -942,6 +946,18 @@ static int run_game(const char *sprpath, const char *mappath)
             if (((spr_spawned >> k) & 1) && game_ported(ram[wm_SpriteNum + k]))
                 follow[k] = 1;
         frames++;
+        for (k = 0; k < 12; k++)                /* la cinta pasa de 8 a 6: las variables del corte */
+            if (pnum[k] == 0x7B && pst[k] == 0x08 && ram[wm_SpriteStatus + k] == 0x06) {
+                int j;
+                cuts++;
+                for (j = 0; j < 4; j++, cutvars++) {
+                    int same = ram[goalvars[j]] == orc(i, goalvars[j]);
+                    cutok += same;
+                    if (!same)
+                        printf("  corte de la cinta, frame %u: [%04X] port %02X oraculo %02X\n",
+                               frame_of(i), goalvars[j], ram[goalvars[j]], orc(i, goalvars[j]));
+                }
+            }
         for (k = 0; k < 12; k++) {
             int okr, n;
             if (!follow[k]) continue;
@@ -996,6 +1012,8 @@ static int run_game(const char *sprpath, const char *mappath)
            frames, resync, longest);
     printf("       Rex seguidos: %ld Rex-frames, exactos %ld\n", rexf, rexok);
     printf("       tramos que empiezan al principio del nivel: %ld\n", lstart);
+    if (cuts)
+        printf("       cortes de la cinta $7B: %ld, variables del corte exactas: %ld/%ld\n", cuts, cutok, cutvars);
     for (k = 0; k < 256; k++)
         if (sfr[k]) printf("       sprite %02X: seguidos %ld exactos %ld\n", k, sfr[k], sok[k]);
     printf("       primer campo distinto:");

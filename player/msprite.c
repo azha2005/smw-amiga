@@ -610,7 +610,7 @@ int get_draw_info(u8 x)
    OJO: con un puntero u8 *p = &RX8(wm_SpriteXLo, x) y p[t - wm_SpriteXLo]
    vbcc -O=991 cargo en el puntero la base de OTRA tabla (XHi) y leyo mal
    todo (el PC, bien): se queda con SPR(). */
-static int get_draw_info1(u8 x)
+MSX int get_draw_info1(u8 x)
 {
     u16 d;
     u8 v;
@@ -1337,6 +1337,7 @@ static void sprite_main(u8 x, u8 n)
     if (n == 0x8E) { warp_blocks(x); return; }
     if (n == 0xC7) { invis_mushroom(x); return; }
     if (n == 0x95) { chuck_main(x); return; }
+    if (n == 0x7B) { goal_tape(x); return; }
     spr_unsup();
 }
 
@@ -1398,6 +1399,7 @@ void sprite_run(u8 x)
             return;
         }
         if (n == 0x95) { chuck_init(x); return; }   /* InitClappinChuck (spr_chuck.c) */
+        if (n == 0x7B) { goal_init(x); return; }    /* InitGoalTape (spr_goal.c) */
         if (n == 0x9F) {                    /* InitBanzai: solo si Mario esta a la izquierda */
             SETSPR(wm_SpriteStatus, x, 0x08);
             if (!sub_horiz_pos(x))
@@ -1412,5 +1414,6 @@ void sprite_run(u8 x)
     if (st == 0x02) { handle_killed(x); return; }
     if (st == 0x03) { handle_smushed(x); return; }
     if (st == 0x04) { handle_spin_jump(x); return; }
+    if (st == 0x06) { goal_lvlend(x); return; }    /* HandleSprLvlEnd (spr_goal.c) */
     spr_unsup();                            /* muerto cayendo, aturdido... */
 }

@@ -233,7 +233,7 @@ def game_sprite_checks(r, out):
 
 # oraculos guionizados de snesorc (tools/snesorc/*.orc -> work/oracle_X.txt,
 # en git): el .bin se regenera si falta o si el .txt es mas nuevo
-SNESORC = ("normal", "diagpipe", "hills", "banzai", "chuck")
+SNESORC = ("normal", "diagpipe", "hills", "banzai", "chuck", "goal")
 
 
 def orc_checks(r):
