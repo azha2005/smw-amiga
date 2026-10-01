@@ -81,13 +81,21 @@ WANT_CHUCK = [
     ("sprite_2-1.s", "DATA_02C79B", "tc_02C79B"),
 ]
 
+# Cinta de meta $7B (P5): igual, bajo SMWTABX_GOAL (player/spr_goal.c)
+WANT_GOAL = [
+    ("sprite_1-1.s", "DATA_01C0A5", "tg_01C0A5"),
+    ("sprite_tables.s", "DATA_07F1AA", "tg_07F1AA"),
+]
+
 
 def main():
     cache = {}
     with open(os.path.join(OUT, "smwtabx.h"), "w") as f:
         f.write("/* GENERADO por tools/smwtabx.py desde el fuente: no editar ni versionar */\n")
         f.write("#ifndef SMWTABX_H\n#define SMWTABX_H\n")
-        for sect, want in (("#ifndef SMWTABX_CHUCK\n", WANT), ("#else\n", WANT_CHUCK)):
+        for sect, want in (("#if !defined(SMWTABX_CHUCK) && !defined(SMWTABX_GOAL)\n", WANT),
+                           ("#elif defined(SMWTABX_CHUCK)\n", WANT_CHUCK),
+                           ("#else\n", WANT_GOAL)):
             f.write(sect)
             for fn, lab, name in want:
                 if fn not in cache:
@@ -98,7 +106,7 @@ def main():
                 f.write("static const unsigned char %s[%d] = {%s};\n"
                         % (name, len(d), ",".join(str(b) for b in d)))
         f.write("#endif\n#endif\n")
-    print("smwtabx.h: %d tablas (+ %d del Chuck)" % (len(WANT), len(WANT_CHUCK)))
+    print("smwtabx.h: %d tablas (+ %d del Chuck, + %d de la meta)" % (len(WANT), len(WANT_CHUCK), len(WANT_GOAL)))
 
 
 if __name__ == "__main__":

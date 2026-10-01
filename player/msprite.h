@@ -64,6 +64,12 @@ void spr_obj_interact(u8 x);
 void chuck_main(u8 x);
 void chuck_init(u8 x);
 
+/* spr_goal.c (P5: cinta de meta $7B y estado 6) */
+int get_draw_info1(u8 x);       /* msprite.c: GetDrawInfoBnk1 (solo los flags) */
+void goal_init(u8 x);
+void goal_tape(u8 x);
+void goal_lvlend(u8 x);
+
 /* spr_rex.c */
 void rex_contact(u8 x);
 
