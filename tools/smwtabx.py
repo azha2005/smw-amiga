@@ -81,13 +81,27 @@ WANT_CHUCK = [
     ("sprite_2-1.s", "DATA_02C79B", "tc_02C79B"),
 ]
 
+# Tablas de los caparazones (P4, player/spr_shell.c): bloque #ifdef
+# SMWTABX_SHELL, igual que el del Chuck (P36/P78).
+WANT_SHELL = [
+    ("sprite_1-main.s", "DATA_0197AF", "ts_0197AF"),
+    ("sprite_1-main.s", "ShellSpeedX", "ts_ShellSpeedX"),
+    ("sprite_1-main.s", "DATA_019F5B", "ts_019F5B"),
+    ("sprite_1-main.s", "DATA_019F61", "ts_019F61"),
+    ("sprite_1-main.s", "DATA_019F67", "ts_019F67"),
+    ("sprite_1-main.s", "DATA_019F69", "ts_019F69"),
+    ("sprite_1-main.s", "DATA_019F99", "ts_019F99"),
+]
+
 
 def main():
     cache = {}
     with open(os.path.join(OUT, "smwtabx.h"), "w") as f:
         f.write("/* GENERADO por tools/smwtabx.py desde el fuente: no editar ni versionar */\n")
         f.write("#ifndef SMWTABX_H\n#define SMWTABX_H\n")
-        for sect, want in (("#ifndef SMWTABX_CHUCK\n", WANT), ("#else\n", WANT_CHUCK)):
+        for sect, want in (("#if defined(SMWTABX_CHUCK)\n", WANT_CHUCK),
+                           ("#elif defined(SMWTABX_SHELL)\n", WANT_SHELL),
+                           ("#else\n", WANT)):
             f.write(sect)
             for fn, lab, name in want:
                 if fn not in cache:
@@ -98,7 +112,8 @@ def main():
                 f.write("static const unsigned char %s[%d] = {%s};\n"
                         % (name, len(d), ",".join(str(b) for b in d)))
         f.write("#endif\n#endif\n")
-    print("smwtabx.h: %d tablas (+ %d del Chuck)" % (len(WANT), len(WANT_CHUCK)))
+    print("smwtabx.h: %d tablas (+ %d del Chuck, + %d de los caparazones)"
+          % (len(WANT), len(WANT_CHUCK), len(WANT_SHELL)))
 
 
 if __name__ == "__main__":

@@ -67,4 +67,13 @@ void chuck_init(u8 x);
 /* spr_rex.c */
 void rex_contact(u8 x);
 
+/* spr_shell.c (P4: caparazones, estados 9 / A / B de los Koopas $04-$07) */
+void shell_run(u8 x, u8 st);
+void shell_kick_or_carry(u8 x);         /* CODE_01AA42: Mario toca un sprite quieto */
+void shell_stun(u8 x);                  /* CODE_01AA01: Mario lo pisa y queda aturdido */
+/* de msprite.c, para spr_shell.c */
+u8 spr_horiz_pos(u8 x);                 /* SubHorizPos (Y = 1 si Mario esta a la izquierda) */
+int spr_draw_info1(u8 x);               /* GetDrawInfoBnk1 */
+void spr_spin_kill(u8 x);               /* _01A924: salto con giro sobre un sprite pisable */
+
 #endif
