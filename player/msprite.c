@@ -520,7 +520,7 @@ l_B8:                                       /* _0193B8 */
 }
 
 /* CODE_019140 (nivel horizontal, capa 1, sin agua) */
-MSS void spr_obj_interact(u8 x)
+MSX void spr_obj_interact(u8 x)
 {
     u8 a;
     W8(wm_SprMoveDownPixels, 0);
@@ -1336,6 +1336,7 @@ static void sprite_main(u8 x, u8 n)
     if (n == 0x4F) { jumping_piranha(x); return; }
     if (n == 0x8E) { warp_blocks(x); return; }
     if (n == 0xC7) { invis_mushroom(x); return; }
+    if (n == 0x95) { chuck_main(x); return; }
     spr_unsup();
 }
 
@@ -1396,6 +1397,7 @@ void sprite_run(u8 x)
                 SETSPR(wm_SpriteYHi, x, SPR(wm_SpriteYHi, x) - 1);
             return;
         }
+        if (n == 0x95) { chuck_init(x); return; }   /* InitClappinChuck (spr_chuck.c) */
         if (n == 0x9F) {                    /* InitBanzai: solo si Mario esta a la izquierda */
             SETSPR(wm_SpriteStatus, x, 0x08);
             if (!sub_horiz_pos(x))
