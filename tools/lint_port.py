@@ -14,6 +14,7 @@ ERRORES (salen con 1):
   C1   float / double en player/*.c (no hay FPU, AGENTS.md §7)
   C2   malloc / free en player/*.c
   C3   #include <...> de la libc en player/*.c fuera de un #if (trazas)
+  A1   las tablas de la ROM que supone mario_E2BD (logic68k.s) no se cumplen
   P38  un puntero "p = ram + ..." indexado con una direccion absoluta
        p[wm_X]: vbcc -O=991 suma dos veces la base. Usar p[wm_X - wm_BASE]
 AVISOS (no fallan; revisar):
@@ -106,6 +107,29 @@ def main():
             if re.search(r"\(\s*(a[0-7]|sp|pc)\s*,\s*(d[0-7]|a[0-7])\.w\s*\)", code, re.I) \
                     and "P40 ok" not in ln:
                 warns.append(("P40", rel, i, ln.strip()))
+
+    # --- A1: lo que player/logic68k.s (mario_E2BD) supone de la ROM ---------
+    rom = os.path.join(pdir, "gen", "smwrom00.c")
+    if os.path.exists(rom):
+        body = open(rom, encoding="latin-1").read()
+        body = body[body.index("{", body.index("rom00")):]
+        b = [int(x) for x in re.findall(r"\b\d+\b", body)[:0x4000]]
+        t = lambda a, i: b[a - 0xC000 + i]
+        # con MarioFrame < $46 y MarioDirection < 2: y = DCEC[x] | dir < $1C,
+        # m5v = DD32[y] <= $80 y par; DD4E / DE32 en m5v..$86 son un byte
+        # con el signo extendido (el asm los lee como byte + ext.w)
+        ok = len(b) == 0x4000
+        ys = {t(0xDCEC, x) | d for x in range(0x46) for d in (0, 1)} if ok else set()
+        if ok and (max(ys) >= 0x1C or any(t(0xDD32, y) > 0x80 or t(0xDD32, y) & 1 for y in ys)):
+            ok = False
+        if ok:
+            for tab in (0xDD4E, 0xDE32):
+                for m in range(0, 0x88, 2):
+                    if t(tab, m + 1) != (0xFF if t(tab, m) >= 0x80 else 0):
+                        ok = False
+        if not ok:
+            errors.append(("A1", "player/logic68k.s", 0,
+                           "mario_E2BD supone tablas de la ROM (DCEC/DD32/DD4E/DE32) que no se cumplen"))
 
     for code, f, i, text in errors:
         print("ERROR %-4s %s%s  %s" % (code, f, ":%d" % i if i else "", text))

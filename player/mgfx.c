@@ -76,7 +76,16 @@ static void f636(u8 m10v, u8 m11v)
 }
 
 /* CODE_00E2BD */
+/* build de la Amiga (vbcc, NOOAM, sin NOASM): mario_E2BD esta en
+   player/logic68k.s, que cae a esta version (la referencia) en los casos raros:
+   capa (PowerUp 2), MarioFrame >= $46 o MarioDirection > 1 (las tablas de la ROM
+   que lee el asm como bytes con signo no estan previstas para eso) */
+#if defined(__VBCC__) && !defined(NOASM) && defined(NOOAM)
+void mario_E2BD_c(void);
+void mario_E2BD_c(void)
+#else
 void mario_E2BD(void)
+#endif
 {
     u8 a, x, y, c;
     u16 w, sx;

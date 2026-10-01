@@ -747,3 +747,308 @@ _f7f4:
 .same:  moveq   #0,d0
         move.w  d4,d0
         bra     .out
+
+;----------------------------------------------------------------------
+; void mario_E2BD(void) = mario_E2BD_c de mgfx.c (CODE_00E2BD: paleta,
+; MarioScrPosX/Y, las 4 entradas de OAM de Mario y CODE_00F636, los
+; punteros de DMA). Solo el build NOOAM (el de la Amiga): la OAM va a
+; mario_oam / mario_osz. Cae al C, ANTES de escribir nada, cuando:
+;   - PowerUp = 2 (capa: el C la marca sin portar);
+;   - MarioFrame >= $46 o MarioDirection > 1: el indice de DATA_00DCEC /
+;     DATA_00DD32 se sale de la tabla. Dentro del rango, m5v <= $80 + 6 y
+;     las palabras de DATA_00DD4E / DATA_00DE32 son un byte con el signo
+;     extendido (comprobado contra rom00 por tools/lint_port.py): se leen
+;     como bytes + ext.w en vez de armar la palabra (-30 ciclos por lectura).
+; Lo que no se calcula porque es constante (no cambia lo que se escribe):
+;   - m4 termina siempre en $80 (m4v = $C8/$E8, 4 x ASL), y el bit de
+;     tamano de cada entrada es 2,2,e,0 (e = 2 con MarioFrame = $43);
+;   - en f636 el acarreo del segundo ROR es siempre 0 (la mascara $F700
+;     deja el byte bajo en 0): el valor es (m & $F7) << 6 + (m & 8) << 11
+;     + $2000, que sale de las tablas f636hi / f636lo (byte alto y bajo);
+;   - la entrada y de DATA_00E2B2 (solo la usa la OAM de la SNES) no se lee.
+; Los valores de a+$200 de f636 comparten el byte bajo: solo cambia el alto.
+; d1 = m6v  d3 = e (tamano de la 3.a entrada: 2 con MarioFrame = $43)
+; d4 = hp  d5 = Y en pantalla + $10  d6 = X en pantalla + $80  d7 = m5v
+; a0 = Mario8x8Tiles  a1 = DATA_00DD4E + $72 (DATA_00DE32 = a1 + $72)
+;----------------------------------------------------------------------
+        ifnd    DATA_00E2A2
+DATA_00E2A2 equ $E2A2                       ; (mgfx.c: el generador no las lee)
+        endc
+        ifnd    MarioPalIndex
+MarioPalIndex equ $E18C
+        endc
+MEV_SPRITE equ  1024                        ; enum de mario.h
+
+OAM1    macro                               ; \1 = k (0-3)  \2 = tamano (9: d3)
+        btst    #\1,d4
+        bne.s   .h\@                        ; oculto: cc = 1
+        move.b  (a0,d1.w),d0                ; Mario8x8Tiles[m6v] ; P40 ok
+        bmi.s   .n\@                        ; tile negativo: cc = 0
+        move.b  d0,_mario_oam+2+4*\1(a4)
+        move.b  $72(a1,d7.w),d0             ; DATA_00DE32 (ext) ; P40 ok
+        ext.w   d0
+        add.w   d5,d0                       ; w + $10
+        cmp.w   #$100,d0
+        bhs.s   .h\@                        ; fuera por Y: cc = 1
+        sub.b   #$10,d0
+        move.b  d0,_mario_oam+1+4*\1(a4)
+        move.b  -$72(a1,d7.w),d0            ; DATA_00DD4E (ext) ; P40 ok
+        ext.w   d0
+        add.w   d6,d0                       ; w + $80
+        cmp.w   #$200,d0
+        bhs.s   .h\@                        ; fuera por X: cc = 1
+        sub.w   #$80,d0
+        move.b  d0,_mario_oam+4*\1(a4)
+        ifeq    \2-9
+        move.b  d3,d2
+        else
+        moveq   #\2,d2
+        endc
+        btst    #8,d0                       ; cc = bit 8 de la X
+        beq.s   .s\@
+        addq.b  #1,d2
+        bra.s   .s\@
+.h\@:   ifeq    \2-9
+        move.b  d3,d2
+        else
+        moveq   #\2,d2
+        endc
+        addq.b  #1,d2
+        bra.s   .s\@
+.n\@:   ifeq    \2-9
+        move.b  d3,d2
+        else
+        moveq   #\2,d2
+        endc
+.s\@:   move.b  d2,_mario_osz+\1(a4)
+        addq.b  #2,d7                       ; m5v += 2
+        addq.b  #1,d1                       ; m6v++
+        endm
+
+F636P   macro                               ; a = d2:d3 (alto:bajo) en \1 y a + $200 en \2
+        move.b  d3,_ram+\1(a4)
+        move.b  d3,_ram+\2(a4)
+        move.b  d2,_ram+\1+1(a4)
+        addq.b  #2,d2
+        move.b  d2,_ram+\2+1(a4)
+        endm
+
+        ifnd    E2BD_OFF                    ; (E2BD_OFF: build con OAM, CDEFS= en logicbench_build.sh)
+        public  _mario_E2BD
+_mario_E2BD:
+        cmp.b   #$46,_ram+wm_MarioFrame(a4)
+        bhs     .c
+        cmp.b   #$02,_ram+wm_MarioDirection(a4)
+        bhs     .c
+        cmp.b   #$02,_ram+wm_MarioPowerUp(a4)
+        beq     .c
+        moveq   #-16,d0                     ; las 4 entradas fuera de pantalla
+        move.b  d0,_mario_oam+1(a4)
+        move.b  d0,_mario_oam+5(a4)
+        move.b  d0,_mario_oam+9(a4)
+        move.b  d0,_mario_oam+13(a4)
+        move.b  _ram+wm_HidePlayer(a4),d1
+        cmp.b   #$ff,d1
+        beq.s   .noyo
+        tst.b   _ram+wm_LooseYoshiFlag(a4)
+        beq.s   .noyo
+        tst.l   _mario_unsupported(a4)      ; Yoshi suelto: sin portar
+        bne.s   .rts
+        moveq   #MARIO_UNSUP_YOSHI,d0
+        move.l  d0,_mario_unsupported(a4)
+.rts:   rts
+.noyo:  movem.l d2-d7,-(sp)
+        move.b  d1,d4                       ; hp
+        moveq   #0,d0
+        move.b  _ram+wm_FlashingPalTimer(a4),d2
+        bne.s   .shift
+        move.b  _ram+wm_StarPowerTimer(a4),d2   ; y
+        bne.s   .star
+        move.b  _ram+wm_MarioPowerUp(a4),d0     ; CODE_00E314
+        add.b   d0,d0
+        or.b    _ram+wm_OWCharA(a4),d0
+        bra.s   .e31a
+.star:  cmp.b   #$ff,d4
+        beq.s   .nodec
+        move.b  _ram+wm_FrameB(a4),d0
+        and.b   #$03,d0
+        bne.s   .nodec
+        subq.b  #1,_ram+wm_StarPowerTimer(a4)
+.nodec: move.b  _ram+wm_FrameA(a4),d0
+        cmp.b   #$1e,d2
+        bhi.s   .e30c
+        bne.s   .shift
+        or.l    #MEV_SPRITE,_mario_events(a4)   ; vuelve la musica
+.shift: move.b  _ram+wm_FrameA(a4),d0
+        lsr.b   #2,d0
+.e30c:  and.b   #$03,d0
+        addq.b  #4,d0
+.e31a:  move.b  d0,_mario_pal(a4)
+        add.b   d0,d0                       ; (u8)(a << 1)
+        lea     _rom00+(DATA_00E2A2-ROM00_BASE)(a4),a0
+        move.b  (a0,d0.w),_ram+wm_PlayerPalPtr(a4)      ; P40 ok
+        move.b  1(a0,d0.w),_ram+wm_PlayerPalPtr+1(a4)   ; P40 ok
+        ; MarioScrPosX = MarioXPos - Bg1HOfs - (acarreo ? 0 : 1)
+        moveq   #0,d2
+        move.b  _ram+wm_MarioFrame(a4),d2   ; x
+        move.w  _ram+wm_MarioXPos(a4),d6
+        ror.w   #8,d6                       ; little endian (direccion par)
+        move.w  _ram+wm_Bg1HOfs(a4),d1
+        ror.w   #8,d1
+        sub.w   d1,d6
+        move.b  _ram+wm_WallWalkStatus(a4),d1
+        cmp.b   #$05,d1
+        bls.s   .xc                         ; WallWalkStatus <= 5: acarreo 1
+        tst.b   _ram+wm_MarioPowerUp(a4)
+        beq.s   .xr
+        cmp.b   #$13,d2
+        bne.s   .xn
+.xr:    eori.b  #$01,d1
+.xn:    btst    #0,d1                       ; LSR: acarreo = bit 0
+        bne.s   .xc
+        subq.w  #1,d6
+.xc:    move.b  d6,_ram+wm_MarioScrPosX(a4)
+        move.w  d6,-(sp)                    ; byte alto, sin desplazar
+        move.b  (sp)+,_ram+wm_MarioScrPosX+1(a4)
+        ; MarioScrPosY = PlayerImgYPos + MarioYPos - (PowerUp ? 0 : 1)
+        ;                - Bg1VOfs - (acarreo ? 0 : 1) (+ 2 con MarioFrame = $1C)
+        moveq   #0,d1                       ; y
+        moveq   #0,d0                       ; ajuste
+        tst.b   _ram+wm_MarioPowerUp(a4)
+        beq.s   .p0
+        moveq   #1,d1
+        bra.s   .p1
+.p0:    moveq   #-1,d0
+.p1:    cmp.b   #$0a,d2
+        bhs.s   .yc
+        cmp.b   _ram+wm_PlayerWalkPose(a4),d1
+        bhs.s   .yc                         ; y >= PlayerWalkPose: acarreo 1
+        subq.w  #1,d0
+.yc:    cmp.b   #$1c,d2
+        bne.s   .yn
+        addq.w  #2,d0
+.yn:    moveq   #0,d5
+        move.b  _ram+wm_PlayerImgYPos(a4),d5
+        add.w   d0,d5
+        move.w  _ram+wm_MarioYPos(a4),d3
+        ror.w   #8,d3
+        add.w   d3,d5
+        move.w  _ram+wm_Bg1VOfs(a4),d3
+        ror.w   #8,d3
+        sub.w   d3,d5
+        move.b  d5,_ram+wm_MarioScrPosY(a4)
+        move.w  d5,-(sp)
+        move.b  (sp)+,_ram+wm_MarioScrPosY+1(a4)
+        move.b  _ram+wm_PlayerHurtTimer(a4),d0
+        beq.s   .draw
+        moveq   #0,d1
+        move.b  d0,d1
+        lsr.b   #3,d1
+        lea     _rom00+(DATA_00E292-ROM00_BASE)(a4),a0
+        and.b   (a0,d1.w),d0                ; P40 ok
+        or.b    _ram+wm_SpritesLocked(a4),d0
+        or.b    _ram+wm_IsFrozen(a4),d0
+        beq     .ret                        ; parpadeo: este frame no se dibuja
+        ; CODE_00E385
+.draw:  add.w   #$10,d5
+        add.w   #$80,d6
+        moveq   #0,d3
+        cmp.b   #$43,d2
+        bne.s   .m4a
+        moveq   #2,d3                       ; m4v = $E8: la 3.a entrada es 16x16
+.m4a:   cmp.b   #$29,d2
+        bne.s   .m4b
+        tst.b   _ram+wm_MarioPowerUp(a4)
+        bne.s   .m4b
+        moveq   #$20,d2
+.m4b:   lea     _rom00+(DATA_00DCEC-ROM00_BASE)(a4),a0
+        moveq   #0,d0
+        move.b  (a0,d2.w),d0                ; P40 ok
+        or.b    _ram+wm_MarioDirection(a4),d0
+        lea     _rom00+(DATA_00DD32-ROM00_BASE)(a4),a0
+        moveq   #0,d7
+        move.b  (a0,d0.w),d7                ; m5v ; P40 ok
+        moveq   #0,d0
+        move.b  _ram+wm_MarioFrame(a4),d0
+        cmp.b   #$3d,d0
+        bhs.s   .ty
+        moveq   #0,d1
+        move.b  _ram+wm_MarioPowerUp(a4),d1
+        lea     _rom00+(TilesetIndex-ROM00_BASE)(a4),a0
+        add.b   (a0,d1.w),d0                ; P40 ok
+.ty:    lea     _rom00+(TileExpansion-ROM00_BASE)(a4),a0
+        moveq   #0,d1
+        move.b  (a0,d0.w),d1                ; m6v ; P40 ok
+        lea     _rom00+(DATA_00E00C-ROM00_BASE)(a4),a0
+        move.b  (a0,d0.w),_ram+m10(a4)      ; P40 ok
+        lea     _rom00+(DATA_00E0CC-ROM00_BASE)(a4),a0
+        move.b  (a0,d0.w),_ram+m11(a4)      ; P40 ok
+        move.b  _ram+wm_SpriteProp(a4),d0
+        move.b  _ram+wm_IsBehindScenery(a4),d2
+        beq.s   .nb
+        lea     _rom00+(DATA_00E2B9-ROM00_BASE)(a4),a0
+        move.b  (a0,d2.w),d0                ; P40 ok
+.nb:    move.b  _ram+wm_MarioDirection(a4),d2
+        lea     _rom00+(MarioPalIndex-ROM00_BASE)(a4),a0
+        or.b    (a0,d2.w),d0                ; P40 ok
+        move.b  d0,_mario_oam+3(a4)
+        move.b  d0,_mario_oam+7(a4)
+        move.b  d0,_mario_oam+15(a4)
+        tst.b   d3
+        beq.s   .nx
+        eori.b  #$40,d0                     ; m4v = $E8
+.nx:    move.b  d0,_mario_oam+11(a4)
+        lea     _rom00+(Mario8x8Tiles-ROM00_BASE)(a4),a0
+        lea     _rom00+(DATA_00DD4E-ROM00_BASE+$72)(a4),a1
+        OAM1    0,2
+        OAM1    1,2
+        OAM1    2,9
+        OAM1    3,0
+        lsr.b   #4,d4
+        move.b  d4,_ram+wm_HidePlayer(a4)
+        move.b  #$80,_ram+m4(a4)
+        move.b  d7,_ram+m5(a4)
+        move.b  d1,_ram+m6(a4)
+        ; CODE_00F636: punteros de DMA a los graficos
+        lea     f636hi(pc),a0
+        lea     f636lo(pc),a1
+        moveq   #0,d0
+        move.b  _ram+m10(a4),d0
+        move.b  (a0,d0.w),d2                ; P40 ok
+        move.b  (a1,d0.w),d3                ; P40 ok
+        F636P   wm_0D85,wm_0D85+10
+        moveq   #0,d0
+        move.b  _ram+m11(a4),d0
+        move.b  (a0,d0.w),d2                ; P40 ok
+        move.b  (a1,d0.w),d3                ; P40 ok
+        F636P   wm_0D85+2,wm_0D85+12
+        move.b  _ram+m12(a4),d3             ; (m12 << 8) >> 3 + $2000
+        move.b  d3,d2
+        lsr.b   #3,d2
+        add.b   #$20,d2
+        lsl.b   #5,d3
+        F636P   wm_0D85+4,wm_0D85+14
+        move.b  _ram+m13(a4),d3
+        move.b  d3,d2
+        lsr.b   #3,d2
+        add.b   #$20,d2
+        lsl.b   #5,d3
+        move.b  d3,_ram+wm_Tile7FPtr(a4)
+        move.b  d2,_ram+wm_Tile7FPtr+1(a4)
+        move.b  #$0a,_ram+wm_PlayerDmaTiles(a4)
+.ret:   movem.l (sp)+,d2-d7
+        rts
+.c:     jmp     _mario_E2BD_c
+
+f636n   set     0                           ; f636: (m & $F7) << 6 + (m & 8) << 11 + $2000
+f636hi: rept    256
+        dc.b    (((f636n&$f7)<<6)+((f636n&8)<<11)+$2000)>>8
+f636n   set     f636n+1
+        endr
+f636n   set     0
+f636lo: rept    256
+        dc.b    (((f636n&$f7)<<6)+((f636n&8)<<11)+$2000)&$ff
+f636n   set     f636n+1
+        endr
+        even
+        endc
