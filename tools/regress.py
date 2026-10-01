@@ -233,7 +233,7 @@ def game_sprite_checks(r, out):
 
 # oraculos guionizados de snesorc (tools/snesorc/*.orc -> work/oracle_X.txt,
 # en git): el .bin se regenera si falta o si el .txt es mas nuevo
-SNESORC = ("normal", "diagpipe", "hills", "banzai", "chuck", "goal")
+SNESORC = ("normal", "diagpipe", "hills", "banzai", "chuck", "goal", "goalhit")
 
 
 def orc_checks(r):
@@ -280,6 +280,13 @@ def orc_checks(r):
                 for sn, seg, ok in re.findall(r"sprite (95): seguidos (\d+) exactos (\d+)", out):
                     r.put(k + "game.spr_%s.seguidos" % sn, int(seg), "info")   # el Chuck (P3)
                     r.put(k + "game.spr_%s.exactos" % sn, int(ok), "max")
+                for sn, seg, ok in re.findall(r"sprite (7B): seguidos (\d+) exactos (\d+)", out):
+                    r.put(k + "game.spr_%s.seguidos" % sn, int(seg), "info")   # la cinta de la meta (P5)
+                    r.put(k + "game.spr_%s.exactos" % sn, int(ok), "max")
+                t = num(r"cortes de la cinta \$7B: (\d+), variables del corte exactas: (\d+)/(\d+)", out)
+                if t:
+                    r.put(k + "game.spr_7B.corte_exactas", t[1], "max")
+                    r.put(k + "game.spr_7B.corte_total", t[2], "eq")
             elif mode == "sprload":
                 t = num(r"oraculo: (\d+)\s+del port: (\d+)\s+exactos: (\d+)\s+distintos: (\d+)", out)
                 if t:

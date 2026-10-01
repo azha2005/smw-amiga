@@ -786,7 +786,7 @@ static int run_game(const char *sprpath, const char *mappath)
     static long sfr[256], sok[256];
     long i, frames = 0, resync = 0, longest = 0, cur = 0, rexf = 0, rexok = 0, lstart = 0;
     long cause[NFF + 2];
-    int k, c, synced = 0, follow[12] = {0}, shown = 0, pnum[12], pst[12], fresh = 0, skip, hurt;
+    int k, c, synced = 0, follow[12] = {0}, shown = 0, pnum[12], pst[12], pend, fresh = 0, skip, hurt;
     long cuts = 0, cutvars = 0, cutok = 0;
     /* P5: lo que la cinta de la meta ($7B) escribe al cortarse (todo en el rango grabado) */
     static const int goalvars[] = { wm_SecretGoalSprite, wm_EndLevelTimer, wm_StarPowerTimer, wm_PBalloonFrame };
@@ -903,6 +903,7 @@ static int run_game(const char *sprpath, const char *mappath)
         if (!mario_unsupported) sprites_begin();
         for (k = 0; k < 12; k++) pnum[k] = follow[k] ? ram[wm_SpriteNum + k] : -1;
         for (k = 0; k < 12; k++) pst[k] = ram[wm_SpriteStatus + k];
+        pend = ram[wm_EndLevelTimer];
         for (k = 11; k >= 0; k--) {
             if (!follow[k]) {
                 int was = ram[wm_SpriteStatus + k];
@@ -946,8 +947,8 @@ static int run_game(const char *sprpath, const char *mappath)
             if (((spr_spawned >> k) & 1) && game_ported(ram[wm_SpriteNum + k]))
                 follow[k] = 1;
         frames++;
-        for (k = 0; k < 12; k++)                /* la cinta pasa de 8 a 6: las variables del corte */
-            if (pnum[k] == 0x7B && pst[k] == 0x08 && ram[wm_SpriteStatus + k] == 0x06) {
+        for (k = 0; k < 12; k++)                /* la cinta se corta (EndLevelTimer 0 -> $FF): las variables del corte */
+            if (pnum[k] == 0x7B && pst[k] == 0x08 && !pend && ram[wm_EndLevelTimer]) {
                 int j;
                 cuts++;
                 for (j = 0; j < 4; j++, cutvars++) {

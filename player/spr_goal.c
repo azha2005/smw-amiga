@@ -16,11 +16,13 @@
  *   - sin portar (spr_unsup): un sprite en estado $0B (llevado) cuando se
  *     corta la cinta (LvlEndPowerUp), y MiscTbl7 >> 2 >= 32 (DATA_07F1AA
  *     lee mas alla de la tabla: no pasa, la barra sube $7C px como mucho).
- *   - de la cinta, lo que el oraculo cubre es el corte SIN contacto con la
- *     barra (la cinta pasa a estado 6). El corte CON contacto (barra
- *     tocada: Tweaker1686 conserva el bit $20 y la cinta sigue en estado 8
- *     con MiscTbl8 = 1 y DecTbl1 = $80, los puntos de bonus) esta portado
- *     pero sin verificar.
+ *   - de la cinta, los oraculos cubren el corte SIN contacto con la barra
+ *     (oracle_goal: la cinta pasa a estado 6, 138 frames) y el corte CON
+ *     contacto (oracle_goalhit, tools/snesorc/goalhit.orc: Tweaker1686
+ *     conserva el bit $20, la cinta sigue en estado 8 con MiscTbl8 = 1 y
+ *     DecTbl1 = $80 hasta desaparecer, 211 frames). Los oraculos no graban
+ *     $18DD/$1900/$1DFC...: SilverCoins, BonusStarsGained y los sonidos de
+ *     esta rutina no estan comparados.
  * Las tablas .DB vienen de tools/smwtabx.py (WANT_GOAL, SMWTABX_GOAL):
  * solo este fichero las incluye (P78).
  */
