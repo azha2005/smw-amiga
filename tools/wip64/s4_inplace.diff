@@ -1,0 +1,797 @@
+--- /dev/fd/63	2026-10-01 03:13:00.000000000 -0300
++++ /dev/fd/62	2026-10-01 03:13:00.000000000 -0300
+@@ -159,6 +159,24 @@
+ G_ID    equ 4                   ; hid con que se calculo (0: no hay)
+ G_HOT   equ 6                   ; reescrituras en el ultimo recorrido
+ 
++; build_mid: una tabla por lista (linetab_a/b), LT bytes por linea (LNS
++; guarda linea * 32)
++LT      equ 32
++LT_SEG  equ 0                   ; .l donde empiezan las cargas en el segmento
++LT_KLO  equ 4                   ; .l [klo, khi): las cargas escritas (MLD,
++LT_KHI  equ 8                   ; .l absolutas)
++LT_VL   equ 12                  ; lo escrito vale mientras vl <= s < vu
++LT_VU   equ 14
++LT_NXT  equ 16                  ; .l el segmento siguiente (el salto)
++LT_S0   equ 20                  ; base de lo escrito ($8000: nunca escrita)
++LT_WEND equ 22                  ; donde esta el salto (desde LT_SEG)
++LT_MAXA equ 24                  ; max a y min b de las no tarde escritas
++LT_MINB equ 26                  ; (-16000 y 16000 si no hay)
++LT_LVL  equ 28                  ; las celdas de las tardes escritas: lo
++LT_LVU  equ 30                  ; escrito es el canonico de s si lvl <= s <
++                                ; lvu ($8000 y $7FFF: no hay tardes)
++TARDE   equ 4                   ; clase + TARDE: una carga "tarde" (MLD)
++
+ ; variables (a5)
+ V_S     equ 0                   ; scroll de la capa 1 (px)
+ V_P     equ 2                   ; palabra del puntero, (s - 1) >> 4
+@@ -581,13 +599,9 @@
+ 
+ ;----------------------------------------------------------------------
+ ; --- init_lines ---
+-; Una tabla por lista (linetab_a, linetab_b), 32 bytes por linea:
+-;   +0  .l donde empiezan las cargas en el segmento (absoluta)
+-;   +4  .l lo, +8 .l hi: cargas escritas, [lo, hi) en MLD (absolutas)
+-;   +12 vl, +14 vu: lo escrito vale mientras vl <= s < vu
+-;   +16 la palabra alta del WAIT (v << 8)
+-;   +18 el salto al segmento siguiente (COP2LCH, COP2LCL, COPJMP2)
+-; htab[x] = byte bajo del WAIT (h | 1) para que el MOVE caiga en x >= x.
++; Una tabla por lista (linetab_a, linetab_b), 32 bytes por linea (LT_*,
++; ver build_mid). htab[x] = byte bajo del WAIT (h | 1) para que el MOVE
++; caiga en x >= x.
+ ; entrada:  a3 = datos, V_COP, V_COP2 (build_copper ya dejo ldoff)
+ ;----------------------------------------------------------------------
+ init_lines:
+@@ -664,31 +678,28 @@
+         move.l  a3,d2
+         add.l   D_MLD(a3),d2                ; d2 = MLD
+         lea     ldoff(pc),a2
+-        move.w  #$2c<<8,d3
+         move.w  #LINES-1,d1
+ .l:     moveq   #0,d0
+         move.w  (a2)+,d0
+         add.l   d4,d0
+-        move.l  d0,(a0)                     ; donde van las cargas
++        move.l  d0,LT_SEG(a0)               ; donde van las cargas
+         moveq   #0,d0
+         move.w  (a1)+,d0
+         mulu    #12,d0
+         add.l   d2,d0
+-        move.l  d0,4(a0)                    ; lo = hi = la primera carga
+-        move.l  d0,8(a0)
+-        move.w  #1,12(a0)                   ; vl = 1, vu = 0: nunca vale
+-        clr.w   14(a0)
+-        move.w  d3,16(a0)
++        move.l  d0,LT_KLO(a0)               ; klo = khi = la primera carga
++        move.l  d0,LT_KHI(a0)
++        move.w  #1,LT_VL(a0)                ; vl = 1, vu = 0: nunca vale
++        clr.w   LT_VU(a0)
+         add.l   #SEG,d4
+-        move.w  #$0084,18(a0)               ; salto al segmento siguiente
+-        move.l  d4,d0
+-        swap    d0
+-        move.w  d0,20(a0)
+-        move.w  #$0086,22(a0)
+-        move.w  d4,24(a0)
+-        move.l  #$008a0000,26(a0)
+-        add.w   #$100,d3
+-        lea     32(a0),a0
++        move.l  d4,LT_NXT(a0)               ; el segmento siguiente
++        clr.w   LT_S0(a0)                   ; (cualquiera: nada escrito)
++        clr.w   LT_WEND(a0)                 ; (build_copper dejo el salto
++        move.w  #-16000,LT_MAXA(a0)         ; al principio de las cargas)
++        move.w  #16000,LT_MINB(a0)
++        move.w  #$8000,LT_LVL(a0)
++        move.w  #$7fff,LT_LVU(a0)
++        lea     LT(a0),a0
+         dbf     d1,.l
+         rts
+ 
+@@ -697,27 +708,47 @@
+ ; entrada:  V_BACK = lista que se escribe, V_S = scroll
+ ; salida:   en el segmento de cada linea que puede tener cargas en
+ ;           pantalla (LNS) y cuyo contenido ya no vale, las cargas del plan
+-;           con x en [s, s + LASTX] (hasta MIDMAX) y el salto al segmento
++;           que caen en pantalla (hasta MIDMAX) y el salto al segmento
+ ;           siguiente
+ ; registros destruidos: d0-d1/a0-a1 (guarda el resto)
+ ;
+ ; El plan (tools/mkscroll.py) esta en coordenadas del nivel: para cada
+ ; carga, la x en que cae y si va con WAIT, detras de la anterior o con 1-2
+-; MOVE de relleno. Aca se copia: la h del WAIT sale de htab[x - s] y la
+-; primera carga de la linea va siempre con WAIT (la anterior del plan
+-; quedo fuera por la izquierda).
++; MOVE de relleno. Se escribe con una BASE s0 por linea: la h de cada WAIT
++; sale de htab[x - s0] y la primera carga escrita va siempre con WAIT.
++; Con la misma base para todas, los huecos del plan se conservan.
+ ;
+ ; Lo escrito queda FIJO en pantalla: el MOVE de una carga cae entre x - s0
+ ; y x - s0 + 7 (rejilla de 8 px, P42; los de detras, a 16 px del
+ ; anterior). Sigue bien mientras caiga despues del fin del tramo anterior
+-; y antes del principio del nuevo: s0 + a <= s < s0 + b (a, b en MLD). La
+-; linea se reescribe cuando alguna deja de valer, cuando entra una carga
+-; por la derecha (s >= x[hi] - LASTX), cuando la camara vuelve y una
+-; vuelve a entrar por la izquierda (s <= x[lo - 1]) o la ultima sale por
+-; la derecha (s < x[hi - 1] - LASTX). Las que salen por la izquierda NO:
+-; escriben el color que el borrado ya puso. No depende de la direccion.
+-; Una linea con una carga "tarde" escrita (clase 4-7 en MLD, fija) vale
+-; ademas solo mientras no cambia la h del WAIT de la tarde: 8 px de s (.td).
++; y antes del principio del nuevo: s0 + a <= s < s0 + b (a, b en MLD), o
++; sea, para todas las no tarde escritas, s - minb < s0 <= s - maxa. Las
++; cargas "tarde" (clase 4-7 en MLD, fija: P71) no caen en su ventana con
++; ninguna base: una linea con una tarde escrita es CANONICA, s0 = s, y lo
++; escrito es, byte a byte en lo que se ve, lo que se escribiria en s'
++; mientras la h del WAIT del que cuelga la tarde no cambie (las celdas de 8
++; px de P42, 4 px en la cola: mid_cell). Asi la imagen de cada s no depende
++; de la historia ni de la direccion (ida = vuelta, P50, P71) y es la de
++; reescribir la linea entera en cada frame.
++;
++; S4 (6.4): la linea se EDITA EN EL SITIO. Cuando lo escrito deja de valer:
++;   - una carga vuelve a entrar por la izquierda (s <= x[klo - 1]), la
++;     linea no se escribio nunca, no entran (MIDMAX) o no hay base: se
++;     reescribe entera con s0 = s (.full, lo de siempre);
++;   - si no: se truncan las que salieron por la derecha (el salto mas
++;     arriba), se agregan las que entraron (sobre el salto) y, si la base
++;     ya no sirve, se elige otra y se reescribe SOLO el byte h de cada WAIT
++;     (mid_walk). La base nueva: s si la linea es canonica; si no, la mayor
++;     posible yendo a la derecha y la menor yendo a la izquierda (vale mas
++;     tiempo). Limites: la primera escrita en pantalla (s0 <= x[klo]: htab
++;     empieza en 0) y la ultima tambien (s0 >= x[khi - 1] - LASTX).
++; Las que salen por la izquierda se quedan escritas (su a y b siguen
++; contando, como antes) hasta la siguiente reescritura entera.
++; Lo escrito vale mientras vl <= s < vu (.fin):
++;   vl = max(x[klo - 1] + 1, x[khi - 1] - LASTX, s0 + maxa, lvl)
++;   vu = min(x[khi] - LASTX (o x[klo] + 1 si no entraron todas), s0 + minb,
++;            lvu)
++; [lvl, lvu): las celdas de las tardes escritas ($8000: no hay).
+ ;----------------------------------------------------------------------
+ build_mid:
+         move.l  V_BACK(a5),a0
+@@ -733,7 +764,11 @@
+ .go:    move.w  d0,(a1)
+         movem.l d2-d7/a2-a6,-(sp)
+         move.w  d0,d6                       ; d6 = s
+-        sub.w   d0,d1                       ; |s vieja - s| > 16 (o nunca
++        move.l  #$fffe,d2                   ; d2.w = $FFFE (WAIT); d2 < 0: la
++        cmp.w   d1,d0                       ; camara va a la izquierda (desde
++        bge.s   .dr                         ; la ultima escritura de esta
++        moveq   #-2,d2                      ; lista)
++.dr:    sub.w   d0,d1                       ; |s vieja - s| > 16 (o nunca
+         bpl.s   .ab                         ; escrita): todas las lineas
+         neg.w   d1
+ .ab:    lea     alllines(pc),a6
+@@ -752,11 +787,8 @@
+         bne.s   .ta
+         lea     linetab_a(pc),a4
+ .ta:    move.l  a4,a5                       ; OJO: a5 prestado (vars)
+-        lea     htab(pc),a2
+-        sub.w   d6,a2                       ; a2 = htab - s
+         move.w  d6,d5
+         add.w   #LASTX,d5                   ; d5 = s + LASTX
+-        move.w  #$fffe,d2
+ ; LNS por grupos de 16 lineas (S2): para cada grupo con lineas en LNS[k],
+ ; su estado (antes de linetab, G_*) guarda [gvl, gvu) = la interseccion
+ ; de los [vl, vu) de sus lineas, y el hid (conjunto de lineas) con que se
+@@ -789,7 +821,7 @@
+         move.w  #$7fff,d1
+ .ml:    move.w  (a6)+,d0                    ; linea * 32
+         bmi.s   .mend
+-        movem.w 12(a5,d0.w),d3/d4           ; vl, vu
++        movem.w LT_VL(a5,d0.w),d3/d4        ; vl, vu
+         cmp.w   d3,d6
+         blt.s   .mrw                        ; s < vl
+         cmp.w   d4,d6
+@@ -816,141 +848,484 @@
+                                             ; una linea de linetab)
+ .pl:    move.w  (a6)+,d0                    ; linea * 32
+         bmi.s   .pend
+-        cmp.w   12(a5,d0.w),d6
++        cmp.w   LT_VL(a5,d0.w),d6
+         blt.s   .prw                        ; s < vl
+-        cmp.w   14(a5,d0.w),d6
++        cmp.w   LT_VU(a5,d0.w),d6
+         blt.s   .pl                         ; s < vu: lo escrito vale
+ .prw:   lea     (a5,d0.w),a4                ; a4 = linetab[L]
+-.rw:    move.l  4(a4),a1                    ; a1 = lo (registros de 12 bytes:
+-.lof:   cmp.w   2(a1),d6                    ; clase, x, MOVE, a, b)
+-        ble.s   .lob                        ; x < s: salio por la izquierda
++;--- la linea ya no vale: en el sitio si se puede
++        move.l  LT_KLO(a4),a1               ; a1 = klo (MLD: registros de 12
++        cmp.w   -10(a1),d6                  ; bytes: clase, x, MOVE, a, b)
++        ble     .full                       ; la anterior a klo vuelve a entrar
++        cmp.w   2(a1),d6                    ; por la izquierda: entera. Si klo
++        ble.s   .ip                         ; ya salio por la izquierda y la
++        tst.l   d2                          ; camara va a la derecha, tambien:
++        bpl     .full                       ; las que salieron no se sacan
++.ip:    move.l  LT_KHI(a4),a0               ; a0 = khi nuevo: la primera con
++.hf:    cmp.w   2(a0),d5                    ; x > s + LASTX (centinelas: x =
++        blt.s   .hb                         ; -1 antes, $7FFF despues)
++        lea     12(a0),a0
++        bra.s   .hf
++.hb:    cmp.l   a1,a0
++        beq     .empty
++        cmp.w   -10(a0),d5
++        bge.s   .hd
++        lea     -12(a0),a0
++        bra.s   .hb
++.hd:    move.l  a0,d0
++        sub.l   a1,d0
++        cmp.w   #MIDMAX*12,d0
++        bhi     .full                       ; no entran (.full las corta)
++        move.w  LT_MAXA(a4),d3              ; d3 = max a, d4 = min b de las no
++        move.w  LT_MINB(a4),d4              ; tarde: las escritas (tambien las
++        sub.l   a3,a3                       ; truncadas: cota) y las que
++        move.l  LT_KHI(a4),a2               ; entran. a3 != 0: entra una tarde
++        bra.s   .pe
++.pt:    move.l  a2,a3                       ; una tarde
++        bra.s   .p2
++.pp:    cmp.w   #TARDE,(a2)
++        bhs.s   .pt
++        cmp.w   8(a2),d3
++        bge.s   .p1
++        move.w  8(a2),d3
++.p1:    cmp.w   10(a2),d4
++        ble.s   .p2
++        move.w  10(a2),d4
++.p2:    lea     12(a2),a2
++.pe:    cmp.l   a0,a2
++        blo.s   .pp
++        move.w  d6,d0                       ; las bases posibles: [d7, d0]
++        sub.w   d3,d0                       ; d0 = min(s - maxa, x[klo])
++        cmp.w   2(a1),d0
++        ble.s   .q1
++        move.w  2(a1),d0
++.q1:    move.w  d6,d7                       ; d7 = max(s + 1 - minb,
++        sub.w   d4,d7                       ;          x[khi - 1] - LASTX)
++        addq.w  #1,d7
++        move.w  -10(a0),d1
++        sub.w   #LASTX,d1
++        cmp.w   d1,d7
++        bge.s   .q2
++        move.w  d1,d7
++.q2:    cmp.w   d0,d7
++        bgt     .full                       ; no hay base
++        move.w  LT_S0(a4),d1                ; d1 = la base de antes
++        cmpa.w  #0,a3
++        bne.s   .can                        ; entra una tarde: s0 = s
++        cmp.w   #$8000,LT_LVL(a4)
++        beq.s   .free                       ; sin tardes escritas
++        cmp.w   LT_LVL(a4),d6               ; con tardes: lo escrito sigue
++        blt.s   .can                        ; siendo lo canonico de s si s
++        cmp.w   LT_LVU(a4),d6               ; esta en sus celdas y la base de
++        bge.s   .can                        ; antes sirve
++        cmp.w   d7,d1
++        blt.s   .can
++        cmp.w   d0,d1
++        ble.s   .keep
++.can:   cmp.w   d7,d6                       ; canonica: s0 = s
++        blt     .full
++        cmp.w   d0,d6
++        bgt     .full
++        cmp.w   d6,d1
++        beq.s   .keep
++        move.w  d6,d1
++        bra.s   .reb
++.free:  cmp.w   d7,d1                       ; la base de antes, si sirve
++        blt.s   .fnew
++        cmp.w   d0,d1
++        ble.s   .keep
++.fnew:  move.w  d0,d1                       ; a la derecha, la mayor;
++        tst.l   d2                          ; a la izquierda, la menor (vale
++        bpl.s   .reb                        ; mas tiempo)
++        move.w  d7,d1
++        bra.s   .reb
++;--- la misma base (d1): agregar las que entraron o truncar las que salieron
++.keep:  move.l  LT_KHI(a4),a1               ; a1 = khi viejo
++        cmp.l   a1,a0
++        beq     .fin                        ; las mismas
++        bhi.s   .kap
++        bsr     mid_trunc                   ; salieron por la derecha
++        bra     .fin
++.kap:   move.l  LT_SEG(a4),a3
++        add.w   LT_WEND(a4),a3              ; sobre el salto
++        lea     htab(pc),a2
++        sub.w   d1,a2                       ; a2 = htab - s0
++        cmp.l   LT_KLO(a4),a1
++        bne.s   .ka2
++        bsr     mid_wrf                     ; estaba vacia: la primera con WAIT
++        bra.s   .ka3
++.ka2:   bsr     mid_wr
++.ka3:   bsr     mid_jmp
++        bra     .fin
++;--- otra base (d1): la h de cada WAIT escrito, y agregar o truncar
++.reb:   move.w  d1,LT_S0(a4)
++        lea     htab(pc),a2
++        sub.w   d1,a2                       ; a2 = htab - s0
++        move.l  LT_SEG(a4),a3
++        move.l  LT_KLO(a4),a1
++        move.l  LT_KHI(a4),d7               ; hasta min(khi viejo, khi nuevo)
++        cmp.l   a0,d7
++        bls.s   .r1
++        move.l  a0,d7
++.r1:    move.w  #$8000,LT_LVL(a4)           ; las celdas de las tardes, con
++        move.w  #$7fff,LT_LVU(a4)           ; la base nueva
++        bsr     mid_walk
++        move.l  LT_KHI(a4),a1
++        cmp.l   a1,a0
++        beq     .fin                        ; las mismas: el salto sigue
++        blo.s   .r2                         ; truncadas: el salto aca
++        cmp.l   LT_KLO(a4),a1
++        bne.s   .r3
++        bsr     mid_wrf                     ; estaba vacia
++        bra.s   .r2
++.r3:    bsr     mid_wr                      ; agregar
++.r2:    bsr     mid_jmp
++        bra     .fin
++;--- no queda ninguna en pantalla
++.empty: cmp.l   LT_KHI(a4),a0
++        beq.s   .em1
++        move.l  LT_SEG(a4),a3
++        bsr     mid_jmp
++.em1:   move.w  #-16000,d3
++        move.w  #16000,d4
++        move.w  #$8000,LT_LVL(a4)
++        move.w  #$7fff,LT_LVU(a4)
++        bra     .fin
++;--- la linea entera: s0 = s (a la izquierda, mid_low)
++.full:  move.l  LT_KLO(a4),a1               ; klo: la primera con x >= s
++.lof:   cmp.w   2(a1),d6
++        ble.s   .lob
+         lea     12(a1),a1
+         bra.s   .lof
+-.lob:   cmp.w   -10(a1),d6                  ; la anterior tiene x >= s: la
+-        bgt.s   .lod                        ; camara volvio (centinelas: -1
+-        lea     -12(a1),a1                  ; antes, $7FFF despues)
++.lob:   cmp.w   -10(a1),d6
++        bgt.s   .lod
++        lea     -12(a1),a1
+         bra.s   .lob
+-.lod:   move.l  a1,4(a4)
+-        move.l  8(a4),a0                    ; a0 = hi
+-.hif:   cmp.w   2(a0),d5                    ; x <= s + LASTX: entro por la
+-        blt.s   .hib                        ; derecha
++.lod:   move.l  LT_KHI(a4),a0               ; khi: la primera con x > s + LASTX
++.fhf:   cmp.w   2(a0),d5
++        blt.s   .fhb
+         lea     12(a0),a0
+-        bra.s   .hif
+-.hib:   cmp.w   -10(a0),d5                  ; la anterior tiene x > s + LASTX
+-        bge.s   .hid
++        bra.s   .fhf
++.fhb:   cmp.w   -10(a0),d5
++        bge.s   .fhd
+         lea     -12(a0),a0
+-        bra.s   .hib
+-.hid:   move.w  -10(a1),d3
+-        addq.w  #1,d3                       ; d3 = vl: la anterior vuelve
+-        move.w  2(a0),d4
+-        sub.w   #LASTX,d4                   ; d4 = vu: la siguiente entra
+-        move.l  (a4),a3                     ; a3 = donde van las cargas
+-        move.l  a0,d1
+-        sub.l   a1,d1                       ; 12 * cargas
+-        bne.s   .some
+-        move.l  a0,8(a4)
+-        bra.s   .jump
+-.some:  cmp.w   #MIDMAX*12,d1
+-        bls.s   .n
+-        lea     MIDMAX*12(a1),a0            ; no entran todas: se rehace
+-        move.w  2(a1),d4                    ; cuando la primera sale
++        bra.s   .fhb
++.fhd:   move.l  a0,d0
++        sub.l   a1,d0
++        cmp.w   #MIDMAX*12,d0
++        bls.s   .fn
++        lea     MIDMAX*12(a1),a0            ; no entran todas: vale hasta que
++.fn:    move.w  d6,d1                       ; la primera salga (.fin)
++        tst.l   d2
++        bpl.s   .fw
++        bsr     mid_low                     ; a la izquierda: la base menor
++.fw:    move.l  a1,LT_KLO(a4)
++        move.w  d1,LT_S0(a4)
++        lea     htab(pc),a2
++        sub.w   d1,a2                       ; a2 = htab - s0
++        move.l  LT_SEG(a4),a3
++        move.w  #-16000,d3
++        move.w  #16000,d4
++        move.w  #$8000,LT_LVL(a4)
++        move.w  #$7fff,LT_LVU(a4)
++        cmp.l   a0,a1
++        beq.s   .fj
++        bsr     mid_wrf
++.fj:    bsr     mid_jmp
++;--- el estado y [vl, vu) (a0 = khi, d3 = max a, d4 = min b)
++.fin:   move.l  a0,LT_KHI(a4)
++        move.w  d3,LT_MAXA(a4)
++        move.w  d4,LT_MINB(a4)
++        move.w  LT_S0(a4),d1
++        add.w   d1,d3                       ; vl = max(s0 + maxa,
++        add.w   d1,d4                       ; vu = min(s0 + minb,
++        move.l  LT_KLO(a4),a1
++        move.w  -10(a1),d1                  ;   x[klo - 1] + 1: vuelve a entrar
++        addq.w  #1,d1                       ;   por la izquierda,
++        cmp.w   d1,d3
++        bge.s   .f1
++        move.w  d1,d3
++.f1:    move.w  -10(a0),d1                  ;   x[khi - 1] - LASTX: sale por
++        sub.w   #LASTX,d1                   ;   la derecha,
++        cmp.w   d1,d3
++        bge.s   .f2
++        move.w  d1,d3
++.f2:    move.w  LT_LVL(a4),d1               ;   las tardes)
++        cmp.w   d1,d3
++        bge.s   .f3
++        move.w  d1,d3
++.f3:    move.w  2(a0),d1                    ;   x[khi] - LASTX: entra una, o,
++        cmp.w   d1,d5                       ;   si no entraron todas (MIDMAX),
++        blt.s   .f4                         ;   x[klo] + 1,
++        move.w  2(a1),d1
++        add.w   #LASTX+1,d1
++.f4:    sub.w   #LASTX,d1
++        cmp.w   d1,d4
++        ble.s   .f5
++        move.w  d1,d4
++.f5:    move.w  LT_LVU(a4),d1               ;   las tardes)
++        cmp.w   d1,d4
++        ble.s   .f6
++        move.w  d1,d4
++.f6:    cmp.w   d6,d3                       ; si no vale ni en s: vl = s y
++        bgt.s   .fx                         ; vu = s + 1, se mira en cada
++        cmp.w   d6,d4                       ; frame (P50)
++        bgt.s   .fs
++.fx:    move.w  d6,d3
++        move.w  d6,d4
+         addq.w  #1,d4
+-.n:     move.l  a0,8(a4)
+-        move.w  -10(a0),d0                  ; la ultima sale por la derecha
+-        sub.w   #LASTX,d0                   ; si s < x - LASTX
+-        cmp.w   d0,d3
+-        bge.s   .n2
+-        move.w  d0,d3
+-.n2:    sub.w   d6,d3                       ; vl y vu relativas a s: se
+-        sub.w   d6,d4                       ; comparan con a y b
+-        move.w  16(a4),d7                   ; WAIT: v << 8
+-        addq.l  #2,a1                       ; la primera, siempre con WAIT
+-        bra.s   .w                          ; (si es una tarde: .late)
+-.ld:    move.w  (a1)+,d1                    ; clase
+-        bne.s   .ch
+-.w:     move.w  (a1)+,d0                    ; x (d0 = x del ultimo WAIT)
+-        move.b  (a2,d0.w),d7                ; h | 1 para x - s
++.fs:    movem.w d3-d4,LT_VL(a4)
++        bra     .pl
++.done:  movem.l (sp)+,d2-d7/a2-a6
++        rts
++
++;----------------------------------------------------------------------
++; --- mid_wr / mid_wrf --- (build_mid) escribe las cargas [a1, a0) del
++; plan en a3 con la base de a2 (= htab - s0); mid_wrf: la primera con WAIT
++; aunque sea de otra clase. Agrega sus a y b (las no tarde) a d3 = max a y
++; d4 = min b, y las celdas de las tardes a LT_LVL/LT_LVU (mid_cell).
++; entrada:  a4 = linetab[L], a5 = linetab, d2.w = $FFFE, d0 = x del ultimo
++;           WAIT escrito (si la primera no lleva)
++; salida:   a1 = a0, a3 = despues de la ultima, d0 = x del ultimo WAIT
++; registros destruidos: d1/d7
++;----------------------------------------------------------------------
++mid_wrf:
++        move.l  a4,d7                       ; d7 = v << 8: la palabra alta
++        sub.l   a5,d7                       ; del WAIT (linea * 32 * 8 +
++        lsl.w   #3,d7                       ; $2C00; la 212 da v = 0)
++        add.w   #$2c00,d7
++        move.w  (a1)+,d1                    ; la primera, con WAIT
++        cmp.w   #TARDE,d1
++        blo.s   mwr_w
++        move.w  (a1)+,d0                    ; una tarde
++        bra.s   mwr_tw
++mid_wr:
++        move.l  a4,d7
++        sub.l   a5,d7
++        lsl.w   #3,d7
++        add.w   #$2c00,d7
++mwr_ld: move.w  (a1)+,d1                    ; clase
++        bne.s   mwr_ch
++mwr_w:  move.w  (a1)+,d0                    ; x (d0 = x del ultimo WAIT)
++        move.b  (a2,d0.w),d7                ; h | 1 para x - s0
+         move.w  d7,(a3)+
+         move.w  d2,(a3)+                    ; $FFFE
+-.mv:    move.l  (a1)+,(a3)+                 ; MOVE registro, color
+-        cmp.w   (a1)+,d3                    ; vl = max(vl, a)
+-        bge.s   .k1
++mwr_mv: move.l  (a1)+,(a3)+                 ; MOVE registro, color
++        cmp.w   (a1)+,d3                    ; max a
++        bge.s   mwr_k1
+         move.w  -2(a1),d3
+-.k1:    cmp.w   (a1)+,d4                    ; vu = min(vu, b)
+-        ble.s   .k2
++mwr_k1: cmp.w   (a1)+,d4                    ; min b
++        ble.s   mwr_k2
+         move.w  -2(a1),d4
+-.k2:    cmp.l   a0,a1
+-        bne.s   .ld
+-        add.w   d6,d3
+-        add.w   d6,d4
+-        bra.s   .jump
+-.ch:    addq.l  #2,a1                       ; (x: no hace falta)
++mwr_k2: cmp.l   a0,a1
++        bne.s   mwr_ld
++        rts
++mwr_ch: addq.l  #2,a1                       ; (x: no hace falta)
+         subq.w  #2,d1                       ; 1: MOVE detras del anterior
+-        bmi.s   .mv
+-        beq.s   .f1                         ; 2: un relleno; 3: dos
++        bmi.s   mwr_mv
++        beq.s   mwr_f1                      ; 2: un relleno; 3: dos
+         subq.w  #1,d1
+-        bne     .td                         ; 4-7: una tarde
++        bne.s   mwr_td                      ; 4-7: una tarde
+         move.l  #$01fe0000,(a3)+
+-.f1:    move.l  #$01fe0000,(a3)+
+-        bra.s   .mv
+-.jump:  move.l  18(a4),(a3)+                ; el salto al segmento siguiente
+-        move.l  22(a4),(a3)+
+-        move.l  26(a4),(a3)+
+-        cmp.w   d6,d3                       ; no vale ni en s: la primera
+-        bgt.s   .late                       ; escrita es una tarde (fue por
+-        cmp.w   d6,d4                       ; .w con su a y b): como antes,
+-        bgt.s   .j2                         ; vl = s y vu = s + 1, se
+-.late:  move.w  d6,d3                       ; reescribe en cada frame (si
+-        move.w  d6,d4                       ; solo se corrigiera vu, al
+-        addq.w  #1,d4                       ; volver valdria lo escrito
+-.j2:    move.w  d3,12(a4)                   ; antes y la ida y la vuelta
+-        move.w  d4,14(a4)                   ; darian imagenes distintas: P50)
+-        bra     .pl
+-.done:  movem.l (sp)+,d2-d7/a2-a6
+-        rts
+-; Una carga "tarde" (clase 4-7 en MLD: 4 + la clase de siempre; fija,
+-; tools/mkscroll.py, P71): con ninguna base cae en su ventana, asi que
+-; su a y b no sirven. La linea que tiene una escrita es CANONICA: se
+-; escribe con s0 = s, como todas, y lo escrito es, byte a byte, lo que
+-; se escribiria en s' mientras la h del WAIT del que cuelga la tarde (d0:
+-; el ultimo WAIT, o la primera escrita) no cambie: htab[d0 - s'] =
+-; htab[d0 - s], la celda de 8 px de P42 (4 px en la cola, TAILH). Las no
+-; tarde valen con cualquier base (su a y b) y las cotas de las que entran
+-; y salen son las de siempre: la imagen de cada s' es la de antes (que
+-; reescribia la linea en cada frame) y no depende de la direccion (ida =
+-; vuelta, P50). celltab: la celda relativa a s. d1 = clase - 3 (1..4).
+-.td:    subq.w  #1,d1
+-        bne.s   .td1
++mwr_f1: move.l  #$01fe0000,(a3)+
++        bra.s   mwr_mv
++mwr_td: subq.w  #1,d1                       ; d1 = clase - 4
++        bne.s   mwr_t1
+         move.w  -2(a1),d0                   ; 4: con WAIT propio, en su x
+-        move.b  (a2,d0.w),d7
++mwr_tw: move.b  (a2,d0.w),d7
+         move.w  d7,(a3)+
+         move.w  d2,(a3)+
+-        bra.s   .tdm
+-.td1:   subq.w  #1,d1                       ; 5: detras del anterior
+-        beq.s   .tdm
++        bra.s   mwr_tm
++mwr_t1: subq.w  #1,d1                       ; 5: detras del anterior
++        beq.s   mwr_tm
+         subq.w  #1,d1                       ; 6: un relleno; 7: dos
+-        beq.s   .td2
++        beq.s   mwr_t2
+         move.l  #$01fe0000,(a3)+
+-.td2:   move.l  #$01fe0000,(a3)+
+-.tdm:   move.l  (a1)+,(a3)+                 ; MOVE registro, color
++mwr_t2: move.l  #$01fe0000,(a3)+
++mwr_tm: move.l  (a1)+,(a3)+                 ; MOVE registro, color
+         addq.l  #4,a1                       ; (a y b: no sirven)
++        bsr     mid_cell                    ; la celda del WAIT (d0)
++        bra.s   mwr_k2
++
++;----------------------------------------------------------------------
++; --- mid_walk --- (build_mid) las cargas ya escritas [a1, d7) desde a3 =
++; LT_SEG, con otra base (a2 = htab - s0): reescribe el byte h de cada WAIT
++; (la primera escrita lleva siempre WAIT) y las celdas de las tardes. Las
++; demas palabras no cambian.
++; salida:   a1 >= d7, a3 = despues de la ultima, d0 = x del ultimo WAIT
++; registros destruidos: d1
++;----------------------------------------------------------------------
++mid_walk:
++        cmpa.l  d7,a1
++        bhs.s   mwk_x
++        move.w  2(a1),d0                    ; la primera, con WAIT
++        move.b  (a2,d0.w),1(a3)
++        addq.l  #8,a3
++        cmp.w   #TARDE,(a1)
++        bhs.s   mwk_c
++mwk_n:  lea     12(a1),a1
++        cmpa.l  d7,a1
++        bhs.s   mwk_x
++mwk_l:  move.w  (a1),d1
++        subq.w  #1,d1
++        bne.s   mwk_o
++        addq.l  #4,a3                       ; 1: MOVE
++        lea     12(a1),a1
++        cmpa.l  d7,a1
++        blo.s   mwk_l
++mwk_x:  rts
++mwk_o:  bmi.s   mwk_w                       ; 0: WAIT
++        subq.w  #1,d1
++        bne.s   mwk_o3
++        addq.l  #8,a3                       ; 2: relleno + MOVE
++        bra.s   mwk_n
++mwk_o3: subq.w  #1,d1
++        bne.s   mwk_t
++        lea     12(a3),a3                   ; 3: 2 rellenos + MOVE
++        bra.s   mwk_n
++mwk_w:  move.w  2(a1),d0
++        move.b  (a2,d0.w),1(a3)             ; la h nueva
++        addq.l  #8,a3
++        bra.s   mwk_n
++mwk_t:  subq.w  #1,d1                       ; tardes: d1 = clase - 4
++        bne.s   mwk_t1
++        move.w  2(a1),d0                    ; 4: con WAIT
++        move.b  (a2,d0.w),1(a3)
++        addq.l  #8,a3
++        bra.s   mwk_c
++mwk_t1: lsl.w   #2,d1                       ; 5-7: 4, 8 o 12 bytes
++        add.w   d1,a3
++mwk_c:  bsr     mid_cell
++        bra.s   mwk_n
++
++;----------------------------------------------------------------------
++; --- mid_cell --- (build_mid) una tarde escrita con la base s0 = s
++; (canonica, P71): lo escrito es lo que se escribiria en s' mientras la h
++; del WAIT del que cuelga (d0 = su x) no cambie, htab[d0 - s'] =
++; htab[d0 - s0]: la celda de 8 px de P42 (4 px en la cola, TAILH).
++; LT_LVL = max(LT_LVL, s0 + t - ce), LT_LVU = min(LT_LVU, s0 + t - cs + 1),
++; t = d0 - s0 (celltab). Registros destruidos: d1
++;----------------------------------------------------------------------
++mid_cell:
+         move.w  d0,d1
+-        sub.w   d6,d1
++        sub.w   LT_S0(a4),d1
+         add.w   d1,d1
+-        add.w   d1,d1                       ; 4 (x del WAIT - s)
+-        move.l  celltab(pc,d1.w),d1         ; s' - s: >= alto, < bajo
+-        cmp.w   d1,d4
+-        ble.s   .tu
+-        move.w  d1,d4
+-.tu:    swap    d1
+-        cmp.w   d1,d3
+-        bge     .k2
+-        move.w  d1,d3
+-        bra     .k2
++        add.w   d1,d1                       ; 4 t
++        move.l  celltab(pc,d1.w),d1         ; t - ce, t - cs + 1
++        add.w   LT_S0(a4),d1
++        cmp.w   LT_LVU(a4),d1
++        bge.s   .u
++        move.w  d1,LT_LVU(a4)
++.u:     swap    d1
++        add.w   LT_S0(a4),d1
++        cmp.w   LT_LVL(a4),d1
++        ble.s   .l
++        move.w  d1,LT_LVL(a4)
++.l:     rts
+ ; para cada t = x - s (0..LASTX), la celda [cs, ce] de t con la misma
+ ; htab, relativa a s: .w t - ce y .w t - cs + 1 (init_lines). Aca, cerca
+-; de .td: se lee con (d8,pc,d1.w)
++; de mid_cell: se lee con (d8,pc,d1.w)
+ celltab: ds.w   2*(LASTX+1)
++
++;----------------------------------------------------------------------
++; --- mid_jmp --- (build_mid) el salto al segmento siguiente en a3 y
++; LT_WEND; a3 queda despues. Registros destruidos: d1
++;----------------------------------------------------------------------
++mid_jmp:
++        move.l  a3,d1
++        sub.l   LT_SEG(a4),d1
++        move.w  d1,LT_WEND(a4)
++        move.w  #$0084,(a3)+                ; COP2LCH
++        move.w  LT_NXT(a4),(a3)+
++        move.w  #$0086,(a3)+                ; COP2LCL
++        move.w  LT_NXT+2(a4),(a3)+
++        move.l  #$008a0000,(a3)+            ; COPJMP2
++        rts
++
++;----------------------------------------------------------------------
++; --- mid_trunc --- (build_mid) con la misma base, las cargas [a0, a1)
++; salieron por la derecha: el salto va donde empezaba a0 (LT_WEND menos
++; lo que ocupan). a0 > klo: ninguna es la primera.
++; registros destruidos: d0/d1/a2/a3
++;----------------------------------------------------------------------
++mid_trunc:
++        move.w  LT_WEND(a4),d1
++        moveq   #0,d0
++        move.l  a0,a2
++mtr_l:  move.w  (a2),d0
++        move.b  sztab(pc,d0.w),d0
++        sub.w   d0,d1
++        lea     12(a2),a2
++        cmp.l   a1,a2
++        blo.s   mtr_l
++        move.l  LT_SEG(a4),a3
++        add.w   d1,a3
++        bra.s   mid_jmp
++sztab:  dc.b    8,4,8,12,8,4,8,12           ; bytes en la lista por clase
++
++;----------------------------------------------------------------------
++; --- mid_low --- (build_mid .full, la camara va a la izquierda) la base
++; menor con la que valen las cargas en pantalla [a1, a0): s0 = max(s + 1 -
++; min b, x[khi - 1] - LASTX), y no mas que s ni s - max a; y se agregan
++; por la izquierda las que ya salieron con x >= s0 que valen con esa base
++; (hasta MIDMAX): asi no hay que reescribir la linea cuando vuelven a
++; entrar. Con una tarde (o sin cargas), s0 = s.
++; salida:   d1 = s0, a1 = klo
++; registros destruidos: d0/d3/d4/a2
++;----------------------------------------------------------------------
++mid_low:
++        move.w  d6,d1                       ; s0 = s si no
++        cmp.l   a0,a1
++        beq     mlo_x                       ; ninguna en pantalla
++        move.w  #-16000,d3
++        move.w  #16000,d4
++        move.l  a1,a2
++mlo_l:  cmp.w   #TARDE,(a2)
++        bhs     mlo_x                       ; una tarde: canonica
++        cmp.w   8(a2),d3
++        bge.s   mlo_1
++        move.w  8(a2),d3
++mlo_1:  cmp.w   10(a2),d4
++        ble.s   mlo_2
++        move.w  10(a2),d4
++mlo_2:  lea     12(a2),a2
++        cmp.l   a0,a2
++        blo.s   mlo_l
++        move.w  d6,d1
++        sub.w   d4,d1
++        addq.w  #1,d1                       ; s + 1 - min b
++        move.w  -10(a0),d0
++        sub.w   #LASTX,d0
++        cmp.w   d0,d1
++        bge.s   mlo_3
++        move.w  d0,d1                       ; x[khi - 1] - LASTX
++mlo_3:  move.w  d6,d0
++        sub.w   d3,d0                       ; s - max a
++        cmp.w   d6,d0
++        ble.s   mlo_4
++        move.w  d6,d0                       ; (y s)
++mlo_4:  cmp.w   d0,d1
++        bgt.s   mlo_s                       ; no hay: s
++mlo_e:  move.l  a0,d0                       ; agregar por la izquierda
++        sub.l   a1,d0
++        cmp.w   #MIDMAX*12,d0
++        bhs.s   mlo_x
++        cmp.w   -10(a1),d1                  ; x[klo - 1] >= s0
++        bgt.s   mlo_x
++        cmp.w   #TARDE,-12(a1)
++        bhs.s   mlo_x
++        move.w  -2(a1),d0                   ; s0 + b > s
++        add.w   d1,d0
++        cmp.w   d6,d0
++        ble.s   mlo_x
++        move.w  -4(a1),d0                   ; s0 + a <= s
++        add.w   d1,d0
++        cmp.w   d6,d0
++        bgt.s   mlo_x
++        lea     -12(a1),a1
++        bra.s   mlo_e
++mlo_s:  move.w  d6,d1
++mlo_x:  rts
+         even
+ 
+ ;----------------------------------------------------------------------
+@@ -1358,9 +1733,9 @@
+         endc
+         even
+ gst_a:  ds.b    GSZ*NGRP                    ; build_mid: estado de los grupos
+-linetab_a: ds.b 32*LINES                    ; ver init_lines
++linetab_a: ds.b LT*LINES                    ; ver LT_* e init_lines
+ gst_b:  ds.b    GSZ*NGRP
+-linetab_b: ds.b 32*LINES
++linetab_b: ds.b LT*LINES
+ ldoff:  ds.w    LINES                       ; build_copper: inicio de las cargas
+ htab:   ds.b    LASTX+1                     ; byte bajo del WAIT por x
+         even
+@@ -1370,7 +1745,7 @@
+         dc.w    GSZ*(N/16-NGRP)             ; no usa)
+         dc.w    (1023<<6)|32
+         rept    16
+-        dc.w    N*32
++        dc.w    N*LT
+ N       set     N+1
+         endr
+         endr
