@@ -5,7 +5,8 @@ mkleveld.py - etapa 5: convierte el nivel al formato de D8 opcion (d)
 (dual playfield + el copper recargando colores a mitad de linea).
 
 Entradas: work/fg15.npy y work/bg512.npy (tools/mkd8in.py, datos del ROM).
-Salida:   work/yi1_d.dat (derivado del ROM: no se versiona, R9).
+Salida:   work/yi1_d.dat
+Los nombres salen del descriptor del nivel (--level levels/<nombre>.json, lvdesc.py). (derivado del ROM: no se versiona, R9).
 
 Colores. El OCS tiene paleta de 12 bits: cada color de la SNES (5 bits por
 canal) se cuantiza al de 4 bits mas cercano, round(c * 15 / 31), ANTES de
@@ -38,7 +39,7 @@ Formato (big-endian, para el 68000):
        L2B  capa 2: 432 lineas x (plano0, plano1, plano2) x 64 bytes
        L2P  capa 2: 432 lineas x 7 colores (registros 9..15 del DPF)
 
-    python tools/mkleveld.py [--gap 48]
+    python tools/mkleveld.py [--level levels/yi1.json] [--gap 48]
 """
 import argparse
 import os
@@ -50,6 +51,7 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import dpfsplit                                 # noqa: E402
+import lvdesc                                   # noqa: E402
 
 WORK = os.path.join(HERE, "..", "work")
 SKY = dpfsplit.SKY
@@ -99,11 +101,14 @@ def planar_rows(idx_rows, width):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--gap", type=int, default=48)
-    ap.add_argument("--out", default=os.path.join(WORK, "yi1_d.dat"))
+    lvdesc.add_arg(ap)
+    ap.add_argument("--out", default=None, help="por defecto el del descriptor (work/yi1_d.dat)")
     a = ap.parse_args()
+    d = lvdesc.load(a.level)
+    a.out = a.out or d.out["d"]
 
-    fg0 = np.load(os.path.join(WORK, "fg15.npy"))
-    bg0 = np.load(os.path.join(WORK, "bg512.npy"))
+    fg0 = np.load(d.out["fg15"])
+    bg0 = np.load(d.out["bg512"])
     fg, bg = quantize(fg0), quantize(bg0)
     H, W = fg.shape
     sky12 = int(to12(SKY))
@@ -211,7 +216,7 @@ def main():
           % (len(blocks), len(blk_bytes), W // 16, H // 16, n, len(evt), spill))
     print("capa 2: %d bytes de mapa de bits + %d de paleta por linea" % (len(l2b), len(l2p)))
     print("-> %s (%d bytes)" % (a.out, len(blob)))
-    np.save(os.path.join(WORK, "yi1_d_ideal.npy"), np.where(fg != SKY, shown, np.tile(bg, (1, W // P))))
+    np.save(d.out["d_ideal"], np.where(fg != SKY, shown, np.tile(bg, (1, W // P))))
 
 
 if __name__ == "__main__":

@@ -44,6 +44,7 @@ import sys
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
 
+import lvdesc
 from lvparse import (parse_header, decode_stream, _DEF_SRC, LEVEL_ROWS,
                      TILES_PER_SCREEN_W)
 from smw2amiga import lc_lz2_decompress, decode_snes_tileset, BPP_TABLE
@@ -877,8 +878,12 @@ for _t in range(0x10, 0x41):
         EXT_HANDLERS.setdefault(_t, h_ext_block)
 
 
-def build(lv_path, verbose=True):
+def build(lv_path, verbose=True, desc=None):
+    """desc: descriptor de nivel (lvdesc.Level); si se pasa, la cabecera del .lv
+    tiene que ser la suya"""
     data = open(lv_path, "rb").read()
+    if desc is not None:
+        desc.check_header(data)
     h = parse_header(data)
     objs, ok, endp = decode_stream(data)
 
@@ -1060,9 +1065,11 @@ def render(h, lv, out_png, scale=1, pal_index=None, use_ramp=False,
 
 def main():
     ap = argparse.ArgumentParser(description="Convierte un nivel de SMW a PNG")
-    ap.add_argument("--lv", default=os.path.join(
-        _DEF_SRC, "levels", "data", "world_1", "1", "obj.lv"))
-    ap.add_argument("--out", default=os.path.join(_HERE, "..", "work", "level.png"))
+    lvdesc.add_arg(ap)
+    ap.add_argument("--lv", default=None,
+                    help="obj*.lv; por defecto el del descriptor")
+    ap.add_argument("--out", default=None,
+                    help="PNG de salida; por defecto el del descriptor (work/level.png)")
     # --scale 1 = 5120x432, alineado 1:1 con SuperMarioWorldMap02.png
     ap.add_argument("--scale", type=int, default=1)
     ap.add_argument("--pal", type=int, default=None)
@@ -1073,8 +1080,10 @@ def main():
                          "(0..7); el paso 1 = $27FF es el de la referencia")
     a = ap.parse_args()
 
-    h, objs, lv = build(a.lv)
-    render(h, lv, a.out, a.scale, a.pal, a.ramp, a.coin_frame)
+    d = lvdesc.load(a.level)
+    # con --lv y sin --level, el .lv es de otro nivel: no se compara con la cabecera de YI1
+    h, objs, lv = build(a.lv or d.obj, desc=d if (a.level or not a.lv) else None)
+    render(h, lv, a.out or d.out["mklvl_png"], a.scale, a.pal, a.ramp, a.coin_frame)
 
 
 if __name__ == "__main__":

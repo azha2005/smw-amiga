@@ -10,7 +10,7 @@ el MISMO layout que la WRAM de la SNES, para la colision de Mario (8b):
 Pantalla s en C800 + s*$1B0 (DATA_00BA60/BA9C), celda y*16 + x. Una celda
 vacia vale $025 (P26), no 0.
 
-    python tools/mkmapbin.py [--lv ...] [--out work/yi1_map16.bin]
+    python tools/mkmapbin.py [--level levels/yi1.json] [--lv ...] [--out work/yi1_map16.bin]
 """
 import argparse
 import os
@@ -18,18 +18,22 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+import lvdesc                                   # noqa: E402
 import mklvl                                    # noqa: E402
-from lvparse import _DEF_SRC                    # noqa: E402
 
 SCR = 0x1B0
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--lv", default=os.path.join(_DEF_SRC, "levels", "data", "world_1", "1", "obj.lv"))
-    ap.add_argument("--out", default=os.path.join(HERE, "..", "work", "yi1_map16.bin"))
+    lvdesc.add_arg(ap)
+    ap.add_argument("--lv", default=None, help="obj*.lv; por defecto el del descriptor")
+    ap.add_argument("--out", default=None, help="por defecto el del descriptor (work/yi1_map16.bin)")
     a = ap.parse_args()
-    h, objs, lv = mklvl.build(a.lv, verbose=False)
+    d = lvdesc.load(a.level)
+    h, objs, lv = mklvl.build(a.lv or d.obj, verbose=False,
+                              desc=d if (a.level or not a.lv) else None)
+    a.out = a.out or d.out["map16"]
     n = h["num_screens"]
     lo = bytearray([0x25] * (n * SCR))
     hi = bytearray(n * SCR)

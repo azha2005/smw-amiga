@@ -18,7 +18,11 @@ Como la carga el juego (lv_read.s:CODE_05801E / CODE_058126):
     de columnas como las del nivel, P12), con los mismos GFX y CGRAM que la
     capa 1 (paletas de BG 0-1 = PALETTE_Background + BgPal, §8b).
 
-    python tools/mkbg.py [--bg mountains] [--out work/bg.png] [--level work/level_l1l2.png]
+    python tools/mkbg.py [--level levels/yi1.json] [--bg mountains] [--out work/bg.png]
+                         [--comp work/level_l1l2.png]
+
+(--level es el descriptor del nivel, lvdesc.py; el compuesto de las dos capas, que
+antes se llamaba --level, es --comp.)
 """
 import argparse
 import os
@@ -26,6 +30,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+import lvdesc                                   # noqa: E402
 import mklvl                                    # noqa: E402
 from lvparse import _DEF_SRC                    # noqa: E402
 
@@ -112,18 +117,25 @@ def render_bg(name, h, out_png=None):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--lv", default=os.path.join(_DEF_SRC, "levels", "data", "world_1", "1", "obj.lv"))
-    ap.add_argument("--bg", default="mountains")
-    ap.add_argument("--out", default=os.path.join(HERE, "..", "work", "bg_mountains.png"))
-    ap.add_argument("--level", default=os.path.join(HERE, "..", "work", "level_l1l2.png"),
-                    help="compuesto capa 2 (repetida cada 512 px) + capa 1")
+    lvdesc.add_arg(ap)
+    ap.add_argument("--lv", default=None, help="obj*.lv; por defecto el del descriptor")
+    ap.add_argument("--bg", default=None, help="por defecto el del descriptor (mountains)")
+    ap.add_argument("--out", default=None, help="por defecto el del descriptor (work/bg_mountains.png)")
+    ap.add_argument("--comp", default=None,
+                    help="compuesto capa 2 (repetida cada 512 px) + capa 1; por defecto el del "
+                         "descriptor (work/level_l1l2.png)")
     a = ap.parse_args()
     from PIL import Image
-    h, objs, lv = mklvl.build(a.lv, verbose=False)
+    d = lvdesc.load(a.level)
+    a.bg = a.bg or d.bg
+    a.out = a.out or d.out["bg_png"]
+    a.comp = a.comp or d.out["level_comp_png"]
+    h, objs, lv = mklvl.build(a.lv or d.obj, verbose=False,
+                              desc=d if (a.level or not a.lv) else None)
     bg, sky = render_bg(a.bg, h, a.out)
     print("fondo %s -> %s (%dx%d)" % (a.bg, a.out, bg.size[0], bg.size[1]))
-    if a.level:
-        l1 = os.path.join(HERE, "..", "work", "level_final.png")
+    if a.comp:
+        l1 = d.out["level_png"]
         if not os.path.exists(l1):
             mklvl.render(h, lv, l1)
         fg = Image.open(l1).convert("RGB")
@@ -138,8 +150,8 @@ def main():
             for x in range(W):
                 if fgp[x, y] != sky:
                     cp[x, y] = fgp[x, y]
-        comp.save(a.level)
-        print("capa 2 + capa 1 -> %s (%dx%d)" % (a.level, W, H))
+        comp.save(a.comp)
+        print("capa 2 + capa 1 -> %s (%dx%d)" % (a.comp, W, H))
 
 
 if __name__ == "__main__":

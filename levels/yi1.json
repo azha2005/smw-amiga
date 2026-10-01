@@ -1,0 +1,25 @@
+{
+  "name": "yi1",
+  "title": "Yoshi's Island 1",
+  "dir": "levels/data/world_1/1",
+  "obj": "obj.lv",
+  "spr": "spr.lv",
+  "header": "3340088027",
+  "bg": "mountains",
+  "camera": {"y0": 192, "lines": 224},
+  "out": {
+    "mklvl_png": "work/level.png",
+    "level_png": "work/level_final.png",
+    "bg_png": "work/bg_mountains.png",
+    "level_comp_png": "work/level_l1l2.png",
+    "fg15": "work/fg15.npy",
+    "bg512": "work/bg512.npy",
+    "d": "work/yi1_d.dat",
+    "d_ideal": "work/yi1_d_ideal.npy",
+    "scroll": "work/yi1_s.dat",
+    "map16": "work/yi1_map16.bin"
+  },
+  "subzones": [
+    {"obj": "obj-1.lv", "spr": null, "header": "C160188243", "note": "zona de la tuberia (ROADMAP 10.10): 2 pantallas, tileset 3"}
+  ]
+}
