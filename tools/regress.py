@@ -452,6 +452,20 @@ def game_checks(r):
         r.put("scroll.%s.max_s" % key, t[2], "info")
 
 
+def memmap_checks(r):
+    """6b.1: el mapa de memoria del game.bin que acaba de armar game_checks
+    (tools/memmap.py: lo del chipset en chip, alineaciones, totales de chip y
+    slow, el loader). Solo notas: sin metricas en la base"""
+    lst = "work/rg_game/game.lst"
+    if not os.path.exists(os.path.join(ROOT, lst)):
+        return
+    code, out = sh([PY, "tools/memmap.py", lst, "--adf", "work/rg_game/game.adf"])
+    r.logs["memmap"] = out
+    t = num(r"chip : ([\d ]+) B", out, lambda g: g.replace(" ", ""))
+    r.note("memmap (%s)" % lst, code == 0,
+           "0 violaciones; chip %s B" % (t[0] if t else "?") if code == 0 else out[-300:])
+
+
 def read_game(r, shot):
     """DIR/game_bench.png: la tabla de game.s -DBENCH (O1) con game_read.py"""
     code, out = sh([PY, "tools/game_read.py", "--shot", shot, "--auto"])
@@ -602,6 +616,7 @@ def main():
     if ok_68k:
         m68k_checks(r, pc)
         game_checks(r)
+        memmap_checks(r)
     if a.level:
         level_checks(r)
     if a.emu:
