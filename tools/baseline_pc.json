@@ -1,16 +1,16 @@
 {
  "_meta": {
-  "commit": "d2075e9",
+  "commit": "26a668a",
   "fecha": "2026-10-01",
   "nota": "tools/regress.py; las medidas emu.* dependen del emulador"
  },
  "game.build_mid.max": {
   "how": "min",
-  "value": 84840
+  "value": 75816
  },
  "game.build_mid.media": {
   "how": "min",
-  "value": 4389
+  "value": 3928
  },
  "game.columna.max": {
   "how": "min",
@@ -58,11 +58,11 @@
  },
  "game.total.max": {
   "how": "min",
-  "value": 122900
+  "value": 118724
  },
  "game.total.media": {
   "how": "min",
-  "value": 40438
+  "value": 39978
  },
  "game.total.pasados": {
   "how": "min",
@@ -886,19 +886,19 @@
  },
  "scroll.ida.max": {
   "how": "min",
-  "value": 86688
+  "value": 80492
  },
  "scroll.ida.max_s": {
   "how": "info",
-  "value": 4584
+  "value": 4588
  },
  "scroll.ida.media": {
   "how": "min",
-  "value": 17881
+  "value": 16251
  },
  "scroll.vuelta.max": {
   "how": "min",
-  "value": 114112
+  "value": 106012
  },
  "scroll.vuelta.max_s": {
   "how": "info",
@@ -906,6 +906,6 @@
  },
  "scroll.vuelta.media": {
   "how": "min",
-  "value": 19837
+  "value": 18989
  }
 }

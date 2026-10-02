@@ -211,6 +211,12 @@ le llevan los números al usuario (D1).
   `midsim5`), O4 (informe D1 con WinUAE), Z1 (reinicio del nivel tras la
   muerte), P7 (bolas de fuego), P9/P10 (monedas del bloque, caja de
   reserva), RC: `pw_3up` (parece pedir capa) y la moneda de Yoshi 4.
+  **SX paso 2 integrado** (diferir por la derecha, con desfase fijo de
+  8 px en las líneas impares para no amontonarlas): `scroll.ida.max`
+  86 688 → 80 492, a 2 px 77,5k → 60,6k; `game.total.max` 118 724.
+  **Faltan las capturas de WinUAE** contra master (ida 500-4500 y una a
+  la vuelta); `shot.ps1` no es seguro en paralelo dentro del mismo
+  worktree (`work\shot.uae` fijo). El pico a 4 px (s 4580-4672) pide S5/S7.
   Tarjetas nuevas por lo aprendido de reassembler (OutRun y Sonic en la
   Amiga; SUBAGENTES §5): **A0/A8** (referencia de audio = registro del
   DSP de `snesorc`, auditoría nota por nota) y **X1** (estudio: borrador de
