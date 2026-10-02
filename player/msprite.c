@@ -437,7 +437,11 @@ static void spr_obj_bit(u8 x)
     SETSPR(wm_SprObjStatus, x, SPR(wm_SprObjStatus, x) | tx_019134[R8(m15)]);
 }
 
-/* CODE_0192C9: arriba / abajo */
+/* CODE_0192C9: arriba / abajo. Con LOGIC68K es player/logic68k.s (spr_obj_vert)
+   y este C, spr_obj_vert_c, lo llama el asm para los casos raros */
+#ifdef LOGIC68K
+#define spr_obj_vert spr_obj_vert_c
+#endif
 MSS void spr_obj_vert(u8 x)
 {
     u8 y, a, t;

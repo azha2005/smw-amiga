@@ -858,6 +858,101 @@ _spr_obj_interact:
         rts
 
 ;----------------------------------------------------------------------
+; void spr_obj_vert(u8 x) = spr_obj_vert de msprite.c (CODE_0192C9: el
+; bloque de arriba / abajo del sprite). Portado el techo y el suelo llano
+; (tile < $6E, _0193B8); las pendientes y lo que sube 1 px y repite
+; (tile >= $6E), y el caso raro $59-$5B con $1931 = $0E / $03, saltan al C
+; (spr_obj_vert_c) con los mismos argumentos: antes de decidir solo se
+; escribio lo que el C vuelve a escribir igual (spr_tile y SprOnTileY*).
+; d2 = x  d3 = y (2 = abajo, 3 = arriba)  d1 = tile  a2 = ram  a3 = ram + x
+;----------------------------------------------------------------------
+        public  _spr_obj_vert
+_spr_obj_vert:
+        movem.l d2-d3/a2-a3,-(sp)
+        moveq   #0,d2
+        move.b  16+7(sp),d2                 ; x
+        lea     _ram(a4),a2
+        lea     (a2,d2.w),a3                ; P40 ok (x < 12)
+        moveq   #2,d3
+        tst.b   wm_SpriteSpeedY(a3)
+        bpl.s   .go
+        moveq   #3,d3
+.go:    move.l  d3,-(sp)                    ; spr_tile(x, y)
+        move.l  d2,-(sp)
+        bsr     _spr_tile_asm
+        addq.l  #8,sp
+        move.b  d0,wm_SprOnTileYHi(a2)
+        move.b  wm_Map16NumLo(a2),d1        ; t
+        move.b  d1,wm_SprOnTileYLo(a2)
+        tst.b   d0
+        beq     .ret                        ; sin bloque
+        cmp.b   #2,d3
+        bne     .ceil
+        cmp.b   #$59,d1                     ; el suelo
+        blo.s   .f1
+        cmp.b   #$5c,d1
+        bhs.s   .f1
+        move.b  $1931(a2),d0
+        cmp.b   #$0e,d0
+        beq     .toc
+        cmp.b   #$03,d0
+        beq     .toc
+.f1:    cmp.b   #$11,d1
+        bhs.s   .f2
+        moveq   #$0f,d0                     ; tile < $11 (CODE_0193B0)
+        and.b   _ram+m12(a4),d0
+        cmp.b   #5,d0
+        bhs     .ret
+        bra.s   .b8
+.f2:    cmp.b   #$6e,d1
+        bhs     .toc                        ; pendiente / sube 1 px: el C
+.b8:    btst    #2,wm_Tweaker1686(a3)       ; _0193B8
+        bne.s   .bit
+        move.b  wm_SpriteStatus(a3),d0
+        cmp.b   #2,d0
+        beq     .ret
+        cmp.b   #5,d0
+        beq     .ret
+        cmp.b   #$0b,d0
+        beq     .ret
+        cmp.b   #$0c,d1
+        beq.s   .t1
+        cmp.b   #$0d,d1
+        bne.s   .t2
+.t1:    moveq   #3,d0
+        and.b   wm_FrameA(a2),d0
+        beq     .unsup
+.t2:    tst.b   wm_SpriteEatenTbl(a3)
+        bne.s   .bit
+        moveq   #$f0-256,d0
+        and.b   wm_SpriteYLo(a3),d0
+        add.b   wm_SprMoveDownPixels(a2),d0
+        move.b  d0,wm_SpriteYLo(a3)
+.bit:   moveq   #1,d0                       ; spr_obj_bit: 1 << m15
+        move.b  _ram+m15(a4),d1
+        lsl.b   d1,d0
+        or.b    d0,wm_SprObjStatus(a3)
+.ret:   movem.l (sp)+,d2-d3/a2-a3
+        rts
+.ceil:  cmp.b   #$11,d1                     ; el techo
+        blo.s   .ret
+        cmp.b   #$6e,d1
+        blo.s   .cb
+        cmp.b   wm_LowestSolidSprTile(a2),d1
+        blo.s   .ret
+        cmp.b   wm_HighestSolidSprTile(a2),d1
+        bhs.s   .ret
+.cb:    move.b  d1,wm_SprOnBreakableBlk(a2)
+        bra.s   .bit
+.unsup: tst.l   _mario_unsupported(a4)      ; spr_unsup (los tiles $0C/$0D)
+        bne.s   .ret
+        moveq   #MARIO_UNSUP_TILE,d0
+        move.l  d0,_mario_unsupported(a4)
+        bra.s   .ret
+.toc:   movem.l (sp)+,d2-d3/a2-a3           ; los argumentos siguen en la pila
+        jmp     _spr_obj_vert_c
+
+;----------------------------------------------------------------------
 ; u16 f7f4(u16 limit, u16 bg1v) = f7f4_c de mcam.c (CODE_00F7F4, el scroll
 ; vertical de la capa 1). Hacia arriba (v2 < 0) salta al C, que vuelve a
 ; escribir igual m0, m2, m4 y las direcciones antes de seguir.
