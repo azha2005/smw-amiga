@@ -77,6 +77,10 @@ CL_LINES    equ 92
 ; COP2LCL, COPJMP2). Tamano fijo, contenido de largo variable: los huecos
 ; no le cuestan tiempo al copper.
 MIDMAX      equ 12
+DFM     equ 1               ; build_mid, diferir (SX paso 2): vu se adelanta
+DFS     equ 2               ; (L & DFM) << (5 - DFS) px = 0 u 8 (Musashi:
+                            ; el mejor pico de 1/2, 1/1, 1/3, 3/2, 3/3,
+                            ; 3/4, 7/3, 7/4, 15/4 y sin adelanto)
 SEG         equ 64+MIDMAX*12+12 ; 220 (tools/mkscroll.py: SEG). Una carga
                                 ; ocupa hasta 12 bytes: 2 rellenos + MOVE
 CL_SIZE     equ CL_LINES+SEG*LINES+4
@@ -846,8 +850,44 @@ build_mid:
         bra.s   .hib
 .hid:   move.w  -10(a1),d3
         addq.w  #1,d3                       ; d3 = vl: la anterior vuelve
-        move.w  2(a0),d4
-        sub.w   #LASTX,d4                   ; d4 = vu: la siguiente entra
+; vu: cuando se ve el tramo nuevo de una de las que todavia no entraron
+; (SX paso 2, holgura de S5): la carga j, escrita con s0 = s, vale hasta
+; s0 + b, es decir su tramo nuevo empieza en x + b (en x una tarde, fija:
+; P71). Mientras x + b > s + LASTX no hace falta escribirla. m = min de
+; x + b para j >= hi, hasta la primera con x >= m (b > 0 en las que no son
+; tarde: las de detras no bajan m). vu = m - LASTX (>= x[hi] - LASTX).
+        move.w  2(a0),d4                    ; d4 = m
+        cmp.w   #$7fff,d4                   ; centinela: no hay mas
+        beq.s   .dfe
+        cmp.w   #4,(a0)
+        bhs.s   .dfe                        ; tarde: m = x
+        add.w   10(a0),d4                   ; x + b
+        move.l  a0,a3
+.dfl:   lea     12(a3),a3
+        move.w  2(a3),d0
+        cmp.w   d4,d0
+        bge.s   .dfe                        ; x >= m (el centinela tambien)
+        cmp.w   #4,(a3)
+        bhs.s   .dft                        ; tarde: m = x
+        add.w   10(a3),d0
+        cmp.w   d4,d0
+        bge.s   .dfl
+.dft:   move.w  d0,d4
+        bra.s   .dfl
+; Diferidas, muchas lineas comparten m (el borde de un objeto) y se
+; reescribirian en el mismo frame: las impares se adelantan 8 px (nunca
+; antes de x[hi] - LASTX, la cota de siempre). Fija por linea: no depende
+; de la direccion (P71).
+.dfe:   move.w  a4,d0
+        sub.w   a5,d0                       ; L * 32
+        and.w   #DFM<<5,d0
+        lsr.w   #DFS,d0
+        sub.w   d0,d4
+        move.w  2(a0),d0
+        cmp.w   d0,d4
+        bge.s   .dfg
+        move.w  d0,d4
+.dfg:   sub.w   #LASTX,d4                   ; d4 = vu
         move.l  (a4),a3                     ; a3 = donde van las cargas
         move.l  a0,d1
         sub.l   a1,d1                       ; 12 * cargas
