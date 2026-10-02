@@ -1,6 +1,6 @@
 {
  "_meta": {
-  "commit": "3fe06e5+cambios",
+  "commit": "64f872b",
   "fecha": "2026-10-01",
   "nota": "tools/regress.py; las medidas emu.* dependen del emulador"
  },
@@ -34,11 +34,11 @@
  },
  "game.level_frame.max": {
   "how": "min",
-  "value": 42418
+  "value": 39026
  },
  "game.level_frame.media": {
   "how": "min",
-  "value": 29923
+  "value": 28588
  },
  "game.mspr_draw.max": {
   "how": "min",
@@ -58,11 +58,11 @@
  },
  "game.total.max": {
   "how": "min",
-  "value": 135326
+  "value": 133140
  },
  "game.total.media": {
   "how": "min",
-  "value": 45939
+  "value": 44632
  },
  "game.total.pasados": {
   "how": "min",
@@ -102,15 +102,15 @@
  },
  "m68k.spr.ciclos_max": {
   "how": "min",
-  "value": 42388
+  "value": 38996
  },
  "m68k.spr.ciclos_media": {
   "how": "min",
-  "value": 29895
+  "value": 28595
  },
  "m68k.spr.ciclos_p99": {
   "how": "min",
-  "value": 40026
+  "value": 37018
  },
  "m68k.spr.resync": {
   "how": "min",
