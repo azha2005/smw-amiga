@@ -548,7 +548,29 @@ P6-P10 cambian cosas que hoy congelan el juego (el modo diagnóstico, P58):
 comprobar con `tools/diag_read.py --sim` y con el replay que el motivo ya
 no aparece.
 
-### G — Sprites: gráficos en la Amiga (ROADMAP Etapa 9.2, §9.5)
+### X — Traducción asistida 65816 → C (estudio)
+
+Idea de reassembler: él convierte con Python el asm de la Mega Drive al de
+la Amiga (mismo CPU). Nosotros no podemos reusar el 65816, pero sí
+**generar el borrador en C** que hoy los agentes P escriben a mano
+instrucción por instrucción, y dejar a mano solo lo que el traductor no
+entiende.
+
+#### X1 — `tools/x65c.py`: rutina del ROM → C del port **(F)**
+**F · — · `tools/x65c.py` (nuevo), informe**
+- Hace: dada una etiqueta de `smw-src-master` (p. ej. `ChuckMain`), emite
+  C con el estilo de `player/spr_*.c`: `ram[]` con `R8/W8/RX8`, A/X/Y y
+  `m0..` como locales, ancho de A y X seguido por `REP`/`SEP` (y avisos
+  donde no se sabe), saltos como `goto`, `JSR`/`JSL` a funciones por
+  etiqueta, tablas `.DB` por `smwtabx.py` (bloque `SMWTABX_<X>`, P78), y
+  el flag C/Z/N solo donde se lee después. Lo que no sabe traducir lo
+  deja como `spr_unsup()` con la instrucción en un comentario.
+- Puerta: regenerar **tres sprites ya portados** (Rex, Chuck, caparazones)
+  y que `marioverify <oráculo>.bin game` dé los mismos exactos que el C
+  a mano, con las líneas tocadas a mano contadas. Informe: qué fracción
+  sale sola, cuánto más lento es que el C a mano (`abcheck --sprites`) y
+  si conviene usarlo para P7, P9 y P10.
+- No toca: el C del port (los borradores van a `work/x65c/`).
 
 #### G1 — Volver a correr los estudios con la configuración actual
 **C · — · solo lectura + informe** · `oamstudy.py`, `d8demote.py`,
@@ -641,18 +663,45 @@ contra los grabados. Puerta: todos los frames.
 
 ### A — Audio (ROADMAP Etapa 11, D5)
 
+**Método (tomado de reassembler, `github.com/djyt/sonic2mod`):** la
+referencia no es un WAV sino **lo que el driver le escribe al chip**, tick
+a tick, en la misma partida que el oráculo (él usa VGM de la Mega Drive;
+nosotros, las escrituras al DSP de `snesorc`, que ya lleva el driver de
+snesrev). Cada conversión se audita **nota por nota** contra ese registro
+y queda un informe por tema (`docs/audio/<tema>.md`: notas N/N, tono,
+volumen por canal, lo que falta). El WAV de R8 queda para oír, no para
+medir. Referencia legible del driver: `smw_spc_player.c` de snesrev (el
+N-SPC de SMW reescrito en C; el asm del SPC700 solo para dudas).
+
+#### A0 — Registro del DSP en `snesorc` (la referencia de audio)
+**M · — · `tools/snesorc/orc.c`, `tools/dsplog.py` (nuevo)**
+- Hace: `snesorc --dsp X.txt` vuelca cada escritura al DSP (gancho en
+  `dsp_write` de snesrev, `src/snes/dsp.c`) con el frame y el tick del
+  driver: `KON`/`KOFF`, `P` (tono), `VOL`, `SRCN`, `ADSR`/`GAIN`, `FLG`,
+  `EON`. `dsplog.py` lo convierte a notas por voz (inicio, fin, tono en
+  cents, volumen, instrumento) y separa música de efectos (`$1DF9`/
+  `$1DFA`/`$1DFC`).
+- Puerta: con `normal.orc` las notas del tema de YI1 salen con el tempo
+  esperado y se repiten en el bucle; los saltos de Mario aparecen como
+  efectos en los frames del oráculo en que `$1DFA` cambia; el oráculo
+  `.txt` sale idéntico con y sin `--dsp` (no cambia la emulación).
+
 #### A1 — `tools/brr2pcm.py`
 **M · — · nuevo** · BRR → PCM de 8 bits **con signo** (P7), sin sesgo DC,
 `--selftest`. Puerta: correlación ≥ 0,99 contra las muestras del WAV de R8.
 
 #### A2 — Estudio del formato N-SPC **(F)**
-**F · — · informe** · qué hay en `sound/` del fuente, cómo se leen las
-secuencias, qué efectos usa el tema de YI1, qué 3 voces quedan (D5).
+**F · A0 · informe** · qué hay en `sound/` del fuente y en
+`smw_spc_player.c`, cómo se leen las secuencias, qué efectos usa el tema
+de YI1, qué 3 voces quedan (D5), medido sobre el registro de A0 (qué voz
+suena más, cuántas notas se pierden con cada elección).
 
 #### A3 — Conversor de secuencias
-**M · A2 · `tools/nspc2ev.py` (nuevo)** · eventos con el periodo de Paula
-precalculado, glissando/vibrato y ADSR como tablas por tick. Puerta: un
-render offline (Python) contra el WAV de R8: notas a ±1 tick y ±5 cents.
+**M · A0, A2 · `tools/nspc2ev.py` (nuevo)** · eventos con el periodo de
+Paula precalculado, glissando/vibrato y ADSR como tablas por tick.
+Puerta: `tools/audiocmp.py` (nuevo) contra el registro de A0, nota por
+nota: N/N notas de las voces elegidas, inicio a ±1 tick, tono a ±5 cents,
+volumen a ±1 dB; informe `docs/audio/yi1.md`.
 
 #### A4 — Secuenciador del 68000
 **M · A3 · `player/audio.s` (nuevo)** · tick por timer de CIA, escribe
@@ -664,7 +713,16 @@ tick en Musashi = el render offline.
 prioridad sobre la voz de música que comparte canal.
 
 #### A6 — Comparación
-**M · A4, R8** · captura de audio de FS-UAE contra el WAV de referencia.
+**M · A4, A0** · el estado de Paula por tick (Musashi: `AUDxPER/VOL/LC`
+escritos por `audio.s`) contra el registro de A0 con `audiocmp.py`, en
+el replay de `oracle_yi1`, alineado de 60 a 50 Hz (D15). Escuchar en
+WinUAE con el WAV de R8 al lado, como control, no como puerta.
+
+#### A8 — Auditorías por tema
+**C · A3 · `docs/audio/`** · un informe por tema y efecto que use YI1
+(nivel, estrella, meta, muerte, 1-UP...) con la salida de `audiocmp.py`
+y lo que no se puede (eco, voces descartadas). Así se sabe en todo
+momento qué está bien y qué no, sin escucharlo.
 
 #### A7 — Coste
 **C · A4** · ≤ 3 % medido con el método de `bench2.s` / O1.
@@ -711,6 +769,15 @@ prioridad sobre la voz de música que comparte canal.
 ---
 
 ## 5. Lo que aprendió el coordinador (2026-09-30, 4 subagentes a la vez)
+
+**De reassembler (2026-10-01; OutRun y Sonic en la Amiga, `djyt` en
+GitHub):** porta desde el código original y reescribe solo la capa de
+hardware; automatiza la conversión con Python; verifica contra lo que el
+original le manda al chip (VGM) con un informe por elemento (notas N/N);
+trabaja con Claude Code (`CLAUDE.md`, `agents.md`, `docs/` con
+referencias y auditorías). Apunta a A1200/AGA o 68030, no a la A500.
+De ahí salen A0/A8 (audio contra el registro del DSP) y X1 (borrador
+de C desde el 65816).
 
 - **Worktrees siempre**; el script (`wt_new.sh`) evita repetir a mano la
   copia de `work/` y `player/gen/`.

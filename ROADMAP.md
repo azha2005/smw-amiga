@@ -144,8 +144,9 @@ GDEFS=" " OUT=work/live sh tools/game_build.sh                # el de jugar
    (el `game.bin` del ADF que se usó) dice en qué frame y por qué.
 2. **PC:** Etapa 7 (`cmp_ref.py` del blob de la etapa 5 contra la referencia).
 3. **Usuario, opcional:** probar en una A500 real.
-4. Las grabaciones de la 8.1 ya no necesitan al usuario (snesorc). Solo el
-   audio de referencia de la 11 quedaría para la PC, si snesrev no lo da.
+4. Las grabaciones de la 8.1 ya no necesitan al usuario (snesorc). El
+   audio de referencia de la 11 tampoco: `snesorc` lleva el driver de
+   snesrev y puede registrar las escrituras al DSP (SUBAGENTES A0).
 5. ~~Mergear `claude/brave-ritchie-mm5o6r` a `master`~~: hecho el 2026-09-30.
 
 ### 1.8 Lo que falta, en sesiones (estimado el 2026-09-30)
@@ -210,6 +211,11 @@ le llevan los números al usuario (D1).
   `midsim5`), O4 (informe D1 con WinUAE), Z1 (reinicio del nivel tras la
   muerte), P7 (bolas de fuego), P9/P10 (monedas del bloque, caja de
   reserva), RC: `pw_3up` (parece pedir capa) y la moneda de Yoshi 4.
+  Tarjetas nuevas por lo aprendido de reassembler (OutRun y Sonic en la
+  Amiga; SUBAGENTES §5): **A0/A8** (referencia de audio = registro del
+  DSP de `snesorc`, auditoría nota por nota) y **X1** (estudio: borrador de
+  C desde el 65816 con `tools/x65c.py`, medido regenerando Rex, Chuck y
+  caparazones).
   Cruce de los oráculos snesorc contra el binario 68000 en `regress.py`
   (hoy solo `marioverify` en el PC; ver P92).
 - **Ola 2 (2026-10-01, PC Windows; cerrada por uso):** integradas I2
@@ -347,7 +353,7 @@ equilibrio entre 1:1 y coste. Solo queda abierta la compuerta D1.
 | D1 | 50 Hz o no | **cerrada (usuario, 2026-09-30): 50 Hz, haciendo todo lo posible**; "si no se puede, no se puede" | la optimización (§9, §10.1-10.3) va antes que todo lo que suma coste. Si agotadas las ideas el peor frame sigue sin entrar, se le presentan al usuario los números y el plan B (dibujo a 25 Hz) | todas |
 | **D15** | Velocidad: el ROM (U) es NTSC y la Amiga va a 50 Hz | **cerrada (usuario, 2026-09-30): se acepta** el 83 % de velocidad, como la SNES PAL (§10.12) | nada que hacer; la música mantiene el tempo (tick por CIA) | — |
 | **D16** | ¿La zona de la tubería (`obj-1.lv`) entra en el alcance? | **cerrada (usuario, 2026-09-30): entra** (§10.10) | conversión de una segunda zona, tuberías y transición | 12 |
-| **D5** | Música | **secuenciador propio** que lee las secuencias N-SPC de SMW convertidas offline a un formato compacto de eventos (no MOD) | Conserva glissandos, vibrato, envolventes (ADSR aproximado por tick) y el tempo del SPC700 (tick por timer de CIA). **Sin mezcla por CPU**: cada voz va directa a un canal de Paula, 3 de música + 1 de efectos, con prioridad por tema; el eco se omite. Límites: ≤ 64 KB de muestras en chip RAM y **≤ 3 % de CPU** medido | 11 |
+| **D5** | Música | **secuenciador propio** que lee las secuencias N-SPC de SMW convertidas offline a un formato compacto de eventos (no MOD) | Conserva glissandos, vibrato, envolventes (ADSR aproximado por tick) y el tempo del SPC700 (tick por timer de CIA). **Sin mezcla por CPU**: cada voz va directa a un canal de Paula, 3 de música + 1 de efectos, con prioridad por tema; el eco se omite. Límites: ≤ 64 KB de muestras en chip RAM y **≤ 3 % de CPU** medido. **Verificación** (como sonic2mod de reassembler): contra el registro de escrituras al DSP de `snesorc` en la partida del oráculo, nota por nota, con un informe por tema en `docs/audio/` (SUBAGENTES A0, A3, A6, A8) | 11 |
 | **D10** | Ancho de pantalla | **256 px**, como la SNES | DIW centrada; el fetch empieza más tarde, así que vuelve el sprite 7 (4 columnas adosadas); 20 % menos de DMA de planos; la cámara y la aparición de enemigos quedan 1:1 | 6.1 |
 | **D11** | HUD | **superpuesto (overlay)**, como la SNES | En las líneas del HUD el copper apunta PF1 a un bitmap fijo del HUD y PF2 sigue con su paralaje. Si en esas líneas aparece capa 1 del nivel, antes de renunciar al overlay se busca otra variante que lo conserve (10.1) y se consulta | 10 |
 | **D12** | Power-ups | **todos los de Yoshi's Island 1** | ver la lista abajo | 9.1 |
