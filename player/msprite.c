@@ -366,7 +366,7 @@ u8 spr_tile_asm(u8 x, u8 y);
    inicializado en la declaracion guardaria la direccion ABSOLUTA del
    ensamblado, y el binario se carga en cualquier sitio (P36) */
 const u8 *spr_clip_x, *spr_clip_y, *gdi_ofs, *gdi_bit;
-const u8 *mcl_dy, *mcl_h, *cl_dx, *cl_dy, *cl_w, *cl_h, *rex_speed, *upd_grav, *upd_max;
+const u8 *mcl_dy, *mcl_h, *cl_dx, *cl_dy, *cl_w, *cl_h, *rex_speed, *upd_grav, *upd_max, *tab_166e;
 u8 logic68k_zero;               /* siempre 0: con "tabla + 0 de la RAM" vbcc
                                    calcula la direccion con lea d16(a4); con
                                    "= tabla" emite move.l #etiqueta (absoluta) */
@@ -389,6 +389,7 @@ void logic68k_init(void)
     rex_speed = tx_RexSpeed + logic68k_zero;
     upd_grav = tx_019030 + logic68k_zero;
     upd_max = tx_01902E + logic68k_zero;
+    tab_166e = tx_166E + logic68k_zero;
 }
 u8 spr_tile_c(u8 x, u8 y)
 #else
@@ -437,8 +438,12 @@ static void spr_obj_bit(u8 x)
     SETSPR(wm_SprObjStatus, x, SPR(wm_SprObjStatus, x) | tx_019134[R8(m15)]);
 }
 
-/* CODE_0192C9: arriba / abajo */
-static void spr_obj_vert(u8 x)
+/* CODE_0192C9: arriba / abajo. Con LOGIC68K es player/logic68k.s (spr_obj_vert)
+   y este C, spr_obj_vert_c, lo llama el asm para los casos raros */
+#ifdef LOGIC68K
+#define spr_obj_vert spr_obj_vert_c
+#endif
+MSS void spr_obj_vert(u8 x)
 {
     u8 y, a, t;
     y = NEG(SPR(wm_SpriteSpeedY, x)) ? 3 : 2;
@@ -547,6 +552,7 @@ MSX int spr_obj_push(u8 x)
 }
 
 /* CODE_019140 (nivel horizontal, capa 1, sin agua) */
+#ifndef LOGIC68K            /* con LOGIC68K: player/logic68k.s (L1d) */
 MSX void spr_obj_interact(u8 x)
 {
     u8 a;
@@ -585,6 +591,7 @@ MSX void spr_obj_interact(u8 x)
     if (SPR(wm_SprInWaterTbl, x) != R8(wm_CheckSprInter))
         spr_unsup();                        /* entrar/salir del agua */
 }
+#endif
 
 /* SubUpdateSprPos */
 #ifndef LOGIC68K            /* con LOGIC68K: msprite.h y player/logic68k.s */
@@ -932,7 +939,7 @@ static void invis_blk(u8 x)
 /* FlyingBlock (sprite_1-1.s), el $83: vuela hacia la izquierda en onda */
 MSX void spr_spr_interact(u8 y);
 
-static void flying_block(u8 x)
+MSS void flying_block(u8 x)
 {
     get_draw_info1(x);                      /* SubSprGfx2Entry1: flags */
     SETSPR(wm_SpriteMiscTbl4, x, 0);
@@ -973,7 +980,7 @@ static void flying_block(u8 x)
 }
 
 /* InfoBox (sprite_3-1.s) */
-static void info_box(u8 x)
+MSS void info_box(u8 x)
 {
     invis_blk(x);
     sub_offscreen3(x);
@@ -1188,6 +1195,7 @@ MSX void sprspr_react(u8 y, u8 x)       /* extern: vbcc no la incorpora en spr_s
    Portados los estados 8, 9, A y B entre si (CODE_01A4BA); sin portar:
    los bloques voladores ($83 / $84) en medio, el Koopa $02 agarrando un
    caparazon, los puntos y el humo (graficos). */
+#ifndef LOGIC68K            /* con LOGIC68K: player/logic68k.s (L1d) */
 MSX void spr_spr_interact(u8 y)
 {
     int x;
@@ -1215,6 +1223,7 @@ MSX void spr_spr_interact(u8 y)
         sprspr_react(y, (u8)x);             /* CODE_01A4BA */
     }
 }
+#endif
 
 /* LoadTweakerBytes (para sprites que no corre el port) */
 void sprite_tweakers(u8 x)
@@ -1236,7 +1245,7 @@ void sprite_tweakers(u8 x)
    frena en el llano y, parado $20 frames, sale el Koopa sin caparazon
    ($02, InitSpriteTables: mismas X/Y y direccion). El humo al deslizarse
    (CODE_0389FF) es solo grafico: no se porta. */
-static void sliding_koopa(u8 x)
+MSS void sliding_koopa(u8 x)
 {
     u8 v = SPR(wm_SpriteSpeedX, x), y, s;
     if (v)
@@ -1284,7 +1293,7 @@ static void sliding_koopa(u8 x)
    deslizamiento de cuando lo sacan de uno (MiscTbl4). */
 static const u8 spr013_speed[4] = { 8, 0xF8, 12, 0xF4 };   /* Spr0to13SpeedX */
 #define KOOPA02_PROP 0x03                   /* Spr0to13Prop[$02] */
-static void shellless_koopa(u8 x)
+MSS void shellless_koopa(u8 x)
 {
     u8 a, y;
     if (!R8(wm_SpritesLocked)) {            /* CODE_018952 */
@@ -1378,7 +1387,7 @@ gfx:                                        /* _Spr0to13Gfx */
    izquierda ($E8). GetDrawInfo2 y SubOffscreen0Bnk2 son los del banco 3
    (mismas tablas); si GetDrawInfo2 lo ve lejos solo se salta el dibujo.
    Aunque SubOffscreen lo borre, el resto del frame sigue (como el ROM). */
-static void banzai_bill(u8 x)
+MSS void banzai_bill(u8 x)
 {
     get_draw_info(x);                       /* CODE_02D5E4 */
     if (SPR(wm_SpriteStatus, x) == 0x02 || R8(wm_SpritesLocked))
@@ -1393,7 +1402,10 @@ static void banzai_bill(u8 x)
    tuberia (sube a $C0 y frena), baja flotando hasta posarse y espera $40
    frames; no salta con Mario a menos de ~$1B px. Las bolas de fuego del $50
    no estan (no hay en el nivel). */
-static void jumping_piranha(u8 x)
+#ifdef LOGIC68K             /* player/logic68k.s (L1d); este C queda de referencia */
+void jumping_piranha(u8 x);
+#else
+void jumping_piranha(u8 x)
 {
     u8 v;
     u16 y;
@@ -1452,11 +1464,12 @@ static void jumping_piranha(u8 x)
     }
     spr_unsup();                            /* (ExecutePtr fuera de la tabla) */
 }
+#endif
 
 /* WarpBlocksMain -> CODE_02EADA (sprite_2-2.s), el $8E (bloques "warp
    hole" invisibles): si Mario lo toca, lo deja quieto en su X + $0A. No
    desaparece fuera de pantalla. */
-static void warp_blocks(u8 x)
+MSS void warp_blocks(u8 x)
 {
     if (!mario_spr_interact(x))             /* Tweaker167A bit 7: el contacto es suyo */
         return;
@@ -1466,7 +1479,7 @@ static void warp_blocks(u8 x)
 
 /* InvisMushroom (sprite_3-2.s), el $C7: invisible; si Mario lo toca, sale
    una seta ($74, sin portar: D12) hacia donde no va Mario */
-static void invis_mushroom(u8 x)
+MSS void invis_mushroom(u8 x)
 {
     u16 y;
     if (!get_draw_info(x))                  /* GetDrawInfoBnk3: lejos, nada */
@@ -1572,25 +1585,14 @@ static void sprite_main(u8 x, u8 n)
     spr_unsup();
 }
 
-/* CODE_0180D2 (los temporizadores) + HandleSprite, para una ranura */
-void sprite_run(u8 x)
+/* CODE_0180D2 (los temporizadores) + HandleSprite, para una ranura.
+   Con LOGIC68K, sprite_run es de player/logic68k.s (los temporizadores y el
+   despacho de los sprites que conoce) y llama a sprite_run_post para todo
+   lo demas: los sprites que el asm no conoce (el despachador de aca) siguen
+   funcionando sin tocar el asm. */
+MSS void sprite_run_post(u8 x)
 {
     u8 st = SPR(wm_SpriteStatus, x), n;
-    W8(wm_SprProcessIndex, x);
-    if (st && !R8(wm_SpritesLocked)) {      /* CODE_0180D2: los temporizadores */
-        u8 *p = ram + wm_SpriteDecTbl1 + x; /* desenrollado (un bucle sobre una */
-        u8 v;                               /* tabla de direcciones costaba ~450 */
-        if ((v = p[0]) != 0) p[0] = v - 1;  /* ciclos). Desplazamientos relativos */
-        if ((v = p[12]) != 0) p[12] = v - 1;/* a DecTbl1: con p[wm_...] vbcc */
-        if ((v = p[24]) != 0) p[24] = v - 1;/* -O=991 sumaba la base dos veces */
-        if ((v = p[36]) != 0) p[36] = v - 1;
-        if ((v = p[wm_DisSprCapeContact - wm_SpriteDecTbl1]) != 0)
-            p[wm_DisSprCapeContact - wm_SpriteDecTbl1] = v - 1;
-        if ((v = p[wm_SpriteDecTbl5 - wm_SpriteDecTbl1]) != 0)
-            p[wm_SpriteDecTbl5 - wm_SpriteDecTbl1] = v - 1;
-        if ((v = p[wm_SpriteDecTbl6 - wm_SpriteDecTbl1]) != 0)
-            p[wm_SpriteDecTbl6 - wm_SpriteDecTbl1] = v - 1;
-    }
     if (!st) {                              /* EraseSprite */
         SETSPR(wm_SprIndexInLvl, x, 0xFF);
         return;
@@ -1653,3 +1655,26 @@ void sprite_run(u8 x)
     }
     spr_unsup();                            /* muerto cayendo... */
 }
+
+#ifndef LOGIC68K            /* con LOGIC68K: player/logic68k.s */
+void sprite_run(u8 x)
+{
+    u8 st = SPR(wm_SpriteStatus, x);
+    W8(wm_SprProcessIndex, x);
+    if (st && !R8(wm_SpritesLocked)) {      /* CODE_0180D2: los temporizadores */
+        u8 *p = ram + wm_SpriteDecTbl1 + x; /* desenrollado (un bucle sobre una */
+        u8 v;                               /* tabla de direcciones costaba ~450 */
+        if ((v = p[0]) != 0) p[0] = v - 1;  /* ciclos). Desplazamientos relativos */
+        if ((v = p[12]) != 0) p[12] = v - 1;/* a DecTbl1: con p[wm_...] vbcc */
+        if ((v = p[24]) != 0) p[24] = v - 1;/* -O=991 sumaba la base dos veces */
+        if ((v = p[36]) != 0) p[36] = v - 1;
+        if ((v = p[wm_DisSprCapeContact - wm_SpriteDecTbl1]) != 0)
+            p[wm_DisSprCapeContact - wm_SpriteDecTbl1] = v - 1;
+        if ((v = p[wm_SpriteDecTbl5 - wm_SpriteDecTbl1]) != 0)
+            p[wm_SpriteDecTbl5 - wm_SpriteDecTbl1] = v - 1;
+        if ((v = p[wm_SpriteDecTbl6 - wm_SpriteDecTbl1]) != 0)
+            p[wm_SpriteDecTbl6 - wm_SpriteDecTbl1] = v - 1;
+    }
+    sprite_run_post(x);
+}
+#endif
