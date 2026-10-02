@@ -635,6 +635,72 @@ _spr_update_pos_asm:
         bra.s   .ret
 
 ;----------------------------------------------------------------------
+; void sprite_run(u8 x) = sprite_run de msprite.c (CODE_0180D2, los
+; temporizadores, + HandleSprite) para el estado 8 de los sprites que
+; conoce: pone SprProcessIndex, baja los 7 temporizadores y salta (tail
+; call: la pila y el argumento x quedan como llegaron) a la rutina del
+; sprite, que vuelve a quien llamo a sprite_run. Lo demas (estado 1 = init,
+; 2-6, 9-B, y los sprites que no estan en la lista) lo hace
+; sprite_run_post de msprite.c, en C, con los temporizadores ya bajados.
+;
+; AGREGAR UN SPRITE: un SPRMAIN con su numero y el simbolo de su rutina
+; (la de msprite.c tiene que ser MSS, no static; ver P37). Sin la linea
+; funciona igual por sprite_run_post -> sprite_main (C), solo mas lento.
+; Solo usa d0-d1/a0-a1 (no guarda nada): la rutina saltada ve la pila
+; de sprite_run.
+;----------------------------------------------------------------------
+DECT    macro                               ; if (t[x]) t[x]--  (a0 = ram + x)
+        tst.b   \1(a0)
+        beq.s   .d\@
+        subq.b  #1,\1(a0)
+.d\@:
+        endm
+
+SPRMAIN macro                               ; \1 = numero de sprite  \2 = rutina(x)
+        cmp.b   #\1,d0
+        beq     \2
+        endm
+
+        public  _sprite_run
+_sprite_run:
+        moveq   #0,d1
+        move.b  4+3(sp),d1                  ; x
+        lea     _ram(a4),a1
+        lea     (a1,d1.w),a0                ; a0 = ram + x (x < 12: P40 ok)
+        move.b  d1,wm_SprProcessIndex(a1)
+        move.b  wm_SpriteStatus(a0),d0      ; st
+        beq     .erase
+        tst.b   wm_SpritesLocked(a1)
+        bne.s   .nt
+        DECT    wm_SpriteDecTbl1
+        DECT    wm_SpriteDecTbl2
+        DECT    wm_SpriteDecTbl3
+        DECT    wm_SpriteDecTbl4
+        DECT    wm_DisSprCapeContact
+        DECT    wm_SpriteDecTbl5
+        DECT    wm_SpriteDecTbl6
+.nt:    subq.b  #8,d0
+        bne.s   .post                       ; no es el estado 8
+        clr.b   wm_SprPixelMove(a1)         ; sprite_main
+        move.b  wm_SpriteNum(a0),d0
+        ; ---- sprites con rutina propia (por frecuencia) ----
+        SPRMAIN $ab,_rex_main_asm
+        SPRMAIN $4f,_jumping_piranha
+        SPRMAIN $8e,_warp_blocks
+        SPRMAIN $c7,_invis_mushroom
+        SPRMAIN $83,_flying_block
+        SPRMAIN $b9,_info_box
+        SPRMAIN $bd,_sliding_koopa
+        SPRMAIN $02,_shellless_koopa
+        SPRMAIN $9f,_banzai_bill
+        SPRMAIN $95,_chuck_main             ; spr_chuck.c
+        SPRMAIN $7b,_goal_tape              ; spr_goal.c
+        ; ---- aca, una linea mas por sprite nuevo ----
+.post:  bra     _sprite_run_post            ; el resto, en C (los mismos argumentos)
+.erase: move.b  #$ff,wm_SprIndexInLvl(a0)   ; EraseSprite
+        rts
+
+;----------------------------------------------------------------------
 ; u16 f7f4(u16 limit, u16 bg1v) = f7f4_c de mcam.c (CODE_00F7F4, el scroll
 ; vertical de la capa 1). Hacia arriba (v2 < 0) salta al C, que vuelve a
 ; escribir igual m0, m2, m4 y las direcciones antes de seguir.
