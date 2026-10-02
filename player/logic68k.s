@@ -701,6 +701,90 @@ _sprite_run:
         rts
 
 ;----------------------------------------------------------------------
+; void spr_spr_interact(u8 y) = spr_spr_interact de msprite.c
+; (SubSprSprInteract): la ranura y contra las de abajo (x = y-1 .. 0). Lo
+; que depende solo de y se lee una vez (L2): si el filtro de y
+; (Tweaker1686 bit 3, DecTbl4) falla, falla con todas las x y no pasa nada
+; (ni CheckSprInter ni reaccion). Despues de una reaccion (sprspr_react, C)
+; y puede haber cambiado: se vuelve a leer todo y sigue desde la x
+; siguiente, como el C.
+; d2 = y  d3 = x  d4 = X de y  d5 = Y de y + 10/2  d6 = BehindScrn de y
+; a2 = ram  a3 = ram + y
+;----------------------------------------------------------------------
+        public  _spr_spr_interact
+_spr_spr_interact:
+        moveq   #0,d0
+        move.b  4+3(sp),d0                  ; y
+        beq     .ret0                       ; y = 0: nadie debajo
+        move.b  _ram+wm_FrameA(a4),d1
+        eor.b   d0,d1
+        btst    #0,d1
+        beq     .ret0                       ; solo las ranuras de paridad distinta a FrameA
+        movem.l d2-d6/a2-a3,-(sp)
+        move.l  d0,d2                       ; d2 = y (long limpio: se empuja entero)
+        move.l  d0,d3                       ; d3 = x (limpio, 0..11)
+        lea     _ram(a4),a2
+        lea     (a2,d2.w),a3                ; P40 ok (y < 12)
+.reload:
+        move.b  wm_Tweaker1686(a3),d0
+        and.b   #$08,d0
+        or.b    wm_SpriteDecTbl4(a3),d0
+        bne     .ret                        ; y no interactua con nadie
+        move.b  wm_SprBehindScrn(a3),d6
+        move.b  wm_SpriteXHi(a3),d4
+        lsl.w   #8,d4
+        move.b  wm_SpriteXLo(a3),d4         ; X de y
+        move.b  wm_SpriteYHi(a3),d5
+        lsl.w   #8,d5
+        move.b  wm_SpriteYLo(a3),d5
+        moveq   #2,d0
+        move.b  wm_Tweaker1662(a3),d1
+        and.b   #$0f,d1
+        beq.s   .y2
+        moveq   #10,d0
+.y2:    add.w   d0,d5                       ; Y de y + 10 / 2
+.loop:  subq.w  #1,d3
+        bmi.s   .ret
+        lea     (a2,d3.w),a1                ; P40 ok (x < 12)
+        cmp.b   #$08,wm_SpriteStatus(a1)
+        blo.s   .loop
+        move.b  wm_Tweaker1686(a1),d0
+        and.b   #$08,d0
+        or.b    wm_SpriteDecTbl4(a1),d0
+        or.b    wm_SpriteEatenTbl(a1),d0
+        move.b  wm_SprBehindScrn(a1),d1
+        eor.b   d6,d1
+        or.b    d1,d0
+        bne.s   .loop
+        move.b  d3,wm_CheckSprInter(a2)
+        move.b  wm_SpriteXHi(a1),d0
+        lsl.w   #8,d0
+        move.b  wm_SpriteXLo(a1),d0
+        sub.w   d4,d0
+        add.w   #$10,d0
+        cmp.w   #$20,d0                     ; (u16)(a - b + $10) >= $20: lejos
+        bhs.s   .loop
+        move.b  wm_SpriteYHi(a1),d0
+        lsl.w   #8,d0
+        move.b  wm_SpriteYLo(a1),d0
+        move.b  wm_Tweaker1662(a1),d1
+        and.b   #$0f,d1
+        beq.s   .a2
+        addq.w  #8,d0                       ; +10 = 2 + 8
+.a2:    addq.w  #2,d0
+        sub.w   d5,d0
+        add.w   #$0c,d0
+        cmp.w   #$18,d0                     ; (u16)(a - b + $0C) >= $18: lejos
+        bhs     .loop
+        move.l  d3,-(sp)                    ; sprspr_react(y, x): CODE_01A4BA (C)
+        move.l  d2,-(sp)
+        bsr     _sprspr_react
+        addq.l  #8,sp
+        bra     .reload
+.ret:   movem.l (sp)+,d2-d6/a2-a3
+.ret0:  rts
+
+;----------------------------------------------------------------------
 ; u16 f7f4(u16 limit, u16 bg1v) = f7f4_c de mcam.c (CODE_00F7F4, el scroll
 ; vertical de la capa 1). Hacia arriba (v2 < 0) salta al C, que vuelve a
 ; escribir igual m0, m2, m4 y las direcciones antes de seguir.

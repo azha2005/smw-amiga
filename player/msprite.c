@@ -1180,6 +1180,7 @@ MSX void sprspr_react(u8 y, u8 x)       /* extern: vbcc no la incorpora en spr_s
    Portados los estados 8, 9, A y B entre si (CODE_01A4BA); sin portar:
    los bloques voladores ($83 / $84) en medio, el Koopa $02 agarrando un
    caparazon, los puntos y el humo (graficos). */
+#ifndef LOGIC68K            /* con LOGIC68K: player/logic68k.s (L1d) */
 MSX void spr_spr_interact(u8 y)
 {
     int x;
@@ -1207,6 +1208,7 @@ MSX void spr_spr_interact(u8 y)
         sprspr_react(y, (u8)x);             /* CODE_01A4BA */
     }
 }
+#endif
 
 /* LoadTweakerBytes (para sprites que no corre el port) */
 void sprite_tweakers(u8 x)
