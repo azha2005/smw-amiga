@@ -82,4 +82,13 @@ u8 spr_horiz_pos(u8 x);                 /* SubHorizPos (Y = 1 si Mario esta a la
 int spr_draw_info1(u8 x);               /* GetDrawInfoBnk1 */
 void spr_spin_kill(u8 x);               /* _01A924: salto con giro sobre un sprite pisable */
 
+/* spr_powerup.c (P6: la seta $74 y lo que sale de los bloques) */
+void powerup_main(u8 x);                /* _PowerUpRt: la seta $74, estado 8 */
+void powerup_init(u8 x);                /* InitPowerUp */
+u8 powerup_from_block(void);            /* _02887D: m5 = contenido; crea el sprite (ranura o $FF) */
+u8 powerup_flying_content(u8 x);        /* DATA_01AE88[...]: el contenido del bloque volador */
+/* de msprite.c, para spr_powerup.c */
+void spr_init_tables(u8 x);             /* JSL InitSpriteTables */
+int spr_contact_a80f(u8 x);             /* _01A80F: 1 = las cajas de Mario y del sprite se tocan */
+
 #endif
