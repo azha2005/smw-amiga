@@ -41,7 +41,8 @@ extern int mario_unsupported;
    que no mueve a Mario (para el verificador). */
 extern u8 *map16_lo, *map16_hi;
 enum {
-    MEV_TILE = 1, MEV_COIN = 2, MEV_BOUNCE = 4, MEV_DEATH = 8, MEV_HURT = 16,
+    MEV_TILE = 1, MEV_COIN = 2, MEV_BOUNCE = 4, MEV_DEATH = 8,
+    MEV_HURT = 16,      /* ya no lo pone nadie: HurtMario (mario_hurt) da $71 = 1 o 9 */
     MEV_PIPE = 32, MEV_MIDWAY = 64, MEV_1UP = 128, MEV_POUND = 256,
     MEV_SWITCH = 512, MEV_SPRITE = 1024
 };
@@ -56,6 +57,9 @@ void mario_D7E4(void);      /* CODE_00D7E4: gravedad, planeo */
 /* Etapa 8b: CODE_00CD24 (movimiento DC2D + colision E92B + F595) y el
    frame entero del jugador (colision + 8a). */
 void mario_collide(void);
+void mario_hurt(void);      /* mcoll.c: HurtMario ($00F5B7): chico muere, grande encoge ($71 = 1) */
+void mario_DC2D(void);      /* mcoll.c: CODE_00DC2D, la velocidad mueve a Mario */
+void mario_D92E(void);      /* mario.c: _00D92E, gravedad sin mirar el boton (morir) */
 void mcoll_init(void);      /* tablas nativas de las sondas (una vez, al empezar el nivel) */
 void blocks_update(void);   /* CODE_02902D: bloques que rebotan (fase de sprites) */
 

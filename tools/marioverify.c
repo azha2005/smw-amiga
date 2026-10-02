@@ -751,6 +751,23 @@ static int game_ported(int n)
         || n == 0x8E || n == 0xC7 || n == 0x95 || n == 0x7B || (n >= 0x04 && n <= 0x07);
 }
 
+/* P8: animaciones de $71 que el port corre (manim.c): 1 encoger, 2 crecer, 4 flor, 9 morir */
+static int pset(int a) { return a == 1 || a == 2 || a == 4 || a == 9; }
+
+/* lo que se compara de mas en los frames de una animacion portada (ademas de ffields) */
+static const Field afields[] = {
+    {"MarioAnimation $71", wm_MarioAnimation, 1},
+    {"SpritesLocked $9D", wm_SpritesLocked, 1},
+    {"PowerUp $19", wm_MarioPowerUp, 1},
+    {"HurtTimer $1497", wm_PlayerHurtTimer, 1},
+    {"StarTimer $1490", wm_StarPowerTimer, 1},
+    {"FlashPal $149B", wm_FlashingPalTimer, 1},
+    {"HidePlayer $78", wm_HidePlayer, 1},
+    {"Camara $1A", wm_Bg1HOfs, 2},
+    {"Camara $1C", wm_Bg1VOfs, 2},
+};
+#define NAF ((int)(sizeof afields / sizeof afields[0]))
+
 static const int scmp[] = { wm_SpriteStatus, wm_SpriteXLo, wm_SpriteXHi, wm_SpriteYLo,
                             wm_SpriteYHi, wm_SpriteSpeedX, wm_SpriteSpeedY, wm_SpriteState,
                             wm_SpriteXAcc, wm_SpriteYAcc, wm_SpriteNum };
@@ -790,8 +807,9 @@ static int run_game(const char *sprpath, const char *mappath)
     static u8 spr[1024], map0[0x8000], map[0x8000], snap[0x2000];
     static long sfr[256], sok[256];
     long i, frames = 0, resync = 0, longest = 0, cur = 0, rexf = 0, rexok = 0, lstart = 0;
-    long cause[NFF + 2];
-    int k, c, synced = 0, follow[12] = {0}, shown = 0, pnum[12], pst[12], pend, fresh = 0, skip, hurt;
+    long cause[NFF + 2 + NAF];
+    long afr[16] = {0}, aok[16] = {0}, astart = 0, astart_inj = 0;
+    int k, c, synced = 0, follow[12] = {0}, shown = 0, pnum[12], pst[12], pend, fresh = 0, skip, hurt, pa;
     long cuts = 0, cutvars = 0, cutok = 0;
     /* P5: lo que la cinta de la meta ($7B) escribe al cortarse (todo en el rango grabado) */
     static const int goalvars[] = { wm_SecretGoalSprite, wm_EndLevelTimer, wm_StarPowerTimer, wm_PBalloonFrame };
@@ -864,7 +882,9 @@ static int run_game(const char *sprpath, const char *mappath)
            corre, salvo el frame en que empieza, en el que el juego si corrio
            los sprites (un Rex que dania a Mario lo congela todo en su
            rutina): ahi corre el frame del port, pero no se compara a Mario */
-        skip = orc(i, wm_MarioAnimation) || orc(i, wm_SpritesLocked);
+        /* P8: crecer, encoger, flor y morir los corre el port: no se saltan */
+        skip = (orc(i, wm_MarioAnimation) && !pset(orc(i, wm_MarioAnimation)))
+               || (orc(i, wm_SpritesLocked) && !pset(orc(i, wm_MarioAnimation)));
         if (skip && !synced) continue;
         if (!synced) {
             game_load(i, follow, spr);
@@ -905,6 +925,9 @@ static int run_game(const char *sprpath, const char *mappath)
         }
         if (skip) memcpy(snap, ram, sizeof snap);
         hurt = 0;
+        pa = pset(orc(i, wm_MarioAnimation)) ? orc(i, wm_MarioAnimation)
+             : (i > 0 && frame_of(i) == frame_of(i - 1) + 1 && pset(orc(i - 1, wm_MarioAnimation))
+                ? orc(i - 1, wm_MarioAnimation) : 0);     /* animacion que corre en este frame */
         if (!mario_unsupported) sprites_begin();
         for (k = 0; k < 12; k++) pnum[k] = follow[k] ? ram[wm_SpriteNum + k] : -1;
         for (k = 0; k < 12; k++) pst[k] = ram[wm_SpriteStatus + k];
@@ -932,23 +955,33 @@ static int run_game(const char *sprpath, const char *mappath)
             {
                 int u = mario_unsupported;
                 unsigned ev = mario_events;
-                u8 ht = R8(wm_PlayerHurtTimer) | R8(wm_StarPowerTimer) | R8(wm_MarioAnimation);
                 mario_unsupported = 0;
                 sprite_run((u8)k);
                 if (mario_unsupported) follow[k] = 0;
                 mario_unsupported = u;
-                /* HurtMario (sin portar: MEV_HURT) congela a los que vienen
-                   detras en este mismo frame (SpritesLocked = $2F) */
-                if ((mario_events & ~ev & MEV_HURT) && !ht) {
-                    W8(wm_SpritesLocked, 0x2F);
-                    hurt = 1;
-                }
+                (void)ev;
             }
         }
         if (skip && !hurt) {                    /* lo congelo otra cosa, antes que a los */
             memcpy(ram, snap, sizeof snap);     /* sprites: se deshace su parte del frame */
             synced = 0;
             continue;
+        }
+        /* P8: crecer / flor las dispara la seta o la flor (P6, sin portar): el
+           arranque de la animacion es una entrada del oraculo; encoger y morir
+           los hace el port (HurtMario, CODE_00F595) y si no coinciden se cuenta */
+        if (pset(orc(i, wm_MarioAnimation)) && !(i > 0 && frame_of(i) == frame_of(i - 1) + 1
+                                                 && orc(i - 1, wm_MarioAnimation))) {
+            int a = orc(i, wm_MarioAnimation);
+            astart++;
+            if (ram[wm_MarioAnimation] != a) {
+                astart_inj++;
+                if (a == 2 || a == 4) {
+                    take(i, wm_MarioAnimation); take(i, wm_SpritesLocked); take(i, wm_PlayerAnimTimer);
+                    take(i, wm_MarioPowerUp); take(i, wm_FlashingPalTimer);
+                } else if (shown++ < 25)
+                    printf("  frame %u: la animacion %d empieza en el oraculo y no en el port\n", frame_of(i), a);
+            }
         }
         blocks_update();
         sprite_load_level();
@@ -1006,12 +1039,17 @@ static int run_game(const char *sprpath, const char *mappath)
             int a = ffields[k].adr;
             if (ram[a] != orc(i, a) || (ffields[k].w == 2 && ram[a + 1] != orc(i, a + 1))) bad = k;
         }
+        for (k = 0; pa && k < NAF && bad < 0; k++) {
+            int a = afields[k].adr;
+            if (ram[a] != orc(i, a) || (afields[k].w == 2 && ram[a + 1] != orc(i, a + 1))) bad = NFF + 1 + k;
+        }
+        if (pa) { afr[pa]++; aok[pa] += bad < 0; }
         if (bad < 0) { cur++; continue; }
         cause[bad]++;
         resync++;
         if (shown++ < 25)
             printf("  frame %u: tras %ld frames, difiere %s%s\n", frame_of(i), cur,
-                   bad < NFF ? ffields[bad].name : "(sin portar)",
+                   bad < NFF ? ffields[bad].name : bad == NFF ? "(sin portar)" : afields[bad - NFF - 1].name,
                    orc(i, wm_IsOnSolidSpr) ? "  [sobre un sprite]" : "");
         if (cur > longest) longest = cur;
         cur = 0;
@@ -1029,7 +1067,12 @@ static int run_game(const char *sprpath, const char *mappath)
     printf("       primer campo distinto:");
     for (k = 0; k < NFF; k++) if (cause[k]) printf(" %s:%ld", ffields[k].name, cause[k]);
     if (cause[NFF]) printf(" sin-portar:%ld", cause[NFF]);
+    for (k = 0; k < NAF; k++) if (cause[NFF + 1 + k]) printf(" %s:%ld", afields[k].name, cause[NFF + 1 + k]);
     printf("\n");
+    for (k = 1; k < 16; k++)
+        if (afr[k]) printf("       animacion $71=%02X: frames %ld exactos %ld\n", k, afr[k], aok[k]);
+    if (astart)
+        printf("       arranques de animacion portada: %ld (del oraculo, no del port: %ld)\n", astart, astart_inj);
     return 0;
 }
 

@@ -112,8 +112,7 @@ static void chuck_hurt(void)
         return;
     if (R8(wm_MarioAnimation) | R8(wm_PlayerHurtTimer) | R8(wm_StarPowerTimer) | R8(wm_EndLevelTimer))
         return;
-    mario_events |= MEV_HURT;
-    spr_unsup();
+    mario_hurt();
 }
 
 /* _02C7B1: muere (estrella o cuarto pisoton); GivePoints es de la etapa 10 */

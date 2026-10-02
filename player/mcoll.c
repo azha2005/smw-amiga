@@ -258,11 +258,12 @@ out:
 /* CODE_00F443: carry = ((XPos + 4) & $0F) >= 8 */
 static int f443(void) { return ((u8)(R8(wm_MarioXPos) + 4) & 0x0F) >= 8; }
 
-/* CODE_00F629 / KillMario / _NoButtons */
-static void kill_mario(void)
+/* _00F60A (HurtMario -> KillMario, CODE_00F595 al caer por abajo): empieza
+   la animacion de morir ($71 = 9). La cuenta atras ($1496) y el congelamiento
+   de los sprites ($9D) valen lo mismo ($30). */
+static void kill_start(void)
 {
-    W8(wm_MarioSpeedY, 0x90);
-    W8(wm_MusicCh1, 0x09);                  /* _00F60A */
+    W8(wm_MusicCh1, 0x09);
     W8(wm_LevelMusicMod, 0xFF);
     W8(wm_MarioAnimation, 0x09);
     W8(wm_IsSpinJump, 0);
@@ -272,21 +273,60 @@ static void kill_mario(void)
     W8(wm_188A, 0);
     mario_events |= MEV_DEATH;
 }
+
+/* CODE_00F629 / KillMario / _NoButtons */
+static void kill_mario(void)
+{
+    W8(wm_MarioSpeedY, 0x90);
+    kill_start();
+}
 static void no_buttons(void)
 {
     W8(wm_JoyPadA, 0); W8(wm_JoyFrameA, 0); W8(wm_JoyPadB, 0); W8(wm_JoyFrameB, 0);
 }
 static void f629(void) { kill_mario(); no_buttons(); }
 
-/* HurtMario: solo hay que saber que paso (cambia de modo: animacion) */
-static void hurt_mario(void)
+/* HurtMario ($00F5B7): lo llaman los sprites que danian a Mario y los
+   bloques que lo danian. Con Mario chico, KillMario; con Mario grande,
+   PowerDown ($71 = 1, 48 frames de animacion); con la capa planeando solo
+   pierde el planeo. No hace nada si ya hay una animacion, Mario esta
+   parpadeando, tiene la estrella o acaba la fase.
+   DropReservedItem (la caja de reserva suelta su item: un sprite nuevo) y
+   ADDR_00EB42 (Mario corriendo por la pared) no estan portados:
+   mario_unsupported = MARIO_UNSUP_HURT / _WALL; HurtMario desde un sprite lo
+   borra (sprites_all) y el item se queda en la caja. */
+void mario_hurt(void)
 {
     if (R8(wm_MarioAnimation))
         return;
     if (R8(wm_PlayerHurtTimer) | R8(wm_StarPowerTimer) | R8(wm_EndLevelTimer))
         return;
-    mario_events |= MEV_HURT;
-    unsup(MARIO_UNSUP_HURT);
+    W8(wm_CoinGameCoins, 0);
+    if (R8(wm_WallWalkStatus)) {            /* ADDR_00EB42 */
+        unsup(MARIO_UNSUP_WALL);
+        return;
+    }
+    if (R8(wm_MarioPowerUp) == 0) {         /* KillMario */
+        W8(wm_MarioSpeedY, 0x90);
+        kill_start();
+        return;
+    }
+    if (R8(wm_MarioPowerUp) == 0x02 && R8(wm_CapeGlidePhase)) {
+        W8(wm_SoundCh1, 0x0F);              /* la capa lo protege: pierde el planeo */
+        W8(wm_IsSpinJump, 0x01);
+        W8(wm_PlayerHurtTimer, 0x30);
+    } else {                                /* PowerDown */
+        W8(wm_SoundCh1, 0x04);
+        if (R8(wm_ItemInBox)) {             /* JSL DropReservedItem: sin portar (P10) */
+            unsup(MARIO_UNSUP_HURT);
+        }
+        W8(wm_MarioAnimation, 0x01);
+        W8(wm_MarioPowerUp, 0);
+        W8(wm_PlayerAnimTimer, 0x2F);       /* _00F61D */
+        W8(wm_SpritesLocked, 0x2F);
+    }
+    W8(wm_CapeGlidePhase, 0);               /* _00F622 */
+    W8(wm_188A, 0);
 }
 
 /* ------------------------------------------------------------------ */
@@ -502,7 +542,7 @@ pp:
 munch:
     if (t != 0x01) { f160(a, y); return; }  /* CODE_00F15F */
 hurt:
-    hurt_mario();
+    mario_hurt();
 }
 
 static void f120(u8 a, u8 y)
@@ -1221,7 +1261,7 @@ static void dc4f(u8 x)
 }
 
 /* CODE_00DC2D */
-static void dc2d(void)
+void mario_DC2D(void)
 {
     u8 a;
     W8(wm_8A, R8(wm_MarioSpeedY));
@@ -1246,15 +1286,7 @@ static void f595(void)
         return;
     if (R8(wm_YoshiWingsAboveGrnd)) { unsup(MARIO_UNSUP_YOSHI); return; }
     /* _00F60A: se cayo por abajo */
-    W8(wm_MusicCh1, 0x09);
-    W8(wm_LevelMusicMod, 0xFF);
-    W8(wm_MarioAnimation, 0x09);
-    W8(wm_IsSpinJump, 0);
-    W8(wm_PlayerAnimTimer, 0x30);
-    W8(wm_SpritesLocked, 0x30);
-    W8(wm_CapeGlidePhase, 0);
-    W8(wm_188A, 0);
-    mario_events |= MEV_DEATH;
+    kill_start();
 }
 
 /* ------------------------------------------------------------------ */
@@ -1266,7 +1298,7 @@ void mario_collide(void)
     mario_events = 0;
     if (NEG(R8(wm_MarioSpeedY)) && (R8(wm_MarioObjStatus) & 0x08))
         W8(wm_MarioSpeedY, 0);
-    dc2d();
+    mario_DC2D();
     e92b();
     if (mario_unsupported)
         return;
