@@ -53,7 +53,7 @@ GROWS, GCOLS = 110, 160                         # rejilla: filas y celdas por fi
 GLINE = 32
 MOTIVOS = {1: "CAPE", 2: "FIRE", 3: "YOSHI", 4: "LAYER", 5: "TILE", 6: "HURT", 7: "PIPE",
            8: "WATER", 9: "CLIMB", 10: "WALL", 0x10: "DANO (Mario chico)",
-           0x11: "MUERTE (kill_mario)", 0x12: "ANIM ($71 sin portar)", 0xFF: "PRUEBA"}
+           0x11: "MUERTE (fin de la animacion, GameMode $0B/$15)", 0x12: "ANIM ($71 sin portar)", 0xFF: "PRUEBA"}
 EVENTS = ["TILE", "COIN", "BOUNCE", "DEATH", "HURT", "PIPE", "MIDWAY", "1UP", "POUND",
           "SWITCH", "SPRITE"]
 BUTTONS = "BYsSUDLRaxlr"                         # bits 11..0 del estado del historial

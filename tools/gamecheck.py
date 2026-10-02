@@ -39,11 +39,11 @@ import m68kverify as V                          # noqa: E402
 PAL_FRAME = V.PAL_FRAME
 
 # memoria del emulador (1 MB) para correr el scroll: el binario esta en
-# V.BASE (0x10000..0x3D000)
-DATA = 0x40000                  # work/yi1_s.dat (230 KB)
-BUF1 = 0x80000                  # PF1 (59 136 B)
-COPA = 0x90000                  # listas del copper (CL_SIZE = 49 500 B)
-COPB = 0xA0000
+# V.BASE (0x10000..0x4025C con P6+P8+L1b; ver el control en main)
+DATA = 0x48000                  # work/yi1_s.dat (230 KB, hasta 0x80324)
+BUF1 = 0x84000                  # PF1 (59 136 B)
+COPA = 0x94000                  # listas del copper (CL_SIZE = 49 500 B)
+COPB = 0xA2000
 SPRS = 0xB0000                  # sprites de Mario: lista A, lista B y el nulo
 FAKE = 0xC0000                  # "CUSTOM" en RAM: DMACONR = 0 (blitter libre)
 SCRATCH = 0xF8000               # para calibrar el coste de una trampa
@@ -178,6 +178,9 @@ def main():
     a = ap.parse_args()
 
     code = open(a.bin, "rb").read()
+    if V.BASE + len(code) > DATA:               # el binario pisaria los datos del scroll
+        sys.exit("gamecheck: %s llega a 0x%X, pasa DATA = 0x%X: mover DATA/BUF1/COP*"
+                 % (a.bin, V.BASE + len(code), DATA))
     syms = V.symbols(a.lst)
     for s in ("replay_init", "game_step", "replay", "_ram", "map16", "spr_lv",
               "_map16_lo", "_map16_hi", "_spr_level", "_level_sprites", "g_left"):

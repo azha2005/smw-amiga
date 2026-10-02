@@ -152,8 +152,8 @@ DIAGSECS    equ 0                          ; 0: solo con una tecla
 DIAGPAGE    equ 1                           ; 1 = juego + franja, 2 = historial
         endc
 ; motivos (el byte alto de DI_MOT): 1..10 = mario_unsupported (MARIO_UNSUP_*)
-MOT_DANO    equ $10                         ; dano con Mario chico (MEV_HURT)
-MOT_MUERTE  equ $11                         ; kill_mario (MEV_DEATH: foso, aplastado)
+MOT_DANO    equ $10                         ; (ya no se usa: el dano lo hace el C, P8)
+MOT_MUERTE  equ $11                         ; la muerte termino (GameMode $0B/$15)
 MOT_ANIM    equ $12                         ; wm_MarioAnimation ($71) sin portar
 MOT_PRUEBA  equ $ff                         ; -DDIAGTEST=n en un frame sin motivo
 ; cola de la lista del juego en el modo diagnostico: la franja de 32 lineas
@@ -609,9 +609,8 @@ g_sts:  dc.l    0                           ; siguiente estado
 ;----------------------------------------------------------------------
 ; En vivo (6b.3): teclado y joystick -> $15-$18 -> level_frame. Lo que el
 ; port no tiene (animaciones de Mario, tuberias, meta...) congela el frame
-; en el modo diagnostico (P58). El dano (MEV_HURT) se resuelve aca, sin la
-; animacion: grande -> chico con el tiempo de invulnerabilidad; chico ->
-; diagnostico (MOT_DANO).
+; en el modo diagnostico (P58). El dano, crecer y morir los hace el C (P8,
+; manim.c): congela recien cuando la muerte pide reiniciar el nivel.
 ;----------------------------------------------------------------------
 
 ; live_init: guarda los datos del C (con ram[]) y el mapa como estan al
@@ -696,15 +695,7 @@ live_logic:
         clr.l   _mario_events(a2)
         bsr     callframe
         bsr     diag_cause                  ; d0 = motivo
-        btst    #4,_mario_events+3(a2)      ; MEV_HURT (HurtMario) con Mario
-        beq.s   .x                          ; grande: chico, sin la animacion
-        move.l  a2,a0
-        add.l   #_ram-binstart,a0
-        tst.b   $19(a0)                     ; wm_MarioPowerUp
-        beq.s   .x
-        clr.b   $19(a0)
-        move.b  #$7f,$1497(a0)              ; wm_PlayerHurtTimer
-.x:     movem.l (sp)+,d2-d4/a2
+        movem.l (sp)+,d2-d4/a2
         rts
 
 ;----------------------------------------------------------------------
@@ -1454,28 +1445,31 @@ hist_record:
         rts
 
 ; --- diag_cause --- por que el port no puede seguir despues de este
-; level_frame (solo mira: el dano con Mario grande lo resuelve live_logic)
-; salida:   d0.l = 0 (sigue), MOT_DANO (MEV_HURT con Mario chico), 1..10
-;           (mario_unsupported), MOT_MUERTE (MEV_DEATH) o MOT_ANIM ($71)
-; registros destruidos: d0/a0-a1
+; level_frame (solo mira; el dano y la muerte los hace el C, P8)
+; salida:   d0.l = 0 (sigue), 1..10 (mario_unsupported), MOT_MUERTE (la
+;           muerte termino: GameMode $0B/$15) o MOT_ANIM ($71 sin portar)
+; registros destruidos: d0-d1/a0-a1
 diag_cause:
         GETBASE a1
         move.l  a1,a0
         add.l   #_ram-binstart,a0
-        btst    #4,_mario_events+3(a1)      ; MEV_HURT
-        beq.s   .nh
-        tst.b   $19(a0)                     ; chico: se muere
-        bne.s   .nh
-        moveq   #MOT_DANO,d0
-        rts
-.nh:    move.l  _mario_unsupported(a1),d0
+        move.l  _mario_unsupported(a1),d0
         bne.s   .x
-        btst    #3,_mario_events+3(a1)      ; MEV_DEATH
-        beq.s   .na
-        moveq   #MOT_MUERTE,d0
+        move.b  $100(a0),d1                 ; wm_GameMode: la muerte ($71=9, P8)
+        cmp.b   #$0b,d1                     ; termino y pide el reinicio del
+        beq.s   .m                          ; nivel, que no esta portado (Z1)
+        cmp.b   #$15,d1
+        bne.s   .na
+.m:     moveq   #MOT_MUERTE,d0
         rts
-.na:    tst.b   $71(a0)                     ; wm_MarioAnimation
+.na:    move.b  $71(a0),d1                  ; wm_MarioAnimation
         beq.s   .x
+        cmp.b   #$09,d1                     ; portadas (manim.c, P8): morir,
+        beq.s   .x                          ; encoger, crecer y la flor
+        cmp.b   #$04,d1
+        beq.s   .x
+        cmp.b   #$02,d1
+        bls.s   .x                          ; (1 y 2; el 0 ya salio)
         moveq   #MOT_ANIM,d0
 .x:     rts
 

@@ -1,6 +1,6 @@
 {
  "_meta": {
-  "commit": "64f872b",
+  "commit": "6588852+cambios",
   "fecha": "2026-10-01",
   "nota": "tools/regress.py; las medidas emu.* dependen del emulador"
  },
@@ -194,19 +194,19 @@
  },
  "orc.chuck.game.spr_7B.exactos": {
   "how": "max",
-  "value": 417
+  "value": 567
  },
  "orc.chuck.game.spr_7B.seguidos": {
   "how": "info",
-  "value": 417
+  "value": 567
  },
  "orc.chuck.game.spr_95.exactos": {
   "how": "max",
-  "value": 450
+  "value": 601
  },
  "orc.chuck.game.spr_95.seguidos": {
   "how": "info",
-  "value": 450
+  "value": 601
  },
  "orc.chuck.game.spr_distintos": {
   "how": "min",
@@ -214,7 +214,7 @@
  },
  "orc.chuck.game.tramo": {
   "how": "max",
-  "value": 2839
+  "value": 2990
  },
  "orc.chuck.gfx.oam_ok": {
   "how": "max",
@@ -582,7 +582,7 @@
  },
  "orc.pw_seta.game.tramo": {
   "how": "max",
-  "value": 826
+  "value": 925
  },
  "orc.pw_seta.gfx.oam_ok": {
   "how": "max",
@@ -706,11 +706,11 @@
  },
  "pc.game.rex_exactos": {
   "how": "max",
-  "value": 12682
+  "value": 12971
  },
  "pc.game.rex_seguidos": {
   "how": "info",
-  "value": 12682
+  "value": 12971
  },
  "pc.game.spr_02.distintos": {
   "how": "min",
@@ -718,11 +718,11 @@
  },
  "pc.game.spr_02.exactos": {
   "how": "max",
-  "value": 252
+  "value": 443
  },
  "pc.game.spr_02.seguidos": {
   "how": "info",
-  "value": 252
+  "value": 443
  },
  "pc.game.spr_4F.distintos": {
   "how": "min",
@@ -754,11 +754,11 @@
  },
  "pc.game.spr_83.exactos": {
   "how": "max",
-  "value": 340
+  "value": 389
  },
  "pc.game.spr_83.seguidos": {
   "how": "info",
-  "value": 340
+  "value": 389
  },
  "pc.game.spr_8E.distintos": {
   "how": "min",
@@ -790,11 +790,11 @@
  },
  "pc.game.spr_AB.exactos": {
   "how": "max",
-  "value": 2635
+  "value": 2684
  },
  "pc.game.spr_AB.seguidos": {
   "how": "info",
-  "value": 2635
+  "value": 2684
  },
  "pc.game.spr_B9.distintos": {
   "how": "min",
@@ -834,7 +834,7 @@
  },
  "pc.game.tramo": {
   "how": "max",
-  "value": 3824
+  "value": 6279
  },
  "pc.gfx.frames": {
   "how": "eq",
