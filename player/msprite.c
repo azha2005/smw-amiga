@@ -438,7 +438,7 @@ static void spr_obj_bit(u8 x)
 }
 
 /* CODE_0192C9: arriba / abajo */
-static void spr_obj_vert(u8 x)
+MSS void spr_obj_vert(u8 x)
 {
     u8 y, a, t;
     y = NEG(SPR(wm_SpriteSpeedY, x)) ? 3 : 2;
@@ -547,6 +547,7 @@ MSX int spr_obj_push(u8 x)
 }
 
 /* CODE_019140 (nivel horizontal, capa 1, sin agua) */
+#ifndef LOGIC68K            /* con LOGIC68K: player/logic68k.s (L1d) */
 MSX void spr_obj_interact(u8 x)
 {
     u8 a;
@@ -585,6 +586,7 @@ MSX void spr_obj_interact(u8 x)
     if (SPR(wm_SprInWaterTbl, x) != R8(wm_CheckSprInter))
         spr_unsup();                        /* entrar/salir del agua */
 }
+#endif
 
 /* SubUpdateSprPos */
 #ifndef LOGIC68K            /* con LOGIC68K: msprite.h y player/logic68k.s */

@@ -785,6 +785,79 @@ _spr_spr_interact:
 .ret0:  rts
 
 ;----------------------------------------------------------------------
+; void spr_obj_interact(u8 x) = spr_obj_interact de msprite.c (CODE_019140,
+; nivel horizontal, capa 1, sin agua): spr_obj_vert (C), el lado hacia
+; donde va (spr_tile_asm), el empuje de los caparazones (spr_obj_push, C)
+; y el aviso de agua. Con agua o nivel vertical: sin portar, como el C.
+; d2 = x  a2 = ram  a3 = ram + x
+;----------------------------------------------------------------------
+        public  _spr_obj_interact
+_spr_obj_interact:
+        movem.l d2/a2-a3,-(sp)
+        moveq   #0,d2
+        move.b  12+7(sp),d2                 ; x
+        lea     _ram(a4),a2
+        lea     (a2,d2.w),a3                ; P40 ok (x < 12)
+        clr.b   wm_SprMoveDownPixels(a2)
+        clr.b   wm_SprObjStatus(a3)
+        clr.b   wm_SpriteSlopeTbl(a3)
+        clr.b   wm_TempTileGen(a2)
+        move.b  wm_SprInWaterTbl(a3),wm_CheckSprInter(a2)
+        clr.b   wm_SprInWaterTbl(a3)
+        tst.b   wm_SpriteBuoyancy(a2)
+        bne     .unsup
+        tst.b   wm_IsVerticalLvl(a2)
+        bmi     .unsup
+        tst.b   wm_Tweaker1686(a3)
+        bmi.s   .after
+        CALLX   _spr_obj_vert
+        move.b  wm_SpriteSpeedX(a3),d0      ; el lado hacia donde va
+        beq.s   .zero
+        rol.b   #1,d0
+        and.w   #1,d0                       ; y = bit 7 de la velocidad
+        bra.s   .tile
+.zero:  tst.b   wm_Tweaker190F(a3)          ; parado, bit 7: un lado por frame
+        bpl.s   .after
+        tst.b   wm_SpriteDecTbl5(a3)
+        bne.s   .after
+        moveq   #1,d0
+        and.b   wm_FrameA(a2),d0
+.tile:  move.l  d0,-(sp)                    ; spr_tile(x, y)
+        move.l  d2,-(sp)
+        bsr     _spr_tile_asm
+        addq.l  #8,sp
+        move.b  d0,wm_SprOnTileXHi(a2)
+        beq.s   .nobit
+        move.b  wm_Map16NumLo(a2),d1
+        cmp.b   #$11,d1
+        blo.s   .nobit
+        cmp.b   #$6e,d1
+        bhs.s   .nobit
+        moveq   #1,d0                       ; spr_obj_bit: tx_019134[m15] = 1 << m15
+        move.b  _ram+m15(a4),d1
+        lsl.b   d1,d0
+        or.b    d0,wm_SprObjStatus(a3)
+        move.b  wm_Map16NumLo(a2),wm_MirBlkCheck(a2)
+.nobit: move.b  wm_Map16NumLo(a2),wm_SprOnTileXLo(a2)
+.after: tst.b   wm_Tweaker190F(a3)
+        bpl.s   .water
+        moveq   #3,d0
+        and.b   wm_SprObjStatus(a3),d0
+        beq.s   .water
+        CALLX   _spr_obj_push
+        tst.l   d0
+        bne.s   .ret
+.water: move.b  wm_SprInWaterTbl(a3),d0
+        cmp.b   wm_CheckSprInter(a2),d0
+        beq.s   .ret
+.unsup: tst.l   _mario_unsupported(a4)      ; spr_unsup
+        bne.s   .ret
+        moveq   #MARIO_UNSUP_TILE,d0
+        move.l  d0,_mario_unsupported(a4)
+.ret:   movem.l (sp)+,d2/a2-a3
+        rts
+
+;----------------------------------------------------------------------
 ; u16 f7f4(u16 limit, u16 bg1v) = f7f4_c de mcam.c (CODE_00F7F4, el scroll
 ; vertical de la capa 1). Hacia arriba (v2 < 0) salta al C, que vuelve a
 ; escribir igual m0, m2, m4 y las direcciones antes de seguir.
