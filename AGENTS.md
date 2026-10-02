@@ -1401,6 +1401,63 @@ El pozo de x `$C10`-`$C5F` atrapa a los sprites (un caparazón rebota ahí
 para siempre). El `$C7` de x `$0660` se convierte en `$74` sin que Mario
 lo toque (`oracle_chuck`, frame 2568).
 
+**P86 — Verificadores contra snesorc (P1, P2, P4).** El primer registro de
+`oracle_yi1` (y de la partida del port) es el último frame del mosaico
+(`$1404` ≠ 0); el de un guion de snesorc con `rec on` tras `until
+$0100==14` ya tiene el primer frame del nivel corrido (`$1404` = 0): una
+pasada de sprites más. Un cambio en `level_start_sprites` se prueba contra
+`oracle_yi1` Y contra snesorc. El cargador puede reusar una ranura en el
+mismo frame en que un sprite sale de pantalla: `sprload` libera el índice
+del saliente también con `sj == 1`. Un sprite que nace directo en estado 9
+(el caparazón `$DB`) es un nacimiento, no se copia del oráculo (si no, el
+port lo duplica). La RAM por encima de `$14FF` (`wm_SprObjStatus`,
+`wm_SpriteSlopeTbl`, `wm_MirBlkCheck`, `wm_SprOnTileXLo`...) no está en
+el oráculo: un arnés que reponga la RAM desde el oráculo la arrastra.
+
+**P87 — Transcribir sprites (P3, P4, P5).** `SubHorzPos`/`SubVertPos` del
+banco 2 usan `wm_MarioXPos/YPos` ya movidos; el `sub_horiz_pos` de
+`msprite.c` usa `wm_PlayerXPosLv` (el del frame anterior): no se
+intercambian. `GetDrawInfo2` lejano hace `PLA PLA RTS` (en el port:
+`get_draw_info` devuelve 0). La ROM lee fuera de tablas (`DATA_02C73D` con
+Y = 6 lee `DATA_02C743[0]`): emularlo. En `CODE_01A5DA` el `STA
+SpriteStatus,Y` después de `JSR CODE_01A77C` mata al que corre, no al
+otro. Una variable local `m0`..`m15` choca con los `#define` de
+`smwram.h`. Cada `spr_*.c` nuevo: tablas en su bloque `#elif
+defined(SMWTABX_<X>)` de `smwtabx.py`, una línea en `sprite_main` (y en el
+init de `sprite_run`), su bloque al final de `msprite.h`, el número en
+`game_ported` de `marioverify.c`, su oráculo en `SNESORC` de `regress.py`.
+
+**P88 — asm del 68000 con vasm (L1c, MA1).** `lea d8(An,Dn.w)` solo admite
+desplazamiento de 8 bits con signo; `movem.l regs,(An)+` no existe; en
+rutinas largas las ramas `.s` se salen de rango. Una macro definida dentro
+de un `ifnd` falso falla si su cuerpo tiene `ifeq`/`else`: las macros van
+fuera. El asm de `mario_E2BD` depende de propiedades de tablas de la ROM
+que vigila `lint_port.py` A1: si cambia el generador de `smwrom00.c`,
+mirar A1 antes que el asm. `mspr_draw` tiene caché por pose (MA1): quien
+escriba `g_spra`/`g_sprb` llama a `mspr_inval`.
+
+**P89 — Editar las listas del copper en el sitio no conviene en el 68000
+(S4).** Cada edición cuesta ~1000 ciclos por línea (buscar, rango de bases,
+vl/vu) contra 413 + 124 por carga de reescribir entera, y en el borde de
+los postes igual se reescribe la mitad: el pico de la ida subió 77 498 →
+105 496. Lo que baja el pico (modelo `tools/wip64/midsim5.py`, que
+reproduce los conteos del asm): elegir la base menor yendo a la izquierda
+y diferir las cargas por su holgura b. Una carga que ya salió por la
+izquierda no daña la imagen pero ocupa copper al principio de la línea y
+obliga a s0 ≤ x[klo].
+
+**P90 — Guiones de snesorc, más (P5, RB).** Las condiciones de `until` leen
+un byte de WRAM: "y ≥ `$150`" de un sprite es `until $14D7==01` y después
+`until $00DB>=50`. Un `poke` después de un `until` que ya se cumplió dentro
+de un bloque `N BOTONES` largo llega tarde sin error. La Y real de Mario es
+`$D3`/`$D1`; el oráculo graba `$0096` (poner las dos). El contador de
+monedas de Yoshi es `$1420`. La cinta de la meta la corta cualquier
+contacto mientras esté por encima de los pies de Mario. En Windows,
+`regress.py` no arma `work/libport.so` (los cruces de RAM): `gcc -shared
+-O2 -DNOOAM -Iplayer -o work/libport.so <el C del port> player/spr_*.c
+player/gen/smwrom00.c`. `level_final.png` (lo leen `mkbg`/`mkd8in`) no lo
+genera la cadena: `mklvl.py --out work/level_final.png`.
+
 **P44 — Los "derrames" de la etapa 5 alargan el tramo anterior.**
 `mkleveld.py` asigna los píxeles que quedan fuera de todo tramo al registro
 que *todavía conserva* el color: después del fin de un tramo puede haber
