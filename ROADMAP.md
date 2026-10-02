@@ -194,6 +194,33 @@ le llevan los números al usuario (D1).
 
 ### Lo último que se hizo y lo siguiente
 
+- **Estado general (2026-10-01, fin del día):** la lógica está verificada
+  contra la SNES (Mario exacto en todos los oráculos, con crecer, encoger y
+  morir; ~15 tipos de sprite exactos; replay del juego 0 frames distintos),
+  pero **el rendimiento no llega a 50 Hz en los peores frames** y casi todo
+  lo visible y audible además de Mario falta. Musashi sin DMA: juego entero
+  peor frame 118 724 (≈ 84 %; en el día bajó de ≈ 95 %), media ≈ 28 %;
+  scroll peor frame ≈ 75 % a la vuelta y ≈ 57 % a la ida (objetivo ≤ 25 %);
+  lógica de sprites ≈ 27,5 % (objetivo ≤ 40 %, falta confirmarlo en
+  WinUAE). Con el DMA (~×1,3) los peores frames siguen pasando del frame:
+  50 Hz casi siempre, con tirones puntuales. Del plan de 16-20 olas,
+  aproximadamente la mitad del trabajo; falta lo más visible.
+- **Orden para la próxima sesión:** (1) capturas WinUAE de SX/SX2 contra
+  master (ida 500-4500 y vuelta; ojo P94 y `shot.ps1` no en paralelo en el
+  mismo worktree); (2) **O4: informe D1 para el usuario** (aceptar frames
+  lentos, 25 Hz en tramos, o seguir optimizando, con números de WinUAE),
+  antes de invertir más en el scroll; (3) **9.2, dibujar los sprites del
+  nivel** (G1-G2 con opus; hoy los enemigos existen en la lógica pero no se
+  ven); (4) **Z1**, reiniciar el nivel tras la muerte (hoy congela).
+- **Después, por bloques:** S5/S7 (pico de los postes de la meta a 4 px);
+  lógica que falta (P7 bolas de fuego, P9 monedas, P10 reserva, capa;
+  RC: `pw_3up`, moneda de Yoshi 4; X1 puede acelerarlo); partida completa
+  (Z1-Z5: muerte, punto medio, meta, tiempo, fundidos); HUD (H1-H5) y audio
+  (A0-A8, verificado contra el DSP); la zona de la tubería (T1-T3); carga y
+  memoria (135 KB de tablas a slow, C2 vlink, C3 compresión, C4 loader);
+  segunda ronda de optimización con todo junto; Z7 (WinUAE KS 1.2/1.3,
+  ADF final).
+
 - **Ola 3 (2026-10-01, PC Windows):** integradas C1 (`tools/memmap.py`:
   0 violaciones; chip 401,6 KB en vivo, 135 KB de datos solo de CPU
   candidatos a slow, 10.7; sin A501 no entra), P6 (`spr_powerup.c`, la seta
