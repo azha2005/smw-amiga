@@ -1,5 +1,5 @@
-# pw_estrella.orc - el bloque giratorio de ($0D10,$00F0) de Yoshi's Island 1 (R_c, Etapa 8.1).
-# -> work/oracle_pw_estrella.txt
+# pw_1up.orc - el bloque giratorio de ($0D10,$00F0) de Yoshi's Island 1 (R_c, Etapa 8.1).
+# -> work/oracle_pw_1up.txt
 #
 # Es el giratorio "estrella 2 / 1-UP": con Mario chico y en esta partida da un 1-UP (sprite $78), no la
 # estrella.  Mario pisa al Rex $AB y salta (8 RIGHT+B) encima de la caja $B9 de ($0CF0,$0150); desde la
