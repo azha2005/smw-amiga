@@ -910,6 +910,11 @@ static int run_game(const char *sprpath, const char *mappath)
             continue;
         }
         for (k = 0x15; k <= 0x18; k++) take(i, k);
+        /* P8: la estrella la da un sprite sin portar (o el poke de un guion de
+           snesorc entre dos frames): es una entrada. Empieza en $FF y el frame
+           ya la baja (mgfx.c) */
+        if (i > 0 && orc(i, wm_StarPowerTimer) && !orc(i - 1, wm_StarPowerTimer) && !ram[wm_StarPowerTimer])
+            ram[wm_StarPowerTimer] = 0xFF;
         /* level_frame con los sprites en medio */
         ram[wm_FrameA]++;
         for (k = 0; k < 128; k++) ram[0x0201 + 4 * k] = 0xF0;
