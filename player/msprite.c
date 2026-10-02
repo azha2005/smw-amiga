@@ -960,7 +960,15 @@ static void flying_block(u8 x)
         W16(wm_BlockYPos, (u16)(SPR(wm_SpriteXLo, x) | SPR(wm_SpriteXHi, x) << 8));
         W16(wm_BlockXPos, (u16)(SPR(wm_SpriteYLo, x) | SPR(wm_SpriteYHi, x) << 8));
         SETSPR(wm_SprIndexInLvl, x, 0xFF);
-        mario_events |= MEV_BOUNCE;         /* _02887D: suelta el objeto (pendiente) */
+        W8(m5, powerup_flying_content(x));  /* DATA_01AE88 */
+        {                                   /* _02887D (spr_powerup.c) */
+            u8 y;
+            powerup_from_block();
+            y = R8(wm_TempTileGen);         /* la ranura creada (o la vieja, como la ROM) */
+            SETSPR(wm_SpriteMiscTbl4, y, 1);
+            if (SPR(wm_SpriteNum, y) == 0x75)
+                SETSPR(wm_SpriteState, y, 0xFF);
+        }
     }
 }
 
@@ -1477,6 +1485,18 @@ static void invis_mushroom(u8 x)
     mario_events |= MEV_SPRITE;
 }
 
+/* para spr_powerup.c (P6): JSL InitSpriteTables y _01A80F (el contacto de Mario
+   sin la distancia gruesa ni el turno par/impar de MarioSprInteract) */
+void spr_init_tables(u8 x) { init_sprite_tables(x); }
+int spr_contact_a80f(u8 x)
+{
+    if (R8(wm_MarioAnimation) >= 1)
+        return 0;
+    if (!(R8(wm_LevelMode) & 0x40) && (R8(wm_IsBehindScenery) ^ SPR(wm_SprBehindScrn, x)))
+        return 0;
+    return spr_mario_contact(x);
+}
+
 static void sprite_main(u8 x, u8 n);
 
 /* _HandleSprKilled (estado 2): cae muerto, fuera de pantalla desaparece.
@@ -1548,6 +1568,7 @@ static void sprite_main(u8 x, u8 n)
     if (n == 0xC7) { invis_mushroom(x); return; }
     if (n == 0x95) { chuck_main(x); return; }
     if (n == 0x7B) { goal_tape(x); return; }
+    if (n == 0x74) { powerup_main(x); return; }     /* la seta (spr_powerup.c) */
     spr_unsup();
 }
 
@@ -1610,6 +1631,7 @@ void sprite_run(u8 x)
         }
         if (n == 0x95) { chuck_init(x); return; }   /* InitClappinChuck (spr_chuck.c) */
         if (n == 0x7B) { goal_init(x); return; }    /* InitGoalTape (spr_goal.c) */
+        if (n == 0x74) { powerup_init(x); return; } /* InitPowerUp (spr_powerup.c) */
         if (n == 0x9F) {                    /* InitBanzai: solo si Mario esta a la izquierda */
             SETSPR(wm_SpriteStatus, x, 0x08);
             if (!sub_horiz_pos(x))

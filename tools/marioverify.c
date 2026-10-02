@@ -31,6 +31,7 @@
 #include "gen/smwram.h"
 #include "gen/smwtab.h"
 #include "smwmac.h"
+u8 powerup_from_block(void);                /* player/spr_powerup.c (P6) */
 
 #define REC 584             /* 8 de cabecera + 256 + 320 */
 
@@ -748,7 +749,7 @@ static int run_sprloop(const char *sprpath, const char *mappath)
 static int game_ported(int n)
 {
     return n == 0xAB || n == 0xB9 || n == 0x83 || n == 0xBD || n == 0x02 || n == 0x9F || n == 0x4F
-        || n == 0x8E || n == 0xC7 || n == 0x95 || n == 0x7B || (n >= 0x04 && n <= 0x07);
+        || n == 0x8E || n == 0xC7 || n == 0x74 || n == 0x95 || n == 0x7B || (n >= 0x04 && n <= 0x07);
 }
 
 static const int scmp[] = { wm_SpriteStatus, wm_SpriteXLo, wm_SpriteXHi, wm_SpriteYLo,
@@ -793,6 +794,8 @@ static int run_game(const char *sprpath, const char *mappath)
     long cause[NFF + 2];
     int k, c, synced = 0, follow[12] = {0}, shown = 0, pnum[12], pst[12], pend, fresh = 0, skip, hurt;
     long cuts = 0, cutvars = 0, cutok = 0;
+    int born74[12];                         /* P6: la seta recien nacida del oraculo */
+    u8 bnc0[4];
     /* P5: lo que la cinta de la meta ($7B) escribe al cortarse (todo en el rango grabado) */
     static const int goalvars[] = { wm_SecretGoalSprite, wm_EndLevelTimer, wm_StarPowerTimer, wm_PBalloonFrame };
     size_t mlen;
@@ -898,7 +901,19 @@ static int run_game(const char *sprpath, const char *mappath)
         if (!mario_unsupported) mario_E2BD();
         W16(wm_PlayerXPosLv, R16(wm_MarioXPos));        /* CODE_00A2F3 */
         W16(wm_PlayerYPosLv, R16(wm_MarioYPos));
+        for (k = 0; k < 4; k++) bnc0[k] = ram[wm_BounceSprNum + k];
         if (!mario_unsupported) mario_player();
+        /* P6: golpear un bloque (CODE_028752) termina en _02887D, que crea lo que
+           sale del bloque (la seta). Esa llamada es de mcoll.c (bounce_spawn), que
+           este agente no toca: aca se hace donde iria, apenas Mario crea el rebote.
+           Lo que nace en la fase de Mario ya corre en los sprites de este frame */
+        for (k = 0; k < 4; k++)
+            if (!bnc0[k] && ram[wm_BounceSprNum + k] && !mario_unsupported) {
+                u8 r = powerup_from_block();
+                if (r != 0xFF && game_ported(ram[wm_SpriteNum + r]) && ram[wm_SpriteNum + r] == 0x74)
+                    follow[r] = 1;
+                break;
+            }
         if (skip && mario_unsupported) {        /* lo congelo Mario (tuberia, meta...): */
             synced = 0;                         /* los sprites no llegaron a correr */
             continue;
@@ -910,6 +925,12 @@ static int run_game(const char *sprpath, const char *mappath)
         for (k = 0; k < 12; k++) pst[k] = ram[wm_SpriteStatus + k];
         pend = ram[wm_EndLevelTimer];
         for (k = 11; k >= 0; k--) {
+            born74[k] = 0;
+            if (!follow[k] && orc(i, wm_SpriteStatus + k) == 8 && orc(i, wm_SpriteNum + k) == 0x74
+                && i > 0 && orc(i - 1, wm_SpriteStatus + k) == 0 && frame_of(i - 1) + 1 == frame_of(i)) {
+                born74[k] = 1;                  /* P6: nace de un bloque: lo crea el port (spr_powerup.c) */
+                continue;
+            }
             if (!follow[k]) {
                 int was = ram[wm_SpriteStatus + k];
                 int sx = ram[wm_SpriteXLo + k] | ram[wm_SpriteXHi + k] << 8;
@@ -955,6 +976,15 @@ static int run_game(const char *sprpath, const char *mappath)
         for (k = 0; k < 12; k++)
             if (((spr_spawned >> k) & 1) && game_ported(ram[wm_SpriteNum + k]))
                 follow[k] = 1;
+        for (k = 0; k < 12; k++)
+            if (born74[k]) {                    /* P6: lo creo el port (en esa ranura); si no, el oraculo */
+                if (ram[wm_SpriteStatus + k] == 8 && ram[wm_SpriteNum + k] == 0x74)
+                    follow[k] = 1;
+                else {
+                    for (c = 0; c < NSCMP; c++) take(i, scmp[c] + k);
+                    sprite_tweakers((u8)k);
+                }
+            }
         frames++;
         for (k = 0; k < 12; k++)                /* la cinta se corta (EndLevelTimer 0 -> $FF): las variables del corte */
             if (pnum[k] == 0x7B && pst[k] == 0x08 && !pend && ram[wm_EndLevelTimer]) {

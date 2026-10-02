@@ -100,6 +100,17 @@ WANT_SHELL = [
 ]
 
 
+# La seta $74 y lo que sale de los bloques (P6, player/spr_powerup.c): bloque
+# #ifdef SMWTABX_POWERUP, igual que los de arriba (P36/P78).
+WANT_POWERUP = [
+    ("sprite_1-1.s", "ItemBoxSprite", "tp_ItemBox"),
+    ("sprite_1-1.s", "GivePowerPtrIndex", "tp_GivePtr"),
+    ("sprite_1-1.s", "DATA_01AE88", "tp_01AE88"),
+    ("sprite_2-clus.s", "SpriteInBlock", "tp_InBlock"),
+    ("sprite_2-clus.s", "StatusOfSprInBlk", "tp_StatInBlk"),
+]
+
+
 def main():
     cache = {}
     with open(os.path.join(OUT, "smwtabx.h"), "w") as f:
@@ -108,6 +119,7 @@ def main():
         for sect, want in (("#if defined(SMWTABX_CHUCK)\n", WANT_CHUCK),
                            ("#elif defined(SMWTABX_SHELL)\n", WANT_SHELL),
                            ("#elif defined(SMWTABX_GOAL)\n", WANT_GOAL),
+                           ("#elif defined(SMWTABX_POWERUP)\n", WANT_POWERUP),
                            ("#else\n", WANT)):
             f.write(sect)
             for fn, lab, name in want:
@@ -119,8 +131,8 @@ def main():
                 f.write("static const unsigned char %s[%d] = {%s};\n"
                         % (name, len(d), ",".join(str(b) for b in d)))
         f.write("#endif\n#endif\n")
-    print("smwtabx.h: %d tablas (+ %d del Chuck, + %d de los caparazones, + %d de la meta)"
-          % (len(WANT), len(WANT_CHUCK), len(WANT_SHELL), len(WANT_GOAL)))
+    print("smwtabx.h: %d tablas (+ %d del Chuck, + %d de los caparazones, + %d de la meta, + %d de la seta)"
+          % (len(WANT), len(WANT_CHUCK), len(WANT_SHELL), len(WANT_GOAL), len(WANT_POWERUP)))
 
 
 if __name__ == "__main__":
