@@ -307,3 +307,18 @@ void mario_D7E4(void)
     /* _00D948 */
     W8(wm_MarioSpeedY, a + T8X(DATA_00D7A5, y));
 }
+
+/* _00D92E: la gravedad sin mirar el boton (Y = 0): la animacion de morir
+   (manim.c). Es el final de mario_D7E4 con y = 0; va aparte para no darle
+   una llamada mas al camino caliente. */
+void mario_D92E(void)
+{
+    u8 a = R8(wm_MarioSpeedY);
+    if (!NEG(a)) {
+        if (a >= T8X(DATA_00D7AF, 0))       /* CMP / BCC: sin signo */
+            a = T8X(DATA_00D7AF, 0);
+        if (R8(wm_IsFlying) == 0x0B)
+            W8(wm_IsFlying, 0x24);
+    }
+    W8(wm_MarioSpeedY, a + T8X(DATA_00D7A5, 0));   /* _00D948 */
+}

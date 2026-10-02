@@ -249,6 +249,99 @@ l_store:
 }
 
 /* ------------------------------------------------------------------ */
+/* Animaciones de $71 (CODE_00C593, AnimationSeqPtr). Portadas: 1 PowerDownAni
+   (encoger), 2 MushroomAni (crecer), 4 FlowerAni (flor de fuego) y 9
+   MarioDeathAni. Sin portar (mario_unsupported): 3 capa, 5-7 tuberias, 8 Yoshi
+   con alas, $A castillo y las de las cinematicas. */
+
+/* _00D158: fin de la animacion */
+static void anim_end(void)
+{
+    W8(wm_MarioAnimation, 0);
+    W8(wm_SpritesLocked, 0);
+}
+
+/* PowerDownAni (_00D130 sirve tambien a MushroomAni) */
+static void anim_powerdown(void)
+{
+    u8 t = R8(wm_PlayerAnimTimer);
+    if (!t) {                               /* CODE_00D140 */
+        W8(wm_PlayerHurtTimer, 0x7F);
+        anim_end();
+        return;
+    }
+    W8(wm_MarioFrame, T8X(GrowingAniImgs, t >> 2));
+    W8(wm_PlayerAnimTimer, t - 1);          /* _00D137 */
+}
+
+/* MushroomAni */
+static void anim_mushroom(void)
+{
+    u8 t = R8(wm_PlayerAnimTimer);
+    if (!t) {                               /* CODE_00D156 */
+        W8(wm_MarioPowerUp, R8(wm_MarioPowerUp) + 1);
+        anim_end();
+        return;
+    }
+    /* LSR / LSR / EOR #$FF / INC A / CLC / ADC #$0B */
+    W8(wm_MarioFrame, T8X(GrowingAniImgs, 0x0B - (t >> 2)));
+    W8(wm_PlayerAnimTimer, t - 1);
+}
+
+/* FlowerAni */
+static void anim_flower(void)
+{
+    if ((R8(wm_PlayerSlopePose) & 0x80) | R8(wm_CapeGlidePhase)) {
+        W8(wm_CapeGlidePhase, 0);
+        W8(wm_PlayerSlopePose, R8(wm_PlayerSlopePose) & 0x7F);
+        W8(wm_MarioFrame, 0);
+    }
+    W8(wm_FlashingPalTimer, R8(wm_FlashingPalTimer) - 1);
+    if (!R8(wm_FlashingPalTimer))
+        anim_end();
+}
+
+/* MarioDeathAni */
+static void anim_death(void)
+{
+    u8 t, x, y;
+    W8(wm_MarioPowerUp, 0);
+    W8(wm_MarioFrame, 0x3E);
+    if (!(R8(wm_FrameA) & 0x03))
+        W8(wm_PlayerAnimTimer, R8(wm_PlayerAnimTimer) - 1);
+    t = R8(wm_PlayerAnimTimer);
+    if (t) {                                /* DeathNotDone */
+        if (t < 0x26) {
+            W8(wm_MarioSpeedX, 0);
+            mario_DC2D();
+            mario_D92E();
+            W8(wm_MarioDirection, (R8(wm_FrameA) >> 2) & 0x01);
+        }
+        return;
+    }
+    /* se acabo: LevelEndFlag y el cambio de modo (Z1: el reinicio) */
+    W8(wm_LevelEndFlag, 0x80);
+    if (!R8(wm_DisableYoshiFlag))
+        W8(wm_OWHasYoshi, 0);
+    W8(wm_StatusLives, R8(wm_StatusLives) - 1);
+    if (NEG(R8(wm_StatusLives))) {          /* se acabaron las vidas */
+        W8(wm_MusicCh1, 0x0A);
+        x = 0x14;
+    } else {                                /* DeathNotGameOver */
+        y = 0x0B;
+        if (R8(wm_TimerHundreds) | R8(wm_TimerTens) | R8(wm_TimerOnes)) {
+            W8(wm_GameMode, y);
+            return;
+        }
+        x = 0x1D;                           /* se acabo el tiempo */
+    }
+    W8(wm_DeathMsgType, x);                 /* _DeathShowMessage */
+    W8(wm_DeathMsgAnim, 0xC0);
+    W8(wm_DeathMsgTimer, 0xFF);
+    W8(wm_GameMode, 0x15);
+}
+
+/* ------------------------------------------------------------------ */
 /* CODE_00C500 ... _00C58F, sin el ojo de cerradura ni los modos
    especiales: un frame del jugador. */
 void mario_player(void)
@@ -276,7 +369,15 @@ void mario_player(void)
         }
     }
     /* CODE_00C593 -> ResetAni */
-    if (R8(wm_MarioAnimation)) { unsup_anim(MARIO_UNSUP_TILE); return; }
+    switch (R8(wm_MarioAnimation)) {        /* CODE_00C593: ExecutePtr */
+    case 0:
+        break;
+    case 1: anim_powerdown(); goto l_tail;
+    case 2: anim_mushroom(); goto l_tail;
+    case 4: anim_flower(); goto l_tail;
+    case 9: anim_death(); goto l_tail;
+    default: unsup_anim(MARIO_UNSUP_TILE); return;
+    }
     if (R8(wm_EndLevelTimer)) { unsup_anim(MARIO_UNSUP_TILE); return; }   /* CODE_00C915 */
     /* CODE_00CCC3 */
     cddd();
@@ -303,6 +404,7 @@ void mario_player(void)
             if (R8(wm_OnYoshi)) { unsup_anim(MARIO_UNSUP_YOSHI); return; }
         }
     }
+l_tail:
     if (R8(wm_JoyFrameA) & 0x20)            /* SELECT: soltar el item de reserva */
         mario_events |= MEV_SPRITE;
     W8(wm_NoteBlkBounceFlag, 0);            /* _00C58F */

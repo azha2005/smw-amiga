@@ -767,12 +767,24 @@ MSX void spr_spin_kill(u8 x)
    MEV_HURT, como el Rex), patear / agarrar un sprite quieto (estado 9) y
    aturdir al pisarlo (spr_shell.c). Sin portar: estrella, deslizandose,
    sprites que al pisarlos se cambian por otro. */
+/* _01A847: la estrella (o ir deslizandose) mata al sprite: cae muerto hacia
+   el lado contrario a Mario. CODE_01AB6F (humo) y GivePoints: MEV_SPRITE */
+static void star_kill(u8 x)
+{
+    u8 p = (u8)(R8(wm_StarKillPoints) + 1);
+    mario_events |= MEV_SPRITE;
+    W8(wm_StarKillPoints, p > 8 ? 8 : p);
+    SETSPR(wm_SpriteStatus, x, 0x02);
+    SETSPR(wm_SpriteSpeedY, x, 0xD0);
+    SETSPR(wm_SpriteSpeedX, x, sub_horiz_pos(x) ? 0x10 : 0xF0);    /* DATA_01A839 */
+}
+
 static void default_interact(u8 x)
 {
     u8 c;
     u16 sy;
     if (R8(wm_StarPowerTimer) && !(SPR(wm_Tweaker167A, x) & 0x02)) {
-        spr_unsup();                        /* _01A847: lo mata la estrella */
+        star_kill(x);                       /* _01A847 */
         return;
     }
     W8(wm_StarKillPoints, 0);               /* CODE_01A87E */
@@ -831,7 +843,7 @@ static void default_interact(u8 x)
     }
     /* CODE_01A8E6: Mario de costado o de abajo */
     if (R8(wm_PlayerSlopePose) && !(SPR(wm_Tweaker190F, x) & 0x04)) {
-        spr_unsup();                        /* deslizandose: lo mata (_01A847) */
+        star_kill(x);                       /* deslizandose: lo mata (_01A847) */
         return;
     }
     if (R8(wm_PlayerHurtTimer) | R8(wm_OnYoshi))
@@ -839,8 +851,7 @@ static void default_interact(u8 x)
     if (!(SPR(wm_Tweaker1686, x) & 0x10))
         SETSPR(wm_SpriteDir, x, sub_horiz_pos(x));
     if (SPR(wm_SpriteNum, x) != 0x53) {
-        mario_events |= MEV_HURT;
-        spr_unsup();                        /* HurtMario */
+        mario_hurt();                       /* HurtMario */
     }
 }
 

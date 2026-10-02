@@ -55,7 +55,17 @@ void rex_main(u8 x)
 
 void rex_contact(u8 x)
 {
-    if (R8(wm_StarPowerTimer)) { spr_unsup(); return; }     /* RexStarKill */
+    if (R8(wm_StarPowerTimer)) {                            /* RexStarKill */
+        u16 d = (u16)(R16(wm_MarioXPos) - (SPR(wm_SpriteXLo, x) | SPR(wm_SpriteXHi, x) << 8));
+        u8 p = (u8)(R8(wm_StarKillPoints) + 1);
+        SETSPR(wm_SpriteStatus, x, 0x02);
+        SETSPR(wm_SpriteSpeedY, x, 0xD0);
+        W8(m15, (u8)d);                     /* SubHorzPosBnk3 */
+        SETSPR(wm_SpriteSpeedX, x, (d & 0x8000) ? 0x10 : 0xF0);    /* RexKilledSpeed */
+        W8(wm_StarKillPoints, p > 8 ? 8 : p);
+        mario_events |= MEV_SPRITE;         /* GivePoints */
+        return;
+    }
     if (SPR(wm_SpriteDecTbl2, x))
         return;
     SETSPR(wm_SpriteDecTbl2, x, 0x08);
@@ -66,8 +76,7 @@ void rex_contact(u8 x)
         d = (u16)(R16(wm_MarioXPos) - (SPR(wm_SpriteXLo, x) | SPR(wm_SpriteXHi, x) << 8));
         W8(m15, (u8)d);                     /* SubHorzPosBnk3: mira a Mario */
         SETSPR(wm_SpriteDir, x, (d & 0x8000) ? 1 : 0);
-        mario_events |= MEV_HURT;
-        spr_unsup();                        /* HurtMario */
+        mario_hurt();                       /* HurtMario */
         return;
     }
     chain_points(x);                       /* RexPoints (DATA_038000 = DATA_01A61E) */
