@@ -158,6 +158,8 @@ G_VL    equ 0                   ; [gvl, gvu): todas las lineas del grupo
 G_VU    equ 2                   ; valen
 G_ID    equ 4                   ; hid con que se calculo (0: no hay)
 G_HOT   equ 6                   ; reescrituras en el ultimo recorrido
+EPO     equ -GSZ*NGRP-4         ; bm_left: .w epoca (1..255) y .w la s de
+                                ; la ultima escritura a la izquierda
 
 ; variables (a5)
 V_S     equ 0                   ; scroll de la capa 1 (px)
@@ -733,6 +735,8 @@ build_mid:
 .go:    move.w  d0,(a1)
         movem.l d2-d7/a2-a6,-(sp)
         move.w  d0,d6                       ; d6 = s
+        cmp.w   d1,d6                       ; a la izquierda: otro recorrido
+        blt     bm_left                     ; (SX; la ida no paga nada)
         sub.w   d0,d1                       ; |s vieja - s| > 16 (o nunca
         bpl.s   .ab                         ; escrita): todas las lineas
         neg.w   d1
@@ -952,6 +956,302 @@ build_mid:
 ; de .td: se lee con (d8,pc,d1.w)
 celltab: ds.w   2*(LASTX+1)
         even
+
+;----------------------------------------------------------------------
+; bm_left (SX, ROADMAP 9.2): build_mid con la camara yendo a la
+; izquierda. El mismo recorrido de grupos y lineas (copiado: la ida no
+; paga nada) y la misma reescritura entera, pero con una base menor que
+; s: s0 = max(s + 1 - pista, x[hi - 1] - LASTX, 0), donde la pista es una
+; cota inferior del min b de las cargas: la de la escritura anterior de
+; la linea (30(a4), valida si su epoca, 17(a4), es la de esta lista) con
+; el b de las que entraron por la izquierda desde entonces. Ademas se
+; escriben por la izquierda las que ya salieron (x en [s0, s)) mientras
+; valgan con esa base. Asi lo escrito vale hasta s0 + max a: varios pasos
+; a la izquierda en vez de uno (P72). Con una tarde (clase >= 4) la linea
+; es canonica (s0 = s, P71): la pista queda en 0. Si lo escrito no vale
+; en s con s0 < s (una pista vieja), se rehace con s0 = s. La epoca cambia
+; cada vez que la lista empieza a ir a la izquierda: borra las pistas.
+; Entrada: d6 = s, d1 = la s de la escritura anterior de esta lista
+; (> s), a0 = la lista, a3 = datos, a5 = vars. Mismos registros que
+; build_mid desde .grp; ademas a2 = htab - s0 de cada linea.
+;----------------------------------------------------------------------
+bm_left:
+        lea     linetab_b(pc),a4
+        cmp.l   V_COP(a5),a0
+        bne.s   .ta
+        lea     linetab_a(pc),a4
+.ta:    move.l  a4,a5                       ; OJO: a5 prestado (vars)
+        cmp.w   EPO+2(a5),d1                ; la anterior no fue a la
+        beq.s   .same                       ; izquierda: otra epoca
+        move.w  EPO(a5),d0
+        addq.b  #1,d0
+        bne.s   .e1
+        moveq   #1,d0
+.e1:    move.w  d0,EPO(a5)
+.same:  move.w  d6,EPO+2(a5)
+        lea     alllines(pc),a6
+        sub.w   d6,d1                       ; > 0
+        cmp.w   #16,d1
+        bhi.s   .all
+        move.w  d6,d0
+        lsr.w   #4,d0
+        add.w   d0,d0
+        move.l  a3,a6
+        add.l   D_LNS(a3),a6
+        moveq   #0,d1
+        move.w  (a6,d0.w),d1
+        add.l   d1,a6                       ; LNS[s >> 4]
+.all:   moveq   #0,d5                       ; d5.w = s + LASTX, bit 16: tarde
+        move.w  d6,d5
+        add.w   #LASTX,d5
+        move.w  #$fffe,d2
+.grp:   move.w  (a6)+,d0
+.grp2:  cmp.w   #-1,d0
+        beq     .done
+        move.w  (a6)+,d1
+        cmp.w   G_ID(a5,d0.w),d1
+        bne.s   .gw
+        cmp.w   G_VL(a5,d0.w),d6
+        blt.s   .gw
+        cmp.w   G_VU(a5,d0.w),d6
+        bge.s   .gw
+        and.w   #63,d1
+        add.w   d1,a6
+        bra.s   .grp
+.gw:    move.w  d0,-(sp)
+        sub.l   a4,a4
+        tst.w   G_HOT(a5,d0.w)
+        bne.s   .pl
+        move.w  d1,a3
+        move.w  #$8000,d7
+        move.w  #$7fff,d1
+.ml:    move.w  (a6)+,d0
+        bmi.s   .mend
+        movem.w 12(a5,d0.w),d3/d4
+        cmp.w   d3,d6
+        blt.s   .mrw
+        cmp.w   d4,d6
+        bge.s   .mrw
+        cmp.w   d3,d7
+        bge.s   .mb
+        move.w  d3,d7
+.mb:    cmp.w   d4,d1
+        ble.s   .ml
+        move.w  d4,d1
+        bra.s   .ml
+.mend:  move.w  (sp)+,d3
+        lea     (a5,d3.w),a0
+        move.w  d7,G_VL(a0)
+        move.w  d1,G_VU(a0)
+        move.w  a3,G_ID(a0)
+        bra.s   .grp2
+.mrw:   move.w  (sp),d3
+        clr.w   G_ID(a5,d3.w)
+        bra.s   .prw
+.pend:  move.w  (sp)+,d1
+        move.w  a4,G_HOT(a5,d1.w)
+        bra.s   .grp2
+.pl:    move.w  (a6)+,d0
+        bmi.s   .pend
+        cmp.w   12(a5,d0.w),d6
+        blt.s   .prw
+        cmp.w   14(a5,d0.w),d6
+        blt.s   .pl
+.prw:   lea     (a5,d0.w),a4
+.rw:    moveq   #0,d7                       ; d7 = pista (<= 0: ninguna)
+        move.b  17(a4),d1
+        cmp.b   EPO+1(a5),d1
+        bne.s   .rw1
+        move.w  30(a4),d7
+.rw1:   move.l  4(a4),a1
+.lof:   cmp.w   2(a1),d6
+        ble.s   .lob
+        lea     12(a1),a1
+        bra.s   .lof
+.lob:   cmp.w   -10(a1),d6                  ; entra una por la izquierda: su
+        bgt.s   .lod                        ; b va a la pista
+        lea     -12(a1),a1
+        cmp.w   10(a1),d7
+        ble.s   .lb
+        move.w  10(a1),d7
+.lb:    cmp.w   #4,(a1)
+        blo.s   .lob
+        moveq   #0,d7                       ; una tarde: canonica
+        bra.s   .lob
+.lod:   move.l  8(a4),a0
+.hif:   cmp.w   2(a0),d5
+        blt.s   .hib
+        lea     12(a0),a0
+        bra.s   .hif
+.hib:   cmp.w   -10(a0),d5
+        bge.s   .hid
+        lea     -12(a0),a0
+        bra.s   .hib
+.hid:   move.l  (a4),a3
+        move.l  a0,d1
+        sub.l   a1,d1
+        bne.s   .some
+        move.l  a1,4(a4)                    ; ninguna: pista "infinita"
+        move.l  a0,8(a4)
+        move.w  #$7fff,30(a4)
+        move.b  EPO+1(a5),17(a4)
+        move.w  -10(a1),d3
+        addq.w  #1,d3
+        move.w  2(a0),d4
+        sub.w   #LASTX,d4
+        move.w  d6,d0
+        bra     .jump
+.some:  move.w  2(a0),d4
+        sub.w   #LASTX,d4                   ; d4 = vu: la siguiente entra
+        cmp.w   #MIDMAX*12,d1
+        bls.s   .n
+        lea     MIDMAX*12(a1),a0            ; no entran: base s
+        move.w  2(a1),d4
+        addq.w  #1,d4
+        moveq   #0,d7
+.n:     move.w  -10(a0),d0
+        sub.w   #LASTX,d0                   ; d0 = x[hi - 1] - LASTX
+        move.w  d6,d3                       ; d3 = s0
+        tst.w   d7
+        ble.s   .b
+        addq.w  #1,d3
+        sub.w   d7,d3                       ; s + 1 - pista
+        cmp.w   d0,d3
+        bge.s   .s1
+        move.w  d0,d3
+.s1:    tst.w   d3
+        bpl.s   .s2
+        moveq   #0,d3
+.s2:    move.w  d6,d7
+        sub.w   d3,d7                       ; d7 = s - s0
+        beq.s   .b
+        cmp.w   #MIDMAX*12,d1
+        bhs.s   .b
+.ex:    cmp.w   -10(a1),d3                  ; la anterior, ya salida: si
+        bgt.s   .b                          ; x >= s0, no es tarde y vale
+        cmp.w   #4,-12(a1)                  ; con s0 (a <= s - s0 < b), se
+        bhs.s   .b                          ; escribe tambien
+        cmp.w   -4(a1),d7
+        blt.s   .b
+        cmp.w   -2(a1),d7
+        bge.s   .b
+        lea     -12(a1),a1
+        add.w   #12,d1
+        cmp.w   #MIDMAX*12,d1
+        blo.s   .ex
+.b:     move.l  a1,4(a4)
+        move.l  a0,8(a4)
+        move.w  d3,-(sp)                    ; s0
+        lea     htab(pc),a2
+        sub.w   d3,a2                       ; a2 = htab - s0
+        move.w  d4,d5
+        sub.w   d3,d5                       ; d5.w = vu relativa a s0
+        move.w  -10(a1),d3
+        addq.w  #1,d3                       ; vl: la anterior vuelve
+        cmp.w   d0,d3
+        bge.s   .b1
+        move.w  d0,d3
+.b1:    sub.w   (sp),d3
+        move.w  #$7fff,d4                   ; d4 = min b (la pista nueva)
+        move.w  16(a4),d7
+        addq.l  #2,a1
+        bra.s   .w
+.ch:    addq.l  #2,a1
+        subq.w  #2,d1
+        bmi.s   .mv
+        beq.s   .f1
+        subq.w  #1,d1
+        bne     .td
+        move.l  #$01fe0000,(a3)+
+.f1:    move.l  #$01fe0000,(a3)+
+        bra.s   .mv
+.ld:    move.w  (a1)+,d1
+        bne.s   .ch
+.w:     move.w  (a1)+,d0
+        move.b  (a2,d0.w),d7
+        move.w  d7,(a3)+
+        move.w  d2,(a3)+
+.mv:    move.l  (a1)+,(a3)+
+        cmp.w   (a1)+,d3
+        bge.s   .k1
+        move.w  -2(a1),d3
+.k1:    cmp.w   (a1)+,d4
+        ble.s   .k2
+        move.w  -2(a1),d4
+.k2:    cmp.l   a0,a1
+        bne.s   .ld
+        bclr    #16,d5
+        bne.s   .cn
+        move.w  d4,30(a4)                   ; pista: min b
+        move.b  EPO+1(a5),17(a4)
+        bra.s   .c2
+.cn:    clr.b   17(a4)                      ; con una tarde: ninguna
+.c2:    cmp.w   d5,d4
+        ble.s   .c3
+        move.w  d5,d4
+.c3:    move.w  (sp)+,d0                    ; d0 = s0
+        add.w   d0,d3
+        add.w   d0,d4
+        move.w  d6,d5
+        add.w   #LASTX,d5
+.jump:  move.l  18(a4),(a3)+
+        move.l  22(a4),(a3)+
+        move.l  26(a4),(a3)+
+        cmp.w   d6,d3
+        bgt.s   .late
+        cmp.w   d6,d4
+        bgt.s   .j2
+.late:  cmp.w   d0,d6                       ; no vale en s: con s0 < s, se
+        bne.s   .redo2                      ; rehace con s0 = s
+        move.w  d6,d3                       ; con s0 = s: como build_mid (P50)
+        move.w  d6,d4
+        addq.w  #1,d4
+        clr.b   17(a4)
+.j2:    move.w  d3,12(a4)
+        move.w  d4,14(a4)
+        bra     .pl
+.redo:  addq.l  #2,sp                       ; (desde .td: s0 en la pila)
+        move.w  d6,d5
+        add.w   #LASTX,d5
+.redo2: moveq   #0,d7
+        bra     .rw1
+; una tarde (ver .td de build_mid): solo con s0 = s
+.td:    cmp.w   (sp),d6
+        bne.s   .redo
+        bset    #16,d5
+        subq.w  #1,d1
+        bne.s   .td1
+        move.w  -2(a1),d0
+        move.b  (a2,d0.w),d7
+        move.w  d7,(a3)+
+        move.w  d2,(a3)+
+        bra.s   .tdm
+.td1:   subq.w  #1,d1
+        beq.s   .tdm
+        subq.w  #1,d1
+        beq.s   .td2
+        move.l  #$01fe0000,(a3)+
+.td2:   move.l  #$01fe0000,(a3)+
+.tdm:   move.l  (a1)+,(a3)+
+        addq.l  #4,a1
+        move.w  d0,d1
+        sub.w   d6,d1
+        add.w   d1,d1
+        add.w   d1,d1
+        move.l  a6,-(sp)
+        lea     celltab(pc),a6
+        move.l  (a6,d1.w),d1
+        move.l  (sp)+,a6
+        cmp.w   d1,d4
+        ble.s   .tu
+        move.w  d1,d4
+.tu:    swap    d1
+        cmp.w   d1,d3
+        bge     .k2
+        move.w  d1,d3
+        bra     .k2
+.done:  movem.l (sp)+,d2-d7/a2-a6
+        rts
 
 ;----------------------------------------------------------------------
 ; --- draw_column ---
@@ -1357,8 +1657,10 @@ fail:   lea     CUSTOM,a4
 vars:   ds.b    V_SIZE
         endc
         even
+        ds.w    2                           ; EPO (bm_left)
 gst_a:  ds.b    GSZ*NGRP                    ; build_mid: estado de los grupos
 linetab_a: ds.b 32*LINES                    ; ver init_lines
+        ds.w    2
 gst_b:  ds.b    GSZ*NGRP
 linetab_b: ds.b 32*LINES
 ldoff:  ds.w    LINES                       ; build_copper: inicio de las cargas
