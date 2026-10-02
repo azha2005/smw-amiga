@@ -953,6 +953,110 @@ _spr_obj_vert:
         jmp     _spr_obj_vert_c
 
 ;----------------------------------------------------------------------
+; void jumping_piranha(u8 x) = jumping_piranha de msprite.c (el $4F):
+; dibujo (cabeza y tallo), temporizadores, contactos y los tres estados
+; (en la tuberia, sube, baja). sprite_tweakers, get_draw_info1,
+; sub_offscreen3 y mario_spr_interact siguen en C. El despachador de
+; sprite_run salta aca (tail call).
+; d2 = x  d3 = Y (u16)  a2 = ram  a3 = ram + x
+;----------------------------------------------------------------------
+        public  _jumping_piranha
+_jumping_piranha:
+        movem.l d2-d3/a2-a3,-(sp)
+        moveq   #0,d2
+        move.b  16+7(sp),d2                 ; x
+        lea     _ram(a4),a2
+        lea     (a2,d2.w),a3                ; P40 ok (x < 12)
+        moveq   #0,d0
+        move.b  wm_SpriteNum(a3),d0
+        move.l  _tab_166e(a4),a0
+        move.b  (a0,d0.w),d0
+        and.b   #$0f,d0
+        move.b  d0,wm_SpritePal(a3)         ; LoadSpriteTables
+        CALLX   _sprite_tweakers
+        move.b  wm_SpriteYHi(a3),d3
+        lsl.w   #8,d3
+        move.b  wm_SpriteYLo(a3),d3         ; y
+        move.w  d3,d0
+        addq.w  #8,d0                       ; el tallo, 8 px mas abajo
+        move.b  d0,wm_SpriteYLo(a3)
+        lsr.w   #8,d0
+        move.b  d0,wm_SpriteYHi(a3)
+        CALLX   _get_draw_info1
+        move.b  d3,wm_SpriteYLo(a3)
+        move.w  d3,d0
+        lsr.w   #8,d0
+        move.b  d0,wm_SpriteYHi(a3)
+        move.b  wm_SpriteMiscTbl3(a3),d0
+        and.b   #$04,d0
+        lsr.b   #2,d0
+        addq.b  #1,d0
+        move.b  d0,wm_SpriteGfxTbl(a3)
+        move.b  #$0a,wm_SpritePal(a3)
+        tst.b   wm_SpritesLocked(a2)
+        bne     .ret
+        CALLX   _sub_offscreen3
+        CALLX   _spr_spr_interact
+        CALLX   _mario_spr_interact
+        clr.l   -(sp)                       ; spr_pos_axis(x, 0)
+        move.l  d2,-(sp)
+        bsr     _spr_pos_axis_asm
+        addq.l  #8,sp
+        move.b  wm_SpriteState(a3),d0
+        beq.s   .s0
+        subq.b  #1,d0
+        beq.s   .s1
+        subq.b  #1,d0
+        beq     .s2
+        tst.l   _mario_unsupported(a4)      ; spr_unsup
+        bne     .ret
+        moveq   #MARIO_UNSUP_TILE,d0
+        move.l  d0,_mario_unsupported(a4)
+        bra     .ret
+.s0:    clr.b   wm_SpriteSpeedY(a3)         ; en la tuberia
+        tst.b   wm_SpriteDecTbl1(a3)
+        bne     .ret
+        move.b  wm_MarioXPos(a2),d0
+        sub.b   wm_SpriteXLo(a3),d0
+        move.b  d0,_ram+m15(a4)
+        add.b   #$1b,d0
+        cmp.b   #$37,d0
+        blo     .ret                        ; Mario cerca: no sale
+        move.b  #$c0,wm_SpriteSpeedY(a3)
+        move.b  #1,wm_SpriteState(a3)
+        clr.b   wm_SpriteGfxTbl(a3)
+        bra     .ret
+.s1:    move.b  wm_SpriteSpeedY(a3),d0      ; sube frenando
+        bmi.s   .s1a
+        cmp.b   #$40,d0
+        bhs.s   .s1b
+.s1a:   addq.b  #2,d0
+        move.b  d0,wm_SpriteSpeedY(a3)
+.s1b:   addq.b  #1,wm_SpriteMiscTbl6(a3)
+        move.b  wm_SpriteSpeedY(a3),d0
+        sub.b   #$f0,d0
+        bmi.s   .ret
+        move.b  #$50,wm_SpriteDecTbl1(a3)
+        move.b  #2,wm_SpriteState(a3)
+        bra.s   .ret
+.s2:    addq.b  #1,wm_SpriteMiscTbl3(a3)    ; baja flotando
+        addq.b  #1,wm_SpriteMiscTbl6(a3)
+        moveq   #3,d0
+        and.b   wm_FrameB(a2),d0
+        bne.s   .s2a
+        move.b  wm_SpriteSpeedY(a3),d0
+        sub.b   #$08,d0
+        bpl.s   .s2a
+        addq.b  #1,wm_SpriteSpeedY(a3)
+.s2a:   CALLX   _spr_obj_interact
+        btst    #2,wm_SprObjStatus(a3)
+        beq.s   .ret
+        clr.b   wm_SpriteState(a3)
+        move.b  #$40,wm_SpriteDecTbl1(a3)
+.ret:   movem.l (sp)+,d2-d3/a2-a3
+        rts
+
+;----------------------------------------------------------------------
 ; u16 f7f4(u16 limit, u16 bg1v) = f7f4_c de mcam.c (CODE_00F7F4, el scroll
 ; vertical de la capa 1). Hacia arriba (v2 < 0) salta al C, que vuelve a
 ; escribir igual m0, m2, m4 y las direcciones antes de seguir.

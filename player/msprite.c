@@ -366,7 +366,7 @@ u8 spr_tile_asm(u8 x, u8 y);
    inicializado en la declaracion guardaria la direccion ABSOLUTA del
    ensamblado, y el binario se carga en cualquier sitio (P36) */
 const u8 *spr_clip_x, *spr_clip_y, *gdi_ofs, *gdi_bit;
-const u8 *mcl_dy, *mcl_h, *cl_dx, *cl_dy, *cl_w, *cl_h, *rex_speed, *upd_grav, *upd_max;
+const u8 *mcl_dy, *mcl_h, *cl_dx, *cl_dy, *cl_w, *cl_h, *rex_speed, *upd_grav, *upd_max, *tab_166e;
 u8 logic68k_zero;               /* siempre 0: con "tabla + 0 de la RAM" vbcc
                                    calcula la direccion con lea d16(a4); con
                                    "= tabla" emite move.l #etiqueta (absoluta) */
@@ -389,6 +389,7 @@ void logic68k_init(void)
     rex_speed = tx_RexSpeed + logic68k_zero;
     upd_grav = tx_019030 + logic68k_zero;
     upd_max = tx_01902E + logic68k_zero;
+    tab_166e = tx_166E + logic68k_zero;
 }
 u8 spr_tile_c(u8 x, u8 y)
 #else
@@ -1393,7 +1394,10 @@ MSS void banzai_bill(u8 x)
    tuberia (sube a $C0 y frena), baja flotando hasta posarse y espera $40
    frames; no salta con Mario a menos de ~$1B px. Las bolas de fuego del $50
    no estan (no hay en el nivel). */
-MSS void jumping_piranha(u8 x)
+#ifdef LOGIC68K             /* player/logic68k.s (L1d); este C queda de referencia */
+void jumping_piranha(u8 x);
+#else
+void jumping_piranha(u8 x)
 {
     u8 v;
     u16 y;
@@ -1452,6 +1456,7 @@ MSS void jumping_piranha(u8 x)
     }
     spr_unsup();                            /* (ExecutePtr fuera de la tabla) */
 }
+#endif
 
 /* WarpBlocksMain -> CODE_02EADA (sprite_2-2.s), el $8E (bloques "warp
    hole" invisibles): si Mario lo toca, lo deja quieto en su X + $0A. No
