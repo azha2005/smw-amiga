@@ -193,6 +193,25 @@ le llevan los números al usuario (D1).
 
 ### Lo último que se hizo y lo siguiente
 
+- **Ola 3 (2026-10-01, PC Windows):** integradas C1 (`tools/memmap.py`:
+  0 violaciones; chip 401,6 KB en vivo, 135 KB de datos solo de CPU
+  candidatos a slow, 10.7; sin A501 no entra), P6 (`spr_powerup.c`, la seta
+  `$74`; `mcoll.c` `bounce_spawn` llama a `powerup_from_block`, el bloque `?`
+  ya da la seta), L1b+L1d (`sprite_run`, `spr_spr_interact`,
+  `spr_obj_interact`, `spr_obj_vert` llano y `jumping_piranha` en asm:
+  `level_frame.max` 42 418 → 39 026; L2 en C no ganó), P8 (`$71` = 1, 2, 4,
+  9 en `manim.c`, `mario_hurt`, la estrella contra el Rex; `game.s`
+  `diag_cause` congela recién al terminar la muerte, `GameMode` `$0B`/`$15`:
+  falta el reinicio del nivel, Z1), SX paso 1 (`bm_left`: `scroll.vuelta.max`
+  135 498 → 114 112, media 36 133 → 19 837) y RC (`pw_c7`, `pw_bloques`,
+  `pw_1up`; los "!" de YI1 no son sólidos). Musashi después de todo:
+  `game.total.max` 122 900 (≈ 87 % sin DMA), media 40 438. **Siguiente:**
+  SX paso 2 (diferir las cargas por la derecha: ida ~71k → ~58k según
+  `midsim5`), O4 (informe D1 con WinUAE), Z1 (reinicio del nivel tras la
+  muerte), P7 (bolas de fuego), P9/P10 (monedas del bloque, caja de
+  reserva), RC: `pw_3up` (parece pedir capa) y la moneda de Yoshi 4.
+  Cruce de los oráculos snesorc contra el binario 68000 en `regress.py`
+  (hoy solo `marioverify` en el PC; ver P92).
 - **Ola 2 (2026-10-01, PC Windows; cerrada por uso):** integradas I2
   (`levels/yi1.json` + `tools/lvdesc.py`; falta en `mkscroll.py` y
   `mkmario.py`), O3 (`regress.py` guarda `game.<parte>.max/.media` en

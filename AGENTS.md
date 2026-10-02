@@ -1458,6 +1458,44 @@ contacto mientras esté por encima de los pies de Mario. En Windows,
 player/gen/smwrom00.c`. `level_final.png` (lo leen `mkbg`/`mkd8in`) no lo
 genera la cadena: `mklvl.py --out work/level_final.png`.
 
+**P91 — El binario del juego y el arnés de Musashi (ola 3).**
+`gamecheck.py --engine musashi` carga el binario en `V.BASE` = `$10000` y
+los datos del scroll en `DATA`: con P6+P8+L1b el binario llegó a `$4025C`
+y pisaba `DATA = $40000` (3825 frames distintos solo con el scroll; con
+`--no-scroll` y con Unicorn, 0). Ahora `DATA = $48000` y `gamecheck` corta
+si se vuelve a pasar. Si un fallo aparece solo con la suma de varias
+ramas, mirar primero el tamaño.
+
+**P92 — Lo que `regress.py` no cruza (L1b).** Los oráculos de snesorc
+(`orc.*`) los corre `marioverify` en el PC, es decir el C: un asm de
+`logic68k.s` que rompa chuck, shells o goal solo lo ve `m68kverify --mode
+loop --sprites --cross work/libport.so --oracle work/oracle_<n>.bin`. La
+tolerancia de ciclos (0,2 %) deja pasar como OK subidas de 35-85 ciclos.
+En `logic68k.s`, `bxx.s` entre bloques grandes se pasa de ±127 B; una
+rutina C se puede llamar con `bra` (tail call) si el asm no tocó la pila
+ni d2-d7/a2-a6.
+
+**P93 — Animaciones de Mario y el juego en vivo (P8).** `StarPowerTimer`
+lo baja `mgfx.c` (CODE_00E2BD), no el jugador. El poke de snesorc entre
+dos frames aparece como un arranque de la estrella sin sprite (el
+verificador lo toma como entrada). `GiveMarioMushroom` escribe
+`$1496` (`ExecutePtr` preserva Y). `diag_cause` de `game.s` decide qué
+congela en vivo: al portar una animación de `$71`, agregarla ahí o el
+juego se congela con ella.
+
+**P94 — vasm: una etiqueta global corta las locales (SX).** Una etiqueta
+global en medio de una rutina deja fuera de alcance sus `.x`: por eso
+`bm_left` es rutina aparte con su `.done`. Capturas de WinUAE a la vuelta
+(`-DRETURN`): esperar ~25 + (2·RETURN − x)/100 s con margen; con menos,
+master todavía no llegó y la imagen sale distinta.
+
+**P95 — Grabaciones (RC).** Los "!" de YI1 (Map16 `$6B`) son de contorno
+punteado, no sólidos. El Map16 se regenera con `tools/mkmapbin.py --out`
+(un `work/yi1_map16.bin` todo `$25` está vacío). Un buscador no debe
+escribir el guion de salida sobre el que lee como prefijo. Nombres de
+oráculo: mirar `tools/snesorc/` antes de grabar (RC y P8 hicieron dos
+`pw_estrella` distintos; el de RC quedó como `pw_1up`).
+
 **P44 — Los "derrames" de la etapa 5 alargan el tramo anterior.**
 `mkleveld.py` asigna los píxeles que quedan fuera de todo tramo al registro
 que *todavía conserva* el color: después del fin de un tramo puede haber
