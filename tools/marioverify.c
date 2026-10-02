@@ -31,7 +31,6 @@
 #include "gen/smwram.h"
 #include "gen/smwtab.h"
 #include "smwmac.h"
-u8 powerup_from_block(void);                /* player/spr_powerup.c (P6) */
 
 #define REC 584             /* 8 de cabecera + 256 + 320 */
 
@@ -795,7 +794,7 @@ static int run_game(const char *sprpath, const char *mappath)
     int k, c, synced = 0, follow[12] = {0}, shown = 0, pnum[12], pst[12], pend, fresh = 0, skip, hurt;
     long cuts = 0, cutvars = 0, cutok = 0;
     int born74[12];                         /* P6: la seta recien nacida del oraculo */
-    u8 bnc0[4];
+    u8 st0[12], num0[12];         /* sprites antes de la fase de Mario (P6) */
     /* P5: lo que la cinta de la meta ($7B) escribe al cortarse (todo en el rango grabado) */
     static const int goalvars[] = { wm_SecretGoalSprite, wm_EndLevelTimer, wm_StarPowerTimer, wm_PBalloonFrame };
     size_t mlen;
@@ -901,19 +900,15 @@ static int run_game(const char *sprpath, const char *mappath)
         if (!mario_unsupported) mario_E2BD();
         W16(wm_PlayerXPosLv, R16(wm_MarioXPos));        /* CODE_00A2F3 */
         W16(wm_PlayerYPosLv, R16(wm_MarioYPos));
-        for (k = 0; k < 4; k++) bnc0[k] = ram[wm_BounceSprNum + k];
+        for (k = 0; k < 12; k++) { st0[k] = ram[wm_SpriteStatus + k]; num0[k] = ram[wm_SpriteNum + k]; }
         if (!mario_unsupported) mario_player();
-        /* P6: golpear un bloque (CODE_028752) termina en _02887D, que crea lo que
-           sale del bloque (la seta). Esa llamada es de mcoll.c (bounce_spawn), que
-           este agente no toca: aca se hace donde iria, apenas Mario crea el rebote.
-           Lo que nace en la fase de Mario ya corre en los sprites de este frame */
-        for (k = 0; k < 4; k++)
-            if (!bnc0[k] && ram[wm_BounceSprNum + k] && !mario_unsupported) {
-                u8 r = powerup_from_block();
-                if (r != 0xFF && game_ported(ram[wm_SpriteNum + r]) && ram[wm_SpriteNum + r] == 0x74)
-                    follow[r] = 1;
-                break;
-            }
+        /* P6: golpear un bloque (CODE_028752) termina en _02887D (mcoll.c,
+           bounce_spawn), que crea lo que sale del bloque (la seta). Lo que nace
+           en la fase de Mario ya corre en los sprites de este frame */
+        for (k = 0; k < 12; k++)
+            if (!mario_unsupported && ram[wm_SpriteStatus + k] && ram[wm_SpriteNum + k] == 0x74
+                && (st0[k] != ram[wm_SpriteStatus + k] || num0[k] != 0x74))
+                follow[k] = 1;
         if (skip && mario_unsupported) {        /* lo congelo Mario (tuberia, meta...): */
             synced = 0;                         /* los sprites no llegaron a correr */
             continue;

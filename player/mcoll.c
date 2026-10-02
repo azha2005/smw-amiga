@@ -314,6 +314,8 @@ static void tile_from_bounce(u8 x, u8 id)
 }
 
 /* CODE_028752: m4 = tipo (7 = romper), m6 = lado, m7 = bloque final */
+u8 powerup_from_block(void);                /* player/spr_powerup.c */
+
 static void bounce_spawn(void)
 {
     u8 y, kind = R8(m4);
@@ -363,6 +365,7 @@ found:
     if (kind + 1 == 0x07)
         (RX8(wm_SpinBlockTimer, y) = (u8)(0xFF));
     mario_events |= MEV_BOUNCE;
+    powerup_from_block();                   /* _02887D: lo que sale del bloque (spr_powerup.c) */
 }
 
 /* CODE_02902D / CODE_02904D: una vez por frame, despues de Mario */

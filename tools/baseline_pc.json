@@ -1,6 +1,6 @@
 {
  "_meta": {
-  "commit": "79e1207",
+  "commit": "3fe06e5+cambios",
   "fecha": "2026-10-01",
   "nota": "tools/regress.py; las medidas emu.* dependen del emulador"
  },
@@ -34,11 +34,11 @@
  },
  "game.level_frame.max": {
   "how": "min",
-  "value": 42370
+  "value": 42418
  },
  "game.level_frame.media": {
   "how": "min",
-  "value": 29828
+  "value": 29923
  },
  "game.mspr_draw.max": {
   "how": "min",
@@ -46,7 +46,7 @@
  },
  "game.mspr_draw.media": {
   "how": "min",
-  "value": 4169
+  "value": 4188
  },
  "game.resto.max": {
   "how": "min",
@@ -58,11 +58,11 @@
  },
  "game.total.max": {
   "how": "min",
-  "value": 135290
+  "value": 135326
  },
  "game.total.media": {
   "how": "min",
-  "value": 45828
+  "value": 45939
  },
  "game.total.pasados": {
   "how": "min",
@@ -102,15 +102,15 @@
  },
  "m68k.spr.ciclos_max": {
   "how": "min",
-  "value": 42340
+  "value": 42388
  },
  "m68k.spr.ciclos_media": {
   "how": "min",
-  "value": 29805
+  "value": 29895
  },
  "m68k.spr.ciclos_p99": {
   "how": "min",
-  "value": 39950
+  "value": 40026
  },
  "m68k.spr.resync": {
   "how": "min",
@@ -184,6 +184,14 @@
   "how": "info",
   "value": 137
  },
+ "orc.chuck.game.spr_74.exactos": {
+  "how": "max",
+  "value": 131
+ },
+ "orc.chuck.game.spr_74.seguidos": {
+  "how": "info",
+  "value": 131
+ },
  "orc.chuck.game.spr_7B.exactos": {
   "how": "max",
   "value": 417
@@ -244,6 +252,14 @@
   "how": "min",
   "value": 0
  },
+ "orc.diagpipe.game.spr_74.exactos": {
+  "how": "max",
+  "value": 131
+ },
+ "orc.diagpipe.game.spr_74.seguidos": {
+  "how": "info",
+  "value": 131
+ },
  "orc.diagpipe.game.spr_distintos": {
   "how": "min",
   "value": 0
@@ -295,6 +311,14 @@
  "orc.goal.game.spr_05.seguidos": {
   "how": "info",
   "value": 137
+ },
+ "orc.goal.game.spr_74.exactos": {
+  "how": "max",
+  "value": 131
+ },
+ "orc.goal.game.spr_74.seguidos": {
+  "how": "info",
+  "value": 131
  },
  "orc.goal.game.spr_7B.corte_exactas": {
   "how": "max",
@@ -371,6 +395,14 @@
  "orc.goalhit.game.spr_05.seguidos": {
   "how": "info",
   "value": 137
+ },
+ "orc.goalhit.game.spr_74.exactos": {
+  "how": "max",
+  "value": 131
+ },
+ "orc.goalhit.game.spr_74.seguidos": {
+  "how": "info",
+  "value": 131
  },
  "orc.goalhit.game.spr_7B.corte_exactas": {
   "how": "max",
@@ -484,6 +516,14 @@
   "how": "min",
   "value": 0
  },
+ "orc.normal.game.spr_74.exactos": {
+  "how": "max",
+  "value": 131
+ },
+ "orc.normal.game.spr_74.seguidos": {
+  "how": "info",
+  "value": 131
+ },
  "orc.normal.game.spr_distintos": {
   "how": "min",
   "value": 0
@@ -516,6 +556,58 @@
   "how": "max",
   "value": 12
  },
+ "orc.pw_seta.full.ok": {
+  "how": "max",
+  "value": 873
+ },
+ "orc.pw_seta.full.tot": {
+  "how": "eq",
+  "value": 876
+ },
+ "orc.pw_seta.game.resync": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.pw_seta.game.spr_74.exactos": {
+  "how": "max",
+  "value": 189
+ },
+ "orc.pw_seta.game.spr_74.seguidos": {
+  "how": "info",
+  "value": 189
+ },
+ "orc.pw_seta.game.spr_distintos": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.pw_seta.game.tramo": {
+  "how": "max",
+  "value": 826
+ },
+ "orc.pw_seta.gfx.oam_ok": {
+  "how": "max",
+  "value": 925
+ },
+ "orc.pw_seta.gfx.scr_ok": {
+  "how": "max",
+  "value": 925
+ },
+ "orc.pw_seta.loop.resync": {
+  "how": "min",
+  "value": 3
+ },
+ "orc.pw_seta.loop.tramo": {
+  "how": "max",
+  "value": 567
+ },
+ "orc.pw_seta.sprload.distintos": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.pw_seta.sprload.exactos": {
+  "how": "max",
+  "value": 5
+ },
  "orc.shells.full.ok": {
   "how": "max",
   "value": 2262
@@ -535,6 +627,14 @@
  "orc.shells.game.spr_05.seguidos": {
   "how": "info",
   "value": 527
+ },
+ "orc.shells.game.spr_74.exactos": {
+  "how": "max",
+  "value": 131
+ },
+ "orc.shells.game.spr_74.seguidos": {
+  "how": "info",
+  "value": 131
  },
  "orc.shells.game.spr_distintos": {
   "how": "min",
@@ -606,11 +706,11 @@
  },
  "pc.game.rex_exactos": {
   "how": "max",
-  "value": 12607
+  "value": 12682
  },
  "pc.game.rex_seguidos": {
   "how": "info",
-  "value": 12607
+  "value": 12682
  },
  "pc.game.spr_02.distintos": {
   "how": "min",
@@ -635,6 +735,18 @@
  "pc.game.spr_4F.seguidos": {
   "how": "info",
   "value": 2599
+ },
+ "pc.game.spr_74.distintos": {
+  "how": "min",
+  "value": 0
+ },
+ "pc.game.spr_74.exactos": {
+  "how": "max",
+  "value": 75
+ },
+ "pc.game.spr_74.seguidos": {
+  "how": "info",
+  "value": 75
  },
  "pc.game.spr_83.distintos": {
   "how": "min",
