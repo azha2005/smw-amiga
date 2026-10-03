@@ -1278,6 +1278,11 @@ engancharla en `regress.py`. Especificación mínima:
 
 ## 9. Optimización: plan e ideas (2026-09-30)
 
+> **Ver también `docs/investigacion-ports.md` (2026-10-03):** qué hicieron
+> otros ports y juegos de A500 con estos mismos problemas, con tarjetas
+> nuevas (O5, V1-V3, L4, L5, G0, E2). Corrige §9.6: la cola de blits por
+> interrupción no ganó en una A500 de serie (medido por AmiGalaga).
+
 **Método (siempre):** medir el peor frame y **dónde** ocurre → cambiar
 **una** cosa → verificar la semántica (`regress.py`; el C con `abcheck.py`;
 `scroll.s` con `scrollsim.py --ret` + `imgdiff.py`) → medir en cycle-exact
