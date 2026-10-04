@@ -45,6 +45,12 @@ def parse(path, level=None):
         cam = (int(p[3], 16), int(p[4], 16))
         mario = (int(p[7], 16), int(p[8], 16), int(p[9], 16))
         oam = bytes.fromhex(p[10]) if len(p) > 10 else b""
+        # ranuras activas (n estado numero xlo xhi ylo yhi); solo si el campo
+        # tiene la forma de oambot.lua (multiplo de 7 bytes)
+        sl = []
+        if len(p) > 11 and len(p[11]) % 14 == 0:
+            sb = bytes.fromhex(p[11])
+            sl = [tuple(sb[7 * i:7 * i + 7]) for i in range(len(sb) // 7)]
         tiles = []
         for i in range(len(oam) // 5):
             x, y, t, a, h = oam[5 * i:5 * i + 5]
@@ -58,8 +64,20 @@ def parse(path, level=None):
             if x + size <= 0 or x >= 256:
                 continue
             tiles.append((x, y, size, (a >> 1) & 7, t, a))
-        frames.append(dict(mode=mode, cam=cam, mario=mario, tiles=tiles))
+        frames.append(dict(mode=mode, cam=cam, mario=mario, tiles=tiles,
+                           slots=sl, frame=int(p[0])))
     return frames
+
+
+def mario_box(tiles):
+    """Lo que mspr.c reserva para Mario (paleta OAM 0): (columnas 1 o 2, y0,
+    y1) o None. Igual que mspr.c: 2 columnas si la caja mide mas de 16 px."""
+    m = [t for t in tiles if t[3] == 0]
+    if not m:
+        return None
+    bx = min(t[0] for t in m)
+    x1 = max(t[0] + t[2] for t in m)
+    return (2 if x1 - bx > 16 else 1, min(t[1] for t in m), max(t[1] + t[2] for t in m))
 
 
 def cover(iv, w=16):
@@ -80,6 +98,10 @@ def main():
     ap.add_argument("--pal", default=os.path.join(WORK, "pal0703.txt"))
     ap.add_argument("--level", type=lambda s: int(s, 16), default=None,
                     help="translevel en hex; por defecto el que tiene mas frames")
+    ap.add_argument("--real-cols", action="store_true",
+                    help="Mario reserva 1 o 2 columnas (mspr.c) en todo su "
+                         "rectangulo y los demas objetos se cuentan aparte; por "
+                         "defecto, cobertura de todas las teselas (modelo viejo)")
     a = ap.parse_args()
     if a.level is None:
         cnt = Counter(ln.split(" ")[2] for ln in open(a.oam) if ln.count(" ") >= 9)
@@ -111,6 +133,10 @@ def main():
             line_total += 1
             iv = [(max(0, t[0]), min(256, t[0] + t[2])) for t in on]
             c = cover(iv)
+            if a.real_cols:
+                mb = mario_box(f["tiles"])
+                rest = [(max(0, t[0]), min(256, t[0] + t[2])) for t in on if t[3] != 0]
+                c = cover(rest) + (mb[0] if mb and mb[1] <= y < mb[2] else 0)
             col_hist[min(c, 12)] += 1
             # grupos separados por >= SEP px
             groups = []
