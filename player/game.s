@@ -1975,6 +1975,7 @@ txt_fmt:
 .x:     rts
 
 ; --- txt_ch --- un caracter: d0.b = codigo, a1 = byte (avanza), d2 = paso
+; salida:   a1 = el byte siguiente
 ; registros destruidos: d0-d1/a3
 txt_ch:
         and.w   #$ff,d0

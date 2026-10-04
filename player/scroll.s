@@ -428,7 +428,7 @@ scroll_frame:
 ; dibuja en varios frames (blit_steps): la columna nueva no se ve hasta
 ; que la camara recorre 32 px (a la izquierda) o 48 (a la derecha). Si la
 ; camara salta mas de una columna, se redibuja la ventana entera.
-; registros destruidos: d0-d3/d7/a0-a2
+; registros destruidos: d0-d3/d6-d7/a0-a2 (d6: draw_window)
 ;----------------------------------------------------------------------
 columns:
         move.w  V_S(a5),d0

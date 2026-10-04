@@ -228,6 +228,15 @@ le llevan los números al usuario (D1).
   el sprite vacío pasa a ser válido (`$1905,$1A00,0,0,0,0`). Imagen
   idéntica en WinUAE. El resto de lo investigado confirma lo que ya se
   hace o queda como candidato (§14.10).
+- **2026-10-03 (PC), tarjetas L4, V3 y V2** (`docs/investigacion-ports.md`
+  §14.10): **L4 descartada** (la RAM con XOR 1 ganaría ~1 % de media y
+  perdería 2,7 % en el peor caso, medido contando accesos en los 6836
+  frames de `game`); **V3** hecha: `tools/asmlint_port.py` en
+  `lint_port.py` (encontró dos cabeceras mal: `columns` destruye d6 y
+  `txt_ch` devuelve a1; corregidas); **V2** hecha: `tools/coverage.py` →
+  `docs/cobertura.md` (80 % de las líneas del C corren con las 27
+  grabaciones; lo que falta y le importa a YI1, en sus notas: salto con
+  giro sobre enemigos, matar al Chuck, mirar arriba, caparazones).
 - **Historial de las olas 1-3 y del 2026-09-30** (qué se integró, números de
   cada paso, ramas, notas para las grabaciones): textual en
   `docs/historia.md`, sección "ROADMAP: el día a día del 2026-09-30 al
@@ -448,12 +457,13 @@ indica.
 
 | script | qué comprueba | cuándo | tiempo |
 |---|---|---|---|
-| `tools/lint_port.py` | reglas que el compilador no ve. **Errores**: R9 (nada derivado de la ROM en git), `float`/`double`, `malloc`, `#include <...>` fuera de un `#if`, el patrón de P38 (`p = ram + x` indexado con `p[wm_X]`). **Avisos**: `(An,Dn.w)` en asm (P40; una línea revisada se marca con `; P40 ok`) e `int` a secas | antes de cada commit | 1 s |
+| `tools/lint_port.py` | reglas que el compilador no ve. **Errores**: R9 (nada derivado de la ROM en git), `float`/`double`, `malloc`, `#include <...>` fuera de un `#if`, el patrón de P38 (`p = ram + x` indexado con `p[wm_X]`). **V3**: una rutina asm que cambia un registro que su cabecera no declara (`registros destruidos` / `salida`; las `public _xxx`, contra la ABI de vbcc), con `tools/asmlint_port.py`. **Avisos**: `(An,Dn.w)` en asm (P40; una línea revisada se marca con `; P40 ok`), `int` a secas y registros declarados de más (V3) | antes de cada commit | 2 s |
 | `tools/regress.py` | **compila desde el código actual** y compara ~40 métricas (~55 con `--level --emu`) con `tools/baseline.json`. Cubre los 7 modos de `marioverify`, `m68kverify` (full, loop y loop con sprites, con ciclos) y los **cruces PC = 68000** (si el binario de vbcc no da lo mismo que gcc es P38, no el port) | antes de cada commit que toque `player/` o las herramientas del port | 4 s |
 | `tools/regress.py --level` | + la cadena de la etapa 5 (`mkbg` → `mkleveld` → `mkscroll` → `render_d`); necesita numpy | si se tocó el conversor | ~1-2 min |
 | `tools/regress.py --emu logic,scrollbench,scrollimg` | + medidas en FS-UAE cycle-exact: `logicbench` (% de frame), `scroll.s -DBENCH` (media y máximo, con la s del peor frame) y `scroll_check --mid` en 6 x del nivel (`--scroll-x` para elegirlas). Si una captura no está en la x pedida (> 20 % distinto), lo dice en vez de contarlo como fallo de imagen | al cerrar un paso de optimización o del scroll | ~13 min |
 | `tools/regress.py --shots DIR` | lee capturas ya hechas (en la PC, las de `shot.ps1 -Exact`): `DIR/logicbench.png`, `DIR/scrollb.png`. La base del repo es de FS-UAE: en la PC usar `--baseline tools/baseline_winuae.json` (se crea con `--update` la primera vez) para no mezclar emuladores | en la PC | s |
 | `tools/abcheck.py BASE [--sprites] [--prof]` | A/B de una optimización: compila `BASE` (en un worktree) y el árbol actual y los corre en Musashi. Dice si la **semántica es igual** (resincronizaciones y tramo) y cuánto cambian los ciclos de media, p99 y máximo; con `--prof`, también por función | cada optimización del C | 3 s (`--prof`: ~2 min) |
+| `tools/coverage.py` | qué líneas y funciones del C no corren nunca bajo `marioverify` con ninguna grabación (P69): compila con `--coverage`, corre todas las `work/oracle_*.txt` y escribe `docs/cobertura.md` (conserva sus notas a mano). Necesita `gcov` | al agregar grabaciones o portar lógica nueva | 5 s |
 | `tools/imgdiff.py A.png B.png` | dos capturas del mismo emulador son **idénticas** (sale con 0) o no, con la caja y un PNG de las diferencias. Las capturas de FS-UAE son deterministas: comprobado con dos corridas de x = 1000 | optimizar `scroll.s` (antes/después); scroll de ida y de vuelta (6.2) | s |
 
 Resultados de `regress.py`, por métrica:

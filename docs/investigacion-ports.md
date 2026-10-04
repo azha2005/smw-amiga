@@ -301,6 +301,17 @@ direcciones pares (las variables de Mario `$94`, `$96`, `$7B`... lo son),
 es la versión barata de la L3 ("estado nativo"), que ROADMAP estimaba en
 5-8 % y "toca todo el C". Tarjeta **L4**.
 
+**Medido el 2026-10-03: no conviene.** Contando cada acceso en los 6836
+frames del modo `game` (copia instrumentada del C, `__builtin_constant_p`
+para saber si la dirección es constante), por frame: 29 `R16` y 34 `W16`
+en dirección constante par (los que ganarían ~30-38 ciclos), 274 `R8`/`W8`
+constantes (igual que hoy), 90 `RX8` (+8-12 ciclos cada uno con el XOR) y
+casi ningún acceso de 16 bits con dirección variable. Neto estimado: +1 350
+ciclos de media (0,95 % del frame), +0,5-0,7 % en los frames con más
+accesos, y **−2,7 %** en el peor (637 accesos de 8 bits con dirección
+variable). Con ~110 sitios del asm, los arneses y los punteros a `ram[]`
+por tocar, no se implementa.
+
 ### 4.3 Verificar una traducción: LLMario
 
 `github.com/Wynplusplus/LLMario`: Super Mario Bros. traducido del 6502 a
@@ -509,9 +520,9 @@ la semántica sin pasar por `regress.py`.
 |---|---|---|---|
 | **O5** | M · O1 | Prototipo del render desacoplado (§2.1): `level_frame` en el VBL, scroll sobre una foto `(cámara, OAM)` del mismo frame; contar frames de imagen perdidos en el replay y en los `stress_*` | Número de frames perdidos y su distribución, para el informe D1 (O4) |
 | **V1** | F · — | FS-UAE con Lua en cloud: arnés Python como `amiga.py`, medir `game.s -DBENCH` en líneas por frame y leer `ram[]` por símbolo | Mismos números que `game_read.py --auto` sobre la misma build (±1 %) y `bench2.s` como en 2026-09-24 |
-| **V2** | B · — | `gcov` de `player/*.c` corriendo todos los oráculos en `marioverify` | `docs/cobertura.md` con las ramas sin cubrir, por fichero, y cuáles importan para YI1 |
-| **V3** | B · — | `asmlint` adaptado a las cabeceras de §7, en `lint_port.py` | Pasa sobre `player/*.s`; lo que encuentre, arreglado o anotado |
-| **L4** | M · — | Medir con snesorc la paridad de los accesos de 16 bits y el peso de las tablas indexadas; si da, prototipo de `ram[]` con XOR 1 en `smwmac.h` | `abcheck.py` IGUAL y ciclos de `level_frame` (media y peor) contra la base |
+| **V2** | B · — | `gcov` de `player/*.c` corriendo todos los oráculos en `marioverify` | `docs/cobertura.md` con las ramas sin cubrir, por fichero, y cuáles importan para YI1 — **hecha 2026-10-03** (`tools/coverage.py`) |
+| **V3** | B · — | `asmlint` adaptado a las cabeceras de §7, en `lint_port.py` | Pasa sobre `player/*.s`; lo que encuentre, arreglado o anotado — **hecha 2026-10-03** (`tools/asmlint_port.py`) |
+| **L4** | M · — | Medir con snesorc la paridad de los accesos de 16 bits y el peso de las tablas indexadas; si da, prototipo de `ram[]` con XOR 1 en `smwmac.h` | `abcheck.py` IGUAL y ciclos de `level_frame` (media y peor) contra la base — **medida y descartada 2026-10-03** (§4.2) |
 | **L5** | M · — | El C del port con gcc moderno, `-m68000 -mshort -O2` (AmigaPorts, el de Bartman, o el gcc 15 de PeyloW; §13.3) | `m68kverify` igual que con vbcc; tabla de ciclos por función contra vbcc |
 | **X0** | M · — | Antes de X1: generar en local el C de SMW con snesrecomp (§13.1) y medir cuánto sirve como borrador en un sprite ya portado | Informe: qué fracción de Rex o Chuck sale bien pasándolo a nuestros macros |
 | **G0** | M · 9.5 | Medir encadenar por DMA vs `SPRxPT` por copper (§5.1) en las líneas más cargadas de `copsim.py` | Decisión con números para G1-G2 |
@@ -1194,6 +1205,9 @@ Ya cumplido, no hace falta nada: `build_mid` no deja ceros (rellena con
 Candidatos que quedan, en orden de valor (no hay tarjetas abiertas):
 
 1. ~~Contrastar P59 con el `$E1` de png2amiga~~: hecho, ver arriba.
+   (También del §9, el mismo día: **L4** medida y descartada, §4.2; **V3**
+   hecha, `tools/asmlint_port.py` en `lint_port.py`; **V2** hecha,
+   `tools/coverage.py` y `docs/cobertura.md`.)
 2. **Restaurar desde el buffer en vez de guardar el fondo** (§14.7), si la
    restauración de bobs pesa cuando llegue el bob en PF1 (D8).
 3. **Rehacer el presupuesto del blitter con la tabla de ciclos** (§14.3):

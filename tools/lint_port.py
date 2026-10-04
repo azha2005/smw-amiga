@@ -17,7 +17,11 @@ ERRORES (salen con 1):
   A1   las tablas de la ROM que supone mario_E2BD (logic68k.s) no se cumplen
   P38  un puntero "p = ram + ..." indexado con una direccion absoluta
        p[wm_X]: vbcc -O=991 suma dos veces la base. Usar p[wm_X - wm_BASE]
+  V3   una rutina asm cambia un registro que su cabecera no declara
+       ("salida" o "registros destruidos"; las public _xxx: la ABI de vbcc)
+       o desbalancea la pila (P53; tools/asmlint_port.py)
 AVISOS (no fallan; revisar):
+  V3   un registro declarado en la cabecera que la rutina nunca cambia
   P40  (An,Dn.w) en player/*.s: el indice es de 16 bits CON signo. Si el
        desplazamiento puede pasar de 32767 hay que usar (An,Dn.l) con el
        registro extendido. Una linea revisada se marca con "; P40 ok".
@@ -130,6 +134,12 @@ def main():
         if not ok:
             errors.append(("A1", "player/logic68k.s", 0,
                            "mario_E2BD supone tablas de la ROM (DCEC/DD32/DD4E/DE32) que no se cumplen"))
+
+    # --- V3: cabeceras de las rutinas asm contra lo que hacen (asmlint) -----
+    sys.path.insert(0, HERE)
+    import asmlint_port
+    for sev, f, i, text in asmlint_port.check():
+        (errors if sev == "error" else warns).append(("V3", f, i, text))
 
     for code, f, i, text in errors:
         print("ERROR %-4s %s%s  %s" % (code, f, ":%d" % i if i else "", text))
