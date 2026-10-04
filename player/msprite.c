@@ -1006,7 +1006,11 @@ MSS void info_box(u8 x)
            movida lo que rebota la caja (DATA_038D66) */
         u16 v = R16(wm_Bg1VOfs);
         W16(wm_Bg1VOfs, v + tx_038D66[SPR(wm_SpriteDecTbl3, x) >> 1]);
+#ifdef SPR_OAM
+        spr_gfx2_tile(x, 0xC0);             /* + el tile $C0 (spr_gfx.c) */
+#else
         get_draw_info1(x);
+#endif
         W16(wm_Bg1VOfs, v);
     }
 }
@@ -1261,7 +1265,15 @@ MSS void sliding_koopa(u8 x)
     u8 v = SPR(wm_SpriteSpeedX, x), y, s;
     if (v)
         SETSPR(wm_SpriteDir, x, NEG(v) ? 1 : 0);
+#ifdef SPR_OAM
+    /* GenericSprGfxRt2 y el tile: $86, o $E0 si DecTbl3 != 0 (el CMP #$01
+       deja C = DecTbl3 >= 1; al salir el Koopa, SEC); la Y de la OAM es la
+       de antes de InitSpriteTables (spr_gfx.c) */
+    s = SPR(wm_SpriteDecTbl3, x);
+    spr_gfx2_tile(x, s ? 0xE0 : 0x86);
+#else
     get_draw_info1(x);                      /* GenericSprGfxRt2 */
+#endif
     if (SPR(wm_SpriteDecTbl3, x) == 1) {    /* sale el Koopa */
         y = SPR(wm_SpriteDir, x);
         SETSPR(wm_SpriteNum, x, 0x02);
@@ -1389,9 +1401,13 @@ run:
 tail:                                       /* _018B03 */
     spr_spr_interact(x);
 gfx:                                        /* _Spr0to13Gfx */
+#ifdef SPR_OAM
+    spr013_gfx(x);                          /* con la OAM (spr_gfx.c) */
+#else
     if (SPR(wm_SpriteDecTbl5, x))
         SETSPR(wm_SpriteGfxTbl, x, 2);      /* (girando: la direccion solo para el dibujo) */
     get_draw_info1(x);                      /* SubSprGfx2Entry1 */
+#endif
 }
 
 /* BanzaiRotating -> CODE_02D587 (sprite_2-2.s), el $9F: vuela recto a la
@@ -1574,7 +1590,11 @@ static void handle_spin_jump(u8 x)
         off_scr_erase(x);
         return;
     }
+#ifdef SPR_OAM
+    spin_jump_gfx(x);                       /* SubSprGfx2Entry1 + la nube (spr_gfx.c) */
+#else
     get_draw_info1(x);                      /* SubSprGfx2Entry1 */
+#endif
 }
 
 /* CallSpriteMain: la rutina de cada sprite portado */

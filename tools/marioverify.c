@@ -22,6 +22,9 @@
  *       por defecto, el _oam.bin al lado del oraculo)
  *   work/marioverify work/oracle_yi1.bin loop   (lazo cerrado: solo el joypad)
  *   work/marioverify work/oracle_yi1.bin sprload [spr.lv]   (cargador de sprites, etapa 9)
+ *   work/marioverify work/oracle_yi1.bin game [spr.lv]   (frame de nivel entero; ademas, G8,
+ *       la OAM de las rutinas de graficos portadas contra el _oam.bin: "oam XX: frames N
+ *       exactas M"; GAME_OAM_SHOW=1 muestra las distintas, GAME_OAM_REX=1 los Rex sin correr)
  *   FULL_FRAME=N work/mvtrace ... full   (un solo frame; mvtrace = -DMCOLL_TRACE)
  */
 #include <stdio.h>
@@ -31,6 +34,7 @@
 #include "gen/smwram.h"
 #include "gen/smwtab.h"
 #include "smwmac.h"
+#include "msprite.h"                /* SPR_OAM y spr_oam_first/n (player/spr_gfx.c, G8) */
 
 #define REC 584             /* 8 de cabecera + 256 + 320 */
 
@@ -802,6 +806,129 @@ static void game_load(long i, const int *follow, const u8 *spr)
     ram[wm_LowestSolidSprTile] = ram[wm_HighestSolidSprTile] = 0xFF;
 }
 
+/* G8: la OAM que escriben las rutinas de graficos portadas
+   (player/spr_gfx.c) contra la grabada (<oraculo>_oam.bin, oracle2bin.py).
+   La grabacion trae las entradas VISIBLES (y != $F0) en orden de ranura,
+   sin el numero de ranura: las de cada sprite (las fichas que escribio,
+   spr_oam_first/n: indice OAM / 4 + 64) tienen que aparecer seguidas y
+   exactas (x, y, tile, atributos, tamaño), como las de Mario en "gfx", y
+   los sprites de un frame en el mismo orden que sus ranuras de la OAM.
+   Se cuenta por numero de sprite (el que corrio) y, para el Rex, tambien
+   contra la grabacion del frame anterior y del siguiente (desfase). */
+#define OREC_G 645
+static unsigned char *oam_db;               /* NULL: sin <oraculo>_oam.bin */
+static const char *oam_path;
+static long oam_fr[256], oam_ok[256], oam_ord, oam_shift[3], oam_shown, oam_rexorc, oam_rexrun;
+
+static void oam_load(void)
+{
+    FILE *f = oam_path ? fopen(oam_path, "rb") : NULL;
+    if (!f) return;
+    oam_db = malloc(nrec * OREC_G);
+    if (fread(oam_db, OREC_G, nrec, f) != (size_t)nrec) { free(oam_db); oam_db = NULL; }
+    fclose(f);
+}
+
+#ifdef SPR_OAM
+/* entradas visibles de la ranura k del port (5 bytes c/u); devuelve cuantas */
+static int oam_port(int k, unsigned char *e)
+{
+    int n = 0, s, c;
+    for (c = 0; c < spr_oam_n[k]; c++) {
+        s = 64 + (spr_oam_first[k] >> 2) + c;
+        if (s >= 128 || ram[0x0201 + 4 * s] == 0xF0) continue;
+        memcpy(e + 5 * n, ram + 0x0200 + 4 * s, 4);
+        e[5 * n + 4] = ram[0x0420 + s];
+        n++;
+    }
+    return n;
+}
+
+/* posicion de e[0..n) seguidas en la grabacion del registro i, o -1 */
+static int oam_find(long i, const unsigned char *e, int n)
+{
+    const unsigned char *rec;
+    int nr, p;
+    if (i < 0 || i >= nrec) return -1;
+    rec = oam_db + i * OREC_G;
+    nr = rec[4];
+    for (p = 0; p + n <= nr; p++)
+        if (!memcmp(rec + 5 + 5 * p, e, 5 * n)) return p;
+    return -1;
+}
+
+static void oam_compare(long i, const int *pnum)
+{
+    unsigned char e[16 * 5];
+    int k, n, num, pos, last = -1, lastslot = -1, d, order[12], no = 0, a, b;
+    /* ranuras de la OAM en orden creciente */
+    for (k = 0; k < 12; k++) {
+        if (spr_oam_n[k]) order[no++] = k;
+        if (orc(i, wm_SpriteStatus + k) && orc(i, wm_SpriteNum + k) == 0xAB) {
+            oam_rexorc++;                   /* un Rex en el oraculo: ?lo corrio el port? */
+            oam_rexrun += pnum[k] == 0xAB;
+            if (pnum[k] != 0xAB && getenv("GAME_OAM_REX"))
+                printf("  oam: Rex no corrido, frame %u ranura %d estado %02X x %02X%02X y %02X%02X cam %04X\n",
+                       frame_of(i), k, orc(i, wm_SpriteStatus + k), orc(i, wm_SpriteXHi + k), orc(i, wm_SpriteXLo + k),
+                       orc(i, wm_SpriteYHi + k), orc(i, wm_SpriteYLo + k), orc(i, wm_Bg1HOfs) | orc(i, wm_Bg1HOfs + 1) << 8);
+        }
+    }
+    for (a = 1; a < no; a++)
+        for (b = a; b > 0 && spr_oam_first[order[b]] < spr_oam_first[order[b - 1]]; b--)
+            { int t = order[b]; order[b] = order[b - 1]; order[b - 1] = t; }
+    for (a = 0; a < no; a++) {
+        k = order[a];
+        n = oam_port(k, e);
+        if (!n) {                           /* nada visible: no hay que buscar */
+            if (getenv("GAME_OAM_REX"))
+                printf("  oam: ranura %d frame %u sin fichas visibles (n %d, x %02X%02X y %02X%02X cam %04X,%04X)\n",
+                       k, frame_of(i), spr_oam_n[k], ram[wm_SpriteXHi + k], ram[wm_SpriteXLo + k],
+                       ram[wm_SpriteYHi + k], ram[wm_SpriteYLo + k], R16(wm_Bg1HOfs), R16(wm_Bg1VOfs));
+            continue;
+        }
+        num = pnum[k] >= 0 ? pnum[k] : ram[wm_SpriteNum + k];
+        oam_fr[num]++;
+        pos = oam_find(i, e, n);
+        if (pos >= 0) oam_ok[num]++;
+        if (num == 0xAB)
+            for (d = -1; d <= 1; d++)
+                if (frame_of(i + d) == frame_of(i) + d && oam_find(i + d, e, n) >= 0) oam_shift[d + 1]++;
+        if (pos >= 0 && spr_oam_first[k] != lastslot) {
+            if (pos < last) oam_ord++;
+            last = pos;
+            lastslot = spr_oam_first[k];
+        }
+        if (pos < 0 && getenv("GAME_OAM_SHOW") && oam_shown++ < 40) {
+            const unsigned char *rec = oam_db + i * OREC_G;
+            int c;
+            printf("  oam: sprite %02X frame %u ranura %d (OAM %02X, estado %02X) port", num, frame_of(i), k,
+                   spr_oam_first[k], ram[wm_SpriteStatus + k]);
+            for (c = 0; c < n; c++) printf(" %02x%02x%02x%02x%02x", e[5*c], e[5*c+1], e[5*c+2], e[5*c+3], e[5*c+4]);
+            printf(" | grabada");
+            for (c = 0; c < rec[4] && c < 12; c++)
+                printf(" %02x%02x%02x%02x%02x", rec[5+5*c], rec[6+5*c], rec[7+5*c], rec[8+5*c], rec[9+5*c]);
+            printf("\n");
+        }
+    }
+}
+#endif
+
+static void oam_report(void)
+{
+    int k;
+    if (!oam_db) { printf("       oam: sin %s\n", oam_path ? oam_path : "(grabacion)"); return; }
+#ifdef SPR_OAM
+    for (k = 0; k < 256; k++)
+        if (oam_fr[k]) printf("       oam %02X: frames %ld exactas %ld\n", k, oam_fr[k], oam_ok[k]);
+    printf("       oam: Rex en el oraculo %ld ranura-frames, corridos por el port %ld\n", oam_rexorc, oam_rexrun);
+    printf("       oam: fuera de orden %ld; Rex contra la grabacion del frame anterior/mismo/siguiente: %ld/%ld/%ld\n",
+           oam_ord, oam_shift[0], oam_shift[1], oam_shift[2]);
+#else
+    (void)k;
+    printf("       oam: build NOOAM (sin SPR_OAM)\n");
+#endif
+}
+
 static int run_game(const char *sprpath, const char *mappath)
 {
     static u8 spr[1024], map0[0x8000], map[0x8000], snap[0x2000];
@@ -829,6 +956,7 @@ static int run_game(const char *sprpath, const char *mappath)
     map16_hi = map + mlen / 2;
     keep_ram = 1;
     memset(cause, 0, sizeof cause);
+    oam_load();
     for (i = 0; i < nrec; i++) {
         int bad = -1;
         int newseg = i == 0 || frame_of(i) != frame_of(i - 1) + 1 || db[(i - 1) * REC + 4] != 0x29;
@@ -947,6 +1075,9 @@ static int run_game(const char *sprpath, const char *mappath)
         for (k = 0; k < 12; k++) pnum[k] = follow[k] ? ram[wm_SpriteNum + k] : -1;
         for (k = 0; k < 12; k++) pst[k] = ram[wm_SpriteStatus + k];
         pend = ram[wm_EndLevelTimer];
+#ifdef SPR_OAM
+        memset(spr_oam_n, 0, sizeof spr_oam_n);
+#endif
         for (k = 11; k >= 0; k--) {
             born74[k] = 0;
             if (!follow[k] && orc(i, wm_SpriteStatus + k) == 8 && orc(i, wm_SpriteNum + k) == 0x74
@@ -1019,6 +1150,9 @@ static int run_game(const char *sprpath, const char *mappath)
                 }
             }
         frames++;
+#ifdef SPR_OAM
+        if (oam_db) oam_compare(i, pnum);
+#endif
         for (k = 0; k < 12; k++)                /* la cinta se corta (EndLevelTimer 0 -> $FF): las variables del corte */
             if (pnum[k] == 0x7B && pst[k] == 0x08 && !pend && ram[wm_EndLevelTimer]) {
                 int j;
@@ -1103,6 +1237,7 @@ static int run_game(const char *sprpath, const char *mappath)
         if (afr[k]) printf("       animacion $71=%02X: frames %ld exactos %ld\n", k, afr[k], aok[k]);
     if (astart)
         printf("       arranques de animacion portada: %ld (del oraculo, no del port: %ld)\n", astart, astart_inj);
+    oam_report();
     return 0;
 }
 
@@ -1137,6 +1272,7 @@ int main(int argc, char **argv)
     if (only && !strcmp(only, "full"))
         return run_full(argc > 3 ? argv[3] : "work/yi1_map16.bin",
                         argc > 4 ? argv[4] : NULL, 1);
+    oam_path = oam_def;
     if (only && !strcmp(only, "game"))
         return run_game(argc > 3 ? argv[3]
                         : "../smw-src-master/project/mw_e10/levels/data/world_1/1/spr.lv",

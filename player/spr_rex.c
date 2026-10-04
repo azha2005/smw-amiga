@@ -17,10 +17,14 @@
 void rex_main(u8 x)
 {
     u8 a, y;
+#ifdef SPR_OAM
+    rex_gfx(x);                         /* RexGfxRt entera, con la OAM (spr_gfx.c) */
+#else
     /* RexGfxRt: la pose y los flags de pantalla */
     if (SPR(wm_SpriteDecTbl3, x)) SETSPR(wm_SpriteGfxTbl, x, 5);
     if (SPR(wm_DisSprCapeContact, x)) SETSPR(wm_SpriteGfxTbl, x, 2);
     get_draw_info(x);
+#endif
     if (SPR(wm_SpriteStatus, x) != 0x08 || R8(wm_SpritesLocked))
         return;
     a = SPR(wm_SpriteDecTbl3, x);
