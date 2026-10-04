@@ -244,6 +244,37 @@ le llevan los números al usuario (D1).
   en WinUAE, **no** 25 Hz, O5 como red de seguridad y una sesión acotada
   al pico de la vuelta. **Decidido por el usuario: O5 como red de seguridad**
   (sin 25 Hz). Cómo automatizar 9.2: `docs/automatizar-9.2.md`.
+- **Dónde estamos en las olas (2026-10-03):** olas 1 y 2 cerradas (por
+  uso; de la 1 quedan grabaciones sueltas). **Ola 3 a medias:** hechas C1,
+  L1b+L1d (L2 probada, no ganó), O4 (adelantada; con O5 decidida), más
+  P6, P8, SX 1-2 y RC adelantadas de la ola 4; faltan **S5** (EDF), **G1 →
+  G2**, H1, A1, A2 y R7. Ya está hecho de la ola 4: P3-P6 y P8. Van
+  ~5 de 12-15 sesiones.
+
+### Próxima sesión (plan, 2026-10-03)
+
+Cerrar la ola 3 con el camino de `docs/automatizar-9.2.md` y la red de
+seguridad O5. Modelos según la preferencia del usuario: optimización →
+Opus (medium), grabaciones → Sonnet (low), el resto → Sonnet (high).
+Cada subagente en su worktree (`tools/wt_new.sh`), con la tarjeta de
+`SUBAGENTES.md`. Ficheros sin cruces entre agentes.
+
+| quién | tarjeta | modelo | toca | puerta |
+|---|---|---|---|---|
+| coordinador, antes de lanzar | **O1 en WinUAE**: `GDEFS="-DREPLAY -DBENCH" OUT=work/bench sh tools/game_build.sh`, `shot.ps1 -Exact -Wait 220`, `game_read.py --auto` → factor real del DMA en `docs/informe-d1.md`; capturas SX/SX2 contra master | — | docs | tabla en el informe |
+| agente 1 | **O5**: render desacoplado (red de seguridad, decidido) | Opus medium | `player/game.s` | replay idéntico en `gamecheck` (0 distintos); frames de imagen perdidos contados en el replay y en `stress_*`; imagen igual en WinUAE en los frames que no se pierden |
+| agente 2 | **G1 + G0**: estudios con 256 px y medir encadenar por DMA contra `SPRxPT` por copper | Sonnet high | solo `tools/` (lectura) + informe | tabla de líneas que piden más columnas y decisión G0 con números |
+| agente 3 | **G8 (nueva)**: `RexGfxRt` + `SubSprGfx2Entry1` escribiendo la OAM y el campo OAM en el verificador | Opus medium | `player/spr_rex.c`, `player/sprgfx.c` (nuevo), el verificador | OAM = grabación de snesorc en `oracle_yi1` en los frames con Rex; `level_frame` medido |
+| agente 4 | **G3a**: `tools/mksprgfx.py` (GFX 20 → frames de sprite + máscara), sin formato final (lo fija G2) | Sonnet high | `tools/mksprgfx.py` | `--selftest` de ida y vuelta en todas las poses de las grabaciones |
+| agente 5 | **R10 (nueva)**: grabaciones de los huecos de `docs/cobertura.md` | Sonnet low | `tools/snesorc/*.orc`, `work/oracle_*.txt` | `coverage.py` deja de listar `spr_spin_kill`, `chuck_die`, mirar arriba y el aturdimiento del caparazón |
+
+Al cerrar: integrar (§2.4 de `SUBAGENTES.md`), `lint_port` + `regress`,
+**G2** (diseño del dibujo; lo escribe el coordinador con G1, G0, G8 y
+G3a) y, si sobra tiempo, **S5 acotado** al pico de la vuelta (s ≈ 4580,
+Opus medium, `scroll.s`; una sesión como máximo, ver el informe D1). Lo que
+sigue después: G4 + G6 (asignador y su verificador), Z1 (reinicio tras la
+muerte), H1, A1, A2.
+
 - **Historial de las olas 1-3 y del 2026-09-30** (qué se integró, números de
   cada paso, ramas, notas para las grabaciones): textual en
   `docs/historia.md`, sección "ROADMAP: el día a día del 2026-09-30 al

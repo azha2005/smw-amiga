@@ -145,6 +145,7 @@ y la integración al final. Una ola grande ocupa varias sesiones.
 Ola 1   Medir y preparar            I1 · O1 · R0 → R1…R6, R9 · S1a+S2 · L1a            1 sesión
 Ola 2   50 Hz (1): lo más caro       O3 · O4 · S4 (F) · L1c · MA1 · P1+P2 · P3 · I2      1-2
 Ola 3   50 Hz (2) + diseños          S5 (F) · L1b+L1d+L2 · G1 · G2 (F) · C1 · H1 · A1 · A2 (F) · R7   2
+        + (2026-10-03) O5 · G0 · G8 (F) · G3a · R10: plan en ROADMAP §1 "Próxima sesión"
 Ola 4   Motores y estructura         S3 → S8 → S6 (F) · G3 · G4 · G6 · C2 (F) · C3 · H2 · A3 · R8 · P4…P10 · T1   2-3
 Ola 5   Integraciones                G5 (F) · C4 · H4 · A4 · MA2 · T2 · E1 · E2 · E3     2
 Ola 6   El juego completo            G7 · H3 · H5 · A5 · A6 · A7 · C5 · Z1…Z6 → T3 → Z8  2-3
@@ -413,6 +414,15 @@ frame 11425, entrar, recorrer las 2 pantallas de `obj-1.lv` (monedas
 incluidas) y volver a salir. Puerta: `orc_has.py` muestra el cambio de
 subnivel y la vuelta.
 
+#### R10 — Los huecos de la cobertura (2026-10-03)
+**C · — · `tools/snesorc/*.orc`** · grabaciones para lo que
+`docs/cobertura.md` ("Notas (a mano)") dice que ninguna recorre y le importa
+a YI1: salto con giro sobre un Rex (`spr_spin_kill`), matar al Chuck (tres
+pisotones o estrella: `chuck_die`, `chuck_run`), mirar arriba parado
+(`mario_CEB1`), el caparazón aturdido y el Koopa que entra al caparazón, y
+confirmar si hay bloques giratorios. Puerta: `python3 tools/coverage.py`
+deja de listar esas funciones (o explica por qué siguen sin correr).
+
 ### S — Scroll ≤ 25 % (ROADMAP Etapa 6.4 y §9.2)
 
 Todas: Lee ROADMAP Etapa 6.4 y §9.2, AGENTS P39-P46, P50, P51, P59, P71,
@@ -604,6 +614,30 @@ P46.
 **M · G4** · ROADMAP §8.2 fila 9.2: el asignador del 68000 en Musashi sobre
 los frames de `oam_yi1.txt` contra `copsim.py`. Puerta: 0 objetos sin
 mostrar.
+
+#### G8 — Rutinas de gráficos que escriben la OAM (2026-10-03)
+**F · — · `player/spr_rex.c`, `player/sprgfx.c` (nuevo), verificador** ·
+el camino de `docs/automatizar-9.2.md` §0: portar `RexGfxRt` y
+`SubSprGfx2Entry1` enteras, escribiendo la OAM ($0200-$03FF, $0420) como
+la SNES, en vez de solo `get_draw_info`. El verificador compara la OAM
+contra `<grabación>_oam.bin` (ya lo escribe `oracle2bin.py`: entradas
+visibles por frame). Puerta: OAM igual en `oracle_yi1` en todos los
+frames con Rex en pantalla; coste en `level_frame` medido con
+`gamecheck.py --engine musashi`. Si cuesta mucho, compilarlo solo en el
+render (O5) en vez de en la lógica.
+
+#### G3a — `tools/mksprgfx.py` sin el formato final (2026-10-03)
+**M · — · `tools/mksprgfx.py`** · la parte de G3 que no depende de G2:
+decodificar el GFX 20 (Rex, Banzai) y los demás GFX de sprites del nivel a
+fichas 8×8/16×16 con su máscara, y la prueba de ida y vuelta contra las
+fichas que pide la OAM grabada (`oam_yi1.txt`). El empaquetado en sprites
+adosados lo fija G2 después.
+
+#### G9 — Comparación automática de la imagen de los sprites (2026-10-03)
+**M · G5 · `tools/sprshot_cmp.py` (nuevo)** · renderizar en Python la OAM
+de la SNES con los gráficos convertidos y compararla con la captura de
+WinUAE en el mismo frame del replay (P57: centro del píxel). Puerta: 0
+píxeles distintos en las zonas de sprite.
 
 #### G7 — Bobs en PF1
 **M · G5** · restaurar desde `BLK`; las dos copias del buffer circular;
