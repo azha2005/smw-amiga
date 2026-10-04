@@ -253,6 +253,45 @@ le llevan los números al usuario (D1).
 
 - **2026-10-04, ola 3 integrada:** O5 (render desacoplado, por defecto; `-DNODECOUPLE` = bucle viejo; YI1: 0 frames lógicos perdidos, 11 imágenes salteadas; stress_back: 127, rachas ≤ 2), G8 (OAM de Rex/`SubSprGfx2Entry1` exacta, solo con `SPR_OAM` en el PC), G3a (`mksprgfx.py --selftest` 226/226), G1+G0 (`docs/estudio-g1-g0.md`: 2-3 columnas libres, Rex 2 columnas, recargar por copper; G0 sin medir en WinUAE), R10 (`spin_kill`, `chuck_kill`, `turn_block`). O1 en WinUAE: `docs/informe-d1.md` §5. Trampas P96-P101. **Falta:** G2 (diseño), notas a mano de `docs/cobertura.md`, capturas SX/SX2.
 
+### Pendiente al cerrar la ola 3 (2026-10-04) — EMPEZAR POR AQUÍ
+
+La ola 3 está integrada en `master` (commit `ab51d16`), regresión OK con
+`tools/baseline_pc.json` actualizado. El plan de abajo ("Próxima sesión,
+2026-10-03") ya se ejecutó; lo que quedó sin hacer, en orden:
+
+1. **G2, el diseño del dibujo de sprites (coordinador, Opus).** Escribirlo
+   en la Etapa 9.2 con: `docs/estudio-g1-g0.md` (2-3 columnas libres, Rex
+   = 2 columnas, Banzai siempre bob, recargar `SPRxPT` por copper + 2 MOVE
+   de `SPRxPOS/CTL`, todas las poses en un banco de 64 KB), G8 (OAM exacta
+   de Rex/`SubSprGfx2Entry1`, coste +13,7 % en `level_frame` si se enciende
+   en la Amiga: P98), G3a (`tools/mksprgfx.py`, ~11 KB de fichas, 22 KB con
+   flip: P99) y O5 (la foto `(cámara, OAM)` del render: P97). Decidir dónde
+   corren las rutinas de gráficos (lógica o render) y el presupuesto de chip.
+2. **G0 medido en WinUAE**: hoy es solo modelo (`copsim.py` a 320 px,
+   P46/P100). Banco `player/bench_g0.s` en las líneas más cargadas.
+3. **Encender `SPR_OAM` en la Amiga**: en `logic68k.s`, cambiar el bloque
+   `RexGfxRt` de `rex_main_asm` por `CALLX _rex_gfx` (+0,6 KB de datos del
+   C, P36). Depende de lo que decida G2.
+4. **`docs/cobertura.md`, "Notas (a mano)"**: están viejas; `spr_spin_kill`,
+   `chuck_die` y mirar arriba ya corren (R10). Siguen sin cubrir
+   `shell_stun_0b`/`shell_set_stunned` (no se dan en YI1; `poke` no sirve,
+   P101) y `spr_spr_contact` (sin portar).
+5. **Capturas SX/SX2 contra master** (ida 500-4500 y vuelta, P94): pedidas
+   desde el 2026-10-01, sin hacer.
+6. **`mksprgfx.py --selftest` en `regress.py`**, saltándolo con aviso si
+   faltan `work/oracle_*_oam.bin`.
+7. **S5 acotado** al pico del scroll a la vuelta (s ≈ 4580, Opus, una
+   sesión como máximo). Con O5 ya no atrasa el juego: es una imagen
+   salteada (`stress_back`: 127 de 4126), así que baja de prioridad.
+8. Después: G4 + G6 (asignador y su verificador), Z1 (reinicio tras la
+   muerte), H1, A1, A2.
+
+Notas para quien siga: O5 es el modo por defecto de `game.s`
+(`-DNODECOUPLE` = bucle viejo); `dc_loop` es otra copia de
+`scroll_frame` (P97). En la PC, `regress.py` tarda ~10 s: paralelizarlo no
+vale la pena; lo lento son las capturas de WinUAE (~220 s), que se pueden
+lanzar de a 3 por el candado desde copias del worktree.
+
 ### Próxima sesión (plan, 2026-10-03)
 
 Cerrar la ola 3 con el camino de `docs/automatizar-9.2.md` y la red de
