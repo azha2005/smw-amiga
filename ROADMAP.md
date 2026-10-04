@@ -23,7 +23,7 @@
    cuándo está hecho. No se empieza el siguiente con el anterior en rojo.
 3. Al cerrar un paso: commit `Etapa N.x: <qué>` y actualizar §1.2. Si aparece
    una trampa nueva, se agrega como `Pnn` en `docs/pitfalls.md` y en el índice de `AGENTS.md` §8 (la próxima es
-   **P96**).
+   **P102**).
 4. Al cerrar la sesión: handoff con la plantilla de §7, que reemplaza a §1.
 5. Para repartir el trabajo entre subagentes (tarjetas por etapa, niveles,
    olas, mapa de conflictos y protocolo de integración): **`SUBAGENTES.md`**.
@@ -250,6 +250,8 @@ le llevan los números al usuario (D1).
   P6, P8, SX 1-2 y RC adelantadas de la ola 4; faltan **S5** (EDF), **G1 →
   G2**, H1, A1, A2 y R7. Ya está hecho de la ola 4: P3-P6 y P8. Van
   ~5 de 12-15 sesiones.
+
+- **2026-10-04, ola 3 integrada:** O5 (render desacoplado, por defecto; `-DNODECOUPLE` = bucle viejo; YI1: 0 frames lógicos perdidos, 11 imágenes salteadas; stress_back: 127, rachas ≤ 2), G8 (OAM de Rex/`SubSprGfx2Entry1` exacta, solo con `SPR_OAM` en el PC), G3a (`mksprgfx.py --selftest` 226/226), G1+G0 (`docs/estudio-g1-g0.md`: 2-3 columnas libres, Rex 2 columnas, recargar por copper; G0 sin medir en WinUAE), R10 (`spin_kill`, `chuck_kill`, `turn_block`). O1 en WinUAE: `docs/informe-d1.md` §5. Trampas P96-P101. **Falta:** G2 (diseño), notas a mano de `docs/cobertura.md`, capturas SX/SX2.
 
 ### Próxima sesión (plan, 2026-10-03)
 

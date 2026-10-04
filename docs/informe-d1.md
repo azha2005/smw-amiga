@@ -2,10 +2,9 @@
 
 > D1 ya está decidida (50 Hz, haciendo todo lo posible; ROADMAP §2 y §3).
 > Este informe dice dónde estamos con números y qué conviene hacer ahora.
-> **Lo que NO tiene:** la medida en WinUAE cycle-exact (`game.s -DBENCH`,
-> `tools/game_read.py`). El factor del DMA (×1,2-1,3) es la estimación de
-> ROADMAP §2, no una medida de este binario. Es lo primero que hay que
-> cerrar para que el informe sea definitivo.
+> La medida en WinUAE cycle-exact (`game.s -DBENCH`, `tools/game_read.py`)
+> está en §5 (2026-10-04): factor ×1,30 en el peor frame, 3 frames que
+> pasan.
 
 ## 1. El juego entero en el replay de YI1 (Musashi, sin DMA)
 
@@ -76,3 +75,33 @@ los postes de la meta (s ≈ 4580) lo va a ver.
    cubre la 4.
 
 **Decisión del usuario (2026-10-03): hacer O5 como red de seguridad.** Sin 25 Hz.
+
+## 5. Medida en WinUAE cycle-exact (2026-10-04): el factor real del DMA
+
+`GDEFS="-DREPLAY -DBENCH" OUT=work/bench sh tools/game_build.sh`,
+`winuae_lock.ps1 .\tools\shot.ps1 -Exact -Adf work\bench\game.adf -Wait 220`
+(KS 1.2, `cycle_exact`), `python tools/game_read.py --shot work/bench/o1.png
+--auto`. Mismo commit que §1 más los docs (cd1ec16). 6312 frames medidos,
+2 de resincronización; 14 211 ticks por frame (+0,17 % sobre PAL).
+
+| parte | peor WinUAE (ciclos) | % frame | frame del replay (s) | peor Musashi (§1) | factor |
+|---|---|---|---|---|---|
+| entrada | 1 040 | 0,7 | 4571 (1996) | — | — |
+| `level_frame` | 40 120 | 28,2 | 4570 (1995) | 39 026 | ×1,03 |
+| `mspr_draw` | 11 140 | 7,8 | 3335 (1603) | 7 750 | ×1,44 |
+| columna nueva | 11 370 | 8,0 | 452 (80) | 3 516 | ×3,2 (blitter) |
+| `build_mid` | 110 360 | 77,7 | 5851 (1861) | 75 816 | ×1,46 |
+| resto de `scroll_frame` | 9 420 | 6,6 | 4040 (1828) | 6 448 | ×1,46 |
+| **total** | **152 640** | **107,4** | 5442 (2151) | 117 796 | **×1,30** |
+
+- **Media 29,3 %** del frame (Musashi 27,5 %: ×1,07). **3 frames de 6312
+  pasan de un frame**, los mismos que predijo §1 con DMA ×1,3, y en el
+  mismo tramo (peor frame 10587 del oráculo, s = 2151).
+- El factor no es uniforme: la lógica (`level_frame`, casi sin acceso a
+  chip RAM) apenas cambia; lo que escribe la lista del copper o espera al
+  blitter (`build_mid`, `mspr_draw`, resto del scroll) sube ~×1,45.
+  Conclusión para los presupuestos: usar ×1,05 para la lógica y ×1,5 para
+  el scroll y el dibujo, no un ×1,3 global.
+- Con O5 (§4) esos 3 frames serían 3 frames de imagen perdidos, sin
+  atrasar el juego. El scroll hacia atrás (§2) a ×1,46 daría ~155 000
+  ciclos solo: sigue pidiendo O5 o la opción 1.

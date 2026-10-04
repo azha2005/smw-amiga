@@ -357,7 +357,7 @@ En español. Cada rutina de hardware (blitter/copper) lleva arriba:
 Índice, una línea por trampa. **El texto completo (causa, síntoma, arreglo y
 comandos) está en `docs/pitfalls.md`, textual**: leer ahí las del área que se
 toca antes de cambiar nada. Una trampa nueva se agrega allí y aquí con el
-número siguiente (**la próxima es P96**).
+número siguiente (**la próxima es P102**).
 
 - **P1** El layout de paletas de SMW no es un array 8×16. ✅ RESUELTO
 - **P2** El blitter tiene prioridad sobre la CPU y la "roba" ciclos
@@ -456,6 +456,12 @@ número siguiente (**la próxima es P96**).
 - **P93** Animaciones de Mario y el juego en vivo (P8)
 - **P94** vasm: una etiqueta global corta las locales (SX)
 - **P95** Grabaciones (RC)
+- **P96** El factor del DMA no es uniforme (O1 en WinUAE)
+- **P97** O5, el render desacoplado: buffers de la foto, la lógica en la línea 272
+- **P98** Rutinas de gráficos que escriben la OAM (G8)
+- **P99** Gráficos de sprites: plano 3 del GFX 01, 16×16 y bit 8 (G3a)
+- **P100** Columnas de sprite: 2-3 libres, el Rex mide 20 px (G1/G0)
+- **P101** `poke` en snesorc no lo ve el port (R10)
 
 ---
 

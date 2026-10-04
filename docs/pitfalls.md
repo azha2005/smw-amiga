@@ -757,6 +757,60 @@ escribir el guion de salida sobre el que lee como prefijo. Nombres de
 oráculo: mirar `tools/snesorc/` antes de grabar (RC y P8 hicieron dos
 `pw_estrella` distintos; el de RC quedó como `pw_1up`).
 
+**P96 — El factor del DMA no es uniforme (O1 en WinUAE, 2026-10-04).**
+Contra Musashi: `level_frame` ×1,03, `build_mid`/`mspr_draw`/resto del
+scroll ×1,45, la columna (blitter) ×3,2; el total del peor frame ×1,30, la
+media ×1,07. Presupuestar la lógica a ×1,05 y el scroll y el dibujo a ×1,5,
+no un ×1,3 global (`docs/informe-d1.md` §5).
+
+**P97 — O5, el render desacoplado (ola 3).** (1) La foto no puede escribir
+el buffer de sprites de la lista **publicada** todavía no puesta: la COPER
+(línea 272) corre entre la publicación y la VERTB que la pone. Ocupados =
+{publicada si hay, si no la que se ve; la del render}; excluir solo la que
+se ve adelanta a Mario un frame respecto a la cámara (P35) siempre. (2) La
+lógica empieza en la línea 272 (COPER), no en la 0 (VERTB): en la 0 el DMA
+de planos sube `level_frame` de 28,2 a 33,9 % y la media de 29,3 a 37,2 %.
+(3) asmlint no sigue un cambio de pila (`move.l (sp),sp`): va en una
+rutina sin cabecera (`dc_logstk`). (4) `gamecheck.py` con un binario
+`-DBENCH` se cae en Unicorn (`gb_rt` lee el CIA): usar uno sin `-DBENCH`.
+(5) El cuerpo de `dc_loop` es otra copia de `scroll_frame` (como
+`gb_scroll_frame`, P80): si cambia uno, cambiar las tres. (6) Supone que en
+la línea 272 el DMA ya no lee los sprites de la imagen: vale mientras
+ningún sprite baje de la línea 268.
+
+**P98 — Rutinas de gráficos que escriben la OAM (G8).** `SprTilemapOffset`
+solo cubre los sprites `$00-$53`: con `$83`, `$AB` en estado 4, `$B9` o
+`$BD` la ROM lee lo que sigue a la tabla; en los portados ese tile se
+sobrescribe siempre, pero el `$83` lo mostraría (sacarlo de la ROM antes de
+engancharlo). La OAM grabada no trae la ranura: se compara por tramos
+seguidos y orden relativo. Un Rex adoptado a mitad de tramo no tiene
+`SpriteMiscTbl6` (no se graba): su pose puede diferir con la lógica exacta
+(`oracle_pipe`). La nube del giro: atributos = `tile & $30`. `GetDrawInfoBnk1`
+lejos cae en `_01A3CD` y escribe Y, m0 y m1; `Bnk3` no. La OAM grabada en el
+registro N es la del frame N (sin desfase, medido). `SPR_OAM` solo se
+enciende en `marioverify`; en la Amiga el Rex es `rex_main_asm`.
+
+**P99 — Gráficos de sprites (G3a).** `UploadGFXFile` deja el plano 3
+distinto de 0 en las fichas 0, 1, 16 y 17 del GFX 01 (= bp0|bp1|bp2): no
+basta con 3 bpp + plano 3 a 0. Un 16×16 de la OAM suma 1 en el nibble bajo
+y 16 en el alto, cada uno con su vuelta. En la OAM (5 B) el bit 0 de `attr`
+es el bit 8 del tile y el bit 0 de `hi` el bit 8 de X: sin él se pierden
+las fichas 256-511. Las fichas de Mario se suben por DMA sobre el GFX 00.
+
+**P100 — Columnas de sprite (G1/G0).** Las "4 columnas libres" ya incluían
+a Mario: quedan 2 o 3 (Mario usa 2 cuando su caja pasa de 16 px). El Rex
+mide 20 px (2 columnas) y el Chuck 24-32. Una pose compartida entre objetos
+no lleva su Y/X: el copper reescribe también `SPRxPOS`/`SPRxCTL` (hasta 2
+MOVE más por canal). G0 está solo en el modelo (`copsim.py`, calibrado a
+320 px, P46): falta medirlo en WinUAE.
+
+**P101 — `poke` en snesorc no lo ve el port (R10).** La grabación guarda el
+estado al final del frame: un `poke` sobre un sprite da 1 frame distinto
+sin que el port ejecute el código que se quería cubrir. YI1 sí tiene
+bloques giratorios (Map16 `$11E`). El `include` de un `.orc` es relativo al
+guion: los guiones de búsqueda viven en `tools/snesorc`. Un Chuck solo
+cuenta el pisotón fuera del estado 3.
+
 **P44 — Los "derrames" de la etapa 5 alargan el tramo anterior.**
 `mkleveld.py` asigna los píxeles que quedan fuera de todo tramo al registro
 que *todavía conserva* el color: después del fin de un tramo puede haber
