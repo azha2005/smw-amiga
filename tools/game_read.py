@@ -16,6 +16,19 @@ bits: celdas blancas/negras de 8 px, 32 por fila; la fila i ocupa las lineas
   f5+2p  s (posicion del scroll) << 16
   f18 $5AA5A55A (sincronia)
 
+O5 (render desacoplado, el modo por defecto de game.s): ademas las palabras
+bajas de f5, f7 ... f17 (que antes valian 0) y dos filas mas, f19 y f20:
+
+  f5.lo  frames logicos (la logica, una vez por frame)
+  f7.lo  imagenes publicadas por el render
+  f9.lo  fotos perdidas (frames logicos cuya imagen no se vio nunca)
+  f11.lo la racha mas larga de fotos perdidas seguidas
+  f13.lo, f15.lo, f17.lo  rachas de 1, de 2, de 3 o mas
+  f19    VBL sin imagen nueva << 16 | peor interrupcion de la logica (ticks)
+  f20    frame del final de la racha mas larga << 16 | frames sin COPER
+
+Con el bucle de antes (-DNODECOUPLE) f5.lo = 0 y no se imprime nada de O5.
+
     python tools/game_read.py --shot work/bench/bench.png --auto
 
 Sale con 1 si las palabras de sincronia no aparecen.
@@ -31,6 +44,7 @@ E_CLOCK = 709379.0          # Hz del CIA en una Amiga PAL
 CPU_PER_TICK = 10           # 7,09 MHz / 709379 Hz
 REPLAY_FIRST = 5145         # frame del oraculo del primer frame del replay (P75)
 NROWS = 19
+NROWS_O5 = 21               # + f19, f20 (O5)
 SHOT_X, SHOT_Y, SCALE = 67, 70, 2
 
 PARTS = [
@@ -44,11 +58,11 @@ PARTS = [
 ]
 
 
-def read_longs(path, ox, oy, sx, sy):
+def read_longs(path, ox, oy, sx, sy, nrows=NROWS):
     im = Image.open(path).convert("L")
     px = im.load()
     out = []
-    for i in range(NROWS):
+    for i in range(nrows):
         y = int(round(oy + (8 + 12 * i + 4) * sy))
         v = 0
         for k in range(32):
@@ -108,7 +122,7 @@ def main():
         ox, oy, sx, sy = autodetect(a.shot)
     else:
         ox, oy, sx, sy = a.x, a.y, SCALE, SCALE
-    f = read_longs(a.shot, ox, oy, sx, sy)
+    f = read_longs(a.shot, ox, oy, sx, sy, NROWS_O5)
     if f[0] != 0xA55A5AA5 or f[18] != 0x5AA5A55A:
         print("FALLO: sincronia %08X / %08X (esperaba A55A5AA5 / 5AA5A55A)" % (f[0], f[18]))
         print("       la captura no es la pantalla de resultados de game.s -DBENCH")
@@ -136,7 +150,31 @@ def main():
     print()
     print("(frame = del replay, 0 = el primero; oraculo = %d + frame; s = Bg1HOfs)" % REPLAY_FIRST)
     print("(el peor de cada parte es de frames distintos: no se suman)")
+    o5_report(f, tpf)
     return 0
+
+
+def o5_report(f, tpf):
+    """las palabras de O5 (render desacoplado); nada si f5.lo = 0"""
+    lo = lambda i: f[i] & 0xFFFF
+    nlog = lo(5)
+    if not nlog:
+        return
+    npub, nlost, mx = lo(7), lo(9), lo(11)
+    h1, h2, h3 = lo(13), lo(15), lo(17)
+    rep, isr = f[19] >> 16, f[19] & 0xFFFF
+    mxf, late = f[20] >> 16, f[20] & 0xFFFF
+    print()
+    print("O5, render desacoplado (la logica una vez por frame; la imagen salta si el render no llega):")
+    print("  frames logicos          : %d" % nlog)
+    print("  imagenes publicadas     : %d" % npub)
+    print("  fotos perdidas          : %d (%.2f %% de los frames logicos)" % (nlost, 100.0 * nlost / nlog))
+    print("  racha mas larga         : %d%s" % (mx, "  (termina en el frame %d, oraculo %d)"
+                                                % (mxf, REPLAY_FIRST + mxf) if mx else ""))
+    print("  rachas de 1 / 2 / >=3   : %d / %d / %d" % (h1, h2, h3))
+    print("  VBL sin imagen nueva    : %d" % rep)
+    print("  peor interrupcion       : %d ticks = %.1f %% del frame (logica + foto)" % (isr, 100.0 * isr / tpf))
+    print("  frames sin COPER        : %d (la logica corrio en la VERTB)" % late)
 
 
 if __name__ == "__main__":
