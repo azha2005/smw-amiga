@@ -237,6 +237,12 @@ le llevan los números al usuario (D1).
   `docs/cobertura.md` (80 % de las líneas del C corren con las 27
   grabaciones; lo que falta y le importa a YI1, en sus notas: salto con
   giro sobre enemigos, matar al Chuck, mirar arriba, caparazones).
+- **2026-10-03 (PC), O4:** `docs/informe-d1.md`. En el replay (Musashi)
+  0 frames pasan de 20 ms con DMA ×1,2 y 3 de 6310 con ×1,3 (14 si se
+  reserva el 15 % para sprites, HUD y audio); lo que sigue sin entrar es
+  el scroll hacia atrás en s ≈ 4580 (74,7 % solo). Recomendación: medir
+  en WinUAE, **no** 25 Hz, O5 como red de seguridad y una sesión acotada
+  al pico de la vuelta. **Pendiente: decisión del usuario.**
 - **Historial de las olas 1-3 y del 2026-09-30** (qué se integró, números de
   cada paso, ramas, notas para las grabaciones): textual en
   `docs/historia.md`, sección "ROADMAP: el día a día del 2026-09-30 al

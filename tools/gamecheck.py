@@ -324,6 +324,22 @@ def parts_report(pstat):
                  mx[1], mx[2], len(rows), name))
     print("  frames con el total por encima de un frame PAL (%d ciclos): %d de %d"
           % (PAL_FRAME, over, n))
+    # O4: con el DMA la Amiga tarda ~x1,2-1,3 lo que da Musashi; cuantos frames
+    # pasarian de 20 ms con cada factor, la racha mas larga y donde estan
+    tot = sorted(pstat["total"], key=lambda x: x[1])
+    # (la ultima: x1,3 dejando el 15 % para dibujar los sprites del nivel, HUD y audio)
+    for fac, res in ((1.2, 0), (1.3, 0), (1.3, 0.15)):
+        lim = PAL_FRAME * (1 - res) / fac
+        hit = [(v, f, s) for v, f, s in tot if v > lim]
+        run = best = 0
+        prev = None
+        for v, f, s in hit:
+            run = run + 1 if prev is not None and f == prev + 1 else 1
+            best = max(best, run)
+            prev = f
+        print("  O4 x%.1f%s (> %d): %d frames (%.2f %%), racha max %d, s %s"
+              % (fac, " -%d %%" % (100 * res) if res else "", lim, len(hit), 100.0 * len(hit) / max(1, n), best,
+                 ",".join(sorted({"%d" % (s // 256 * 256) for _, _, s in hit}, key=int)) or "-"))
 
 
 SPRW = 2 + 2 * 40 + 2           # mario.h: MSPR_WORDS
