@@ -42,7 +42,26 @@
 ; Registros: en el bucle, a3 = datos del scroll, a4 = CUSTOM, a5 = vars
 ; del scroll (lo que espera scroll.s). El C se llama con a4 = binstart
 ; (sus datos: -sd) y respeta la ABI de vbcc (d2-d7/a2-a6).
+;
+; O5, render desacoplado (por defecto; -DNODECOUPLE = el bucle de antes,
+; gframe). La logica corre SIEMPRE una vez por frame, en la interrupcion
+; del copper de la linea 272 (COPER, dc_cop; donde empezaba el bucle de
+; antes): entrada + level_frame y la FOTO de ese frame logico
+; (dc_capture): la s de la camara, Mario dibujado (mspr_draw) en uno de 3
+; buffers de sprites y su paleta (P35: los dos del mismo frame). El bucle
+; principal (dc_loop) es el render: toma la ultima foto, escribe columna,
+; colores, punteros y build_mid en la lista de atras, los punteros de los
+; sprites de la foto y la paleta, y la publica; la VERTB siguiente la
+; pone en COP1LC + COPJMP1 (junto con sus sprites). Si el render no llego,
+; se sigue viendo la lista anterior y esa foto se pierde: la imagen saltea
+; un frame, el juego no va mas lento. Ver "O5" mas abajo.
 ;----------------------------------------------------------------------
+
+        ifnd    NODECOUPLE
+        ifnd    DECOUPLE
+DECOUPLE    equ 1
+        endc
+        endc
 
 ; una sola seccion (como logicbench.s: vasm -Fbin)
         section "CODE",code
@@ -67,6 +86,23 @@ GBS macro
         move.w  d0,\1*2(a0)
         movem.l (sp)+,d0-d2/a0
         endm
+        ifd     DECOUPLE
+; GBR n: como GBS, en el render (que la interrupcion corta): gb_t[n] =
+; timer + gb_isr (ticks que paso en la interrupcion), asi la diferencia de
+; dos sellos es solo el tiempo del render. Si la interrupcion cae en medio
+; de la lectura, se vuelve a leer.
+GBR macro
+        movem.l d0-d3/a0,-(sp)
+.r\@:   move.w  gb_isr(pc),d3
+        bsr     gb_rt
+        cmp.w   gb_isr(pc),d3
+        bne.s   .r\@
+        add.w   d3,d0
+        lea     gb_t(pc),a0
+        move.w  d0,\1*2(a0)
+        movem.l (sp)+,d0-d3/a0
+        endm
+        endc
         endc
 
 binstart:
@@ -277,11 +313,24 @@ entry:
         tst.l   d0
         beq     gfail
         move.l  d0,V_COP2(a5)
+        ifd     DECOUPLE
+        move.l  #3*SPRBUF+16,d0             ; Mario (3 fotos) + nulo
+        else
         move.l  #2*SPRBUF+12,d0             ; Mario (una por lista) + nulo
+        endc
         move.l  #MEMF_CHIP|MEMF_CLEAR,d1
         jsr     _LVOAllocMem(a6)
         tst.l   d0
         beq     gfail
+        ifd     DECOUPLE
+        lea     g_sbuf(pc),a0               ; los buffers de las fotos: A, B
+        move.l  d0,(a0)                     ; y el de detras del nulo
+        move.l  d0,d1
+        add.l   #SPRBUF,d1
+        move.l  d1,4(a0)
+        add.l   #SPRBUF+16,d1
+        move.l  d1,8(a0)
+        endc
         lea     g_spra(pc),a0
         move.l  d0,(a0)+                    ; g_spra
         add.l   #SPRBUF,d0
@@ -328,13 +377,21 @@ entry:
         bsr     live_init                   ; el estado del primer frame
         endc
         bsr     cam_to_s
+        ifd     DECOUPLE
+        lea     g_data(pc),a0               ; (para cam_s en la interrupcion)
+        move.l  a3,(a0)
+        endc
         bsr     scroll_init
+        ifd     DECOUPLE
+        bsr     dc_init                     ; la primera foto, en las dos listas
+        else
         move.l  V_BACK(a5),-(sp)            ; Mario en las dos listas
         move.l  V_COP(a5),V_BACK(a5)
         bsr     mario_draw
         move.l  V_COP2(a5),V_BACK(a5)
         bsr     mario_draw
         move.l  (sp)+,V_BACK(a5)
+        endc
 
         ;--- tomar el hardware (como scroll.s) ------------------------
         jsr     _LVOForbid(a6)
@@ -371,9 +428,18 @@ entry:
         move.w  #$0008,INTREQ(a4)
         move.w  #$c008,INTENA(a4)           ; INTEN|PORTS
         endc
+        ifd     DECOUPLE
+        lea     dc_vbl(pc),a0               ; nivel 3: VERTB y COPER
+        move.l  a0,$6c.w
+        move.w  #$0030,INTREQ(a4)
+        move.w  #$0030,INTREQ(a4)
+        move.w  #$c030,INTENA(a4)           ; INTEN|VERTB|COPER
+        bra     dc_loop                     ; el render (no vuelve)
+        endc
 
+        ifnd    DECOUPLE
 ;----------------------------------------------------------------------
-; Bucle por frame
+; Bucle por frame (-DNODECOUPLE: la logica y el render juntos)
 ;----------------------------------------------------------------------
 gframe:
 .w1:    move.l  VPOSR(a4),d0
@@ -415,6 +481,7 @@ gframe:
 .dg:    bsr     diag_frame
         bra.s   .w2
         endc
+        endc                                ; ifnd DECOUPLE
 
 ;----------------------------------------------------------------------
 ; --- cam_to_s --- V_S = Bg1HOfs, dentro del nivel
@@ -1034,6 +1101,584 @@ g_null: dc.l    0                           ; sprite vacio
 g_lpal: dc.b    $ff,$ff                     ; paleta de Mario en la lista A, B
                                             ; ($FF: lista sin los punteros)
 
+        ifd     DECOUPLE
+;----------------------------------------------------------------------
+; O5: la logica a 50 Hz fija y el render desacoplado (esquema Robocod,
+; docs/investigacion-ports.md §2.1; tarjeta O5).
+;
+; Dos interrupciones de nivel 3 (dc_vbl):
+;   VERTB (linea 0, dc_vb): si el render publico una lista, COP1LC = esa
+;      lista y COPJMP1 (antes de la primera WAIT ($2B) y del DMA de
+;      sprites): desde este frame se ve, con los sprites de su foto.
+;   COPER (linea 272: una cola en cada lista, dc_puttail; dc_cop): la
+;      logica, game_step (entrada + level_frame), una vez por frame y en el
+;      mismo punto que el bucle de antes (desde la $110: las lineas sin DMA
+;      de planos, ROADMAP §9.6), y la foto (dc_capture): s = Bg1HOfs
+;      dentro del nivel, mspr_draw en un buffer de sprites que no se ve ni
+;      se esta dibujando (3 buffers) y la paleta de Mario. Es todo lo que
+;      el render lee del estado del juego. Corre con el nivel bajado a 0:
+;      la VERTB entra en medio (y el teclado).
+;   Red: si la COPER no llego en un frame, la VERTB corre esa logica.
+; Render (dc_loop, el bucle principal): espera a que lo publicado ya se
+; vea y a que haya una foto nueva; la toma (una sola instruccion), corre
+; columns + apply_colors + set_pointers + build_mid (el cuerpo de
+; scroll_frame sin el COP1LC; si scroll_frame cambia, cambiar esto, como
+; gb_scroll_frame, P80) en V_BACK, pone en su cabecera los punteros de los
+; sprites de la foto y la paleta (dc_hdr) y publica. Si tarda mas de un
+; frame, la interrupcion sigue haciendo fotos; las que nadie toma se
+; pierden (DC_NLOST) y la imagen salta.
+; El blitter solo lo usa el render (columns); la interrupcion no blitea.
+; La interrupcion corre en su propia pila (dc_stk) con todos los
+; registros guardados; el C se llama como siempre (callframe: a4 =
+; binstart).
+;----------------------------------------------------------------------
+NSPRB       equ 3                           ; buffers de sprites (fotos)
+; una foto por buffer (dc_rec + DC_REC * i)
+R_S         equ 0                           ; .w s
+R_PAL       equ 2                           ; .b paleta de Mario (0..7)
+R_RS        equ 3                           ; .b frame de resincronizacion (BENCH)
+R_FRAME     equ 4                           ; .w frame logico (DC_NLOG)
+R_ISR       equ 6                           ; .w ticks de la interrupcion (BENCH)
+DC_REC      equ 8
+; estado (dc_st), palabras; -1 = ninguna
+DC_FRONT    equ 0                           ; foto de la lista que se ve
+DC_PEND     equ 2                           ; publicada, se ve desde el VBL
+DC_REND     equ 4                           ; la que esta dibujando el render
+DC_NEW      equ 6                           ; la ultima que hizo la logica
+DC_PLIST    equ 10                          ; .l la lista publicada
+DC_LBUF     equ 14                          ; .b x 2: foto a la que apuntan
+                                            ; los sprites de la lista A, B
+; contadores (mientras corre la logica; -DBENCH los pinta)
+DC_NLOG     equ 16                          ; frames logicos
+DC_NPUB     equ 18                          ; imagenes publicadas
+DC_NLOST    equ 20                          ; fotos que no se dibujaron nunca
+DC_CUR      equ 22                          ; racha actual de fotos perdidas
+DC_MAX      equ 24                          ; la racha mas larga
+DC_MAXF     equ 26                          ; su ultimo frame logico
+DC_MAXS     equ 28                          ; y su s
+DC_H1       equ 30                          ; rachas de 1 foto perdida
+DC_H2       equ 32                          ; de 2
+DC_H3       equ 34                          ; de 3 o mas
+DC_REP      equ 36                          ; VBL sin imagen nueva
+DC_LATE     equ 38                          ; frames en que la logica no empezo
+                                            ; en su COPER (no llego, o la del
+                                            ; frame anterior seguia)
+DC_SIZE     equ 40
+
+; --- dc_vbl --- interrupcion de nivel 3: VERTB (linea 0) y COPER (la cola
+; de la lista, linea 272). Las dos guardan todos los registros.
+dc_vbl:
+        movem.l d0-d7/a0-a6,-(sp)
+        lea     CUSTOM,a4
+        move.w  INTREQR(a4),d0
+        btst    #5,d0                       ; VERTB
+        beq.s   .cop
+        move.w  #$0020,INTREQ(a4)
+        move.w  #$0020,INTREQ(a4)
+        bsr     dc_vb
+        move.w  INTREQR(a4),d0
+.cop:   btst    #4,d0                       ; COPER
+        beq.s   .out
+        move.w  #$0010,INTREQ(a4)
+        move.w  #$0010,INTREQ(a4)
+        lea     dc_busy(pc),a0
+        tst.b   (a0)
+        bne.s   .late                       ; la logica no termino: tarde
+        st      (a0)
+        move.l  sp,d0                       ; a la pila propia
+        lea     dc_stktop(pc),sp
+        move.l  d0,-(sp)
+        move.w  #$2000,sr                   ; la VERTB puede entrar (anidada)
+        bsr     dc_cop
+        move.w  #$2300,sr
+        move.l  (sp),sp
+        lea     dc_busy(pc),a0
+        sf      (a0)
+.out:   movem.l (sp)+,d0-d7/a0-a6
+        rte
+.late:  lea     dc_st(pc),a0                ; (no deberia pasar: la logica
+        addq.w  #1,DC_LATE(a0)              ; mas la foto < 1 frame)
+        bra.s   .out
+
+; --- dc_act --- d7 = 1 si la logica corre (y cuenta), 0 si no (el
+; replay se acabo, o congelado en el diagnostico)
+; registros destruidos: d0/d7
+dc_act:
+        moveq   #1,d7
+        ifd     REPLAY
+        move.w  g_left(pc),d0
+        bne.s   .run
+        moveq   #0,d7
+.run:
+        endc
+        ifd     DIAG
+        move.w  g_dst(pc),d0
+        beq.s   .play
+        moveq   #0,d7
+.play:
+        endc
+        rts
+
+; --- dc_vb --- VERTB (linea 0): lo que publico el render pasa a verse:
+; COP1LC y COPJMP1, antes de la primera WAIT de la lista ($2B) y del DMA de
+; los sprites. Quien cambia la lista es la interrupcion: el render nunca
+; tiene que adivinar si su COP1LC entro en este VBL o en el siguiente.
+; En el diagnostico, diag_frame. Red: si en el frame anterior no llego la
+; COPER (la cola de la lista no se ejecuto), la logica corre aca (DC_LATE).
+; entrada:  a4 = CUSTOM
+; registros destruidos: d0-d2/d7/a0-a2
+dc_vb:
+        ifd     BENCH
+        bsr     gb_rt
+        move.w  d0,-(sp)                    ; para gb_isr
+        endc
+        lea     dc_st(pc),a2
+        bsr     dc_act
+        move.w  DC_PEND(a2),d0
+        bmi.s   .nosw
+        move.l  DC_PLIST(a2),COP1LC(a4)
+        move.w  d0,COPJMP1(a4)
+        move.w  d0,DC_FRONT(a2)
+        move.w  #-1,DC_PEND(a2)
+        bra.s   .sw
+.nosw:  add.w   d7,DC_REP(a2)               ; la imagen se repite
+.sw:
+        ifd     DIAG
+        move.w  g_dst(pc),d0
+        cmp.w   #2,d0
+        bne.s   .nd
+        bsr     diag_frame
+        move.w  g_diag(pc),d0
+        bne.s   .nd
+        lea     g_dst(pc),a0                ; diag_exit: el nivel otra vez
+        clr.w   (a0)
+.nd:
+        endc
+        lea     dc_ran(pc),a0
+        tst.b   (a0)
+        sf      (a0)
+        bne.s   .x
+        tst.w   d7
+        beq.s   .x
+        move.b  dc_busy(pc),d0
+        bne.s   .x
+        lea     dc_st(pc),a2                ; la COPER no llego: la logica de
+        addq.w  #1,DC_LATE(a2)              ; ese frame, ahora
+        lea     dc_busy(pc),a0
+        st      (a0)
+        bsr     dc_logstk
+        lea     dc_busy(pc),a0
+        sf      (a0)
+        lea     dc_ran(pc),a0               ; (la de este frame, a las 272)
+        sf      (a0)
+.x:
+        ifd     BENCH
+        bsr     gb_rt
+        move.w  (sp)+,d1
+        move.b  dc_busy(pc),d2              ; anidada en la COPER: ya cuenta
+        bne.s   .nb                         ; alli
+        sub.w   d0,d1
+        lea     gb_isr(pc),a0
+        add.w   d1,(a0)
+.nb:
+        endc
+        rts
+
+; dc_logstk: dc_cop en la pila de la interrupcion (sin cabecera: cambia
+; de pila, asmlint no lo sigue; dc_vb guarda lo que necesita)
+dc_logstk:
+        move.l  sp,d0
+        lea     dc_stktop(pc),sp
+        move.l  d0,-(sp)
+        bsr     dc_cop
+        move.l  (sp),sp
+        rts
+
+; --- dc_cop --- COPER (linea 272, la cola de la lista): la logica de un
+; frame y su foto. Corre con la VERTB habilitada (anidada) y en dc_stk.
+; entrada:  a4 = CUSTOM
+; registros destruidos: d0-d2/d7/a0-a2
+dc_cop:
+        ifd     BENCH
+        bsr     gb_rt
+        move.w  d0,-(sp)                    ; para gb_isr
+        endc
+        lea     dc_ran(pc),a0
+        st      (a0)
+        bsr     dc_act
+        ifd     DIAG
+        move.w  g_dst(pc),d0
+        bne     .x                          ; congelado
+        endc
+        ifd     BENCH
+        tst.w   d7
+        bne.s   .b0
+        lea     gl_done(pc),a0              ; fin: sin mas fotos (gb_show)
+        st      (a0)
+        bra     .x
+.b0:    GBS     0
+        lea     gb_frn(pc),a0
+        addq.w  #1,(a0)
+        clr.w   gb_lfd-gb_frn(a0)
+        clr.w   gb_rs-gb_frn(a0)
+        endc
+        lea     dc_st(pc),a2
+        add.w   d7,DC_NLOG(a2)
+        move.w  d7,-(sp)
+        bsr     game_step                   ; la logica
+        ifd     BENCH
+        GBS     3
+        endc
+        ifd     DIAG
+        move.w  g_diag(pc),d0               ; no puede seguir: esta foto es la
+        beq.s   .cap                        ; ultima (dc_loop la muestra y
+        lea     g_dst(pc),a0                ; entra en diag_enter)
+        move.w  #1,(a0)
+.cap:
+        endc
+        move.w  (sp)+,d0
+        bsr     dc_capture                  ; la foto
+        ifd     BENCH
+        GBS     13
+        bsr     gb_isr_end
+        endc
+.x:
+        ifd     BENCH
+        bsr     gb_rt
+        move.w  (sp)+,d1
+        sub.w   d0,d1
+        lea     gb_isr(pc),a0
+        add.w   d1,(a0)
+        endc
+        rts
+
+; --- dc_puttail --- la cola de la lista a0 (en CL_END): esperar a la
+; linea 272 (despues del $FFDF de la linea 255, P59) y pedir la COPER
+; registros destruidos: a0
+dc_puttail:
+        add.l   #CL_END,a0                  ; (> 32 KB)
+        move.l  #$1001fffe,(a0)+            ; WAIT (272, 0)
+        move.l  #$009c8010,(a0)+            ; INTREQ = SET|COPER
+        move.l  #$fffffffe,(a0)
+        rts
+
+; --- dc_capture --- la foto del frame logico de ahora
+; entrada:  d0.w = 1 si cuenta para las fotos perdidas, 0 si no
+; salida:   d0.w = la foto (el buffer de sprites); DC_NEW = d0
+; registros destruidos: d0-d1/a0-a1
+dc_capture:
+        movem.l d2-d7/a2-a6,-(sp)
+        move.w  d0,d7
+        lea     dc_st(pc),a2
+        ; d6 = el primer buffer que no se va a ver ni se esta dibujando. Lo
+        ; que se va a ver es la foto publicada (DC_PEND) si la hay: desde la
+        ; linea 272 el DMA ya no lee los sprites de la que se ve (Mario
+        ; termina antes de la linea 268) y en el VBL entra la publicada; si
+        ; no hay, se repite la que se ve (DC_FRONT). Asi lo normal es
+        ; alternar los buffers 0 y 1 (la cache de mspr_draw)
+        move.w  DC_PEND(a2),d5
+        bpl.s   .ps
+        move.w  DC_FRONT(a2),d5
+.ps:    moveq   #0,d6
+.w:     cmp.w   d5,d6
+        beq.s   .wn
+        cmp.w   DC_REND(a2),d6
+        bne.s   .wok
+.wn:    addq.w  #1,d6
+        bra.s   .w
+.wok:   tst.w   d7                          ; la foto anterior: si nadie la
+        beq.s   .nc                         ; tomo, se perdio
+        move.w  DC_NEW(a2),d0
+        bmi.s   .nc
+        cmp.w   DC_FRONT(a2),d0
+        beq.s   .tk
+        cmp.w   DC_PEND(a2),d0
+        beq.s   .tk
+        cmp.w   DC_REND(a2),d0
+        beq.s   .tk
+        addq.w  #1,DC_NLOST(a2)
+        addq.w  #1,DC_CUR(a2)
+        move.w  DC_CUR(a2),d1
+        cmp.w   DC_MAX(a2),d1
+        bls.s   .nc
+        move.w  d1,DC_MAX(a2)
+        mulu    #DC_REC,d0
+        lea     dc_rec(pc),a0
+        add.w   d0,a0
+        move.w  R_FRAME(a0),DC_MAXF(a2)
+        move.w  R_S(a0),DC_MAXS(a2)
+        bra.s   .nc
+.tk:    bsr     dc_streak                   ; la tomo el render: la racha acaba
+.nc:
+        ; mspr_draw en el buffer d6. Los buffers 0 y 1 son g_spra y g_sprb:
+        ; la cache de dos buffers de mspr_draw (MA1) vale tal cual (sus
+        ; fichas dicen que tiene cada uno; lo que se escribe nunca es lo que
+        ; se va a ver). El 2 solo se usa cuando el render va tarde (tiene
+        ; una foto tomada al llegar la siguiente) y ahi mspr_draw dibuja sin
+        ; cache (buffer suelto).
+        move.w  d6,-(sp)
+        lea     g_sbuf(pc),a0
+        move.w  d6,d0
+        lsl.w   #2,d0
+        move.l  (a0,d0.w),a2                ; P40 ok (0..8)
+        GETBASE a4
+        ifd     BENCH
+        GBS     4
+        endc
+        bsr     mspr_draw
+        ifd     BENCH
+        GBS     5
+        endc
+        move.w  (sp)+,d6
+        lea     dc_st(pc),a2
+        move.w  d6,d0                       ; la foto
+        bsr     dc_recp
+        move.l  a0,a1
+        move.l  g_data(pc),a3
+        bsr     cam_s
+        move.w  d0,R_S(a1)
+        GETBASE a4
+        move.b  _mario_pal(a4),d0
+        and.b   #7,d0
+        move.b  d0,R_PAL(a1)
+        move.w  DC_NLOG(a2),R_FRAME(a1)
+        ifd     BENCH
+        move.b  gb_rs(pc),R_RS(a1)          ; (st: el byte alto)
+        endc
+        move.w  d6,DC_NEW(a2)               ; lista para el render
+        move.w  d6,d0
+        movem.l (sp)+,d2-d7/a2-a6
+        rts
+
+; --- dc_recp --- a0 = la foto d0 (dc_rec + DC_REC * d0)
+; registros destruidos: d0/a0
+dc_recp:
+        mulu    #DC_REC,d0
+        lea     dc_rec(pc),a0
+        add.w   d0,a0
+        rts
+
+; --- dc_streak --- la racha de fotos perdidas (si hay) termina: al
+; histograma
+; entrada:  a2 = dc_st
+; registros destruidos: d0
+dc_streak:
+        move.w  DC_CUR(a2),d0
+        beq.s   .x
+        clr.w   DC_CUR(a2)
+        cmp.w   #3,d0
+        bls.s   .h
+        moveq   #3,d0
+.h:     add.w   d0,d0
+        addq.w  #1,DC_H1-2(a2,d0.w)         ; P40 ok (2..6)
+.x:     rts
+
+; --- cam_s --- d0.w = Bg1HOfs dentro del nivel (como cam_to_s, sin V_S)
+; entrada:  a3 = datos del scroll
+; registros destruidos: d0-d1/a0
+cam_s:
+        GETBASE a0
+        add.l   #_ram-binstart,a0
+        moveq   #0,d0
+        move.b  $1B(a0),d0
+        lsl.w   #8,d0
+        move.b  $1A(a0),d0
+        move.w  D_W(a3),d1
+        sub.w   #VIS,d1
+        cmp.w   d1,d0
+        bls.s   .ok
+        move.w  d1,d0
+.ok:    rts
+
+; --- dc_init --- (entry, despues de scroll_init) la foto del primer
+; frame y las dos listas apuntando a ella; el sprite nulo en SPR4-7 y la
+; cola que pide la COPER
+; registros destruidos: d0-d2/a0-a2
+dc_init:
+        move.l  d7,-(sp)
+        lea     dc_st(pc),a2
+        moveq   #-1,d0
+        move.w  d0,DC_FRONT(a2)
+        move.w  d0,DC_PEND(a2)
+        move.w  d0,DC_REND(a2)
+        move.w  d0,DC_NEW(a2)
+        move.w  d0,DC_LBUF(a2)
+        moveq   #0,d0                       ; no cuenta
+        bsr     dc_capture
+        move.w  d0,DC_FRONT(a2)             ; la que se ve al tomar la maquina
+        move.w  d0,d7
+        move.l  V_BACK(a5),-(sp)
+        move.l  V_COP(a5),V_BACK(a5)
+        bsr     dc_hdr
+        bsr     dc_null
+        move.l  V_COP2(a5),V_BACK(a5)
+        bsr     dc_hdr
+        bsr     dc_null
+        move.l  (sp)+,V_BACK(a5)
+        move.l  V_COP(a5),a0                ; las colas: la COPER a las 272
+        bsr     dc_puttail
+        move.l  V_COP2(a5),a0
+        bsr     dc_puttail
+        lea     dc_ran(pc),a0               ; (el primer VBL no es "tarde")
+        st      (a0)
+        move.l  (sp)+,d7
+        rts
+
+; --- dc_null --- SPR4-7 de la lista V_BACK al sprite nulo
+; registros destruidos: d1-d2/a0
+dc_null:
+        move.l  V_BACK(a5),a0
+        lea     CL_SPR+4*8+2(a0),a0
+        move.l  g_null(pc),d2
+        moveq   #4-1,d1
+.q:     swap    d2
+        move.w  d2,(a0)
+        swap    d2
+        move.w  d2,4(a0)
+        addq.l  #8,a0
+        dbf     d1,.q
+        rts
+
+; --- dc_hdr --- en la cabecera de V_BACK: los punteros SPR0-3 al buffer
+; de la foto y la paleta de Mario (COLOR17-31), solo si cambiaron (cada
+; lista recuerda los suyos: DC_LBUF y g_lpal)
+; entrada:  d7.w = la foto, a5 = vars
+; registros destruidos: d0-d2/a0-a1
+dc_hdr:
+        move.l  V_BACK(a5),a1
+        moveq   #0,d1                       ; 0 = lista A, 1 = B
+        cmp.l   V_COP(a5),a1
+        beq.s   .a
+        moveq   #1,d1
+.a:     lea     dc_st+DC_LBUF(pc),a0
+        cmp.b   (a0,d1.w),d7                ; P40 ok (0..1)
+        beq.s   .pal
+        move.b  d7,(a0,d1.w)                ; P40 ok
+        lea     g_sbuf(pc),a0
+        move.w  d7,d0
+        lsl.w   #2,d0
+        move.l  (a0,d0.w),d2                ; P40 ok (0..8)
+        lea     CL_SPR+2(a1),a0
+        moveq   #4-1,d0
+.p:     swap    d2
+        move.w  d2,(a0)
+        swap    d2
+        move.w  d2,4(a0)
+        addq.l  #8,a0
+        add.l   #MSPR_WORDS*2,d2
+        dbf     d0,.p
+.pal:   move.w  d7,d0
+        bsr     dc_recp
+        moveq   #0,d0
+        move.b  R_PAL(a0),d0
+        lea     g_lpal(pc),a0
+        cmp.b   (a0,d1.w),d0                ; P40 ok (0..1)
+        beq.s   .x
+        move.b  d0,(a0,d1.w)                ; P40 ok
+        lsl.w   #5,d0
+        GETBASE a0
+        add.l   #mario_pals+2-binstart,a0   ; (sin COLOR16)
+        add.w   d0,a0
+        lea     CL_COL17+2(a1),a1
+        moveq   #15-1,d1
+.c:     move.w  (a0)+,(a1)
+        addq.l  #4,a1
+        dbf     d1,.c
+.x:     rts
+
+;----------------------------------------------------------------------
+; --- dc_loop --- el render: el bucle principal (no vuelve)
+; entrada:  a3 = datos del scroll, a4 = CUSTOM, a5 = vars
+;----------------------------------------------------------------------
+dc_loop:
+        lea     dc_st(pc),a2
+        ifd     BENCH
+        move.b  gl_done(pc),d0              ; el replay se acabo y la ultima
+        beq.s   .nb                         ; foto ya se ve: los resultados
+        tst.w   DC_PEND(a2)
+        bpl.s   .nb
+        move.w  DC_NEW(a2),d0
+        cmp.w   DC_FRONT(a2),d0
+        beq     gb_show
+.nb:
+        endc
+        ifd     DIAG
+        move.w  g_dst(pc),d0                ; congelar: cuando la foto del
+        cmp.w   #1,d0                       ; frame que no pudo seguir ya se ve
+        bne.s   .nd
+        tst.w   DC_PEND(a2)
+        bpl.s   .nd
+        move.w  DC_NEW(a2),d0
+        cmp.w   DC_FRONT(a2),d0
+        bne.s   .nd
+        bsr     diag_enter
+        lea     g_dst(pc),a0
+        move.w  #2,(a0)
+        bra.s   dc_loop
+.nd:
+        endc
+        tst.w   DC_PEND(a2)
+        bpl.s   dc_loop                     ; lo publicado todavia no se ve
+        move.w  DC_NEW(a2),d0
+        bmi.s   dc_loop
+        cmp.w   DC_FRONT(a2),d0
+        beq.s   dc_loop                     ; ninguna foto nueva
+        move.w  DC_NEW(a2),DC_REND(a2)      ; tomarla (una instruccion)
+        ifd     BENCH
+        GBR     6
+        endc
+        move.w  DC_REND(a2),d0
+        bsr     dc_recp
+        move.w  R_S(a0),V_S(a5)
+        bsr     columns
+        ifd     BENCH
+        GBR     7
+        endc
+        bsr     apply_colors
+        bsr     set_pointers
+        ifd     BENCH
+        GBR     8
+        endc
+        ifnd    NOMID
+        bsr     build_mid
+        endc
+        ifd     BENCH
+        GBR     9
+        endc
+        lea     dc_st(pc),a2
+        move.w  DC_REND(a2),d7
+        bsr     dc_hdr
+        lea     dc_st(pc),a2
+        move.l  V_BACK(a5),DC_PLIST(a2)     ; publicar (en este orden: la
+        move.w  d7,DC_PEND(a2)              ; interrupcion nunca ve la foto
+        move.w  #-1,DC_REND(a2)             ; libre)
+        addq.w  #1,DC_NPUB(a2)
+        move.l  V_COP(a5),d0                ; la otra lista, para la siguiente
+        cmp.l   V_BACK(a5),d0
+        bne.s   .sw
+        move.l  V_COP2(a5),d0
+.sw:    move.l  d0,V_BACK(a5)
+        ifd     BENCH
+        GBR     10
+        bsr     bwait
+        GBR     11
+        bsr     gb_rnd_end                  ; d7 = la foto
+        endc
+        bra     dc_loop
+
+        even
+g_sbuf:  ds.l   NSPRB                       ; los buffers de sprites (chip)
+g_data:  dc.l   0                           ; a3: datos del scroll
+dc_st:   ds.b   DC_SIZE
+dc_busy: dc.b   0                           ; la logica esta corriendo
+dc_ran:  dc.b   0                           ; la COPER llego en este frame
+        even
+dc_rec:  ds.b   DC_REC*NSPRB
+        even
+dc_stk:  ds.b   8192                        ; pila de la interrupcion
+dc_stktop:
+        endc                                ; DECOUPLE
+
         ifd     BENCH
 ;----------------------------------------------------------------------
 ; -DBENCH (O1 / 6b.6): el coste de cada parte del frame del juego, con el
@@ -1059,6 +1704,11 @@ g_lpal: dc.b    $ff,$ff                     ; paleta de Mario en la lista A, B
 ; sellos: si scroll_frame cambia, esto tiene que cambiar igual.
 ;----------------------------------------------------------------------
 GB_NP       equ 7
+        ifd     DECOUPLE
+GB_ROWS     equ 21                          ; + las filas 19-20 de O5
+        else
+GB_ROWS     equ 19
+        endc
 
 gb_rt:                                      ; d0 = timer A (0..$FFFF); d1, d2
 .r:     moveq   #0,d0
@@ -1115,6 +1765,21 @@ gb_init:
 .o2:    dbf     d3,.o
         lea     gb_ovh(pc),a0
         move.w  d4,(a0)
+        ifd     DECOUPLE
+        move.w  #$ffff,d4                   ; y el de GBR (el render)
+        moveq   #8-1,d3
+.o3:    GBR     6
+        GBR     7
+        lea     gb_t(pc),a0
+        move.w  12(a0),d0
+        sub.w   14(a0),d0
+        cmp.w   d4,d0
+        bhs.s   .o4
+        move.w  d0,d4
+.o4:    dbf     d3,.o3
+        lea     gb_ovr(pc),a0
+        move.w  d4,(a0)
+        endc
         movem.l (sp)+,d0-d4/a0
         rts
 
@@ -1250,12 +1915,151 @@ gb_end:
 .x:     movem.l (sp)+,d4-d5
         rts
 
+        ifd     DECOUPLE
+; O5: las partes, repartidas. La interrupcion (gb_isr_end, sellos 0-5 y 13:
+; entrada, level_frame, mspr_draw, y lo que tardo, R_ISR de la foto) y el
+; render (gb_rnd_end, sellos GBR 6-11 sin el tiempo de la interrupcion:
+; columns, build_mid, resto). total = R_ISR + render de la misma foto: lo
+; que costaria el frame entero sin desacoplar (sin los frames de
+; resincronizacion). gb_over cuenta los que pasan de un frame: con O5 esos
+; no atrasan el juego, son fotos que pueden perderse (DC_NLOST).
+
+; gb_upd2: como gb_upd, con el frame en d4 y la s en d5
+gb_upd2:
+        lea     gb_res(pc),a1
+        mulu    #6,d0
+        add.w   d0,a1
+        cmp.w   (a1),d1
+        bls.s   .n
+        move.w  d1,(a1)
+        move.w  d4,2(a1)
+        move.w  d5,4(a1)
+.n:     rts
+
+; gb_isr_end: (interrupcion, despues de GBS 13) d0 = la foto
+gb_isr_end:
+        movem.l d2-d5/a2,-(sp)
+        bsr     dc_recp
+        move.l  a0,a2                       ; a2 = la foto
+        move.w  R_FRAME(a2),d4
+        move.w  R_S(a2),d5
+        lea     gb_t(pc),a0
+        move.w  gb_ovh(pc),d2
+        move.w  gb_lfd(pc),d0
+        beq.s   .nolf
+        GBD     1,2                         ; level_frame
+        move.w  d2,d3
+        bsr     gb_sub
+        moveq   #1,d0
+        bsr     gb_upd2
+        lea     gb_t(pc),a0
+.nolf:  GBD     4,5                         ; mspr_draw
+        move.w  d2,d3
+        bsr     gb_sub
+        moveq   #2,d0
+        bsr     gb_upd2
+        lea     gb_t(pc),a0
+        GBD     0,13                        ; la interrupcion: sellos 3, 4, 5,
+        moveq   #4,d3                       ; 13 (+ 1 y 2 con level_frame)
+        move.w  gb_lfd(pc),d0
+        beq.s   .n4
+        addq.w  #2,d3
+.n4:    mulu    d2,d3
+        bsr     gb_sub
+        move.w  d1,R_ISR(a2)
+        lea     gb_isrmax(pc),a1
+        cmp.w   (a1),d1
+        bls.s   .nm
+        move.w  d1,(a1)
+.nm:    move.w  gb_rs(pc),d0
+        bne.s   .rs
+        GBD     0,3                         ; entrada (como gb_end)
+        move.w  d2,d3
+        move.w  gb_lfd(pc),d0
+        beq.s   .el
+        move.w  2(a0),d3
+        sub.w   4(a0),d3
+        add.w   d2,d3
+        add.w   d2,d3
+.el:    bsr     gb_sub
+        moveq   #0,d0
+        bsr     gb_upd2
+        bra.s   .x
+.rs:    lea     gb_nrs(pc),a1
+        addq.w  #1,(a1)
+.x:     movem.l (sp)+,d2-d5/a2
+        rts
+
+; gb_rnd_end: (render, despues de GBR 11) d7 = la foto
+gb_rnd_end:
+        movem.l d2-d6/a2,-(sp)
+        move.w  d7,d0
+        bsr     dc_recp
+        move.l  a0,a2
+        move.w  R_FRAME(a2),d4
+        move.w  R_S(a2),d5
+        lea     gb_t(pc),a0
+        move.w  gb_ovr(pc),d2
+        GBD     6,7                         ; columns
+        move.w  d2,d3
+        bsr     gb_sub
+        moveq   #3,d0
+        bsr     gb_upd2
+        lea     gb_t(pc),a0
+        GBD     8,9                         ; build_mid
+        move.w  d2,d3
+        bsr     gb_sub
+        moveq   #4,d0
+        bsr     gb_upd2
+        lea     gb_t(pc),a0
+        GBD     7,8                         ; resto: apply_colors,
+        move.w  d2,d3                       ; set_pointers, dc_hdr, publicar
+        bsr     gb_sub
+        move.w  d1,d6
+        GBD     9,10
+        move.w  d2,d3
+        bsr     gb_sub
+        add.w   d6,d1
+        moveq   #5,d0
+        bsr     gb_upd2
+        lea     gb_t(pc),a0
+        tst.b   R_RS(a2)
+        bne.s   .x                          ; resincronizacion: sin total
+        GBD     6,11                        ; el render: sellos 7-11
+        move.w  d2,d3
+        mulu    #5,d3
+        bsr     gb_sub
+        add.w   R_ISR(a2),d1                ; + la logica de la misma foto
+        moveq   #6,d0
+        bsr     gb_upd2
+        lea     gb_sum(pc),a1
+        moveq   #0,d0
+        move.w  d1,d0
+        add.l   d0,(a1)
+        addq.w  #1,gb_n-gb_sum(a1)
+        cmp.w   gb_tpf(pc),d1
+        bls.s   .x
+        addq.w  #1,gb_over-gb_sum(a1)
+.x:     movem.l (sp)+,d2-d6/a2
+        rts
+        endc
+
 ; el replay se acabo: 19 palabras largas como bits (celdas de 8 px, 32 por
 ; fila; fila i = lineas 8+12i .. +7, desde x = 32) en un plano, sin sprites.
 ;   f0 $A55A5AA5   f1 ticks/frame, coste de un sello   f2 frames, resync
 ;   f3 media del total, frames pasados de un frame   f4+2p max, frame
 ;   f5+2p s, 0 (p = parte 0..6)   f18 $5AA5A55A
+; O5 (DECOUPLE): 21 filas; las palabras bajas de f5, f7 ... f17 = frames
+; logicos, imagenes publicadas, fotos perdidas, racha mas larga, rachas de
+; 1, de 2 y de 3 o mas; f19 = VBL sin imagen nueva << 16 | peor
+; interrupcion (ticks); f20 = frame del final de la racha mas larga << 16 |
+; frames en que la COPER no llego (DC_LATE)
 gb_show:
+        ifd     DECOUPLE
+        move.w  #$0030,INTENA(a4)           ; sin las interrupciones (la logica)
+        lea     dc_st(pc),a2
+        bsr     dc_streak                   ; la racha abierta, al histograma
+        endc
         bsr     bwait
         move.w  #$0020,DMACON(a4)           ; sin sprites
         lea     gb_out(pc),a2
@@ -1278,6 +2082,23 @@ gb_show:
         clr.w   (a2)+
         dbf     d7,.p
         move.l  #$5aa5a55a,(a2)+
+        ifd     DECOUPLE
+        ; O5: las palabras bajas libres de f5..f17 y las filas 19-20
+        lea     gb_out(pc),a2
+        lea     dc_st(pc),a0
+        move.w  DC_NLOG(a0),5*4+2(a2)       ; frames logicos
+        move.w  DC_NPUB(a0),7*4+2(a2)       ; imagenes publicadas
+        move.w  DC_NLOST(a0),9*4+2(a2)      ; fotos perdidas
+        move.w  DC_MAX(a0),11*4+2(a2)       ; racha mas larga
+        move.w  DC_H1(a0),13*4+2(a2)        ; rachas de 1, 2, 3 o mas
+        move.w  DC_H2(a0),15*4+2(a2)
+        move.w  DC_H3(a0),17*4+2(a2)
+        move.w  DC_REP(a0),19*4(a2)         ; VBL sin imagen nueva
+        move.w  gb_isrmax(pc),19*4+2(a2)    ; peor interrupcion (logica + foto)
+        move.w  DC_MAXF(a0),20*4(a2)        ; donde acaba la racha mas larga,
+                                            ; y frames sin COPER
+        move.w  DC_LATE(a0),20*4+2(a2)
+        endc
         move.l  V_BUF1(a5),a0               ; borrar la pantalla (40 B/linea)
         move.w  #40*256/4-1,d0
 .clr:   clr.l   (a0)+
@@ -1285,7 +2106,7 @@ gb_show:
         lea     gb_out(pc),a2
         move.l  V_BUF1(a5),a3
         add.l   #8*40+4,a3
-        moveq   #19-1,d7
+        moveq   #GB_ROWS-1,d7
 .row:   move.l  (a2)+,d0
         move.l  a3,a0
         moveq   #32-1,d6
@@ -1325,9 +2146,9 @@ gb_show:
         bra.s   .forever
 
         even
-gb_t:    ds.w   12
+gb_t:    ds.w   14
 gb_res:  ds.w   3*GB_NP
-gb_out:  ds.l   19
+gb_out:  ds.l   GB_ROWS
 gb_sum:  dc.l   0
 gb_n:    dc.w   0
 gb_over: dc.w   0
@@ -1337,6 +2158,13 @@ gb_ovh:  dc.w   0
 gb_frn:  dc.w   0
 gb_lfd:  dc.w   0
 gb_rs:   dc.w   0
+        ifd     DECOUPLE
+gb_ovr:  dc.w   0                           ; coste de un GBR
+gb_isr:  dc.w   0                           ; ticks en la interrupcion (suma)
+gb_isrmax: dc.w 0                           ; peor interrupcion con logica
+gl_done: dc.b   0                           ; el replay se acabo
+        even
+        endc
         endc
 
 ;----------------------------------------------------------------------
@@ -1666,8 +2494,12 @@ diag_exit:
         move.l  g_dlist(pc),a0
         move.w  #DIWE,6(a0)
         move.l  a0,COP1LC(a4)
+        ifd     DECOUPLE
+        bsr     dc_puttail                  ; la cola de la COPER otra vez
+        else
         add.l   #CL_END,a0                  ; (> 32 KB)
         move.l  #$fffffffe,(a0)
+        endc
         lea     g_diag(pc),a0
         clr.w   (a0)
         bra     live_restart
@@ -2000,6 +2832,12 @@ txt_ch:
         even
 
 g_diag:  dc.w   0                           ; 0 = jugando, 1/2 = pagina
+        ifd     DECOUPLE
+g_dst:   dc.w   0                           ; O5: 0 = jugando, 1 = esperando que
+                                            ; se vea la foto congelada, 2 = en
+                                            ; el diagnostico (diag_frame en la
+                                            ; interrupcion)
+        endc
 g_dmem:  dc.l   0                           ; chip: DG_SIZE bytes
 g_dlist: dc.l   0                           ; la lista del juego congelada
 g_dtime: dc.w   0                           ; frames en el diagnostico
