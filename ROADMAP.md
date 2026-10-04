@@ -242,7 +242,8 @@ le llevan los números al usuario (D1).
   reserva el 15 % para sprites, HUD y audio); lo que sigue sin entrar es
   el scroll hacia atrás en s ≈ 4580 (74,7 % solo). Recomendación: medir
   en WinUAE, **no** 25 Hz, O5 como red de seguridad y una sesión acotada
-  al pico de la vuelta. **Pendiente: decisión del usuario.**
+  al pico de la vuelta. **Decidido por el usuario: O5 como red de seguridad**
+  (sin 25 Hz). Cómo automatizar 9.2: `docs/automatizar-9.2.md`.
 - **Historial de las olas 1-3 y del 2026-09-30** (qué se integró, números de
   cada paso, ramas, notas para las grabaciones): textual en
   `docs/historia.md`, sección "ROADMAP: el día a día del 2026-09-30 al

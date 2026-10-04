@@ -75,4 +75,4 @@ los postes de la meta (s ≈ 4580) lo va a ver.
    pasa del frame sin DMA), con un límite de una sesión. Si no baja, lo
    cubre la 4.
 
-**Decisión pendiente del usuario:** aceptar 2-4 como plan (sin 25 Hz).
+**Decisión del usuario (2026-10-03): hacer O5 como red de seguridad.** Sin 25 Hz.
