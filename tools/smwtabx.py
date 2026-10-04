@@ -111,6 +111,21 @@ WANT_POWERUP = [
 ]
 
 
+# Rutinas de graficos que escriben la OAM (G8, player/spr_gfx.c): bloque
+# #ifdef SMWTABX_GFX, igual que los de arriba (P36/P78).
+WANT_GFX = [
+    ("sprite_3-1.s", "RexTileDispX", "tg2_RexTileDispX"),
+    ("sprite_3-1.s", "RexTileDispY", "tg2_RexTileDispY"),
+    ("sprite_3-1.s", "RexTiles", "tg2_RexTiles"),
+    ("sprite_3-1.s", "RexGfxProp", "tg2_RexGfxProp"),
+    ("sprite_tables.s", "DATA_07F000", "tg2_07F000"),
+    ("sprite_tables.s", "DATA_07F0B4", "tg2_07F0B4"),
+    ("sprite_1-main.s", "SprTilemap", "tg2_SprTilemap"),
+    ("sprite_1-main.s", "SprTilemapOffset", "tg2_SprTilemapOffset"),
+    ("sprite_1-main.s", "SpinJumpSmokeTiles", "tg2_SpinSmoke"),
+]
+
+
 def main():
     cache = {}
     with open(os.path.join(OUT, "smwtabx.h"), "w") as f:
@@ -120,6 +135,7 @@ def main():
                            ("#elif defined(SMWTABX_SHELL)\n", WANT_SHELL),
                            ("#elif defined(SMWTABX_GOAL)\n", WANT_GOAL),
                            ("#elif defined(SMWTABX_POWERUP)\n", WANT_POWERUP),
+                           ("#elif defined(SMWTABX_GFX)\n", WANT_GFX),
                            ("#else\n", WANT)):
             f.write(sect)
             for fn, lab, name in want:
@@ -131,8 +147,9 @@ def main():
                 f.write("static const unsigned char %s[%d] = {%s};\n"
                         % (name, len(d), ",".join(str(b) for b in d)))
         f.write("#endif\n#endif\n")
-    print("smwtabx.h: %d tablas (+ %d del Chuck, + %d de los caparazones, + %d de la meta, + %d de la seta)"
-          % (len(WANT), len(WANT_CHUCK), len(WANT_SHELL), len(WANT_GOAL), len(WANT_POWERUP)))
+    print("smwtabx.h: %d tablas (+ %d del Chuck, + %d de los caparazones, + %d de la meta, + %d de la seta,"
+          " + %d de los graficos)"
+          % (len(WANT), len(WANT_CHUCK), len(WANT_SHELL), len(WANT_GOAL), len(WANT_POWERUP), len(WANT_GFX)))
 
 
 if __name__ == "__main__":

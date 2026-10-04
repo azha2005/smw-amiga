@@ -229,6 +229,20 @@ def game_sprite_checks(r, out):
         r.put("pc.game.spr_%s.seguidos" % n, int(seg), "info")
         r.put("pc.game.spr_%s.exactos" % n, int(ok), "max")
         r.put("pc.game.spr_%s.distintos" % n, int(seg) - int(ok), "min")
+    game_oam_checks(r, "pc.game.", out)
+
+
+def game_oam_checks(r, k, out):
+    """G8: marioverify game, la OAM que escriben las rutinas de graficos
+    portadas (player/spr_gfx.c) contra la grabada (<oraculo>_oam.bin), por
+    numero de sprite: frames con fichas visibles y exactas"""
+    for n, fr, ok in re.findall(r"oam ([0-9A-F]{2}): frames (\d+) exactas (\d+)", out):
+        r.put(k + "oam_%s.frames" % n, int(fr), "info")
+        r.put(k + "oam_%s.exactas" % n, int(ok), "max")
+        r.put(k + "oam_%s.distintas" % n, int(fr) - int(ok), "min")
+    t = num(r"oam: fuera de orden (\d+)", out)
+    if t:
+        r.put(k + "oam.fuera_de_orden", t[0], "min")
 
 
 # oraculos guionizados de snesorc (tools/snesorc/*.orc -> work/oracle_X.txt,
@@ -291,6 +305,7 @@ def orc_checks(r):
                 if t:
                     r.put(k + "game.spr_7B.corte_exactas", t[1], "max")
                     r.put(k + "game.spr_7B.corte_total", t[2], "eq")
+                game_oam_checks(r, k + "game.", out)
             elif mode == "sprload":
                 t = num(r"oraculo: (\d+)\s+del port: (\d+)\s+exactos: (\d+)\s+distintos: (\d+)", out)
                 if t:

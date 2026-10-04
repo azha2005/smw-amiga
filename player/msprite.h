@@ -33,6 +33,13 @@
 /* lo que otro fichero necesita ver: nunca static */
 #define MSX
 
+/* G8: las rutinas de graficos escriben la OAM de la SNES en ram[]
+   (player/spr_gfx.c). Todo build sin NOOAM (el marioverify del PC) o con
+   -DSPR_OAM; el de la Amiga y libport.so (NOOAM) no. */
+#if !defined(NOOAM) && !defined(SPR_OAM)
+#define SPR_OAM 1
+#endif
+
 /* Convenciones de mario.c: x = ranura (el registro X del 65816). */
 #define SPR(t, x)       RX8(t, x)
 #define SETSPR(t, x, v) (RX8(t, x) = (u8)(v))
@@ -90,5 +97,16 @@ u8 powerup_flying_content(u8 x);        /* DATA_01AE88[...]: el contenido del bl
 /* de msprite.c, para spr_powerup.c */
 void spr_init_tables(u8 x);             /* JSL InitSpriteTables */
 int spr_contact_a80f(u8 x);             /* _01A80F: 1 = las cajas de Mario y del sprite se tocan */
+
+/* spr_gfx.c (G8: rutinas de graficos que escriben la OAM, solo con SPR_OAM) */
+#ifdef SPR_OAM
+extern u8 spr_oam_first[12], spr_oam_n[12];     /* indice OAM y fichas de cada ranura */
+u8 spr_oam_index(u8 x);                 /* CODE_0180D2: wm_SprOAMIndex */
+void rex_gfx(u8 x);                     /* RexGfxRt */
+u8 sub_spr_gfx2(u8 x, u8 m4v);          /* SubSprGfx2Entry0/1 */
+void spr_gfx2_tile(u8 x, u8 t);         /* SubSprGfx2Entry1 + un tile fijo */
+void spin_jump_gfx(u8 x);               /* HandleSprSpinJump: la nube */
+void spr013_gfx(u8 x);                  /* _Spr0to13Gfx de una ficha */
+#endif
 
 #endif
