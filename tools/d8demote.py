@@ -22,7 +22,9 @@ from PIL import Image
 from scipy import ndimage
 
 import dpfsplit as d
-from oamstudy import parse, cover
+import argparse
+
+from oamstudy import parse, cover, mario_box
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WORK = os.path.join(HERE, "..", "work")
@@ -47,11 +49,28 @@ def ref_rows(x_start):
     raise SystemExit("objeto no encontrado en x=%d" % x_start)
 
 
+def ncols(tiles, y, mb, real, mario=True):
+    """Columnas de 16 px de la linea. Por defecto, cobertura de todas las
+    teselas (modelo viejo); con real, Mario reserva 1-2 columnas (mspr.c) en
+    todo su rectangulo y el resto se cubre aparte."""
+    if not real:
+        return cover([(max(0, t[0]), min(256, t[0] + t[2])) for t in tiles])
+    rest = [(max(0, t[0]), min(256, t[0] + t[2])) for t in tiles if t[3] != 0]
+    return cover(rest) + (mb[0] if mario and mb and mb[1] <= y < mb[2] else 0)
+
+
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--oam", default=os.path.join(WORK, "oam_yi1.txt"),
+                    help="grabacion (oam_*.txt u oracle_*.txt)")
+    ap.add_argument("--level", type=lambda s: int(s, 16), default=0x29)
+    ap.add_argument("--real-cols", action="store_true",
+                    help="Mario reserva 1 o 2 columnas como mspr.c (G1)")
+    a = ap.parse_args()
     rows = {1: ref_rows(3228), 3: ref_rows(748)}      # Banzai, Rex
     fg = np.load(os.path.join(WORK, "fg15.npy"))
     ivs = [d.allocate(fg[y], GAP)[2] for y in range(fg.shape[0])]
-    frames = parse(os.path.join(WORK, "oam_yi1.txt"), 0x29)
+    frames = [f for f in parse(a.oam, a.level) if f["mode"] == 0x14]
 
     tot = 0
     solved = {0: 0, 1: 0, 3: 0}
@@ -59,11 +78,12 @@ def main():
     bad_frames = set()
     for fi, f in enumerate(frames):
         cx, cy = f["cam"]
+        mb = mario_box(f["tiles"])
         for y in range(224):
             on = [t for t in f["tiles"] if t[1] <= y < t[1] + t[2]]
             if not on:
                 continue
-            if cover([(max(0, t[0]), min(256, t[0] + t[2])) for t in on]) <= 4:
+            if ncols(on, y, mb, a.real_cols) <= 4:
                 continue
             tot += 1
             ok_line = False
@@ -72,7 +92,7 @@ def main():
                 rest = [t for t in on if t[3] != pal]
                 if not mine:
                     continue
-                if cover([(max(0, t[0]), min(256, t[0] + t[2])) for t in rest]) > 4:
+                if ncols(rest, y, mb, a.real_cols, mario=(pal != 0)) > 4:
                     continue
                 xa = cx + min(t[0] for t in mine)
                 xb = cx + max(t[0] + t[2] for t in mine) - 1
