@@ -10,7 +10,8 @@
 >
 > Cómo leerlo: §1 es el resumen con lo que conviene hacer; §2-§8 el
 > detalle por problema, con la fuente; §9 las tarjetas propuestas; §10 lo
-> que se buscó y no sirvió (también es resultado).
+> que se buscó y no sirvió (también es resultado); §11-§13 los hilos de
+> EAB y lo de 65816/C/68000; §14 Coppershade y el código de juegos leído.
 >
 > Límite de la búsqueda: **English Amiga Board (eab.abime.net) no se pudo
 > leer** (protección anti-bots); de sus hilos solo hay lo que muestran los
@@ -37,6 +38,9 @@
 | Rutinas asm que destruyen registros (P53) | AmiGalaga, `asmlint`: compara la cabecera de cada rutina con lo que el código toca | Adaptarlo a nuestras cabeceras (§7 de `AGENTS.md`) | §6.4, tarjeta **V3** |
 | Audio ≤ 3 % (D5) | **LSP** (Light Speed Player): flujo precalculado de escrituras a Paula, **0,83 líneas** de media por tick. Un driver portado (AmiGalaga) cuesta 5-19 líneas por frame | Confirma el plan "capturar el DSP y reproducir un flujo" | §7 |
 | Carga (C3) | LZ4 68k (el más rápido), ZX0, Shrinkler (2,5 KB/s: demasiado lento) | LZ4 si hace falta comprimir | §8 |
+| Cargas de color a mitad de línea (`build_mid`) | **png2amiga** ("DPF + strips"): 20 MOVEs por línea cada 16 px en DPF de 6 planos, **calibrados en una OCS real**; Coppershade: con 6 planos un MOVE tarda 16 ciclos dentro del fetch | Confirma nuestro modelo (~14 en el borrado + ~20 visibles). Contrastar su `$E1` en la línea 255 con P59 | §14.1, §14.5 |
+| Presupuesto del blitter | *Cheat Sheet* de Photon: ciclos por combinación de canales, 25 % de la línea libre con 6 planos | B como constante es más barato; los blits caros, durante el HUD | §14.3 |
+| Restaurar el fondo de los bobs | **Knightmare**: restaura desde la otra copia que ya está en el buffer de scroll, sin buffer limpio aparte | Idea para el bob en PF1 (D8) | §14.7 |
 
 ---
 
@@ -914,6 +918,271 @@ ROADMAP §9.7. El que no se puede: **repartir el trabajo de los objetos
 entre frames** y no procesar los que están fuera de pantalla. Cambia la
 semántica respecto del ROM (§9.8); solo vale donde el ROM ya lo hace.
 
+## 14. Coppershade y código de juegos leído (2026-10-03)
+
+Se leyeron entero el sitio de Photon (coppershade.org: 70 páginas, sus
+herramientas, descargas y la *Cheat Sheet* en PDF) y el código de
+amiga-game-kit, png2amiga, Knightmare, Blocky Skies y Planet Rocklobster
+(clonados en el scratchpad, no en el repo). Lo que sirve, por tema.
+
+### 14.1 Copper: la temporización exacta (Coppershade)
+
+"Copper: Exact WAIT Timing" da el modelo con números, en OCS:
+
+- **Cada instrucción del copper ocupa 8 ciclos = 8 px = 4 unidades de h.**
+  Para cargar N registros antes de una posición, se resta 4 por MOVE.
+- **Dentro de la ventana de fetch (`DDFSTRT`-`DDFSTOP`) un MOVE tarda más:**
+  con 5 planos se alinea a 16 px, alternando MOVEs de 12 y de 8 ciclos;
+  **con 6 planos cada MOVE tarda 16 ciclos.** Es la explicación de fondo
+  de P42 (rejilla de 8 px del WAIT en DPF) y del límite de ~14 MOVEs en el
+  borrado.
+- Los colores tienen que estar cargados antes del borde izquierdo (`$38`
+  en la pantalla estándar, donde el DMA lee hasta 6 planos en 16 ciclos):
+  un MOVE de color que coincide con el borde va en el WAIT `$3D`. Para 15
+  colores se resta 14 × 4: WAIT `$05`.
+- **Las posiciones `$E5`-`$03` del borrado valen todas como `$E5`**, y
+  `$E7`-`$03` "no se pueden usar". Por compatibilidad, Photon usa `$DF` y
+  `$07` a cada lado del borrado y pasos de 4 desde ahí (`$DB`, `$0B`...).
+  Un WAIT a `$3FFF` o `$3FDF` cambia el color en la línea **anterior**.
+
+### 14.2 Sprites (Coppershade, "Sprite Programming")
+
+Confirma lo que hace §5.1 y agrega los tiempos:
+
+- Las palabras de control se precargan en el borrado vertical, antes de la
+  línea 25 PAL. **Cuando VPOS = VSTART, los datos del sprite se leen en
+  HPOS `$15`-`$34`.** Las palabras de control se pueden cambiar en
+  cualquier momento hasta que se leen los primeros datos. Cambiarlas
+  después de mostrar los datos de una línea y antes de HPOS `$15` deja
+  **un hueco de 1 línea**.
+- En una cadena hay **1 línea de hueco vertical** entre dos sprites del
+  mismo canal (las palabras de control ocupan la lectura de esa línea).
+  amiga-game-kit lo mide igual: el siguiente empieza en `VSTOP + 1` o
+  después (regla de 17 líneas para sprites de 16).
+- `DDFSTRT ≤ $34` empieza a quitar sprites, hasta dejar solo el 0 en
+  `$1C`. Con nuestro `$30` se pierde el 7 (ya en R5).
+- **Prender o apagar el DMA de sprites a destiempo** (`DMACON` `$0020`
+  fuera de la última línea del frame) deja basura que baja por la pantalla
+  ("rolling sprites"). Hay que hacerlo en el borrado vertical, o apuntar
+  los 8 a un sprite vacío: `dc.l $20002100,0,0` (artículo "DMACON") o
+  `dc.w $1905,$1a00,0,0,0,0` ("Sprite Programming").
+- **Colisiones gratis por hardware:** `CLXCON`/`CLXDAT` detectan solapes
+  sprite-sprite y sprite-playfield a nivel de píxel. Para nosotros no
+  sirve como lógica del juego (el ROM decide por cajas, y hay que
+  reproducirlo 1:1), pero sí como **comprobación de depuración** barata.
+
+### 14.3 Blitter (Coppershade + la Cheat Sheet)
+
+La página "Blitter primer (PAL OCS)" de la *Cheat Sheet* es la tabla más
+útil del sitio:
+
+- **Ciclo del blitter: mínimo 4 ticks, +2 si usa B, +2 si usa C y D a la
+  vez.** ABCD = 8 ticks por palabra. Tiempo = n × H × W / 7,09 µs.
+  Corolario: **usar `BLTAPT` + `BLTBDAT` (B como constante) es más rápido
+  que `BLTBPT` + `BLTADAT`.** El modo línea siempre tarda 8 ticks por
+  píxel.
+- Tabla de secuencias por `USEx` (blit de 3 palabras): `F` (ABCD) usa todos
+  los ciclos en 8 ticks; `D` (AB-D) y `B` (A-CD) también, en 6. "B y D son
+  más eficientes que 7; 9 es más eficiente que 5 y 3". Un borrado (`1`,
+  solo D) tarda lo mismo que una copia A→D (`9`).
+- **Con 4 planos queda el 50 % de los ciclos de la línea para el blitter;
+  con 6, solo el 25 %** (con `BLTPRI`). El bitplane roba hasta 80 ciclos
+  por línea, los sprites 16, el audio 4 y el disco 3. Con más de 4 planos
+  y `BLTPRI` encendido, la CPU se para hasta que termina el blit; con
+  `BLTPRI` apagado le queda 1 de cada 4 ciclos libres (12,5 % con 6
+  planos). Conclusión de Photon: **con 5 o 6 planos apagar `BLTPRI` casi
+  no sirve**, y la CPU debería trabajar en registros mientras el blitter
+  corre ("MULS/DIVS are great, really!"). Coincide con lo medido en la
+  etapa 4: con `BLTPRI` encendido los bobs bajaron de 63 % a 47 % del
+  frame con 5 planos (`docs/decisiones-medidas.md`).
+- **Hacer los blits caros cuando Denise muestra pocos planos o ninguno:**
+  los bobs después de la última línea visible, y el borrado (1 canal)
+  durante la imagen. Para nosotros: el HUD y el borde inferior son la
+  ventana barata.
+- Los registros `$DFF040`-`$DFF074` **se conservan entre blits**, y los
+  punteros quedan donde estaría la palabra siguiente si el blit tuviera
+  una línea más. Se pueden cargar una sola vez antes de un bucle.
+- Orden de carga: esperar, `BLTCON`, `BLTxDAT`, `BLTAxWM`, `BLTSIZE`; los
+  punteros y módulos en cualquier momento antes de `BLTSIZE`. La primera
+  palabra se carga y desplaza al escribir el puntero o el dato, así que el
+  dato va antes que el registro que lo desplaza.
+- **No hace falta esperar al blitter** si el código está en chip RAM,
+  `BLTPRI` = 1 y el blit usa todos los ciclos (`BLTCON0` = `$x9xx` o
+  `$xFxx`): la CPU no ejecuta nada hasta que termina. La espera correcta
+  para cualquier Amiga lee `DMACONR` una vez antes del `btst #6`.
+- `BZERO` (bit 13 de `DMACONR`) dice si todo lo que escribió el blit fue
+  cero: con un AND de dos máscaras da colisión exacta por píxel. Solo
+  sirve para depurar, por lo mismo que `CLXDAT`.
+
+### 14.4 Otras páginas de Coppershade
+
+- **"Collision Detection in Amiga Games":** una comprobación de cajas
+  óptima en 68000 con mitades de ancho y alto, para salir antes y sin
+  `Scc` en el bucle (`sub`/`bpl`/`neg`/`cmp`/`bhi`). Y el "skip issue":
+  dos cajas se cruzan sin tocarse cuando la velocidad relativa supera la
+  suma de los anchos; comprobar cada N frames multiplica la velocidad por
+  N. Sirve de argumento a §13.5: SMW comprueba todos los frames y hay que
+  respetarlo.
+- **"Support 3 Buttons":** los botones 2 y 3 del joystick se leen en
+  `POTGOR`. Escribir `$FF00` en `POTGO` después de cada lectura deja los
+  pines listos para el frame siguiente sin esperar los 300 µs. Puerto 2:
+  bits 14 y 12 en 0 si están apretados. Sirve para D14 (el joystick como
+  alternativa al teclado: SMW necesita B, A, Y y X).
+- **"Centered Display Setup":** escribir siempre `BPLCON1 = 0` si no se
+  usa, porque si no queda el valor de la pantalla anterior.
+- **"Maximum Overscan":** los televisores CRT muestran unos 342 × 268 y a
+  veces desplazados 12 px a la derecha. No cambia D10 (256 px).
+- **Herramientas:** la *Cheat Sheet* (registros, mapa de memoria, ranuras
+  de DMA de la HRM, la tabla del blitter y los tiempos del 68000 en una
+  hoja), AsmTwo (Asm-One con depurador) y The Nibbler, un compresor que
+  descomprime más de 3 veces más rápido que un gzip en 68000 (candidato
+  para C3, junto a LZ4 de §8). P6112 es un reproductor de módulos; no
+  aplica a D5.
+- Sin interés para el port: los artículos de Protracker, el de muestras,
+  el diario, los de la historia de la demoscene y el de IA.
+
+### 14.5 png2amiga: `build_mid` en otro proyecto, calibrado en hardware
+
+El modo "DPF + strips" de png2amiga (`src/strips.hpp`) hace lo mismo que
+nuestra `build_mid`: **cambia colores de PF2 a mitad de línea en DPF de 6
+planos.**
+
+- Cada línea abre con los 8 colores de PF2 en el borrado (~9 MOVEs, fijo,
+  para que nada pase de una línea a otra). Después, un WAIT en h = `$38`
+  abre la cadena y **20 MOVEs seguidos, sin relleno, caen cada 16 px**
+  (x = 0, 8, 24, 40... 296). Un WAIT en h = `$E1` la cierra.
+- Las posiciones se **calibraron en una OCS real** con `--strips-probe`.
+  Su presupuesto publicado: **~14 MOVEs en el borrado + ~20 en la parte
+  visible por línea con 6 planos.** Es nuestro número.
+- **Guarda de 1 px a cada lado del cambio:** el planificador no usa en ese
+  píxel el registro que se está cambiando, porque la transición no es
+  exacta.
+- Rellena con un MOVE a `COLOR31`, que con DPF 3+3 no se lee. Nosotros no
+  podemos (los sprites usan 17-31, D8), y `build_mid` ya rellena con
+  `MOVE $1FE` (NOOP), no con ceros.
+- **A contrastar con P59:** dicen esperar a `$E1` "incluso a través de la
+  línea 255". P59 dice que un WAIT en la 255 con h ≥ ~`$E0` no llega
+  nunca. Hay que mirar cómo arman esa línea antes de sacar conclusiones.
+- La captura `docs/scap.png` es el overlay de DMA de vAmiga con la lista
+  saturada: sirve de referencia visual de cómo se ve en el bus.
+
+### 14.6 amiga-game-kit: sidescroller en DPF
+
+Su `examples/sidescroller/README.md` es un juego DPF con paralaje en dos
+bandas, héroe en 4 sprites y enemigos multiplexados, medido en A500:
+
+- **Cambiar de banda de PF2:** WAIT en x = `$D8` (`DDFSTOP` `$D0` + una
+  unidad de fetch), después de la última lectura de la línea. El módulo
+  ya se sumó, así que el puntero nuevo vale para la línea siguiente, y el
+  `BPL2MOD` nuevo también rige desde la siguiente.
+- **"Unos 8 MOVEs seguros, 15 no"** en el borrado con 6 planos y
+  `DDFSTRT` `$30`: la primera versión metía 15 y los últimos caían 7 px
+  dentro de la línea. Lo arreglaron con **una línea vacía** entre bandas,
+  donde se carga la paleta.
+- **PF2 "vacío" con módulo negativo:** 42 bytes en cero y `BPL2MOD = -42`,
+  así cada línea vuelve a leer los mismos ceros.
+- `BPLCON1` lleva el retardo de los dos playfields: cada cambio de banda
+  tiene que volver a escribir también el de PF1.
+- **Multiplexado:** cadena por canal, el siguiente sprite a ≥ 17 líneas, y
+  ante un conflicto **alternan**: un frame el de arriba y el otro el de
+  abajo (parpadeo a 25 Hz en vez de que uno desaparezca). Las 16 filas de
+  datos se copian solo cuando cambia el cuadro de animación; si no, solo
+  las 2 palabras de control. Las cadenas están en doble buffer, igual que
+  la lista del copper.
+- **El tick de ptplayer puede pasar de 40 líneas.** El frame empezaba en
+  la línea 300 y un tick ahí lo atrasaba un frame (uno cada ~2 s, aun
+  quieto). Lo adelantaron 64 líneas (32 no alcanzaban). Aviso para D5: el
+  tick de la música tiene que estar en el presupuesto del peor frame.
+- "El 68000 es lento en todo": un bucle de 7 vueltas con una ordenación
+  cuesta ~1 % del frame. Su primera versión de enemigos costó +12 %, y
+  bajó precalculando una vez lo que no cambia.
+- La pantalla va 1-2 frames detrás de la lógica (doble buffer). En las
+  pruebas sincronizan por serie, no por frame fijo (lo mismo que P41/P75).
+- Su emulador: vAmiga sin ventana con un parche de 35 líneas para
+  `wait N frames` (el original solo espera segundos enteros). Funciona en
+  macOS y Linux; en Windows haría falta revisar las rutas de `/tmp`.
+
+### 14.7 Knightmare (djh0ffman): shooter vertical de A500 en asm
+
+Port de MSX a 256 px de ancho y 5 planos, el juego entero en asm. **No
+tiene licencia: se lee, no se copia.**
+
+- **Planos entrelazados** (una línea = los 5 planos seguidos): un bob es un
+  solo blit para todos los planos. Ya lo hacemos (`bench*.s`).
+- **Scroll vertical con un buffer del doble de alto**: cada fila de tiles
+  se dibuja dos veces (mitad de arriba y mitad de abajo), así la ventana
+  siempre es contigua. Es el equivalente vertical de nuestro buffer
+  circular.
+- **Restaura el fondo detrás de los bobs desde la otra mitad del mismo
+  buffer**, con un blit C→D (`$03AA`). No tiene un buffer de fondo limpio
+  aparte; si la zona cruza el borde, parte el blit en dos. Para nosotros
+  (scroll horizontal) la idea sería restaurar desde la copia de la columna
+  que ya existe en el buffer circular.
+- Cola de restauración **por buffer** (dos colas que rotan con la
+  pantalla). Si el bob no está desplazado (x múltiplo de 16) no agrega la
+  palabra extra. `BLTCON0`/`BLTCON1` salen de una tabla de 16 entradas por
+  desplazamiento.
+- **Detecta frames perdidos:** la VBL pone una bandera, el bucle la pone en
+  2 al terminar si ya llegó otra VBL, y en ese caso no espera.
+- **Banderas de "sucio" para la lista del copper:** la paleta y los
+  punteros de sprites se reescriben solo si cambiaron, con un contador
+  que empieza en 2 para cubrir los dos buffers.
+- Ordena los bobs con un intercambio adyacente que retrocede al
+  encontrar un desorden (casi inserción): barato porque la lista viene
+  casi ordenada del frame anterior. Es la idea de la ordenación de Ocean
+  (§5.2).
+
+### 14.8 Blocky Skies y Planet Rocklobster
+
+- **Blocky Skies** (alpine9000, BSD): un juego chico. DPF con scroll
+  independiente, el copper cambia de modo a mitad de pantalla y la paleta
+  6 veces, y los ítems son sprites. Lo nuevo es su **fork de FS-UAE con
+  símbolos en el depurador aun después de arrancar desde el bootblock**
+  (github.com/alpine9000/fs-uae), que es nuestro caso (D6). Trae el
+  trackloader de Photon y una copia de "How to code" (`docs/Howtocode5.txt`).
+- **Planet Rocklobster** (Oxyron, Unlicense): efectos de demo (vóxel,
+  vectores, rotozoom). El *framework* tiene cargador por pistas,
+  descompresor doynax y un `benchmark` que pinta `COLOR00` mientras mide
+  (barra de tiempo por raster). Nada nuevo para el port.
+
+### 14.9 Otros enlaces encontrados (sin leer a fondo)
+
+- **Emuladores para V1 (§6.1):**
+  - **vamiga-lua**, del autor de AmiGalaga: vAmiga con Lua por un socket.
+    Lee memoria y registros, pone breakpoints de CPU, copper y posición del
+    haz, saca capturas y guarda y restaura el estado. Determinista, ~720
+    fps en warp. Compila en Linux y macOS (sirve en cloud, no en la PC
+    Windows).
+  - **Copperline**, cycle-exact nuevo (1.0 rc), **corre en Windows**. Su
+    *Frame Analyzer* muestra quién usó el bus de chip en cada ciclo; tiene
+    depuración hacia atrás y control por JSON-RPC sin ventana. Habría que
+    validarlo contra WinUAE con `bench2.s` antes de creerle; podría
+    reemplazar las calibraciones con `copcal` (P42, P46, P51).
+- **SMWDisX**: desensamblado de SMW con mejores nombres que `smw-src`.
+  Ensambla las 4 versiones y es de donde snesrecomp saca los nombres, el
+  mapa de RAM y los límites de las funciones (tarjeta X0, §13.1).
+- **grovdata/Amiga_Sources**: catálogo de juegos de Amiga con fuentes
+  publicadas (casi todos de jotd666).
+- No están publicados: los ports de mcgeezer (Rygar, Kung Fu Master).
+
+### 14.10 Qué hacer con esto
+
+Ya cumplido, no hace falta nada: `build_mid` no deja ceros (rellena con
+`MOVE $1FE`), los planos entrelazados y la medida con y sin `BLTPRI`.
+
+Candidatos, en orden de valor (no hay tarjetas abiertas):
+
+1. **Contrastar P59 con el `$E1` de png2amiga** (§14.5). Lectura de su
+   código, sin cambiar el nuestro.
+2. **Restaurar desde el buffer en vez de guardar el fondo** (§14.7), si la
+   restauración de bobs pesa cuando llegue el bob en PF1 (D8).
+3. **Rehacer el presupuesto del blitter con la tabla de ciclos** (§14.3):
+   B como constante, blits caros durante el HUD.
+4. **Sumar el tick de la música al peor frame** al cerrar D5 (§14.6).
+5. **Leer el joystick con `POTGO`** para los botones 2 y 3 (D14, §14.4).
+6. **Herramienta:** el FS-UAE de alpine9000 (símbolos tras el bootblock) o
+   el parche `wait N frames` de vAmiga, si V1 avanza.
+
 ---
 
 ## Fuentes
@@ -974,3 +1243,22 @@ semántica respecto del ROM (§9.8); solo vale donde el ROM ya lo hace.
   [gcc_m68k_optimizer](https://github.com/fabri1983/gcc_m68k_optimizer),
   [SpritesMind: GCC version vs performance](https://gendev.spritesmind.net/forum/viewtopic.php?t=2634),
   [SpritesMind: 68000 optimization tips](https://gendev.spritesmind.net/forum/viewtopic.php?t=2598)
+- Coppershade (Photon): [Copper: Exact WAIT Timing](https://coppershade.org/articles/AMIGA/Agnus/Copper:_Exact_WAIT_Timing/),
+  [Sprite Programming](https://coppershade.org/articles/AMIGA/Denise/Sprite_Programming/),
+  [Programming the Blitter](https://coppershade.org/articles/AMIGA/Agnus/Programming_the_Blitter/),
+  [DMACON](https://coppershade.org/articles/Code/Reference/DMACON/),
+  [Collision Detection in Amiga Games](https://coppershade.org/articles/More!/Topics/Collision_Detection_in_Amiga_Games/),
+  [Support 3 Buttons](https://coppershade.org/articles/More!/Topics/Support_3_Buttons_in_Amiga_Games!/),
+  [Centered Display Setup](https://coppershade.org/articles/AMIGA/Denise/Centered_Display_Setup/),
+  [Downloads](https://coppershade.org/articles/More!/Downloads/),
+  [Photon's Cheat Sheet (PDF)](http://coppershade.org/helpers/DOCS/Photons-Cheat-Sheet.PDF)
+  (el servidor responde 404 pero manda la página: WebFetch falla por eso, curl y un navegador no)
+- [png2amiga](https://github.com/tinic/png2amiga) (`README.md` "Strip palette", `src/strips.hpp`)
+- [amiga-game-kit](https://github.com/codebase/amiga-game-kit)
+  (`examples/sidescroller/README.md`, `techniques/*/TECHNIQUE.md`, `docs/spike-results.md`, `docs/references.md`)
+- [Knightmare](https://github.com/djh0ffman/KnightmareAmiga) (`logic/blitter.asm`, `logic/copper.asm`, `logic/map.asm`; sin licencia)
+- [Blocky Skies](https://github.com/alpine9000/blockyskies) y su [FS-UAE con símbolos](https://github.com/alpine9000/fs-uae)
+- [Planet Rocklobster](https://github.com/AxisOxy/Planet-Rocklobster)
+- Emuladores: [vamiga-lua](https://github.com/mwulffn/vamiga-lua), [Copperline](https://copperline.dev/)
+- Desensamblado de SMW con nombres: [SMWDisX](https://github.com/IsoFrieze/SMWDisX);
+  catálogo de fuentes publicadas: [grovdata/Amiga_Sources](https://github.com/grovdata/Amiga_Sources/blob/master/software.md)
