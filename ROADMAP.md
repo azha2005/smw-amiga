@@ -221,6 +221,13 @@ le llevan los números al usuario (D1).
   segunda ronda de optimización con todo junto; Z7 (WinUAE KS 1.2/1.3,
   ADF final).
 
+- **2026-10-03 (PC):** de la investigación (`docs/investigacion-ports.md`
+  §14.10): `mario_draw` solo escribe la paleta de Mario si cambió y los
+  punteros de sprite una vez por lista → `game.total` en Musashi peor
+  frame 118 724 → **117 796**, media 39 978 → 39 053 (`baseline_pc.json`);
+  el sprite vacío pasa a ser válido (`$1905,$1A00,0,0,0,0`). Imagen
+  idéntica en WinUAE. El resto de lo investigado confirma lo que ya se
+  hace o queda como candidato (§14.10).
 - **Historial de las olas 1-3 y del 2026-09-30** (qué se integró, números de
   cada paso, ramas, notas para las grabaciones): textual en
   `docs/historia.md`, sección "ROADMAP: el día a día del 2026-09-30 al

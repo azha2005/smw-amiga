@@ -1,7 +1,7 @@
 {
  "_meta": {
-  "commit": "26a668a",
-  "fecha": "2026-10-01",
+  "commit": "8b6f042+cambios",
+  "fecha": "2026-10-03",
   "nota": "tools/regress.py; las medidas emu.* dependen del emulador"
  },
  "game.build_mid.max": {
@@ -58,11 +58,11 @@
  },
  "game.total.max": {
   "how": "min",
-  "value": 118724
+  "value": 117796
  },
  "game.total.media": {
   "how": "min",
-  "value": 39978
+  "value": 39053
  },
  "game.total.pasados": {
   "how": "min",

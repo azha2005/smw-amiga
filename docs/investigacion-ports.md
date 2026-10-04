@@ -1026,8 +1026,9 @@ La página "Blitter primer (PAL OCS)" de la *Cheat Sheet* es la tabla más
 - **"Support 3 Buttons":** los botones 2 y 3 del joystick se leen en
   `POTGOR`. Escribir `$FF00` en `POTGO` después de cada lectura deja los
   pines listos para el frame siguiente sin esperar los 300 µs. Puerto 2:
-  bits 14 y 12 en 0 si están apretados. Sirve para D14 (el joystick como
-  alternativa al teclado: SMW necesita B, A, Y y X).
+  bits 14 y 12 en 0 si están apretados. Para D14 (el joystick como
+  alternativa al teclado: SMW necesita B, A, Y y X) `game.s` ya lee el
+  botón 2 así (`read_input`, Y = correr); el 3 no está asignado.
 - **"Centered Display Setup":** escribir siempre `BPLCON1 = 0` si no se
   usa, porque si no queda el valor de la pantalla anterior.
 - **"Maximum Overscan":** los televisores CRT muestran unos 342 × 268 y a
@@ -1060,9 +1061,13 @@ planos.**
 - Rellena con un MOVE a `COLOR31`, que con DPF 3+3 no se lee. Nosotros no
   podemos (los sprites usan 17-31, D8), y `build_mid` ya rellena con
   `MOVE $1FE` (NOOP), no con ceros.
-- **A contrastar con P59:** dicen esperar a `$E1` "incluso a través de la
-  línea 255". P59 dice que un WAIT en la 255 con h ≥ ~`$E0` no llega
-  nunca. Hay que mirar cómo arman esa línea antes de sacar conclusiones.
+- **Contrastado con P59 (2026-10-03):** en la línea 255 escriben `$FFE1`
+  (`src/cheader.cpp`: `max(w0, $FFDF)` en la cadena de strips y "keep the
+  late horizontal position on line 255 too" en la rebanada), para no
+  adelantar el cambio a píxeles visibles. No documentan haber probado
+  esa línea con 6 planos en hardware, y P59 está medido en WinUAE (con 6
+  planos `$FFE1` no llega). **No cambia nada nuestro:** P59 sigue, y
+  `build_copper` mantiene `$FFDF` + un MOVE nulo.
 - La captura `docs/scap.png` es el overlay de DMA de vAmiga con la lista
   saturada: sirve de referencia visual de cómo se ve en el bus.
 
@@ -1170,16 +1175,32 @@ tiene licencia: se lee, no se copia.**
 Ya cumplido, no hace falta nada: `build_mid` no deja ceros (rellena con
 `MOVE $1FE`), los planos entrelazados y la medida con y sin `BLTPRI`.
 
-Candidatos, en orden de valor (no hay tarjetas abiertas):
+**Hecho el 2026-10-03:**
 
-1. **Contrastar P59 con el `$E1` de png2amiga** (§14.5). Lectura de su
-   código, sin cambiar el nuestro.
+- **Banderas de "sucio" en `mario_draw`** (`game.s`, idea de Knightmare,
+  §14.7): los punteros de sprite de cada lista se escriben una sola vez y
+  la paleta de Mario solo cuando cambia. `game.total` en Musashi: peor
+  frame 118 724 → 117 796 ciclos, media 39 978 → 39 053 (−0,65 % del
+  frame, en todos los frames). Verificado: `regress.py` igual en todo lo
+  demás; la cabecera de la lista escrita es la de antes en los 6314
+  frames del replay (pasando por 2 paletas de Mario); captura de WinUAE
+  del replay en el frame 1200 idéntica píxel a píxel a la del commit
+  anterior.
+- **Sprite vacío válido** (§14.2): `g_null` pasa de `0,0` a
+  `$1905,$1A00,0,0,0,0` (12 bytes), como recomienda Photon.
+- **P59 contra png2amiga** (§14.5): leído; no cambia nada.
+- Ya estaba: el botón 2 del joystick por `POTGO`/`POTINP` (§14.4).
+
+Candidatos que quedan, en orden de valor (no hay tarjetas abiertas):
+
+1. ~~Contrastar P59 con el `$E1` de png2amiga~~: hecho, ver arriba.
 2. **Restaurar desde el buffer en vez de guardar el fondo** (§14.7), si la
    restauración de bobs pesa cuando llegue el bob en PF1 (D8).
 3. **Rehacer el presupuesto del blitter con la tabla de ciclos** (§14.3):
    B como constante, blits caros durante el HUD.
 4. **Sumar el tick de la música al peor frame** al cerrar D5 (§14.6).
-5. **Leer el joystick con `POTGO`** para los botones 2 y 3 (D14, §14.4).
+5. **El botón 3 del joystick** (bit 12 de `POTINP`) como X (D14, §14.4):
+   el 2 ya se lee; el 3 no está asignado.
 6. **Herramienta:** el FS-UAE de alpine9000 (símbolos tras el bootblock) o
    el parche `wait N frames` de vAmiga, si V1 avanza.
 

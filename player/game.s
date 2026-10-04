@@ -277,7 +277,7 @@ entry:
         tst.l   d0
         beq     gfail
         move.l  d0,V_COP2(a5)
-        move.l  #2*SPRBUF+8,d0              ; Mario (una por lista) + nulo
+        move.l  #2*SPRBUF+12,d0             ; Mario (una por lista) + nulo
         move.l  #MEMF_CHIP|MEMF_CLEAR,d1
         jsr     _LVOAllocMem(a6)
         tst.l   d0
@@ -287,7 +287,13 @@ entry:
         add.l   #SPRBUF,d0
         move.l  d0,(a0)+                    ; g_sprb
         add.l   #SPRBUF,d0
-        move.l  d0,(a0)                     ; g_null: 0, 0 (MEMF_CLEAR)
+        move.l  d0,(a0)                     ; g_null: un sprite de 1 linea
+        move.l  d0,a0                       ; transparente en la linea 25,
+        move.l  #$19051a00,(a0)             ; x fuera de la pantalla, y el fin
+                                            ; (0, 0 de MEMF_CLEAR). Empezar la
+                                            ; cadena con 0, 0 no es valido en
+                                            ; todos los chipsets (Coppershade,
+                                            ; "Sprite Programming"; §14.2)
         ifd     DIAG
         move.l  #DG_SIZE,d0                 ; las pantallas del diagnostico
         move.l  #MEMF_CHIP|MEMF_CLEAR,d1
@@ -955,6 +961,11 @@ callframe:
 ; (V_BACK): mario_sprite (mspr.c) arma las dos parejas de sprites en el
 ; buffer de esa lista; aca van sus punteros (SPR0-3; SPR4-7 al nulo) y la
 ; paleta (mario_pal -> COLOR17-31) en la cabecera de la lista.
+; La cabecera solo la toca esta rutina (build_copper la arma una vez), asi
+; que cada lista guarda lo que ya tiene (g_lpal, como las banderas de
+; "sucio" de Knightmare, docs/investigacion-ports.md §14.7): los punteros
+; no cambian nunca (la primera vez, con g_lpal = $FF) y la paleta solo se
+; escribe si cambio. Ahorra ~950 ciclos por frame.
 ; registros destruidos: d0-d1/a0-a1
 ;----------------------------------------------------------------------
 mario_draw:
@@ -976,6 +987,17 @@ mario_draw:
         endc
         movem.l (sp)+,d2/a2
         GETBASE a4
+        lea     g_lpal(pc),a3               ; lo que tiene esta lista
+        cmp.l   g_spra(pc),d2
+        beq.s   .la
+        addq.l  #1,a3
+.la:    moveq   #0,d0                       ; paleta
+        move.b  _mario_pal(a4),d0
+        and.w   #7,d0
+        cmp.b   (a3),d0
+        beq.s   .x                          ; la misma: nada que escribir
+        tst.b   (a3)
+        bpl.s   .pal                        ; ya tiene los punteros
         lea     CL_SPR+2(a2),a0
         moveq   #4-1,d1
 .p:     swap    d2
@@ -993,9 +1015,7 @@ mario_draw:
         move.w  d2,4(a0)
         addq.l  #8,a0
         dbf     d1,.q
-        moveq   #0,d0                       ; paleta
-        move.b  _mario_pal(a4),d0
-        and.w   #7,d0
+.pal:   move.b  d0,(a3)
         lsl.w   #5,d0
         move.l  a4,a1
         add.l   #mario_pals+2-binstart,a1   ; (sin COLOR16)
@@ -1005,12 +1025,14 @@ mario_draw:
 .c:     move.w  (a1)+,(a0)
         addq.l  #4,a0
         dbf     d1,.c
-        movem.l (sp)+,d2-d7/a2-a6
+.x:     movem.l (sp)+,d2-d7/a2-a6
         rts
 
 g_spra: dc.l    0                           ; sprites de Mario (lista A)
 g_sprb: dc.l    0                           ; (lista B)
 g_null: dc.l    0                           ; sprite vacio
+g_lpal: dc.b    $ff,$ff                     ; paleta de Mario en la lista A, B
+                                            ; ($FF: lista sin los punteros)
 
         ifd     BENCH
 ;----------------------------------------------------------------------

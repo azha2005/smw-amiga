@@ -195,7 +195,7 @@ PF1 y las dos listas no entran en 512 KB de chip.
 | chip | `yi1_s.dat` (bloques, capa 2, colores, plan del copper; `D_*`) | 223 600 |
 | chip | PF1: buffer circular (`BUF1`) | 59 136 |
 | chip | 2 listas del copper con `-DSPRITES` (`CL_SIZE` = 216 + 220 × 224 + 4) | 2 × 49 500 |
-| chip | sprites de Mario: 2 buffers × 4 sprites × 84 palabras + nulo | 1 352 |
+| chip | sprites de Mario: 2 buffers × 4 sprites × 84 palabras + nulo (12 B desde el 2026-10-03) | 1 356 |
 | chip | pantallas del modo diagnóstico (`DG_SIZE`, P58) + 64 B por lista | 11 528 |
 | chip | **total del juego** | **≈ 395 KB** |
 | slow | el binario (se copia solo desde la chip de `boot.s`, que se libera); en vivo, con el historial del joypad del diagnóstico | 187 188 (replay: 181 916) |
