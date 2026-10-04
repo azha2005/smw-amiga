@@ -2,24 +2,24 @@
 
 > Generado por `tools/coverage.py` (no editar a mano salvo la sección "Notas (a mano)" del final, que se conserva). Qué es y por qué: `docs/investigacion-ports.md` §4.4 y P69.
 
-**Corridas:** 137 de 137 terminaron bien (27 grabaciones: banzai, chuck, diagpipe, goal, goal_low, goal_miss, goalhit, hills, hills2, normal, pipe, pw_1up, pw_bloques, pw_c7, pw_estrella, pw_flor, pw_medio, pw_morir_caida, pw_morir_enemigo, pw_seta, pw_yoshicoin, shells, stress_back, stress_piranha, stress_sprites, stress_vert, yi1). Una línea cuenta como ejecutada si corrió bajo `marioverify` con cualquiera de ellas.
+**Corridas:** 152 de 152 terminaron bien (30 grabaciones: banzai, chuck, chuck_kill, diagpipe, goal, goal_low, goal_miss, goalhit, hills, hills2, normal, pipe, pw_1up, pw_bloques, pw_c7, pw_estrella, pw_flor, pw_medio, pw_morir_caida, pw_morir_enemigo, pw_seta, pw_yoshicoin, shells, spin_kill, stress_back, stress_piranha, stress_sprites, stress_vert, turn_block, yi1). Una línea cuenta como ejecutada si corrió bajo `marioverify` con cualquiera de ellas.
 
 ## Resumen por fichero
 
 | fichero | funciones ejecutadas | líneas ejecutadas | ramas tomadas |
 |---|---|---|---|
-| `player/manim.c` | 13/13 | 277/342 (81 %) | 163/244 (67 %) |
+| `player/manim.c` | 13/13 | 278/342 (81 %) | 164/244 (67 %) |
 | `player/mario.c` | 6/6 | 176/201 (88 %) | 108/142 (76 %) |
 | `player/mcam.c` | 3/3 | 116/125 (93 %) | 58/76 (76 %) |
-| `player/mcoll.c` | 38/44 | 619/889 (70 %) | 298/572 (52 %) |
+| `player/mcoll.c` | 38/44 | 633/889 (71 %) | 309/572 (54 %) |
 | `player/mgfx.c` | 2/2 | 128/141 (91 %) | 42/64 (66 %) |
-| `player/msprite.c` | 61/64 | 910/1092 (83 %) | 518/788 (66 %) |
-| `player/spr_chuck.c` | 17/18 | 213/261 (82 %) | 92/134 (69 %) |
+| `player/msprite.c` | 62/64 | 922/1092 (84 %) | 521/788 (66 %) |
+| `player/spr_chuck.c` | 18/18 | 225/261 (86 %) | 94/134 (70 %) |
 | `player/spr_goal.c` | 5/5 | 114/120 (95 %) | 43/48 (90 %) |
-| `player/spr_powerup.c` | 6/7 | 113/162 (70 %) | 59/117 (50 %) |
+| `player/spr_powerup.c` | 6/7 | 113/162 (70 %) | 60/117 (51 %) |
 | `player/spr_rex.c` | 2/2 | 66/66 (100 %) | 37/38 (97 %) |
 | `player/spr_shell.c` | 14/16 | 164/238 (69 %) | 71/154 (46 %) |
-| **total** | 167/180 | 2896/3637 (80 %) | |
+| **total** | 169/180 | 2935/3637 (81 %) | |
 
 ## Funciones que no corren nunca
 
@@ -35,8 +35,6 @@ Ninguna grabación las comprueba: pueden estar mal sin que `regress.py` lo vea.
 | `player/mcoll.c` | `efcd` (l. 693) | 7 | CODE_00EFBC |
 | `player/msprite.c` | `spr_unsup` (l. 40) | 1 | CODE_01AB46 |
 | `player/msprite.c` | `spr_spr_contact` (l. 294) | 24 | - |
-| `player/msprite.c` | `spr_spin_kill` (l. 749) | 13 | _01A924 |
-| `player/spr_chuck.c` | `chuck_die` (l. 119) | 7 | _02C7B1 |
 | `player/spr_powerup.c` | `powerup_init` (l. 59) | 5 | - |
 | `player/spr_shell.c` | `shell_set_stunned` (l. 68) | 7 | - |
 | `player/spr_shell.c` | `shell_stun_0b` (l. 88) | 8 | _01AA0B |
@@ -47,15 +45,14 @@ Las que tienen líneas sin ejecutar, de más a menos. Los tramos son líneas del
 
 | fichero | función | sin ejecutar / con código | tramos sin ejecutar |
 |---|---|---|---|
-| `player/mcoll.c` | `eb77` | 55 / 234 | 865, 884, 886, 889-893, 898, 900, 904-907, 909-919, 962, 979-981, 993-995, 1000, 1009, 1014, 1023-1024, 1045-1046, 1052, 1058, 1069-1070, 1073-1075, 1083, 1104-1105, 1117-1121, 1135 |
+| `player/mcoll.c` | `eb77` | 54 / 234 | 865, 884, 886, 889-893, 898, 900, 904-907, 909-919, 962, 979-981, 993-995, 1000, 1014, 1023-1024, 1045-1046, 1052, 1058, 1069-1070, 1073-1075, 1083, 1104-1105, 1117-1121, 1135 |
 | `player/mcoll.c` | `f545` | 23 / 29 | 96-101, 103-107, 109-114, 120-122, 124, 126-127 |
-| `player/spr_chuck.c` | `chuck_run` | 23 / 59 | 310-312, 327, 331-340, 343-346, 357-359, 366, 375 |
-| `player/mcoll.c` | `bounce_spawn` | 22 / 46 | 372-373, 375-391, 393, 395, 406 |
 | `player/msprite.c` | `shellless_koopa` | 22 / 71 | 1313-1314, 1316-1320, 1328-1329, 1339-1340, 1344-1347, 1350-1354, 1368, 1370 |
-| `player/mcoll.c` | `blocks_update` | 21 / 46 | 419, 427, 429-431, 433-437, 439-441, 443-445, 455, 457, 464-465, 470 |
+| `player/mcoll.c` | `bounce_spawn` | 20 / 46 | 373, 375-391, 393, 395 |
 | `player/mcoll.c` | `f005` | 20 / 24 | 714-727, 729-734 |
-| `player/manim.c` | `mario_CEB1` | 19 / 138 | 81, 105-107, 114-115, 125, 128, 135, 137, 151, 157-159, 161, 183-186 |
+| `player/spr_chuck.c` | `chuck_run` | 20 / 59 | 327, 331-340, 343-346, 357-359, 366, 375 |
 | `player/spr_powerup.c` | `powerup_main` | 19 / 59 | 124-125, 129-131, 133-135, 152, 157-160, 165-166, 174, 177-178, 183 |
+| `player/manim.c` | `mario_CEB1` | 18 / 138 | 81, 105-107, 114-115, 125, 128, 135, 137, 157-159, 161, 183-186 |
 | `player/mcoll.c` | `e92b` | 18 / 63 | 1173-1174, 1180-1181, 1192, 1197-1198, 1213-1217, 1224-1225, 1233, 1242, 1245-1246 |
 | `player/manim.c` | `cddd` | 17 / 49 | 204, 217-232 |
 | `player/msprite.c` | `spr_obj_vert` | 17 / 70 | 457-463, 483, 485, 494-501 |
@@ -65,9 +62,10 @@ Las que tienen líneas sin ejecutar, de más a menos. Los tramos son líneas del
 | `player/msprite.c` | `sprspr_react` | 14 / 31 | 1172, 1178-1180, 1183-1185, 1187, 1192-1194, 1196-1198 |
 | `player/mcoll.c` | `eee1` | 13 / 68 | 774-775, 789, 798-803, 805-807, 810 |
 | `player/mgfx.c` | `mario_E2BD` | 13 / 114 | 97-98, 113-115, 126-129, 165, 200, 237-238 |
-| `player/msprite.c` | `default_interact` | 13 / 56 | 807-808, 812-813, 817-818, 833, 839-841, 846-847, 850 |
 | `player/mcoll.c` | `f127` | 11 / 17 | 534, 537-539, 541-543, 545-548 |
+| `player/msprite.c` | `default_interact` | 11 / 56 | 812-813, 817-818, 833, 839-841, 846-847, 850 |
 | `player/msprite.c` | `sprspr_hop` | 11 / 16 | 1126, 1129-1138 |
+| `player/mcoll.c` | `blocks_update` | 10 / 46 | 419, 427, 443-445, 455, 457, 464-465, 470 |
 | `player/msprite.c` | `invis_blk` | 10 / 39 | 919, 922, 938-944, 947 |
 | `player/spr_chuck.c` | `chuck_st0` | 10 / 24 | 180-182, 186-187, 193-194, 200-202 |
 | `player/spr_shell.c` | `shell_stunned` | 10 / 22 | 171, 176-182, 186-187 |
@@ -85,7 +83,6 @@ Las que tienen líneas sin ejecutar, de más a menos. Los tramos son líneas del
 | `player/spr_shell.c` | `shell_kicked` | 7 / 33 | 201-202, 205, 215-217, 226 |
 | `player/mcoll.c` | `f461_xy` | 6 / 20 | 142-143, 153-154, 157-158 |
 | `player/msprite.c` | `sprite_run_post` | 6 / 52 | 1608-1609, 1642, 1656-1657, 1667 |
-| `player/spr_chuck.c` | `chuck_contact` | 6 / 30 | 135-137, 153-155 |
 | `player/spr_shell.c` | `shell_follow` | 6 / 31 | 247-249, 252, 254-255 |
 | `player/mcoll.c` | `f3c4` | 5 / 8 | 579-582, 585 |
 | `player/mcoll.c` | `f2c9` | 5 / 17 | 662, 664-667 |
@@ -106,6 +103,7 @@ Las que tienen líneas sin ejecutar, de más a menos. Los tramos son líneas del
 | `player/msprite.c` | `sprspr_koopa02` | 3 / 6 | 1044, 1046-1047 |
 | `player/msprite.c` | `sprspr_kill_y` | 3 / 10 | 1076-1077, 1080 |
 | `player/msprite.c` | `sprspr_kill_x_chk` | 3 / 7 | 1091-1092, 1095 |
+| `player/spr_chuck.c` | `chuck_contact` | 3 / 30 | 135-137 |
 | `player/spr_goal.c` | `goal_tape` | 3 / 45 | 151, 168, 172 |
 | `player/spr_shell.c` | `shell_carried` | 3 / 14 | 331, 334, 337 |
 | `player/manim.c` | `level_frame` | 2 / 19 | 458, 461 |
@@ -115,6 +113,7 @@ Las que tienen líneas sin ejecutar, de más a menos. Los tramos son líneas del
 | `player/mcoll.c` | `f3e9` | 2 / 11 | 568-569 |
 | `player/mcoll.c` | `eadb` | 2 / 6 | 1146-1147 |
 | `player/msprite.c` | `spr_obj_interact` | 2 / 27 | 590, 592 |
+| `player/msprite.c` | `spr_spin_kill` | 2 / 12 | 754, 760 |
 | `player/msprite.c` | `warp_blocks` | 2 / 5 | 1487-1488 |
 | `player/msprite.c` | `spr_contact_a80f` | 2 / 6 | 1518, 1520 |
 | `player/spr_chuck.c` | `chuck_hurt` | 2 / 6 | 112, 114 |
