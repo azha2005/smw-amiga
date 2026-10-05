@@ -118,6 +118,16 @@ DDFS        equ $0030
 DDFE        equ $00d0
         endc
 
+; segunda palabra de un WAIT de build_mid/bm_left. A 256 px, d2 guarda el
+; umbral de la cola (s0 + XKNEE + 9, P51) y el $FFFE va inmediato.
+WFFFE   macro
+        ifeq    VIS-256
+        move.w  #$fffe,(a3)+
+        else
+        move.w  d2,(a3)+
+        endc
+        endm
+
 ; h para x > XKNEE (en el registro \1)
 TAILH   macro
         ifeq    VIS-256
@@ -764,7 +774,12 @@ build_mid:
         sub.w   d6,a2                       ; a2 = htab - s
         move.w  d6,d5
         add.w   #LASTX,d5                   ; d5 = s + LASTX
+        ifeq    VIS-256
+        move.w  d6,d2                       ; d2 = s + 248: antes, ninguna
+        add.w   #XKNEE+9,d2                 ; encadenada cruza el codo (.ch)
+        else
         move.w  #$fffe,d2
+        endc
 ; LNS por grupos de 16 lineas (S2): para cada grupo con lineas en LNS[k],
 ; su estado (antes de linetab, G_*) guarda [gvl, gvu) = la interseccion
 ; de los [vl, vu) de sus lineas, y el hid (conjunto de lineas) con que se
@@ -893,7 +908,11 @@ build_mid:
         sub.l   a1,d1                       ; 12 * cargas
         bne.s   .some
         move.l  a0,8(a4)
+        ifeq    VIS-256
+        bra     .jump                       ; .chk queda en medio (P51)
+        else
         bra.s   .jump
+        endc
 .some:  cmp.w   #MIDMAX*12,d1
         bls.s   .n
         lea     MIDMAX*12(a1),a0            ; no entran todas: se rehace
@@ -915,7 +934,7 @@ build_mid:
 .w:     move.w  (a1)+,d0                    ; x (d0 = x del ultimo WAIT)
         move.b  (a2,d0.w),d7                ; h | 1 para x - s
         move.w  d7,(a3)+
-        move.w  d2,(a3)+                    ; $FFFE
+        WFFFE                               ; $FFFE
 .mv:    move.l  (a1)+,(a3)+                 ; MOVE registro, color
         cmp.w   (a1)+,d3                    ; vl = max(vl, a)
         bge.s   .k1
@@ -928,8 +947,23 @@ build_mid:
         add.w   d6,d3
         add.w   d6,d4
         bra.s   .jump
-.ch:    addq.l  #2,a1                       ; (x: no hace falta)
-        subq.w  #2,d1                       ; 1: MOVE detras del anterior
+.ch:    ; Tras DDFSTOP el copper encadena MOVE cada 8 px, no 16 (P51).
+        ; El plan (mkscroll.py) supone 16: solo falla si la carga anterior
+        ; de la cadena cae en x >= XKNEE - 16k + 16 (k = 1-3: clase), o
+        ; sea si esta va en x >= 255 contando el redondeo del WAIT del que
+        ; cuelga. Detras de un MOVE en la cola: clase 1 -> un relleno (8 +
+        ; 8 px, exacto; un WAIT cuesta dos ranuras y cae 8 px tarde); 2 y
+        ; 3 -> WAIT propio (cruzan el codo con rellenos y el WAIT llega).
+        ; Mismo tamano que antes (8 B <= 12 B). Convertir antes (x > XKNEE)
+        ; gasta una ranura y llega tarde. Solo x >= s + 248 (d2) puede
+        ; cruzar: el caso comun paga un salto no tomado (8 ciclos).
+        ifeq    VIS-256
+        cmp.w   (a1)+,d2                   ; (x: no hace falta)
+        bls.s   .chk                       ; x >= s + 248: mirar el codo
+        else
+        addq.l  #2,a1                       ; (x: no hace falta)
+        endc
+.chf:   subq.w  #2,d1                       ; 1: MOVE detras del anterior
         bmi.s   .mv
         beq.s   .f1                         ; 2: un relleno; 3: dos
         subq.w  #1,d1
@@ -937,6 +971,30 @@ build_mid:
         move.l  #$01fe0000,(a3)+
 .f1:    move.l  #$01fe0000,(a3)+
         bra.s   .mv
+        ifeq    VIS-256
+.chk:   move.w  d0,d7                      ; x del ultimo WAIT (d0)
+        sub.w   d6,d7                      ; en pantalla, base = s
+        or.w    #7,d7                      ; su MOVE cae en x | 7 (htab, P42)
+        add.w   -2(a1),d7                  ; + x - x(WAIT): la anterior de la
+        sub.w   d0,d7                      ; cadena cae 16k px antes que esta
+        cmp.w   #XKNEE+15,d7
+        bhi.s   .chc
+        move.w  16(a4),d7                  ; recuperar v del WAIT
+        bra.s   .chf
+.chc:   move.w  16(a4),d7
+        cmp.w   #4,d1
+        bhs.s   .cht                       ; las tarde conservan .td/celltab
+        cmp.w   #1,d1
+        beq.s   .f1                        ; 1: un relleno
+        subq.l  #2,a1                      ; 2, 3: WAIT propio, sin rellenos
+        bra     .w
+.cht:   cmp.w   #5,d1
+        beq.s   .ch6
+        moveq   #1,d1                      ; .td: 4 = WAIT (d1 = clase - 3)
+        bra     .td
+.ch6:   moveq   #3,d1                      ; 5 -> 6: un relleno
+        bra     .td
+        endc
 .jump:  move.l  18(a4),(a3)+                ; el salto al segmento siguiente
         move.l  22(a4),(a3)+
         move.l  26(a4),(a3)+
@@ -968,7 +1026,7 @@ build_mid:
         move.w  -2(a1),d0                   ; 4: con WAIT propio, en su x
         move.b  (a2,d0.w),d7
         move.w  d7,(a3)+
-        move.w  d2,(a3)+
+        WFFFE
         bra.s   .tdm
 .td1:   subq.w  #1,d1                       ; 5: detras del anterior
         beq.s   .tdm
@@ -1182,6 +1240,10 @@ bm_left:
 .b:     move.l  a1,4(a4)
         move.l  a0,8(a4)
         move.w  d3,-(sp)                    ; s0
+        ifeq    VIS-256
+        move.w  d3,d2                       ; umbral de la cola con esta s0
+        add.w   #XKNEE+9,d2                 ; (.ch, P51)
+        endc
         lea     htab(pc),a2
         sub.w   d3,a2                       ; a2 = htab - s0
         move.w  d4,d5
@@ -1196,8 +1258,13 @@ bm_left:
         move.w  16(a4),d7
         addq.l  #2,a1
         bra.s   .w
-.ch:    addq.l  #2,a1
-        subq.w  #2,d1
+.ch:    ifeq    VIS-256                     ; como en build_mid (P51)
+        cmp.w   (a1)+,d2                    ; d2 = s0 + 248 (en .b)
+        bls.s   .chk
+        else
+        addq.l  #2,a1
+        endc
+.chf:   subq.w  #2,d1
         bmi.s   .mv
         beq.s   .f1
         subq.w  #1,d1
@@ -1205,12 +1272,36 @@ bm_left:
         move.l  #$01fe0000,(a3)+
 .f1:    move.l  #$01fe0000,(a3)+
         bra.s   .mv
+        ifeq    VIS-256
+.chk:   move.w  d0,d7                       ; con la base s0 (a la vuelta
+        sub.w   (sp),d7                     ; importa s0, no s)
+        or.w    #7,d7
+        add.w   -2(a1),d7
+        sub.w   d0,d7
+        cmp.w   #XKNEE+15,d7
+        bhi.s   .chc
+        move.w  16(a4),d7
+        bra.s   .chf
+.chc:   move.w  16(a4),d7
+        cmp.w   #4,d1
+        bhs.s   .cht
+        cmp.w   #1,d1
+        beq.s   .f1
+        subq.l  #2,a1
+        bra     .w
+.cht:   cmp.w   #5,d1
+        beq.s   .ch6
+        moveq   #1,d1
+        bra     .td
+.ch6:   moveq   #3,d1
+        bra     .td
+        endc
 .ld:    move.w  (a1)+,d1
         bne.s   .ch
 .w:     move.w  (a1)+,d0
         move.b  (a2,d0.w),d7
         move.w  d7,(a3)+
-        move.w  d2,(a3)+
+        WFFFE
 .mv:    move.l  (a1)+,(a3)+
         cmp.w   (a1)+,d3
         bge.s   .k1
@@ -1264,7 +1355,7 @@ bm_left:
         move.w  -2(a1),d0
         move.b  (a2,d0.w),d7
         move.w  d7,(a3)+
-        move.w  d2,(a3)+
+        WFFFE
         bra.s   .tdm
 .td1:   subq.w  #1,d1
         beq.s   .tdm

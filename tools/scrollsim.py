@@ -13,7 +13,8 @@ Modelo (medido en WinUAE / FS-UAE, pantalla del scroll):
     listos y el copper LIBRE ~60 px antes de x = 0 (T0); un MOVE sin WAIT
     despues del borrado cae ahi, no en x = 0 (P42). Con mas de 9 MOVE en el
     borrado se aproxima 16 px por MOVE de mas;
-  - MOVE: escribe en x = T, T += 16;
+  - MOVE: escribe en x = T, T += 16 (a 256 px, 8 desde x = 239: advance(),
+    P51; visto en SX, pendiente de confirmar con capturas);
   - WAIT (v, h): T = max(T + 32, x(h)), x(h) de P42;
   - un color vale desde la x en que se escribe.
 Solo mira la capa 1 (registros $182-$18E) en los pixeles donde se ve.
@@ -44,6 +45,18 @@ def xh(h):
     return 8 * ((h - 0x38) >> 2) - 1 if h <= 0xD0 else 303 + (h - 0xD0)
 
 
+def advance(x, n=1):
+    """En 256 px el MOVE siguiente a x=239 ya no paga seis planos: 8 px.
+
+    La captura SX a s=1700 distingue ese MOVE de los 16 px del modelo
+    anterior: adelantaba verdes sobre los pixels 247..249 de la capa 1.
+    No extrapolar este ajuste al fetch de 320 px, no medido aqui.
+    """
+    for _ in range(n):
+        x += 8 if W == 256 and x >= 239 else 16
+    return x
+
+
 def run_list(mem, base):
     """por linea: [(x, registro, color)] de la capa 1 (borrado en x = -1)"""
     out = []
@@ -60,7 +73,7 @@ def run_list(mem, base):
                 if stage == 0:
                     stage = 1
                     T = T0 + max(0, 16 * (nb - 9))
-                T = max(T + 32, xh(w1 & 0xFE))
+                T = max(advance(T, 2), xh(w1 & 0xFE))
                 continue
             if w1 == 0x8A:                               # COPJMP2: fin
                 break
@@ -76,7 +89,7 @@ def run_list(mem, base):
                 T = T0 + max(0, 16 * (nb - 9))
             if 0x182 <= w1 <= 0x18E:
                 ev.append((T, (w1 - 0x180) >> 1, w2))
-            T += 16
+            T = advance(T)
         out.append(ev)
     return out
 
