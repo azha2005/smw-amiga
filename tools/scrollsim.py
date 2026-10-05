@@ -14,7 +14,7 @@ Modelo (medido en WinUAE / FS-UAE, pantalla del scroll):
     despues del borrado cae ahi, no en x = 0 (P42). Con mas de 9 MOVE en el
     borrado se aproxima 16 px por MOVE de mas;
   - MOVE: escribe en x = T, T += 16 (a 256 px, 8 desde x = 239: advance(),
-    P51; visto en SX, pendiente de confirmar con capturas);
+    P51; confirmado con las capturas SX de 1700);
   - WAIT (v, h): T = max(T + 32, x(h)), x(h) de P42;
   - un color vale desde la x en que se escribe.
 Solo mira la capa 1 (registros $182-$18E) en los pixeles donde se ve.

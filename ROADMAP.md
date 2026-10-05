@@ -51,9 +51,7 @@
 |---|---|
 | `master` | base hasta el 2026-09-27: primer ADF jugable (etapas 0, 6.1-6.3, 8.2, 6b) |
 | `claude/brave-ritchie-mm5o6r` | sesión cloud del 2026-09-30, sobre `master`: oráculos sin usuario (snesorc), Etapa 9.1 (6 sprites más, `game` sin resincronizaciones), entrada y modo diagnóstico (6b.7), tres bugs arreglados (cámara vertical, copper de la línea 255, `mario_sprite` mal compilado) y herramientas de la 6.4. **Mergeada a `master` el 2026-09-30** (pedido del usuario, avance rápido) |
-
-| `wt/g0-next` (`../wt-g0-next`) | **2026-10-05, sin commitear:** arreglo de P51 en `player/scroll.s` (`build_mid`/`bm_left`: a 256 px, una carga de la cola con x > `XKNEE` lleva WAIT propio), `tools/scrollsim.py` (`advance()`: 8 px por MOVE después de x = 239) y `tools/scroll_tail_check.py` (nuevo). **Sin verificar**: falta regresión y las capturas SX. Su commit `0d7d51d` es el mismo cambio que `07ef629` en `master` |
-| `wt/gfx-regress-next` (`../wt-gfx-regress-next`) | **2026-10-05, sin commitear:** banco SX/SX2, `tools/sxverify.py` + `docs/validacion-sx.md` (24 ADF: 6 posiciones, ida y vuelta, antes/después de SX). Capturas a medias en `work/sxverify/`; la sección "Resultados" sigue vacía. La rama en sí ya está en `master` |
+| `wt/g0-next`, `wt/gfx-regress-next` | P51 (`0361736`) y el banco SX/SX2 (`tools/sxverify.py`, `docs/validacion-sx.md`). **Integradas a `master` el 2026-10-05** con la baseline de coste actualizada (pedido del usuario). Las capturas y ADF quedan en `../wt-gfx-regress-next/work/sxverify/` (fuera de git, R9) |
 | `wt/oam-next` (`../wt-oam-next`) | limpia; su commit `3def3e4` es el mismo cambio que `cf2ce56` en `master`. Se puede borrar |
 
 - 2026-09-30: trabajo en paralelo con 4 subagentes, cada uno en su worktree; el
@@ -287,15 +285,15 @@ abajo queda como referencia histórica.
    en `--quick`. Sin OAM grabada avisa y salta; datos presentes corruptos
    fallan. Autoprueba local: 227/227 poses, 512 fichas × cuatro flips.
 
-**En validación:** SX/SX2, seis posiciones de ida y seis de vuelta,
-baseline anterior a SX contra actual, capturas cycle-exact con historial
-de scroll y comprobación temporal. Se detectaron seis píxeles alternantes
-en s=1700: aceleración del copper después de DDFSTOP, invisible al modelo
-uniforme anterior (P51). El arreglo y el banco están sin commitear en
-`wt-g0-next` y `wt-gfx-regress-next` (§1.1). No dar la puerta por cerrada
-hasta comprobar el arreglo.
+5. **SX/SX2 cerrada** con P51 ([validación](docs/validacion-sx.md)):
+   24 capturas cycle-exact, ida y vuelta en 6 posiciones contra el
+   `scroll.s` anterior a SX. Ambas puertas OK; s=1700 pasa de 43/44 px a 0.
+   **P51 arreglada** (`0361736`): tras DDFSTOP el copper encadena MOVE
+   cada 8 px; `build_mid`/`bm_left` corrigen solo las cargas que cruzan
+   el codo. Coste: `build_mid` máx. 75 816 → 80 868 (+6,7 %), total del
+   juego 117 796 → 119 998 (+1,9 %).
 
-**Lo siguiente, en orden:** cerrar SX/SX2; medir OAM/O5 integrado antes de
+**Lo siguiente, en orden:** medir OAM/O5 integrado antes de
 activarlo por defecto; **G3 final** (poses recortadas, remapeo de colores,
 banco y máscaras) → **G4 + G6** (asignador y reconstrucción exacta) →
 G5 + G9. C2/C4 antes de añadir el segundo PF1 y G7. Z1, H1 y A1/A2 según
@@ -916,8 +914,8 @@ los pasos originales de cada etapa, en §5.
 
   Del 1 al 4 se puede hacer sin tocar el formato del copper.
 - **Riesgos:** romper la ida = vuelta (P71). Por eso `scrollsim.py --ret`
-  va en cada paso. El modelo del copper después de `DDFSTOP` (P51) todavía
-  no está medido: medirlo antes del paso 5.
+  va en cada paso. El copper después de `DDFSTOP` (P51) va a 8 px por
+  MOVE desde x = 239: está en `scrollsim.advance()` y en `build_mid`.
 - **Verificación:** la puerta común de las tarjetas S.
 - **Tarjetas:** S1a, S2, S4, S5, S3, S6, S7, E1.
 

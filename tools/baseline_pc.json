@@ -1,16 +1,16 @@
 {
  "_meta": {
-  "commit": "af44d95+cambios",
-  "fecha": "2026-10-04",
+  "commit": "02ed3e5+cambios",
+  "fecha": "2026-10-05",
   "nota": "tools/regress.py; las medidas emu.* dependen del emulador"
  },
  "game.build_mid.max": {
   "how": "min",
-  "value": 75816
+  "value": 80868
  },
  "game.build_mid.media": {
   "how": "min",
-  "value": 3928
+  "value": 4004
  },
  "game.columna.max": {
   "how": "min",
@@ -58,11 +58,11 @@
  },
  "game.total.max": {
   "how": "min",
-  "value": 117796
+  "value": 119998
  },
  "game.total.media": {
   "how": "min",
-  "value": 39053
+  "value": 39130
  },
  "game.total.pasados": {
   "how": "min",
@@ -119,6 +119,14 @@
  "m68k.spr.tramo": {
   "how": "max",
   "value": 3824
+ },
+ "nivel.encuadres_px_mal": {
+  "how": "min",
+  "value": 3966
+ },
+ "nivel.render_vs_ideal_px": {
+  "how": "min",
+  "value": 0
  },
  "orc.banzai.full.ok": {
   "how": "max",
@@ -1634,7 +1642,7 @@
  },
  "scroll.ida.max": {
   "how": "min",
-  "value": 80492
+  "value": 82898
  },
  "scroll.ida.max_s": {
   "how": "info",
@@ -1642,11 +1650,11 @@
  },
  "scroll.ida.media": {
   "how": "min",
-  "value": 16251
+  "value": 16493
  },
  "scroll.vuelta.max": {
   "how": "min",
-  "value": 106012
+  "value": 111520
  },
  "scroll.vuelta.max_s": {
   "how": "info",
@@ -1654,6 +1662,6 @@
  },
  "scroll.vuelta.media": {
   "how": "min",
-  "value": 18989
+  "value": 19530
  }
 }

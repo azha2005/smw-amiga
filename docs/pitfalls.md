@@ -375,7 +375,7 @@ escrito antes (`vl = s0 + a` queda por debajo): la ida y la vuelta dan
 imágenes distintas (19 frames, 2 px cada uno). Hay que forzar las dos
 cotas: `vl = s`, `vu = s + 1`.
 
-**P51 — Después de `DDFSTOP` el copper va más rápido (visto en SX, arreglo sin verificar).**
+**P51 — Después de `DDFSTOP` el copper va más rápido (8 px por MOVE desde x = 239 a 256 px; arreglado 2026-10-05).**
 El modelo (`scrollsim.py`, `mkscroll.py`) pone cada MOVE encadenado a 16 px
 del anterior, que es lo que pasa con los 6 planos leyendo. Al final de la
 línea (h >= `$C0` a 256 px) el DMA de planos termina y el MOVE cae antes:
@@ -386,10 +386,22 @@ meterla en el modelo, o poner un WAIT propio a cada carga en la cola.
 
 2026-10-05: la validación SX lo volvió a ver en s = 1700 (seis píxeles
 alternantes, verdes adelantados sobre x = 247-249). Con 256 px, el MOVE
-siguiente a x = 239 avanza 8 px, no 16. Arreglo propuesto en `wt-g0-next`,
-**sin commitear ni verificar**: `scrollsim.advance()` con ese paso, y en
-`build_mid`/`bm_left` un WAIT propio para cada carga de la cola con
-x > `XKNEE`. Solo se midió a 256 px; no extrapolar a 320.
+siguiente a x = 239 avanza 8 px, no 16 (`scrollsim.advance()`). Con ese
+modelo, `scrollsim` sobre el `scroll.s` anterior predice línea por línea
+los 43 píxeles de la captura de la vuelta a 1700.
+
+**Arreglo (`0361736`).** El plan de `mkscroll.py` sigue en 16 px; lo
+corrige `build_mid`/`bm_left` al escribir. Solo falla una carga encadenada
+cuya anterior cae de verdad en x >= 239: `((x_WAIT - s0) | 7) + x - x_WAIT
+>= 255` (el WAIT de `htab` cae en `x | 7`). Clase 1 -> un relleno (exacto;
+**un WAIT gasta dos ranuras y cae 8 px tarde**); clases 2/3 -> WAIT propio;
+tardes 5 -> 6, 6/7 -> 4. Convertir todas las de x - s > `XKNEE` (el primer
+intento) empeoraba la ida y rompía ida = vuelta. `d2 = s0 + 248` filtra el
+caso común. Resultado: `scrollsim` 5119 px / 134 frames, igual frame a
+frame que antes con el modelo viejo, ida = vuelta 1215/1215; capturas SX
+1700 ida y vuelta 0 px (`docs/validacion-sx.md`). Coste: `build_mid` máx.
+75 816 -> 80 868 ciclos (+6,7 %). Solo medido a 256 px: a 320 el binario
+no cambia y el modelo no se extrapola.
 
 **P52 — `game.s`: el código del juego queda a más de 32 KB de `binstart`.**
 Los datos del C van primero (P36) y detrás el código del C y de

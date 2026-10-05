@@ -411,7 +411,7 @@ número siguiente (**la próxima es P103**).
 - **P48** En el banco, lo que va delante de los datos del C los corre
 - **P49** `logicbench`: una carga que toca `a4` tiene que guardarlo
 - **P50** `build_mid`: una carga que no vale ni en la s en que se escribe
-- **P51** Después de `DDFSTOP` el copper va más rápido (visto en SX; arreglo sin verificar)
+- **P51** Después de `DDFSTOP` el copper va más rápido (8 px por MOVE desde x = 239 a 256 px; arreglado 2026-10-05)
 - **P52** `game.s`: el código del juego queda a más de 32 KB de `binstart`
 - **P53** `mspr_draw` destruye d2
 - **P54** vbcc y el dibujo genérico: 300 000 ciclos
