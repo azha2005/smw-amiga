@@ -13,10 +13,10 @@
  *   $B9 y del Koopa deslizante $BD.
  *
  * Solo con SPR_OAM (msprite.h: lo define todo build sin NOOAM, es decir el
- * marioverify del PC; el de la Amiga y libport.so llevan NOOAM y no lo
- * compilan). En el 68000 el Rex es rex_main_asm (player/logic68k.s), que
- * llama a get_draw_info_asm y no a rex_gfx: encender SPR_OAM en la Amiga
- * es trabajo de O5 (el render) y de logic68k.s, que esta tarjeta no toca.
+ * marioverify del PC). La Amiga lo activa con NOOAM + SPR_OAM: Mario
+ * mantiene su OAM propia; rex_main_asm (logic68k.s) llama a rex_gfx en
+ * la fase original. Las rutinas mutan pose, scratch y flags: corren en
+ * la logica, antes de tomar la foto del render O5 (P35/P97/P98).
  *
  * Las tablas .DB vienen de tools/smwtabx.py (WANT_GFX, SMWTABX_GFX).
  *

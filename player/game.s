@@ -138,6 +138,9 @@ cdata1:
         cnop    0,4
         include "work/cc/mario.code.s"
         include "work/cc/mcoll.code.s"
+        ifd     SPR_OAM
+        include "player/pic68k.s"          ; puente PIC cercano al C (P102)
+        endc
         include "work/cc/manim.code.s"
         include "work/cc/mgfx.code.s"
         include "work/cc/mcam.code.s"

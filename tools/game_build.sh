@@ -17,9 +17,21 @@ VBCC=${VBCC:-/c/Users/JC/vbcc}
 X=; [ -f "$VBCC/bin/vasmm68k_mot.exe" ] && X=.exe
 PY=${PY:-python}
 GDEFS=${GDEFS--DREPLAY}
+CDEFS=${CDEFS--DNOOAM}
+export CDEFS
+# Compartir el modo de OAM con logicbench; nunca activar solo una mitad.
+case " $CDEFS " in
+    *" -DSPR_OAM"*) GDEFS="$GDEFS -DSPR_OAM"; SPR_MODE=1 ;;
+    *" -DNOOAM"*) SPR_MODE=0
+        case " $GDEFS " in *" -DSPR_OAM"*) echo "ERROR: SPR_OAM en GDEFS requiere el mismo flag en CDEFS"; exit 1 ;; esac ;;
+    *) GDEFS="$GDEFS -DSPR_OAM"; SPR_MODE=1 ;;
+esac
 OUT=${OUT:-work}
 mkdir -p "$OUT"
 [ -n "$NOCC" ] || sh tools/logicbench_build.sh
+# NOCC tambien debe usar un C ya compilado con estas opciones (P36/P98).
+if grep -q '^_rex_gfx' work/cc/msprite.code.s; then CC_SPR=1; else CC_SPR=0; fi
+[ "$CC_SPR" = "$SPR_MODE" ] || { echo "ERROR: C y asm tienen distinto SPR_OAM; recompilar sin NOCC"; exit 1; }
 [ -f work/cc/spr.lv ] || cp ../smw-src-master/project/mw_e10/levels/data/world_1/1/spr.lv work/cc/spr.lv
 [ -f work/yi1_s.dat ] || $PY tools/mkscroll.py
 [ -f work/cc/gfx32f.bin ] && [ -f work/cc/mario_pal.bin ] || $PY tools/mkmario.py
@@ -28,5 +40,6 @@ if [ ! -f work/yi1_replay.bin ] || [ work/logicbench.bin -nt work/yi1_replay.bin
 fi
 "$VBCC/bin/vasmm68k_mot$X" -quiet -Fbin -m68000 $GDEFS -I player -I . -L "$OUT/game.lst" \
     -o "$OUT/game.bin" player/game.s
+$PY tools/piccheck.py --lst "$OUT/game.lst"
 $PY tools/mkadf.py --boot work/boot.bin --stage2 "$OUT/game.bin" --data work/yi1_s.dat \
     --out "$OUT/game.adf"

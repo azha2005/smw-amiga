@@ -197,6 +197,9 @@ void mcoll_init(void)
 #ifdef LOGIC68K
 u8 f44d_c(void);                /* la referencia; f44d_asm cae aca con wm_8E */
 u8 f44d_asm(void);
+#ifdef SPR_OAM
+u8 f44d_asm_bridge(void);       /* pic68k.s: cercano al C, destino con delta largo */
+#endif
 /* f44d_asm, con un bloque de los interruptores P: lo que hace el C */
 u8 f44d_tail(u8 a);
 u8 f44d_tail(u8 a)
@@ -252,7 +255,11 @@ out:
     return a;
 }
 #ifdef LOGIC68K
+#ifdef SPR_OAM
+#define f44d f44d_asm_bridge     /* player/pic68k.s */
+#else
 #define f44d f44d_asm            /* player/logic68k.s */
+#endif
 #endif
 
 /* CODE_00F443: carry = ((XPos + 4) & $0F) >= 8 */

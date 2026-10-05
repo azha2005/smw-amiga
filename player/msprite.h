@@ -35,7 +35,8 @@
 
 /* G8: las rutinas de graficos escriben la OAM de la SNES en ram[]
    (player/spr_gfx.c). Todo build sin NOOAM (el marioverify del PC) o con
-   -DSPR_OAM; el de la Amiga y libport.so (NOOAM) no. */
+   -DSPR_OAM. En la Amiga se activa con NOOAM + SPR_OAM: Mario conserva
+   su buffer propio y las rutinas de sprites escriben ram[] en la logica. */
 #if !defined(NOOAM) && !defined(SPR_OAM)
 #define SPR_OAM 1
 #endif

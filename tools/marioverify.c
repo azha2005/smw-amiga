@@ -816,6 +816,31 @@ static void game_load(long i, const int *follow, const u8 *spr)
    Se cuenta por numero de sprite (el que corrio) y, para el Rex, tambien
    contra la grabacion del frame anterior y del siguiente (desfase). */
 #define OREC_G 645
+/* Puerta del despacho 68000: estados PRE/POST calculados por el C en modo
+   game, incluidos los temporizadores no grabados por la SNES. Opt-in;
+   la salida queda en work/ (R9), nunca en el repo. */
+#ifdef SPR_OAM
+static FILE *oam_trace;
+static u8 oam_trace_ram[0x2000], oam_trace_map[0x8000];
+
+static void trace_u32(unsigned n)
+{
+    u8 b[4] = { (u8)n, (u8)(n >> 8), (u8)(n >> 16), (u8)(n >> 24) };
+    fwrite(b, 1, 4, oam_trace);
+}
+
+static void trace_sprite(long i, u8 k, u8 num, const u8 *map, size_t mlen)
+{
+    u8 b[4] = { k, num, spr_oam_first[k], spr_oam_n[k] };
+    if (!spr_oam_n[k]) return;               /* no hubo rutina grafica portada */
+    trace_u32(frame_of(i));
+    fwrite(b, 1, 4, oam_trace);
+    fwrite(oam_trace_ram, 1, sizeof oam_trace_ram, oam_trace);
+    fwrite(oam_trace_map, 1, mlen, oam_trace);
+    fwrite(ram, 1, sizeof ram, oam_trace);
+    fwrite(map, 1, mlen, oam_trace);
+}
+#endif
 static unsigned char *oam_db;               /* NULL: sin <oraculo>_oam.bin */
 static const char *oam_path;
 static long oam_fr[256], oam_ok[256], oam_ord, oam_shift[3], oam_shown, oam_rexorc, oam_rexrun;
@@ -951,6 +976,14 @@ static int run_game(const char *sprpath, const char *mappath)
     if (!f) { perror(mappath); return 2; }
     mlen = fread(map0, 1, sizeof map0, f);
     fclose(f);
+#ifdef SPR_OAM
+    if (getenv("GAME_OAM_TRACE")) {
+        oam_trace = fopen(getenv("GAME_OAM_TRACE"), "wb");
+        if (!oam_trace) { perror(getenv("GAME_OAM_TRACE")); return 2; }
+        fwrite("SOT1", 1, 4, oam_trace);
+        trace_u32((unsigned)mlen);
+    }
+#endif
     spr_level = spr;
     map16_lo = map;
     map16_hi = map + mlen / 2;
@@ -1108,7 +1141,16 @@ static int run_game(const char *sprpath, const char *mappath)
                 int u = mario_unsupported;
                 unsigned ev = mario_events;
                 mario_unsupported = 0;
+#ifdef SPR_OAM
+                if (oam_trace) {
+                    memcpy(oam_trace_ram, ram, sizeof ram);
+                    memcpy(oam_trace_map, map, mlen);
+                }
+#endif
                 sprite_run((u8)k);
+#ifdef SPR_OAM
+                if (oam_trace) trace_sprite(i, (u8)k, (u8)pnum[k], map, mlen);
+#endif
                 if (mario_unsupported) follow[k] = 0;
                 mario_unsupported = u;
                 (void)ev;
@@ -1238,6 +1280,13 @@ static int run_game(const char *sprpath, const char *mappath)
     if (astart)
         printf("       arranques de animacion portada: %ld (del oraculo, no del port: %ld)\n", astart, astart_inj);
     oam_report();
+#ifdef SPR_OAM
+    if (oam_trace) {
+        int err = ferror(oam_trace);
+        if (fclose(oam_trace) || err) return 2;
+        oam_trace = NULL;
+    }
+#endif
     return 0;
 }
 

@@ -23,7 +23,13 @@ cd "$(dirname "$0")/.."
 VBCC=${VBCC:-/c/Users/JC/vbcc}
 X=; [ -f "$VBCC/bin/vbccm68k.exe" ] && X=.exe
 OUT=work; CC=work/cc; EXTRA=
-CDEFS=${CDEFS--DNOOAM}          # build de la Amiga: sin OAM (8.2); CDEFS= la incluye
+CDEFS=${CDEFS--DNOOAM}          # opt-in: CDEFS="-DNOOAM -DSPR_OAM" (Mario asm, OAM de sprites)
+# msprite.h enciende SPR_OAM si no hay NOOAM; el asm tiene que ver lo mismo.
+case " $CDEFS " in
+    *" -DSPR_OAM"*) LBDEFS="$LBDEFS -DSPR_OAM" ;;
+    *" -DNOOAM"*) case " $LBDEFS " in *" -DSPR_OAM"*) echo "ERROR: SPR_OAM en LBDEFS requiere el mismo flag en CDEFS"; exit 1 ;; esac ;;
+    *) LBDEFS="$LBDEFS -DSPR_OAM" ;;
+esac
 case "$CDEFS" in *NOOAM*) ;; *) LBDEFS="$LBDEFS -DE2BD_OFF=1" ;; esac   # mario_E2BD en asm: solo NOOAM
 if [ -n "$PROF" ]; then
     OUT=work/prof; CC=work/prof/cc; EXTRA=-inline-size=0
@@ -85,4 +91,5 @@ if [ -n "$PROF" ]; then
 fi
 "$VBCC/bin/vasmm68k_mot$X" -quiet -Fbin -m68000 $LBDEFS -I player -I . -L $OUT/logicbench.lst \
     -o $OUT/logicbench.bin $HARNESS
+python tools/piccheck.py --lst "$OUT/logicbench.lst"
 [ -n "$PROF" ] || python tools/mkadf.py --boot work/boot.bin --stage2 work/logicbench.bin --out work/logicbench.adf

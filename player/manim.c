@@ -19,6 +19,7 @@
 #include "gen/smwram.h"
 #include "gen/smwtab.h"
 #include "smwmac.h"
+#include "msprite.h"                     /* SPR_OAM y marcas de las fichas escritas */
 
 #ifndef NumWalkingFrames
 #define NumWalkingFrames (DATA_00DC7C - 4)  /* .DB 1,2,2,2 justo antes */
@@ -432,18 +433,25 @@ u8 level_sprites;          /* 1: level_frame corre tambien los sprites (etapa 9)
 
 void level_frame(void)
 {
-#ifndef NOOAM
+#if !defined(NOOAM) || defined(SPR_OAM)
     u8 *p = ram + 0x0201;                   /* wm_ClearOam: la Y de las 128 */
 #endif
+#ifdef SPR_OAM
+    u8 k;
+#endif
     W8(wm_FrameA, R8(wm_FrameA) + 1);       /* entradas a $F0 (fuera de pantalla), */
-#ifndef NOOAM
-    /* NOOAM (build de la Amiga): la OAM no la lee nadie; la dibuja la 6b.4 */
+#if !defined(NOOAM) || defined(SPR_OAM)
+    /* Con SPR_OAM tambien se limpia en la Amiga; Mario conserva su buffer
+       propio con NOOAM. Una ranura borrada no deja fichas del frame anterior. */
 #define CLR4(o)  p[o] = 0xF0; p[(o) + 4] = 0xF0; p[(o) + 8] = 0xF0; p[(o) + 12] = 0xF0;
 #define CLR16(o) CLR4(o) CLR4((o) + 16) CLR4((o) + 32) CLR4((o) + 48)
     CLR16(0) CLR16(64) CLR16(128) CLR16(192)        /* desenrollado: el bucle */
     CLR16(256) CLR16(320) CLR16(384) CLR16(448)     /* costaba ~800 ciclos mas */
 #undef CLR16
 #undef CLR4
+#endif
+#ifdef SPR_OAM
+    for (k = 0; k < 12; k++) spr_oam_n[k] = 0;
 #endif
     mario_unsupported = MARIO_OK;
     camera_F6DB();

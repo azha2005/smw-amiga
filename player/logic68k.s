@@ -13,7 +13,7 @@
 ; (_ram(a4), _map16_lo(a4)...). Las direcciones de ram[] salen de
 ; work/cc/smwram.i (lo genera logicbench_build.sh desde gen/smwram.h).
 ;----------------------------------------------------------------------
-
+        include "player/picmacros.i"       ; tambien visible al verificador ABI
 ;----------------------------------------------------------------------
 ; u8 spr_tile_asm(u8 x, u8 y) = spr_tile de msprite.c (CODE_019441 /
 ; _01944D / CODE_0194BF): el bloque bajo el punto de choque y del sprite x.
@@ -185,7 +185,7 @@ _f44d_asm:                                  ; solo d2 se guarda: base en a1
         cmp.b   #$10,d1
         bhs.s   .ret
 .sw:    move.l  d2,-(sp)                    ; interruptores P: f545 en C
-        jsr     _f44d_tail
+        PICCALL _f44d_tail                  ; tambien el build normal excede 32 KB (P102)
         addq.l  #4,sp
         moveq   #0,d2
         move.b  d0,d2
@@ -196,7 +196,8 @@ _f44d_asm:                                  ; solo d2 se guarda: base en a1
         moveq   #0,d0
         move.l  (sp)+,d2
         rts
-.c:     jmp     _f44d_c
+.c:
+        PICJUMP _f44d_c
 
 ;----------------------------------------------------------------------
 ; void spr_pos_axis_asm(u8 x, u8 o) = spr_pos_axis de msprite.c
@@ -531,6 +532,9 @@ _rex_main_asm:
         move.b  12+7(sp),d2                 ; x
         lea     _ram(a4),a2
         lea     (a2,d2.w),a3
+        ifd     SPR_OAM
+        CALLX   _rex_gfx                    ; misma fase que RexGfxRt, antes de la fisica
+        else
         tst.b   wm_SpriteDecTbl3(a3)        ; RexGfxRt
         beq.s   .g1
         move.b  #5,wm_SpriteGfxTbl(a3)
@@ -538,6 +542,7 @@ _rex_main_asm:
         beq.s   .g2
         move.b  #2,wm_SpriteGfxTbl(a3)
 .g2:    CALLX   _get_draw_info_asm
+        endc
         cmp.b   #$08,wm_SpriteStatus(a3)
         bne     .ret
         tst.b   wm_SpritesLocked(a2)
