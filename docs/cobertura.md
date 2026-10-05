@@ -146,31 +146,29 @@ Las que tienen líneas sin ejecutar, de más a menos. Los tramos son líneas del
 
 ## Notas (a mano)
 
-Clasificación del 2026-10-03 (primera corrida: 80 % de las líneas). Qué
-tiene YI1: `AGENTS.md` D3 y D12. Lo que dice "a confirmar" no se miró en
-el mapa del nivel.
+Clasificación actualizada el 2026-10-05 tras R10 (ola 3 del 2026-10-04).
+Qué tiene YI1: `AGENTS.md` D3 y D12. Lo que dice "a confirmar" no se miró
+en el mapa del nivel.
 
-**Importan para YI1 y ninguna grabación lo recorre** (candidatas a un
-guion de snesorc nuevo, como las R de `SUBAGENTES.md`):
+**Huecos de R10 que ya tienen grabación:**
 
-1. **Salto con giro sobre un enemigo** (`spr_spin_kill`, `_01A924`): el
-   Rex y el Koopa se deshacen en humo. Nunca corre: ninguna grabación pisa
-   un enemigo con giro. Guion: giro sobre un Rex y sobre el Koopa `$BD`.
-2. **Matar al Chuck** (`chuck_die`, `_02C7B1`): el tercer pisotón o con la
-   estrella. `oracle_chuck` lo pisa pero no lo mata; además `chuck_run`
-   tiene 23 de 59 líneas sin correr (muriendo, `CODE_02C217`, y estados
-   del salto). Guion: tres pisotones al Chuck.
-3. **Mirar arriba parado** (`mario_CEB1` l. 151, `OWCreditsPose = 3`): la
-   pose de apretar arriba quieto. Trivial de grabar.
-4. **Caparazón que se frena y Koopa que se mete en un caparazón**
-   (`shell_stun_0b`, `spr_spr_contact` en `shellless_koopa`): con el
-   caparazón rojo `$DB` y el Koopa `$BD` del nivel puede pasar. El segundo
-   termina en `spr_unsup` (no portado): primero portarlo, después grabarlo.
-5. **Bloques giratorios** (`blocks_update` l. 429-445, `TurnBlockSpr`: el
-   giro y el tiempo de giro) y **varios bloques rebotando a la vez**
-   (`bounce_spawn` l. 372-391, sin ranura libre): a confirmar que YI1
-   tenga bloques giratorios; si los tiene, golpear uno desde abajo y
-   pisarlo girando.
+- **Salto con giro sobre un enemigo** (`spr_spin_kill`, `_01A924`):
+  `oracle_spin_kill` lo recorre; quedan ramas sin ejecutar, indicadas arriba.
+- **Matar al Chuck** (`chuck_die`, `_02C7B1`): `oracle_chuck_kill` lo
+  recorre. Parte de `chuck_run` sigue sin ejecutar.
+- **Mirar arriba parado** (`mario_CEB1`, `OWCreditsPose = 3`): ya corre
+  en las grabaciones de R10.
+- **Bloques giratorios** (`blocks_update`, `TurnBlockSpr`): YI1 sí tiene
+  Map16 `$11E` (P101), y `oracle_turn_block` recorre el giro. Quedan ramas
+  del rebote y del temporizador sin ejecutar.
+
+**Importan para YI1 y siguen pendientes:**
+
+- **Koopa que se mete en un caparazón** (`spr_spr_contact` en
+  `shellless_koopa`): la rutina sigue sin portar y termina en `spr_unsup`;
+  primero portarla y después grabarla.
+- **Varios bloques rebotando a la vez** (`bounce_spawn`, sin ranura libre):
+  el informe de arriba conserva los tramos que ninguna grabación recorre.
 
 **No importan para YI1** (el nivel no lo tiene; quedan sin verificar a
 propósito):
@@ -184,8 +182,11 @@ propósito):
 - Lo de Yoshi en `powerup_main` (la baya, salir de Yoshi) y `powerup_init`
   (un `$74` puesto por el nivel: YI1 no tiene).
 - Interruptores P (`f545`): a confirmar que YI1 no tenga.
+- `shell_stun_0b`/`shell_set_stunned`: no se dan en YI1. Un `poke` de
+  snesorc no sirve para cubrirlas: el port no ve ese cambio de estado (P101).
 - `unsup`/`spr_unsup`: los avisos de "no portado", que tienen que no correr.
 
 **Cómo seguir:** cada guion nuevo de snesorc entra solo en la próxima
 corrida (`tools/coverage.py` toma todos los `work/oracle_*.txt`). Una
-función de la primera lista que pase a ejecutarse se borra de acá.
+función pendiente que pase a ejecutarse se mueve a los huecos cubiertos;
+las ramas que falten siguen visibles en el informe generado.

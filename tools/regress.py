@@ -6,7 +6,7 @@ corre todas las verificaciones contra el oraculo y compara cada numero con
 tools/baseline.json. Ver ROADMAP.md, regla V1.
 
     python3 tools/regress.py                 # PC (marioverify) + 68000 (m68kverify)
-    python3 tools/regress.py --quick         # solo marioverify (segundos)
+    python3 tools/regress.py --quick         # PC + autoprueba de graficos (segundos)
     python3 tools/regress.py --level         # + conversor del nivel (render_d.py, numpy)
     python3 tools/regress.py --emu logic,scrollbench,scrollimg   # + FS-UAE (minutos)
     python3 tools/regress.py --shots DIR     # lee capturas ya hechas (p. ej. WinUAE en la PC):
@@ -243,6 +243,31 @@ def game_oam_checks(r, k, out):
     t = num(r"oam: fuera de orden (\d+)", out)
     if t:
         r.put(k + "oam.fuera_de_orden", t[0], "min")
+
+
+def sprgfx_checks(r):
+    """G3a: verificar todas las poses de las grabaciones OAM disponibles.
+    Los .bin derivados no van en git (R9): su ausencia avisa, no pasa por
+    una comprobacion hecha. Un fallo de la herramienta si falla la puerta.
+    """
+    oams = sorted(glob.glob(os.path.join(WORK, "oracle_*_oam.bin")))
+    if not oams:
+        r.note("mksprgfx (AVISO)", True,
+               "saltado: faltan work/oracle_*_oam.bin; no se verificaron las poses de sprites")
+        return
+    missing = [os.path.basename(p)[:-4] + "_oam.bin"
+               for p in sorted(glob.glob(os.path.join(WORK, "oracle_*.txt")))
+               if not os.path.exists(p[:-4] + "_oam.bin")]
+    if missing:
+        warning = "faltan %d grabaciones OAM: %s; se verifican las disponibles" % (
+            len(missing), ", ".join(missing))
+        r.note("mksprgfx (AVISO)", True, warning)
+        r.logs["mksprgfx grabaciones faltantes"] = warning
+    code, out = sh([PY, "tools/mksprgfx.py", "--selftest"], timeout=300)
+    r.logs["mksprgfx --selftest"] = out
+    r.note("mksprgfx --selftest", code == 0,
+           "%d grabaciones OAM disponibles, ida y vuelta planar OK" % len(oams)
+           if code == 0 else "codigo %d: %s" % (code, out[-300:]))
 
 
 # oraculos guionizados de snesorc (tools/snesorc/*.orc -> work/oracle_X.txt,
@@ -603,7 +628,7 @@ def compare(r, base, ignore=()):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[1])
-    ap.add_argument("--quick", action="store_true", help="solo marioverify")
+    ap.add_argument("--quick", action="store_true", help="PC + autoprueba de graficos, sin 68000")
     ap.add_argument("--no-build", action="store_true", help="no recompilar (NO recomendado)")
     ap.add_argument("--level", action="store_true", help="tambien la cadena del nivel (etapa 5)")
     ap.add_argument("--emu", default="", help="logic,scrollbench,scrollimg (FS-UAE, minutos)")
@@ -628,6 +653,7 @@ def main():
         return 0
 
     r = Run()
+    sprgfx_checks(r)
     ok_pc, ok_68k = (os.path.exists(MV), not a.quick) if a.no_build else build(r, not a.quick)
     pc = pc_checks(r) if ok_pc else {}
     if ok_pc:
