@@ -1008,37 +1008,36 @@ los pasos originales de cada etapa, en §5.
 
 ### 10.6 Los sprites que faltan: dibujo (9.2)
 
-- **Falta:** todo. Hoy los enemigos se simulan pero **no se ven**; Mario
-  pisa Rex invisibles, y eso puede ser el "doble salto" que vio el usuario.
-- **Cómo lo haría:**
-  - **Frames precalculados** por pose en chip, en el formato del DMA de
-    sprites (pares adosados de 15 colores). Son pocos: el Rex tiene ~8
-    frames de 16×32 contando el volteo, ~270 B cada uno. En total, menos de
-    30 KB.
-  - **Columnas:** hay 4 adosadas. Mario usa 1 o 2 según el ancho de la
-    pose, y el resto va a los enemigos.
-  - **Reuso vertical:** un canal sirve a varios objetos si entre uno y otro
-    queda al menos una línea libre. Dos formas: las palabras de control del
-    siguiente en el mismo flujo, que obliga a copiar los datos; o un
-    `SPRxPT` nuevo por copper en la línea libre, que no copia nada. Elijo
-    la segunda; la copia queda para cuando el copper no tenga ranura.
-  - **Colores:** los pares adosados usan todos COLOR17-31, así que Mario y
-    un enemigo en la misma línea comparten la paleta. Medido: la peor unión
-    son 11 colores (≤ 15). El copper recarga por línea solo lo que cambia
-    (`copsim.py` es la referencia).
-  - **Bobs:** cuando no alcanzan las columnas, casi siempre el Banzai
-    Bill (64×64) va a PF1 como bob (`d8demote.py`: 1,8 % de los frames
-    quedan con algún color aproximado). PF1 tiene **un solo buffer**
-    (circular): el bob se borra y se dibuja **detrás del haz** (cuando el
-    haz ya pasó esas líneas) o se paga un segundo buffer de PF1 (+59 KB de
-    chip). Lo decide el diseño G2, con la medida.
-- **Riesgos:** el ancho de banda del copper en las líneas con muchas cargas
-  de la capa 1 y a la vez colores de sprites (las 1916 cargas que no entran
-  de `copsim.py` son todas de la capa 1); el orden de prioridad
-  sprite/playfield (`BPLCON2`).
-- **Verificación:** `sprcop_verify.py` contra `copsim.py` y capturas del
-  replay con los enemigos, contra la OAM grabada.
-- **Tarjetas:** G1-G7.
+- **G2 documentado el 2026-10-05:** [diseño e interfaces](docs/diseno-9.2.md).
+  G8 escribe OAM de Rex y rutinas compartidas en el PC; G3a convierte las
+  fichas (227/227 poses en las grabaciones actuales). Los enemigos todavía
+  **no se ven** en la Amiga: faltan G3 final, G4/G6, G5/G9 y G7.
+- **Decisiones de implementación:** OAM en la lógica en su fase original;
+  foto de O5 ampliada con OAM/cámara/pertenencia a ranura en slow RAM;
+  cuatro parejas adosadas, descontando las una o dos de Mario; Banzai
+  siempre bob; desbordes con destino explícito, sin descartarlos.
+- **Reuso:** PT + POS/CTL por copper, conforme a la medida G0 a 256 px.
+  Contar hasta 8 MOVE por pareja (6 si los punteros comparten banco de
+  64 KiB). El encadenado queda como alternativa por objeto; no asumir
+  válida la ventana de una línea a partir del modelo de 320 px.
+- **Color:** G3 debe remapear los índices de cada paleta a COLOR17-31,
+  respetando los de Mario. La unión de 11 colores medida con poses de
+  referencia no verifica todas las poses. Autoprueba de píxeles y tamaño
+  de las variantes antes de aprobar el banco de 64 KiB.
+- **Bobs:** segundo PF1 (+59 136 B), para conservar la imagen publicada
+  cuando O5 repite un frame. G7 restaura y dibuja en el buffer libre, y
+  publica al terminar los blits. Los casos sin color exacto de
+  `d8demote.py` siguen pendientes.
+- **Memoria:** mapa actual de replay: chip 390 704 B. Con banco de poses,
+  segundo PF1 y audio: 580 912 B. C2/C4 deben sacar las tablas de CPU
+  (135 468 B) de chip antes de integrar todo; quedarían 78 844 B para
+  HUD, listas adicionales, flujos encadenados y subzona. Es una reserva
+  de diseño, no el tamaño final demostrado de los assets.
+- **Puertas:** OAM real del 68000 contra grabaciones; asignación y píxeles
+  reconstruidos exactos; capturas contra la OAM; `memmap`; coste de lógica
+  con OAM ≤40 %, preparación de sprites ≤8 %, ticks/fotos perdidos O5
+  medidos en cycle-exact. Detalle y comandos en el diseño y sus informes.
+- **Tarjetas:** G0, G3-G9, C2/C4; Z1, H1 y A1/A2 según sus dependencias.
 
 ### 10.7 Carga y memoria (6b.1)
 
