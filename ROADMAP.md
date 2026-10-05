@@ -51,8 +51,7 @@
 |---|---|
 | `master` | base hasta el 2026-09-27: primer ADF jugable (etapas 0, 6.1-6.3, 8.2, 6b) |
 | `claude/brave-ritchie-mm5o6r` | sesión cloud del 2026-09-30, sobre `master`: oráculos sin usuario (snesorc), Etapa 9.1 (6 sprites más, `game` sin resincronizaciones), entrada y modo diagnóstico (6b.7), tres bugs arreglados (cámara vertical, copper de la línea 255, `mario_sprite` mal compilado) y herramientas de la 6.4. **Mergeada a `master` el 2026-09-30** (pedido del usuario, avance rápido) |
-| `wt/g0-next`, `wt/gfx-regress-next` | P51 (`0361736`) y el banco SX/SX2 (`tools/sxverify.py`, `docs/validacion-sx.md`). **Integradas a `master` el 2026-10-05** con la baseline de coste actualizada (pedido del usuario). Las capturas y ADF quedan en `../wt-gfx-regress-next/work/sxverify/` (fuera de git, R9) |
-| `wt/oam-next` (`../wt-oam-next`) | limpia; su commit `3def3e4` es el mismo cambio que `cf2ce56` en `master`. Se puede borrar |
+| `wt/*` de la ola 3 y su continuación | G2/G0/OAM opt-in (`cf2ce56`), P51 (`0361736`) y el banco SX/SX2 (`1258ce9`). **Integradas a `master` el 2026-10-05** con la baseline de coste actualizada, pusheadas, y ramas y worktrees borrados (pedido del usuario). Capturas y ADF de SX en `work/sxverify/` (fuera de git, R9; sus `capture_*.ps1` apuntan al worktree viejo: `sxverify.py --build` los regenera) |
 
 - 2026-09-30: trabajo en paralelo con 4 subagentes, cada uno en su worktree; el
   coordinador integró, arregló lo que quedó flojo y verificó todo junto.
@@ -293,12 +292,36 @@ abajo queda como referencia histórica.
    el codo. Coste: `build_mid` máx. 75 816 → 80 868 (+6,7 %), total del
    juego 117 796 → 119 998 (+1,9 %).
 
-**Lo siguiente, en orden:** medir OAM/O5 integrado antes de
-activarlo por defecto; **G3 final** (poses recortadas, remapeo de colores,
-banco y máscaras) → **G4 + G6** (asignador y reconstrucción exacta) →
-G5 + G9. C2/C4 antes de añadir el segundo PF1 y G7. Z1, H1 y A1/A2 según
-sus dependencias. S5 sigue acotado al pico de vuelta s≈4580 y por detrás
-del dibujo: O5 evita que ese render atrase la lógica.
+### Próximamente (plan al 2026-10-05)
+
+Lo que viene, en orden. Cada paso con su puerta; nada empieza con el
+anterior en rojo.
+
+1. **Medir OAM + O5 integrado en WinUAE** (`game.s` con
+   `CDEFS='-DNOOAM -DSPR_OAM'`, `-DBENCH`, cycle-exact). En Musashi la OAM
+   sube el máximo de `level_frame` un 19,7 %; falta el número real con DMA
+   y cuántos ticks lógicos pierde O5. Con eso se decide si `SPR_OAM` pasa a
+   ser el modo por defecto (decisión del usuario si cuesta ticks).
+2. **G3 final** (`tools/mksprgfx.py`): poses recortadas, remapeo exacto de
+   color a los sprites de hardware, banco en chip y máscaras de bob, con
+   autoprueba de ida y vuelta en todas las poses de los oráculos.
+3. **G4 + G6**: asignador de columnas (C de referencia + asm, Mario
+   reservado, cola explícita de bobs) y `sprcop_verify.py` contra
+   `copsim.py`: 0 objetos sin asignar y reconstrucción exacta de píxeles.
+4. **G5 + G9**: `SPRxPOS`/`SPRxPT` y colores por línea en la misma lista
+   que `build_mid` (ojo: P51 ya usa la cola de la línea; las ventanas de
+   G0 son sintéticas), y comparación automática de la imagen de los
+   sprites contra la OAM. **Aquí se ven por primera vez los enemigos en la
+   Amiga.**
+5. **C2/C4** (vlink + loader nuevo) para liberar las ~135 KB de tablas solo
+   de CPU que hoy viven en chip; recién después el segundo PF1 y **G7**
+   (bobs: Banzai Bill y los que no entren en sprites).
+6. En paralelo, según dependencias: **Z1** (reiniciar el nivel tras la
+   muerte, hoy congela), **H1** (medir el HUD superpuesto, D11), **A1/A2**
+   (audio: BRR → PCM y formato N-SPC, D5).
+7. **S5** acotado a una sesión, al pico de la vuelta (s ≈ 4580, ahora
+   111 520 ciclos con P51): con O5 ya no atrasa la lógica, solo saltea
+   imágenes, así que va detrás del dibujo de sprites.
 
 Notas: O5 es el modo por defecto (`-DNODECOUPLE` = bucle viejo); si cambia
 `scroll_frame`, sincronizar `dc_loop` y `gb_scroll_frame` (P97).

@@ -39,6 +39,10 @@ sobre el mapa de memoria). Si falla una de las tres, sube un nivel.
 
 ## 2. Protocolo
 
+> **En la PC Windows** (no en cloud), cada subagente recibe además
+> **`docs/reglas-ola-pc.md`**: entorno (P82), candado de WinUAE, baseline
+> `baseline_pc.json` y reglas fijas. Manda sobre lo de abajo donde choquen.
+
 ### 2.1 Antes de lanzar (coordinador)
 
 ```bash
