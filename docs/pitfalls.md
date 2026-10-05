@@ -375,7 +375,7 @@ escrito antes (`vl = s0 + a` queda por debajo): la ida y la vuelta dan
 imágenes distintas (19 frames, 2 px cada uno). Hay que forzar las dos
 cotas: `vl = s`, `vu = s + 1`.
 
-**P51 — Después de `DDFSTOP` el copper va más rápido (sin medir).**
+**P51 — Después de `DDFSTOP` el copper va más rápido (visto en SX, arreglo sin verificar).**
 El modelo (`scrollsim.py`, `mkscroll.py`) pone cada MOVE encadenado a 16 px
 del anterior, que es lo que pasa con los 6 planos leyendo. Al final de la
 línea (h >= `$C0` a 256 px) el DMA de planos termina y el MOVE cae antes:
@@ -383,6 +383,13 @@ en la captura de 1700 a la vuelta, un WAIT en `$BD` (x = 231) + un MOVE
 detrás cambió el color en x <= 244, no en 247. Afecta a las cadenas que
 cruzan x ~ 232-255. Para arreglarlo: medir esa zona con `copcal.s` y
 meterla en el modelo, o poner un WAIT propio a cada carga en la cola.
+
+2026-10-05: la validación SX lo volvió a ver en s = 1700 (seis píxeles
+alternantes, verdes adelantados sobre x = 247-249). Con 256 px, el MOVE
+siguiente a x = 239 avanza 8 px, no 16. Arreglo propuesto en `wt-g0-next`,
+**sin commitear ni verificar**: `scrollsim.advance()` con ese paso, y en
+`build_mid`/`bm_left` un WAIT propio para cada carga de la cola con
+x > `XKNEE`. Solo se midió a 256 px; no extrapolar a 320.
 
 **P52 — `game.s`: el código del juego queda a más de 32 KB de `binstart`.**
 Los datos del C van primero (P36) y detrás el código del C y de
@@ -787,8 +794,16 @@ seguidos y orden relativo. Un Rex adoptado a mitad de tramo no tiene
 `SpriteMiscTbl6` (no se graba): su pose puede diferir con la lógica exacta
 (`oracle_pipe`). La nube del giro: atributos = `tile & $30`. `GetDrawInfoBnk1`
 lejos cae en `_01A3CD` y escribe Y, m0 y m1; `Bnk3` no. La OAM grabada en el
-registro N es la del frame N (sin desfase, medido). `SPR_OAM` solo se
-enciende en `marioverify`; en la Amiga el Rex es `rex_main_asm`.
+registro N es la del frame N (sin desfase, medido). Desde el 2026-10-05,
+`NOOAM+SPR_OAM` también funciona en el 68000: `rex_main_asm` llama a
+`_rex_gfx` en la fase original. La limpieza incluye las 128 Y y las 12
+cantidades, para que no queden fichas de frames anteriores. La OAM se
+verifica con despachos del modo `game`, no con el `loop` que omite frames
+animados/bloqueados. `spr_oam_first` es un desplazamiento en bytes desde
+`$0300`, no un índice de ficha; `spr_oam_n` incluye las ocultas. Coste
+integrado sin DMA: máximo de `level_frame` 39 026 → 46 718 ciclos
+(+19,7 % relativo), media 28 588 → 32 692 (+14,4 %). Sigue opt-in hasta
+medir DMA/O5. Evidencia y comandos: `docs/oam-amiga.md`.
 
 **P99 — Gráficos de sprites (G3a).** `UploadGFXFile` deja el plano 3
 distinto de 0 en las fichas 0, 1, 16 y 17 del GFX 01 (= bp0|bp1|bp2): no
@@ -801,8 +816,14 @@ las fichas 256-511. Las fichas de Mario se suben por DMA sobre el GFX 00.
 a Mario: quedan 2 o 3 (Mario usa 2 cuando su caja pasa de 16 px). El Rex
 mide 20 px (2 columnas) y el Chuck 24-32. Una pose compartida entre objetos
 no lleva su Y/X: el copper reescribe también `SPRxPOS`/`SPRxCTL` (hasta 2
-MOVE más por canal). G0 está solo en el modelo (`copsim.py`, calibrado a
-320 px, P46): falta medirlo en WinUAE.
+MOVE más por canal). G0 se midió a 256 px en WinUAE cycle-exact:
+PT desde h=$80/$C0 de la línea anterior y POS/CTL desde h=$38 de VSTOP
+dan poses compartidas exactas en ocho canales con carga sintética de color.
+PT desde h=$D8 anterior llega tarde: no usar todo el borrado como ventana.
+El encadenado con gap 1 también pasa. Copiar 1408 B chip→chip cuesta
+7,47-7,52 % del frame durante el DMA de planos y 4,81-4,95 % en VBlank,
+sin armado de listas/encabezados. El modelo de 320 px no sustituye esta
+medida ni prueba las ventanas del copper real; `docs/medida-g0.md`.
 
 **P101 — `poke` en snesorc no lo ve el port (R10).** La grabación guarda el
 estado al final del frame: un `poke` sobre un sprite da 1 frame distinto
@@ -810,6 +831,26 @@ sin que el port ejecute el código que se quería cubrir. YI1 sí tiene
 bloques giratorios (Map16 `$11E`). El `include` de un `.orc` es relativo al
 guion: los guiones de búsqueda viven en `tools/snesorc`. Un Chuck solo
 cuenta el pisotón fuera del estado 3.
+
+**P102 — vasm relaja llamadas lejanas a absolutas (SPR_OAM).** Al crecer
+el binario plano, una llamada fuera de ±32 KB puede ensamblarse como
+`JSR/JMP` absoluto sin error. El juego se carga y se copia en otras bases:
+ese destino sigue apuntando al offset original y salta a datos. El build
+pequeño de logicbench puede pasar mientras el juego integrado falla.
+La OAM descubrió el caso de `mcoll` → `_f44d_asm`; el detector encontró
+también dos fallbacks asm→C ya absolutos en el build normal que los
+oráculos no recorrían. No corregirlo aumentando el rango permitido ni
+añadiendo nombres a una lista de excepciones.
+
+`PICCALL/PICJUMP` calculan el destino desde una etiqueta PC cercana más
+un delta de 32 bits, usando solo registros de trabajo. El puente del C
+queda cerca de `mcoll`; los dos fallbacks usan PIC también por defecto.
+`tools/piccheck.py`, llamado por los dos builds, inspecciona los opcodes
+del listado y rechaza `4EB8/4EB9/4EF8/4EF9`, incluidas relajaciones de
+`BRA/BSR`; un listado vacío falla. Las constantes `dc.l` no cuentan como
+instrucciones. Verificar el binario integrado con `gamecheck --spr`, el
+cruce de RAM/ABI y la regresión normal, sin actualizar baseline para
+ocultar diferencias. Detalle y pruebas negativas: `docs/oam-amiga.md`.
 
 **P44 — Los "derrames" de la etapa 5 alargan el tramo anterior.**
 `mkleveld.py` asigna los píxeles que quedan fuera de todo tramo al registro

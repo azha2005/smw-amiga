@@ -357,7 +357,7 @@ En español. Cada rutina de hardware (blitter/copper) lleva arriba:
 Índice, una línea por trampa. **El texto completo (causa, síntoma, arreglo y
 comandos) está en `docs/pitfalls.md`, textual**: leer ahí las del área que se
 toca antes de cambiar nada. Una trampa nueva se agrega allí y aquí con el
-número siguiente (**la próxima es P102**).
+número siguiente (**la próxima es P103**).
 
 - **P1** El layout de paletas de SMW no es un array 8×16. ✅ RESUELTO
 - **P2** El blitter tiene prioridad sobre la CPU y la "roba" ciclos
@@ -411,7 +411,7 @@ número siguiente (**la próxima es P102**).
 - **P48** En el banco, lo que va delante de los datos del C los corre
 - **P49** `logicbench`: una carga que toca `a4` tiene que guardarlo
 - **P50** `build_mid`: una carga que no vale ni en la s en que se escribe
-- **P51** Después de `DDFSTOP` el copper va más rápido (sin medir)
+- **P51** Después de `DDFSTOP` el copper va más rápido (visto en SX; arreglo sin verificar)
 - **P52** `game.s`: el código del juego queda a más de 32 KB de `binstart`
 - **P53** `mspr_draw` destruye d2
 - **P54** vbcc y el dibujo genérico: 300 000 ciclos
@@ -462,6 +462,7 @@ número siguiente (**la próxima es P102**).
 - **P99** Gráficos de sprites: plano 3 del GFX 01, 16×16 y bit 8 (G3a)
 - **P100** Columnas de sprite: 2-3 libres, el Rex mide 20 px (G1/G0)
 - **P101** `poke` en snesorc no lo ve el port (R10)
+- **P102** vasm relaja llamadas lejanas a absolutas; comprobar el listado (SPR_OAM)
 
 ---
 

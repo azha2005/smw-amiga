@@ -5,6 +5,13 @@
 > los comandos de cada sección, desde `tools/` y con
 > `PATH="$TEMP/pyshim:/c/msys64/ucrt64/bin:$PATH"` (P82).
 
+> **Medida posterior, 2026-10-05:** [G0 en WinUAE a 256 px](medida-g0.md)
+> reemplaza los plazos teóricos y el coste de copia de este estudio.
+> PT temprano + POS/CTL después del control DMA funciona; PT desde h=$D8
+> anterior llega tarde. Copiar 1408 B cuesta ~7,5 % durante el display.
+> El [diseño G2 vigente](diseno-9.2.md) usa esos resultados y distingue las
+> ventanas sintéticas de las que todavía hay que probar en el juego.
+
 ## 0. Resumen para G2
 
 1. **Las herramientas viejas ya cortaban a 256 px**, pero contaban a Mario

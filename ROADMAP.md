@@ -23,7 +23,7 @@
    cuándo está hecho. No se empieza el siguiente con el anterior en rojo.
 3. Al cerrar un paso: commit `Etapa N.x: <qué>` y actualizar §1.2. Si aparece
    una trampa nueva, se agrega como `Pnn` en `docs/pitfalls.md` y en el índice de `AGENTS.md` §8 (la próxima es
-   **P102**).
+   **P103**).
 4. Al cerrar la sesión: handoff con la plantilla de §7, que reemplaza a §1.
 5. Para repartir el trabajo entre subagentes (tarjetas por etapa, niveles,
    olas, mapa de conflictos y protocolo de integración): **`SUBAGENTES.md`**.
@@ -43,7 +43,7 @@
 
 ---
 
-## 1. Handoff (estado al 2026-09-30)
+## 1. Handoff (actualizado al 2026-10-05; estado vigente después de la ola 3 abajo)
 
 ### 1.1 Ramas
 
@@ -52,7 +52,11 @@
 | `master` | base hasta el 2026-09-27: primer ADF jugable (etapas 0, 6.1-6.3, 8.2, 6b) |
 | `claude/brave-ritchie-mm5o6r` | sesión cloud del 2026-09-30, sobre `master`: oráculos sin usuario (snesorc), Etapa 9.1 (6 sprites más, `game` sin resincronizaciones), entrada y modo diagnóstico (6b.7), tres bugs arreglados (cámara vertical, copper de la línea 255, `mario_sprite` mal compilado) y herramientas de la 6.4. **Mergeada a `master` el 2026-09-30** (pedido del usuario, avance rápido) |
 
-- Trabajo en paralelo con 4 subagentes, cada uno en su worktree; el
+| `wt/g0-next` (`../wt-g0-next`) | **2026-10-05, sin commitear:** arreglo de P51 en `player/scroll.s` (`build_mid`/`bm_left`: a 256 px, una carga de la cola con x > `XKNEE` lleva WAIT propio), `tools/scrollsim.py` (`advance()`: 8 px por MOVE después de x = 239) y `tools/scroll_tail_check.py` (nuevo). **Sin verificar**: falta regresión y las capturas SX. Su commit `0d7d51d` es el mismo cambio que `07ef629` en `master` |
+| `wt/gfx-regress-next` (`../wt-gfx-regress-next`) | **2026-10-05, sin commitear:** banco SX/SX2, `tools/sxverify.py` + `docs/validacion-sx.md` (24 ADF: 6 posiciones, ida y vuelta, antes/después de SX). Capturas a medias en `work/sxverify/`; la sección "Resultados" sigue vacía. La rama en sí ya está en `master` |
+| `wt/oam-next` (`../wt-oam-next`) | limpia; su commit `3def3e4` es el mismo cambio que `cf2ce56` en `master`. Se puede borrar |
+
+- 2026-09-30: trabajo en paralelo con 4 subagentes, cada uno en su worktree; el
   coordinador integró, arregló lo que quedó flojo y verificó todo junto.
 - Lo único a medias está fuera del build: `tools/wip64/` (el diseño de la
   6.4, sin ensamblar; lo que falta está en la cabecera de
@@ -74,7 +78,7 @@
 | 8.1 | Grabaciones | **oráculos sin usuario**: `work/snesorc` corre la ROM (U) en el emulador de snesrev/smw con entrada guionizada (`tools/snesorc/*.orc`) y reproduce `oracle_yi1` línea a línea (6871/6871). Grabadas: `normal`, `diagpipe`, `hills`, `banzai`; **ola 1 (2026-09-30, en la PC Windows, P82)**: `hills2`, `chuck`, `shells` (sin pisar al `$02`), `goal` (una altura), `pw_seta`, `pw_flor` (Mario grande por `poke`), `pw_morir_enemigo`, `pw_morir_caida`, `stress_piranha`; `tools/orc_has.py` (qué sprites y qué Mario hay en un oráculo). **Faltan**: `goal_low`/`goal_miss`, R9 `pipe` (notas abajo), punto medio, monedas de Yoshi, estrella, 1-UP, 3-UP, `$C7`, bloques `!`, `stress_back` (a medias: `tools/wipr/`, llega a x `$0BC0`), `stress_sprites`, `stress_vert` (P84) | `tools/snesorc/`, `snesorc_setup.sh`, `snesorc_make.sh` |
 | 8.2 | Optimizar la lógica | **hecha** el 2026-09-27 (peor frame con sprites 40,1 % en WinUAE). Con los sprites nuevos, peor frame en Musashi 43 116 → **45 896** (frame 9715: 2 pirañas, 1 Rex, `$8E`, `$C7`), **~45 % estimado** en la A500 (por encima del 40 %). **L1a (2026-09-30)**: `f7f4` hacia arriba en asm, peor frame con sprites en Musashi (vbcc de la PC) 46 000 → 45 054 | `player/logic68k.s` |
 | 9.1 | Sprites: lógica | Rex, `$83`, `$B9`, **`$BD` Koopa deslizante, `$02` Koopa sin caparazón, `$9F` Banzai Bill, `$4F` piraña, `$8E` warp, `$C7` seta invisible**. `game`: **0 resincronizaciones** de Mario en los 5 oráculos; sprites exactos por tipo en `regress.py`. Faltan Chuck `$95`, caparazón rojo `$DB`, cinta de meta `$7B` y lo de D12 (grabados: `oracle_chuck`, `shells`, `goal`, `pw_*`). **I1 (2026-09-30)**: cada sprite nuevo va en su `player/spr_*.c` (entra por glob en los tres builds; el Rex ya está en `spr_rex.c`, P78) | `player/msprite.c`, `spr_*.c` |
-| 9.2 | Sprites: dibujo | Mario hecho; los del nivel sin empezar (se simulan, no se ven) | `player/mspr.c`, `mspr68k.s` |
+| 9.2 | Sprites: dibujo | Mario hecho. **G2 documentado, G0 medido a 256 px, G3a en regresión y OAM 68000 opt-in verificada (2026-10-05)**. Falta G3 final, asignador, colores/DMA y bobs; los enemigos todavía no se ven en Amiga | `docs/diseno-9.2.md`, `docs/medida-g0.md`, `docs/oam-amiga.md` |
 | 6b | Integración | primer ADF jugable (2026-09-27) + **6b.7** (2026-09-30): entrada como `ControllerUpdate` (P60) y **modo diagnóstico** (P58) con historial del joypad y reproducción en el PC desde una captura. **6b.6 medida (O1, 2026-09-30)**: `game.s -DBENCH` + `game_read.py`; en WinUAE (antes de S1a+S2) peor `build_mid` 84,8 % (s = 1825), `level_frame` 35,6 %, total 127 %, media 46 %, 362 de 6312 frames pasados. Falta la decisión D1 (O4) y 6b.1 (vlink, compresión) | `player/game.s`, `tools/diag_read.py`, `gamesim.py`, `inputtest.py` |
 | 10-12 | HUD, audio, pulido | no empezados | — |
 
@@ -253,44 +257,57 @@ le llevan los números al usuario (D1).
 
 - **2026-10-04, ola 3 integrada:** O5 (render desacoplado, por defecto; `-DNODECOUPLE` = bucle viejo; YI1: 0 frames lógicos perdidos, 11 imágenes salteadas; stress_back: 127, rachas ≤ 2), G8 (OAM de Rex/`SubSprGfx2Entry1` exacta, solo con `SPR_OAM` en el PC), G3a (`mksprgfx.py --selftest` 226/226), G1+G0 (`docs/estudio-g1-g0.md`: 2-3 columnas libres, Rex 2 columnas, recargar por copper; G0 sin medir en WinUAE), R10 (`spin_kill`, `chuck_kill`, `turn_block`). O1 en WinUAE: `docs/informe-d1.md` §5. Trampas P96-P101. **Falta:** G2 (diseño), notas a mano de `docs/cobertura.md`, capturas SX/SX2.
 
-### Pendiente al cerrar la ola 3 (2026-10-04) — EMPEZAR POR AQUÍ
+### Continuación de la ola 3 (2026-10-05) — EMPEZAR POR AQUÍ
 
-La ola 3 está integrada en `master` (commit `ab51d16`), regresión OK con
-`tools/baseline_pc.json` actualizado. El plan de abajo ("Próxima sesión,
-2026-10-03") ya se ejecutó; lo que quedó sin hacer, en orden:
+La ola 3 (`ab51d16`) está integrada. La continuación usa
+`tools/baseline_pc.json` **sin modificarlo**. El plan del 2026-10-03 de
+abajo queda como referencia histórica.
 
-1. **G2, el diseño del dibujo de sprites (coordinador, Opus).** Escribirlo
-   en la Etapa 9.2 con: `docs/estudio-g1-g0.md` (2-3 columnas libres, Rex
-   = 2 columnas, Banzai siempre bob, recargar `SPRxPT` por copper + 2 MOVE
-   de `SPRxPOS/CTL`, todas las poses en un banco de 64 KB), G8 (OAM exacta
-   de Rex/`SubSprGfx2Entry1`, coste +13,7 % en `level_frame` si se enciende
-   en la Amiga: P98), G3a (`tools/mksprgfx.py`, ~11 KB de fichas, 22 KB con
-   flip: P99) y O5 (la foto `(cámara, OAM)` del render: P97). Decidir dónde
-   corren las rutinas de gráficos (lógica o render) y el presupuesto de chip.
-2. **G0 medido en WinUAE**: hoy es solo modelo (`copsim.py` a 320 px,
-   P46/P100). Banco `player/bench_g0.s` en las líneas más cargadas.
-3. **Encender `SPR_OAM` en la Amiga**: en `logic68k.s`, cambiar el bloque
-   `RexGfxRt` de `rex_main_asm` por `CALLX _rex_gfx` (+0,6 KB de datos del
-   C, P36). Depende de lo que decida G2.
-4. **`docs/cobertura.md`, "Notas (a mano)"**: están viejas; `spr_spin_kill`,
-   `chuck_die` y mirar arriba ya corren (R10). Siguen sin cubrir
-   `shell_stun_0b`/`shell_set_stunned` (no se dan en YI1; `poke` no sirve,
-   P101) y `spr_spr_contact` (sin portar).
-5. **Capturas SX/SX2 contra master** (ida 500-4500 y vuelta, P94): pedidas
-   desde el 2026-10-01, sin hacer.
-6. **`mksprgfx.py --selftest` en `regress.py`**, saltándolo con aviso si
-   faltan `work/oracle_*_oam.bin`.
-7. **S5 acotado** al pico del scroll a la vuelta (s ≈ 4580, Opus, una
-   sesión como máximo). Con O5 ya no atrasa el juego: es una imagen
-   salteada (`stress_back`: 127 de 4126), así que baja de prioridad.
-8. Después: G4 + G6 (asignador y su verificador), Z1 (reinicio tras la
-   muerte), H1, A1, A2.
+**Integrado y verificado:**
 
-Notas para quien siga: O5 es el modo por defecto de `game.s`
-(`-DNODECOUPLE` = bucle viejo); `dc_loop` es otra copia de
-`scroll_frame` (P97). En la PC, `regress.py` tarda ~10 s: paralelizarlo no
-vale la pena; lo lento son las capturas de WinUAE (~220 s), que se pueden
-lanzar de a 3 por el candado desde copias del worktree.
+1. **G2:** [diseño e interfaces](docs/diseno-9.2.md), resumido en §10.6.
+   OAM en la lógica original; foto O5 inmutable con propiedad de fichas;
+   Mario reservado, Banzai bob y cola explícita para excedentes. El banco
+   DMA propuesto, segundo PF1 y audio requieren liberar tablas CPU de chip
+   (C2/C4); no caben todos en el mapa actual.
+2. **G0 real a 256 px:** [banco y resultados](docs/medida-g0.md).
+   Poses compartidas exactas en ocho canales con PT en la línea anterior
+   y POS/CTL después del control DMA. PT desde h=$D8 llega tarde.
+   Cadena gap 1 exacta; copia de 1408 B cuesta ~7,5 % activo, ~4,9 % VBlank.
+   Carga sintética 8+6 MOVE: todavía falta demostrar ventanas con el copper
+   real, audio y blitter concurrentes (G5/G7).
+3. **OAM 68000:** `CDEFS='-DNOOAM -DSPR_OAM'`, opción coherente C/asm;
+   [puertas y comandos](docs/oam-amiga.md). Rex YI1 2671/2671, RAM/mapa/ABI
+   exactos; juego integrado 0 frames distintos. Máximo de lógica
+   39 026 → 46 718 ciclos (+19,7 % relativo, sin DMA). Limpieza completa
+   de fichas y marcas. Corregidas llamadas lejanas absolutas y añadido
+   `piccheck.py` a ambos builds (P102). **Sigue apagado por defecto** hasta
+   medir O5/DMA integrado; todavía no dibuja enemigos.
+4. **Cobertura manual actualizada** con R10 y **G3a en `regress.py`**, también
+   en `--quick`. Sin OAM grabada avisa y salta; datos presentes corruptos
+   fallan. Autoprueba local: 227/227 poses, 512 fichas × cuatro flips.
+
+**En validación:** SX/SX2, seis posiciones de ida y seis de vuelta,
+baseline anterior a SX contra actual, capturas cycle-exact con historial
+de scroll y comprobación temporal. Se detectaron seis píxeles alternantes
+en s=1700: aceleración del copper después de DDFSTOP, invisible al modelo
+uniforme anterior (P51). El arreglo y el banco están sin commitear en
+`wt-g0-next` y `wt-gfx-regress-next` (§1.1). No dar la puerta por cerrada
+hasta comprobar el arreglo.
+
+**Lo siguiente, en orden:** cerrar SX/SX2; medir OAM/O5 integrado antes de
+activarlo por defecto; **G3 final** (poses recortadas, remapeo de colores,
+banco y máscaras) → **G4 + G6** (asignador y reconstrucción exacta) →
+G5 + G9. C2/C4 antes de añadir el segundo PF1 y G7. Z1, H1 y A1/A2 según
+sus dependencias. S5 sigue acotado al pico de vuelta s≈4580 y por detrás
+del dibujo: O5 evita que ese render atrase la lógica.
+
+Notas: O5 es el modo por defecto (`-DNODECOUPLE` = bucle viejo); si cambia
+`scroll_frame`, sincronizar `dc_loop` y `gb_scroll_frame` (P97).
+Regresión PC: `python tools/lint_port.py` y
+`python tools/regress.py --baseline tools/baseline_pc.json --level`.
+Las capturas deben tener perfiles/archivos privados por worker, máximo
+tres instancias; cerrar solo el PID/ventana propios.
 
 ### Próxima sesión (plan, 2026-10-03)
 

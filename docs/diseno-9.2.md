@@ -19,8 +19,10 @@ separada `SPR_OAM` habilita las rutinas G8 de enemigos, incluido
 `CALLX _rex_gfx` en `rex_main_asm`. Los builds de C y asm deben habilitarla
 juntos. Primero se verifica como opción de compilación: activarla por defecto
 requiere medir el juego integrado con DMA y comprobar que no pierde ticks
-lógicos. El incremento de G8 de 13,7 % es **relativo al coste de
-`level_frame`**, no 13,7 puntos del frame PAL.
+lógicos. La medida integrada de Musashi con OAM, limpieza y puentes PIC pasa
+de 39 026 a 46 718 ciclos máximos (+19,7 %), y de 28 588 a 32 692 de media
+(+14,4 %). Son incrementos **relativos al coste de `level_frame`**, no puntos
+del frame PAL; sustituyen la estimación anterior de G8 (+13,7 %).
 
 G8 cubre Rex, las rutinas compartidas ya portadas y la nube del giro. No cubre
 todavía todas las rutinas de Banzai, Piraña, Chuck, meta ni partículas. Activar
@@ -42,8 +44,12 @@ consulta `ram[]` viva. La cámara Y se guarda aunque S8 todavía no mueva el
 fondo: así la interfaz no presupone Y = 192.
 
 La OAM se limpia/oculta según la fase original cada tick; las cantidades se
-reinician antes del despacho. Una ranura desaparecida no conserva fichas del
-tick anterior. Mario mantiene sus punteros GFX32, que no son fichas estáticas
+reinician antes del despacho. `spr_oam_first` usa un offset de bytes en
+`$0300` (ranura OAM = `64 + first/4`) y `spr_oam_n` incluye fichas con Y =
+`$F0`. Al empaquetar solo fichas visibles, reconstruir primeros índices y
+cantidades; no copiar esas marcas como índices de la foto. Una ranura
+desaparecida no conserva fichas del tick anterior. Mario mantiene sus
+punteros GFX32, que no son fichas estáticas
 del GFX 00 (P99). La pertenencia sale de quien escribe la OAM, no de la
 heurística por proximidad de `g1study.py`.
 
@@ -123,7 +129,12 @@ ordena por Y y prioridad de forma estable. Banzai `$9F` va siempre a bob.
 Las poses anchas piden todas sus columnas; no se asigna media figura.
 
 El reuso por PT busca al menos una línea libre **solo cuando G0 valide el
-plazo para esa pareja y esa carga**. Presupuestar por columna hasta 8 MOVE
+plazo para esa pareja y esa carga**. El banco a 256 px comprueba los ocho
+canales: PT completo desde h=$80/$C0 de la línea anterior, seguido de
+POS/CTL desde h=$38 de VSTOP, da 512 píxeles exactos incluso con 8 MOVE de
+color en borrado y 6 a mitad de línea. PT desde h=$D8 anterior ya falla;
+no usarlo como ventana segura. Es una calibración sintética, no la lista
+completa de las capas del juego. Presupuestar por columna hasta 8 MOVE
 (PT alto/bajo + POS/CTL en ambos canales), más WAIT y colores. Compartir el
 banco baja a 6 MOVE; no elimina POS/CTL. Si no hay plazo, encadenar un flujo
 con controles propios en un buffer de chip de la foto, o mandar el objeto a
@@ -163,7 +174,7 @@ caso y consultar al usuario; no queda autorizada por este diseño.
 ## 5. Memoria y coste
 
 Mapa actual reproducido con `memmap.py work/rg_game/game.lst` el 2026-10-05:
-chip 390 704 B; slow 207 288 B; tablas solo de CPU en chip 135 468 B.
+chip 390 704 B; slow 207 296 B; tablas solo de CPU en chip 135 468 B.
 Estos números corresponden al replay, sin diagnóstico en vivo.
 
 | reserva de chip | bytes |
@@ -194,12 +205,19 @@ aparte. Los ciclos Musashi son cota inferior: P96 propone ×1,05 para lógica y
 media, máximo y frame del máximo, junto con fotos omitidas/ticks perdidos de
 O5. Ninguna cifra del diseño declara que el conjunto ya entra a 50 Hz.
 
+El banco G0 mide copiar 1408 B chip→chip en **7,47–7,52 %** con DMA de seis
+planos activo y **4,81–4,95 %** en VBlank (32 repeticiones, timer CIA-B,
+coste del arnés restado). La alternativa de encadenar no debe presupuestarse
+con el 4,5 % sin DMA del estudio inicial; puede consumir casi todo el 8 %.
+
 ## 6. Puertas y siguiente orden
 
-1. Banco G0 a 256 px: captura y comparación automática de PT/POS/CTL, canales
-   0–7, reuso, poses compartidas y cargas simultáneas. Calibrar el plan de G5.
-2. OAM en Amiga: comparar Rex y rutinas G8 contra grabaciones en el 68000;
-   RAM host/68000 con las mismas opciones; replay y Mario sin diferencias.
+1. ~~Banco G0 a 256 px~~ **hecho el 2026-10-05** (`docs/medida-g0.md`):
+   PT/POS/CTL, canales 0–7, poses compartidas y carga sintética de color.
+   Lo que no cubre (copper real, audio, blitter concurrente) pasa a G5/G7.
+2. ~~OAM en Amiga~~ **hecho el 2026-10-05** como opción `-DNOOAM -DSPR_OAM`
+   (`docs/oam-amiga.md`): Rex 2671/2671, RAM/ABI exactos, replay sin
+   diferencias. Activarla por defecto sigue pendiente de medir OAM/O5 con DMA.
 3. G3: empaquetado, remapeo exacto de color y tamaño del banco comprobados.
 4. G4 + G6: asignador C/asm, cola de bobs explícita, píxeles reconstruidos
    exactos y plazos de cada recarga. No confundirlos con enemigos visibles.

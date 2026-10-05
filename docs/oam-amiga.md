@@ -88,7 +88,8 @@ Cruce de RAM entera de `level_frame`/`level_start_sprites`:
 **6549 llamadas, 0 distintas**, host con `NOOAM+SPR_OAM`.
 
 `memmap` sobre el ADF opt-in: **0 violaciones**, chip **390 704 B**,
-binario slow **210 064 B** (antes 207 288). La OAM vive en RAM de CPU; no
+binario slow **210 064 B** (antes 207 288; el build por defecto actual, sin OAM,
+da 207 296 con `memmap.py`, 2026-10-05). La OAM vive en RAM de CPU; no
 reserva gráficos de enemigos ni banco DMA. `cdata1 < $7FFE` sigue comprobado
 al ensamblar. Las fotos ampliadas propuestas en G2 todavía no están añadidas.
 

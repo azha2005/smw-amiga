@@ -590,6 +590,11 @@ grabaciones de snesorc. Entrega: tabla de líneas que piden más columnas y
 frames sin resolver.
 
 #### G2 — Diseño **(F)**
+**Documentado el 2026-10-05:** `docs/diseno-9.2.md` y ROADMAP §10.6.
+G0 tiene medida real a 256 px en `docs/medida-g0.md`; G8 también corre como
+opción en el 68000 (`docs/oam-amiga.md`). Usar esas interfaces y presupuestos
+para las tarjetas siguientes; el banco sintético no completa G5.
+
 **F · G1** · documento en `ROADMAP.md` Etapa 9.2 (lo escribe el
 coordinador con el informe del F): formato de los frames precalculados
 por pose en chip, reuso vertical de canales, colores por fila, cuándo pasa
@@ -602,9 +607,12 @@ adosados + máscara de bob, con `--selftest` de ida y vuelta (como
 oráculos.
 
 #### G4 — Asignador de columnas (C de referencia + asm)
-**M (F si se traba) · G2 · `player/msprasg.c` (nuevo), `logic68k.s`** ·
+**M (F si se traba) · G2 + G3 · `player/msprasg.c` (nuevo), `logic68k.s`** ·
 objetos → columnas por franja de líneas; la referencia de verdad es
-`copsim.py`.
+`copsim.py`, actualizado con ancho recortado, propiedad OAM y ventanas G0.
+Reservar Mario primero y devolver una cola explícita de bobs para todo
+objeto que no quepa; comprobar la reconstrucción de píxeles además de
+comparar asignadores. Contrato completo: `docs/diseno-9.2.md`.
 
 #### G5 — El copper: `SPRxPOS`/`SPRxPT` y colores por línea en `scroll.s` **(F)**
 **F · G4 · `scroll.s`** · encaja con `build_mid` (misma lista); P39, P42,
@@ -613,9 +621,14 @@ P46.
 #### G6 — `tools/sprcop_verify.py`
 **M · G4** · ROADMAP §8.2 fila 9.2: el asignador del 68000 en Musashi sobre
 los frames de `oam_yi1.txt` contra `copsim.py`. Puerta: 0 objetos sin
-mostrar.
+asignar a DMA o bob, y reconstrucción exacta de posición, pose, orden y
+recorte. G9 verifica por separado la imagen final de WinUAE.
 
 #### G8 — Rutinas de gráficos que escriben la OAM (2026-10-03)
+**68000 opt-in verificado el 2026-10-05:** `docs/oam-amiga.md`.
+No mover las rutinas al render: también modifican el estado lógico.
+La activación por defecto depende de medir DMA y O5 integrados.
+
 **F · — · `player/spr_rex.c`, `player/sprgfx.c` (nuevo), verificador** ·
 el camino de `docs/automatizar-9.2.md` §0: portar `RexGfxRt` y
 `SubSprGfx2Entry1` enteras, escribiendo la OAM ($0200-$03FF, $0420) como
