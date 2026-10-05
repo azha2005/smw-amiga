@@ -1,4 +1,4 @@
-# Investigación: cómo resolvieron otros lo que nos frena (2026-10-03)
+# Investigación: cómo resolvieron otros lo que nos frena (ampliada 2026-10-05)
 
 > Qué es: un relevamiento de ports, motores y juegos de Amiga 500 (y de
 > otras máquinas cuando la idea se traslada) buscando soluciones a los
@@ -12,6 +12,10 @@
 > detalle por problema, con la fuente; §9 las tarjetas propuestas; §10 lo
 > que se buscó y no sirvió (también es resultado); §11-§13 los hilos de
 > EAB y lo de 65816/C/68000; §14 Coppershade y el código de juegos leído.
+> **Ampliación:** §15 actualiza las conclusiones contra el port vigente;
+> §16 contrasta nuevas fuentes primarias; §17 convierte los hallazgos en
+> experimentos con puertas; §18 registra fuentes, límites y pendientes.
+> Las cifras de terceros y los cálculos teóricos **no son medidas del port**.
 >
 > Límite de la búsqueda: **English Amiga Board (eab.abime.net) no se pudo
 > leer** (protección anti-bots); de sus hilos solo hay lo que muestran los
@@ -24,7 +28,7 @@
 | problema nuestro | quién lo resolvió y cómo | qué nos sirve | acción |
 |---|---|---|---|
 | El peor frame pasa del 100 % (D1, O4) | **Robocod** (Chris Sorrell): la lógica corre a 50 Hz fija por interrupción de timer y el bucle principal dibuja "lo antes que puede" las peticiones de render acumuladas | Una cuarta opción para el informe D1: **lógica siempre a 50 Hz, imagen que pierde un frame solo cuando no llega**. Ni 25 Hz fijos ni recortar | §2.1, tarjeta **O5** |
-| Cola de blits por interrupción (ROADMAP §9.6) | **AmiGalaga** lo midió en una A500 de serie: la cola por interrupción **no gana** sin fast RAM, y con `BLTPRI` pierde | No implementar la cola sin medirla antes | §2.2, corrige §9.6 |
+| Cola de blits por interrupción (ROADMAP §9.6) | **AmiGalaga**: sin fast RAM no gana de forma consistente; con `BLTPRI` pierde en los casos publicados | Comparar también máximos; no implementar la cola sin medirla | §2.2, corrige §9.6 |
 | Bobs con un solo buffer de PF1 (10.6) | **Battle Squadron**: borra y redibuja los bobs **detrás del haz**, en franjas de 1/3 de pantalla, sin doble buffer | Confirma la opción "detrás del haz" y ahorra los 59 KB del segundo buffer | §2.3 |
 | `build_mid` (scroll a ≤ 25 %) | **Ningún juego** encontrado hace cargas de color a mitad de línea con scroll horizontal a esta densidad. Los que más copper usan (**Risky Woods**, 27 KB de lista) la tienen **precalculada** y por frame cambian un puñado de palabras | Confirma la dirección S3/S5/S6/S7 (que el cambio por frame no dependa del contenido), y S1c (postes con sprites) | §3 |
 | Cámara vertical (§10.2b) y coste de escribir la lista | **Toni Wilen** (EAB): lista precalculada por línea del nivel, con WAIT solo horizontal, en la que se entra y se sale con `COPJMP`; **DanScott** (Chuck Rock 2): el blitter copia la lista del copper | Mover la cámara en vertical = 2-3 palabras; S8 tiene precedente comercial | §12.1 |
@@ -41,6 +45,12 @@
 | Cargas de color a mitad de línea (`build_mid`) | **png2amiga** ("DPF + strips"): 20 MOVEs por línea cada 16 px en DPF de 6 planos, **calibrados en una OCS real**; Coppershade: con 6 planos un MOVE tarda 16 ciclos dentro del fetch | Confirma nuestro modelo (~14 en el borrado + ~20 visibles). Contrastar su `$E1` en la línea 255 con P59 | §14.1, §14.5 |
 | Presupuesto del blitter | *Cheat Sheet* de Photon: ciclos por combinación de canales, 25 % de la línea libre con 6 planos | B como constante es más barato; los blits caros, durante el HUD | §14.3 |
 | Restaurar el fondo de los bobs | **Knightmare**: restaura desde la otra copia que ya está en el buffer de scroll, sin buffer limpio aparte | Idea para el bob en PF1 (D8) | §14.7 |
+| El DMA cambia mucho el coste según la rutina | **Bartman/Abyss**: perfilador de funciones y ranuras DMA, reproducción del frame y de los blits | Explicar los picos reales y los plazos de G5, sin un multiplicador global de Musashi | §16.1, E01 |
+| Preparación de muchos blits pequeños | **Power Programs, Dual Layer Graphics**: agrupa restauraciones y dibujos, conserva registros | Especializar los lotes de G7 y la columna nueva; medir tiempo total con O5 | §16.2, E03 |
+| Bobs supuestamente 3 veces más rápidos | **Power Programs, Fast Bobs**: copia y autoborrado, pero exige PF delantero vacío y separación entre objetos | No aplicarlo al terreno de PF1; buscar copias exactas solo dentro de regiones opacas | §16.3, E04 |
+| Recarga de sprites contra copiar cadenas | **ACE PR #292**: encadenado DMA, gap 1, sin reasignador automático | Evaluar una combinación por objeto, contando CPU, chip y ventanas reales | §16.5, E02 |
+| Música barata con picos de interrupción | **LSP**: tick y reactivación DMA separados; modo generado a cambio de memoria | Medir las dos fases y su interferencia con O5; eventos en slow, muestras en chip | §16.6, E08 |
+| Cambio de compilador y traducción de lógica | **GCC oficial + SMBNeo/VS**: ABI explícita y C nativo contrastado con traducción de referencia | Separar prueba del compilador de cambios semánticos y conservar el oráculo | §16.7–§16.8, E07 |
 
 ---
 
@@ -86,7 +96,7 @@ quedan (1) seguir optimizando, (2) 25 Hz, (3) recortar, y **(4) lógica a
 50 fija + imagen desacoplada**. Se mide con O1 contando cuántos frames de
 imagen se pierden en el replay y en los escenarios de estrés.
 
-### 2.2 La cola de blits por interrupción no gana en una A500 de serie
+### 2.2 La cola de blits por interrupción no gana de forma consistente en A500
 
 ROADMAP §9.6 propone "columna nueva y bobs en una cola servida por la
 interrupción del blitter". AmiGalaga lo midió (`experiment-7`, misma
@@ -139,8 +149,10 @@ entrevistas). Lo que hacen con el copper a mitad de línea:
 | png2amiga + Scorpion Engine | cambios de paleta por línea con un **presupuesto de cambios por línea** ajustable | fijos por línea; "suits horizontal levels" |
 | Lionheart | copper sobre el playfield delantero para más colores (600+ en pantalla, cambiando de modo según el nivel) | por línea; aviso de la comunidad: los colores de los objetos se rompen cuando se mueven en vertical |
 
-**Ninguno** pone cargas de color en coordenadas del nivel que se mueven
-con el scroll horizontal, que es lo que hace `build_mid`. La lección
+**No se identificó en los casos revisados** un sistema equivalente de
+cargas de color en coordenadas del nivel que se mueven con el scroll
+horizontal y con nuestra densidad, que es lo que hace `build_mid`. Esto
+no demuestra que no exista otro motor que lo haga. La lección
 común: **el trabajo por frame tiene que ser O(pocas palabras),
 independiente del contenido**; todo lo que depende de la posición en el
 nivel va precalculado. Eso apoya, en este orden:
@@ -759,6 +771,12 @@ todos en un mismo banco, es **un** MOVE. G0 se reduce a medir si ese MOVE
 entra en las líneas más cargadas de `copsim.py`; el encadenado por DMA de
 ACE queda como plan B para esas líneas.
 
+**Actualización 2026-10-05:** el párrafo anterior solo presupuestaba el
+puntero de un canal. Para poses compartidas faltan POS/CTL; G0 midió hasta
+8 MOVE por pareja y ventanas más tempranas. Aplicar `medida-g0.md`, G2 y
+§15.1/§16.5 de este documento; el coste de 1 MOVE no es el de una recarga
+completa de objeto.
+
 ### 12.6 "Copper driven blitter waits in WinUAE" (t=105358): cambiar de lista sin riesgo
 
 El hilo empieza como un fallo de blits lanzados por el copper y termina
@@ -859,7 +877,8 @@ Mismo CPU, y bastante más trabajo publicado sobre gcc que en la Amiga:
 - **`-mshort` (int de 16 bits).** ROADMAP §9.7 regla 2: con vbcc `int` es
   de 32 bits y cada `u8`/`u16` se promociona con `ext`/`and.l`. gcc tiene
   `-mshort`, que hace `int` de 16 bits. Nosotros no usamos libc, así que
-  la incompatibilidad de ABI con las bibliotecas no nos toca. **Ojo con
+  hay menos dependencia de bibliotecas, pero sigue habiendo ABI con el
+  asm y los arneses (corrección 2026-10-05: §16.7). **Ojo con
   la semántica:** las promociones cambian (`(u16)x << 8` ya no pasa por 32
   bits), así que todo el C tiene que pasar `regress.py`; la convención
   de §7 (nada de `int` a secas) ayuda.
@@ -889,6 +908,10 @@ Mismo CPU, y bastante más trabajo publicado sobre gcc que en la Amiga:
 "gcc en vez de vbcc". Medir por función con `m68kprof` contra vbcc. Si
 gana, es la mejora más grande y más barata de la lógica: toca el build,
 no el C.
+
+**Revisión 2026-10-05:** §16.7 sustituye ese orden: empezar con ABI y
+tamaños compatibles, y probar `-mshort` aparte. La ganancia no está
+demostrada y la integración no se limita necesariamente al build.
 
 ### 13.4 Los hilos de JOTD en EAB (Pac-Man t=98727, Ms Pacman t=108339)
 
@@ -1220,7 +1243,397 @@ Candidatos que quedan, en orden de valor (no hay tarjetas abiertas):
 
 ---
 
-## Fuentes
+## 15. Revisión contra el estado vigente (2026-10-05)
+
+Esta ampliación se hizo leyendo `ROADMAP.md` (continuación de ola 3),
+`baseline_pc.json`, `informe-d1.md`, `medida-g0.md`, `diseno-9.2.md` y
+las rutinas de columna/copper de `player/scroll.s`. **No se ejecutaron
+nuevos bancos de rendimiento ni se implementaron las propuestas.**
+
+### 15.1 Qué cambió desde la primera investigación
+
+| Afirmación o propuesta anterior | Lectura vigente | Consecuencia |
+|---|---|---|
+| O5 como cuarta opción para D1 (§2.1) | O5 está autorizado e integrado por defecto | Investigar cómo reducir imágenes omitidas y conservar ticks; no volver a proponer 25 Hz |
+| Una recarga de sprite cuesta 1–2 MOVE (§12.5) | Eso cuenta solo PT de **un canal**; con poses compartidas hay que programar también POS/CTL. G0 mide hasta 8 MOVE por pareja, o 6 con banco físico común | Planificar G5 con ese coste, no con el del puntero aislado |
+| El borrado alcanza para la recarga (§14.2) | A 256 px, G0 pierde píxeles con PT desde h=$D8 anterior; desde $80/$C0 anterior hay controles exactos | La ventana medida de `medida-g0.md` prevalece; falta combinarla con colores reales |
+| Un único PF1 detrás del haz ahorra el segundo (§2.3) | G2 prevé segundo PF1 porque O5 debe poder repetir una foto intacta | Battle Squadron sigue siendo antecedente; no reemplaza la propiedad de buffers de G2 |
+| L4, V2 y V3 pendientes (§1) | L4 se probó y descartó; V2/V3 ya están hechas | Buscar cobertura de escenarios y coste de OAM, sin repetir esas tarjetas |
+| Listas enormes con cambios mínimos solucionan el scroll (§3) | Es una dirección útil, no una prueba de que SMW admita O(1) por frame | Dar presupuesto de memoria y semántica a cada precálculo; S5 sigue abierto |
+| Cinco planos como presupuesto general | `build_copper` emite `$01006600`: **seis planos en DPF 3+3** | Todo banco integrado debe reproducir seis fetch, ancho 256 y P51; no usar el banco antiguo de cinco planos como garantía |
+
+### 15.2 Baseline que debe acompañar los experimentos
+
+Los siguientes son **resultados existentes**, no ganancia de esta investigación:
+
+| Métrica | Valor | Entorno / alcance |
+|---|---:|---|
+| `game.total.max` / media | 119 998 / 39 130 ciclos | `baseline_pc.json`, 2026-10-05; Musashi, sin esperas DMA |
+| `game.build_mid.max` | 80 868 ciclos | Misma baseline, replay; incluye corrección P51 |
+| `scroll.vuelta.max`, s=4580 | 111 520 ciclos | Misma baseline, barrido de scroll; escenario distinto del replay |
+| Lógica con OAM, máximo | 46 718 ciclos | `diseno-9.2.md`; OAM opt-in; antes 39 026 |
+| O1 total máximo | 152 640 ciclos, 107,4 % | WinUAE exacto, `informe-d1.md` §5; **anterior a P51 y a la integración OAM** |
+| G0, cadenas gap 1 | 0 errores de píxel | WinUAE exacto, carga sintética; no equivale a G5 integrado |
+
+**Medido después de la investigación (2026-10-05):**
+[OAM + O5 y barrido del scroll](medida-oam-o5.md). Lógica con OAM:
+37,24 % del frame; interrupción completa: 46,40 %; `build_mid`: 89,16 %.
+Ambas variantes completan 6312 frames lógicos con 0 incidencias COPER
+detectadas y 14 fotos omitidas. El barrido separado alcanza 87,2 % en
+s=4576. Son tiempos de WinUAE exacto con P51; no una ganancia de S5.
+
+La medida anterior de O1 da factores muy diferentes: lógica ×1,03,
+Mario ×1,44, columna ×3,2 y `build_mid` ×1,46. No permite predecir
+el juego completo multiplicando todo por ×1,3. Tampoco se suman máximos
+de rutinas registrados en frames distintos para llamarlos «peor frame».
+
+## 16. Fuentes nuevas y conclusiones aplicables
+
+En cada apartado, **evidencia** describe lo que publica la fuente;
+**aplicación** es una propuesta nuestra que todavía necesita la puerta de §17.
+
+### 16.1 Bartman/Abyss: ver quién ocupa el bus, además de contar ciclos
+
+**Evidencia.** El [README del autor](https://github.com/BartmanAbyss/vscode-amiga-debug)
+documenta perfiles de funciones y DMA, reproducción de un frame por ciclos,
+blits y lista del copper. Su preset A500 usa KS 1.3 y ECS Agnus;
+no es automáticamente nuestro perfil KS 1.2/OCS.
+
+**Aplicación (E01).** Capturar el pico de vuelta, un frame con columna y
+uno con recarga de cuatro parejas. Separar CPU ejecutando, espera de
+blitter y ocupación de bitplanes/copper/sprites/audio. Esto explica si
+conviene escribir menos palabras o mover el trabajo a otra fase del haz.
+
+Para nuestro binario crudo, el flujo de símbolos/perfilado debe probarse:
+el README no demuestra carga directa del ADF propio con símbolos vbcc.
+Conservar WinUAE de referencia para aprobar medidas; usar este perfilador
+como diagnóstico si la integración requiere otro formato de build.
+
+No instalar ni migrar el proyecto como parte de esta investigación.
+El experimento primero debe reproducir un banco conocido con el perfil
+exacto del port y registrar versión/configuración del emulador.
+
+### 16.2 Power Programs: agrupar blits ahorra preparación
+
+**Evidencia.** [Dual Layer Graphics, optimizaciones](https://www.powerprograms.nl/amiga/dual-layer.html)
+agrupa blits por clase, conserva registros y reduce recargas. En su
+comparativa, tener ciclos DMA libres parecidos no asegura igual cantidad
+de bobs: preparar más operaciones también cuesta CPU.
+
+**Aplicación (E03).** En `blit_steps` se vuelven a cargar control,
+máscaras y módulos para cada bloque de 16×16×3. Evaluar un lote de
+bloques con configuración común y una configuración distinta para
+la copia final. Reinstalar el estado al entrar al lote: ningún otro
+usuario del blitter debe heredar módulos por accidente.
+
+En G7, agrupar **todas las restauraciones antes de dibujar**, y luego
+dibujar en el orden de prioridad OAM. No ordenar dibujos por material
+si eso altera los solapes. El beneficio se debe medir en el frame
+completo, incluyendo esperas y la interrupción de lógica de O5.
+
+No aplicar aquí la idea de «espera implícita» por chip+BLTPRI:
+nuestro código corre en slow y esa precondición no se cumple.
+
+### 16.3 Mega Typhoon / Fast Bobs: el truco y por qué no se traslada entero
+
+**Evidencia.** El experimento del autor [Dual Playfield Fast Bobs](https://www.powerprograms.nl/amiga/dpl-fastbobs.html)
+parte de Mega Typhoon y utiliza PF delantero dedicado a objetos.
+Copia con márgenes transparentes para borrar la pose previa, exige
+separación entre bobs y adapta el margen al doble buffer. Publica
+mejoras de 2,5–3 veces en su escena, con esas restricciones.
+
+**Aplicación.** Nuestro PF1 contiene terreno; una copia rectangular
+destruiría sus píxeles. No convertir Banzai ni todos los excedentes a
+este método. Tampoco podemos rediseñar trayectorias para evitar solapes.
+
+**Experimento E04 (inferencia nuestra).** El conversor puede detectar
+rectángulos interiores totalmente opacos y dibujarlos por copia;
+los bordes transparentes siguen con máscara. Conserva píxeles y
+prioridad, pero añade operaciones: dividir un bob pequeño podría
+costar más de lo que ahorra. Probar primero Banzai, con todas sus
+poses, desplazamientos y recortes. Conservar la ruta genérica si
+el coste integrado no baja. No hay aún un ahorro demostrado para SMW.
+
+### 16.4 Máscara compartida, anchura desplazada y un presupuesto de Banzai
+
+**Evidencia.** El HRM describe [canales DMA](https://www.amigadev.elowar.com/read/ADCD_2.1/Hardware_Manual_guide/node011B.html),
+[shifts y máscaras](https://www.amigadev.elowar.com/read/ADCD_2.1/Hardware_Manual_guide/node011F.html)
+y [copia de regiones](https://www.amigadev.elowar.com/read/ADCD_2.1/Hardware_Manual_guide/node0121.html).
+El canal A tiene máscaras de primera/última palabra; los desplazamientos
+y módulos forman parte del cálculo del área tocada. Tener 64 px de
+imagen no garantiza que un bob desplazado escriba solo cuatro palabras.
+
+**Cálculo nuestro, sin contención ni preparación:** con la tabla del
+blitter de §14.3, un dibujo ABCD consume 8 ticks por palabra y una
+restauración A→D, 4. Para un bob en PF1 de tres planos:
+
+```
+palabras = ceil((ancho + (x & 15)) / 16)
+ticks_dibujo_y_restauracion = palabras * alto * 3 * (8 + 4)
+```
+
+| Caso completo, sin recorte | Palabras/fila | Ticks mínimos | Tiempo aproximado a 7,09 MHz |
+|---|---:|---:|---:|
+| Banzai 64×64, alineado | 4 | 9 216 | 1,30 ms |
+| Banzai 64×64, desplazado 1–15 px | 5 | 11 520 | 1,62 ms |
+| Rex, envolvente 20×32, alineado | 2 | 2 304 | 0,32 ms |
+| Rex, misma envolvente, shift 13–15 | 3 | 3 456 | 0,49 ms |
+
+Son cotas de transferencias; no son tiempos del ADF. No incluyen guardar
+fondo, CPU, recargas de color, recortes ni competencia DMA. La fórmula
+supone que fuente y máscaras permiten ese ancho; una ruta genérica con
+palabra extra incondicional puede hacer más trabajo.
+
+**Experimento E05.** Comparar máscara repetida por plano (un blit
+entrelazado) contra máscara única y un blit por plano. No elegir solo por
+tamaño del asset: tres lanzamientos pueden perder frente a uno. Recortar
+márgenes transparentes manteniendo origen OAM, y medir desplazamientos
+0–15; nunca completar con ceros que borren fuera del rectángulo válido.
+
+### 16.5 ACE: un plan híbrido de cadenas y poses compartidas
+
+**Evidencia.** [PR #292](https://github.com/AmigaPorts/ACE/pull/292)
+usa encadenado DMA, necesita gap de una línea y no proporciona clipping
+ni reasignación automática. Sus pruebas declaran vAmiga, AROS y **1 MB
+chip**; no constituyen validación en nuestra configuración.
+Los [descriptores de sprites adosados](https://github.com/AmigaPorts/ACE/blob/10ca68a321989738e9ac40f895bdd9f1d8e040fe/docs/programming/advancedmultiplexedsprites.md)
+documentan 16 px/4 bpp = dos canales y 32 px/4 bpp = cuatro.
+
+**Aplicación E02.** Mantener el diseño G2, pero permitir evaluar por
+objeto una cadena DMA copiada cuando su recarga competiría con colores.
+La cadena ahorra órdenes de recarga; cuesta copia y chip adicional.
+Las poses compartidas hacen el intercambio contrario.
+
+Elegir por el coste completo de la foto: copia, MOVEs, colores,
+plazos y bobs evitados. Una cadena no libera los canales mientras se
+dibujan sus píxeles. G0 ya mide gap 1 y el coste de copiar 1408 B;
+no hace falta volver a demostrar el caso aislado. Falta probar
+la combinación en las líneas saturadas por P51 y por el dibujo real.
+
+No interpretar el éxito de un shooter de ACE como prueba de que
+Rex de 20 px ocupe una columna: necesita dos, según G1/G2.
+
+### 16.6 LSP: separar el tick del plazo de reactivar Paula
+
+**Evidencia.** [LSP estándar/insane](https://github.com/arnaud-carre/LSPlayer)
+intercambia código/memoria por coste de reproducción. Su media publicada
+no es un máximo integrado. El [wrapper CIA, código leído](https://github.com/arnaud-carre/LSPlayer/blob/main/LightSpeedPlayer_cia.asm)
+ejecuta el tick y arma después un timer B one-shot para escribir
+DMACON. El comentario recomienda, para efectos ajustados, integrar el
+tick en la interrupción existente y reactivar DMA después mediante copper.
+Sus datos de eventos pueden vivir fuera de chip; el banco de muestras, no.
+
+**Aplicación E08.** En D5, compilar offline los eventos SPC a comandos
+de Paula, conservando el tick CIA independiente del render. Medir por
+separado ISR principal y reactivación de canales. Usar timer o copper
+solo tras comprobar plazos y recursos disponibles: O1 también usa CIA.
+
+No copiar el retardo del wrapper como constante universal ni ocupar
+silenciosamente sus dos timers. Auditar qué CIA y qué timer usa cada
+rutina, incluido teclado, banco y juego. Un formato barato en media
+puede concentrar KON, cambios de muestra y efectos en el mismo tick.
+
+Probar tick normal, todas las voces reactivadas y un efecto robando el
+cuarto canal durante el peor render. El límite ≤3 % incluye ISR,
+reactivación y control de efectos; audio continuo al repetir foto O5.
+
+### 16.7 GCC: primero ABI compatible, luego promociones de 16 bits
+
+**Evidencia.** La [documentación oficial m68k](https://gcc.gnu.org/onlinedocs/gcc/M680x0-Options.html)
+confirma que `-mshort` cambia `int` **y la alineación de argumentos en
+stack**, incluso donde la API pide promoción a 32 bits. `-m68000`
+selecciona el juego de instrucciones del 68000. Las opciones de forks
+Amiga como baserel/regparm no se deducen de la documentación genérica.
+
+**Corrección de §13.3:** no usar libc no elimina la incompatibilidad ABI:
+tenemos asm, llamadas desde arneses, estructuras y retornos que verificar.
+Un objeto ELF tampoco se integra sin comprobar relocaciones y arranque.
+
+**Aplicación E07.** Primera comparación: vbcc contra GCC con tamaños y
+llamadas compatibles, mismo C y mismos oráculos; luego estudiar `-mshort`
+como variante aparte. Comprobar tamaños/alineaciones, parámetros de los
+puentes, registros preservados y direcciones PIC/absolutas. Mantener el
+modelo de datos explícito del port.
+
+Pasar PC y binario 68000, no solo recompilar el verificador host.
+Medir rutinas calientes y frame integrado con DMA. Un cambio que reduzca
+código puede ganar por menos fetch aunque apenas cambie el contador
+sin DMA; lo contrario también es posible.
+
+### 16.8 SMBNeo/VS: C nativo rápido con traducción como oráculo
+
+**Evidencia.** [SMBNeo](https://github.com/sabino/smbneo) porta SMB a
+MC68000 con C y hardware Neo Geo. Su [edición VS](https://github.com/sabino/smbneo/blob/main/variants/vs/README.md)
+documenta C directo para producción y conserva la traducción por
+instrucciones como oráculo diferencial. Verifica estados PPU/APU y
+orden de escrituras de audio, además del juego. Estas son declaraciones
+del proyecto; no se ejecutó su suite en esta investigación.
+
+**Aplicación (L1/X1/V2).** Sustituir una rutina caliente completa,
+manteniendo una implementación de referencia y comparando efectos
+observables. Antes de eliminar un temporal o una escritura OAM,
+verificar si la siguiente rutina lo lee. Comparar también orden y
+efectos de las escrituras, no solo posición final de Mario.
+
+No extrapolar sus fps a una A500: comparten familia de CPU, pero el
+reloj, memoria, vídeo y audio son distintos. No importar datos ni
+relajar R9 según la política de ese repositorio. Lo transferible es
+la separación entre referencia, implementación nativa y verificación.
+
+### 16.9 Modulo Tricks y CPU Assisted Blitting: reutilizar o descartar con causa
+
+**Evidencia.** [Modulo Tricks](https://www.powerprograms.nl/amiga/modulo-tricks.html)
+reutiliza líneas de imagen mediante módulos y precalcula offsets ya
+escalados. No prueba scroll de un nivel con paletas horizontales móviles.
+[CPU Assisted Blitting](https://www.powerprograms.nl/amiga/cpu-blit-assist.html)
+depende de acceso chip de 32 bits y se dirige a A1200 y similares.
+
+**Aplicación.** En H1/H2, generar punteros/módulos del HUD offline y
+reutilizar sus líneas constantes cuando la imagen exacta lo permita.
+No reducir fetch de PF2 suponiendo que todas sus líneas son iguales:
+comparar el bitmap antes. Una fila vacía puede apuntar a ceros; habilitar
+su plano sigue costando DMA.
+
+**Descartado para este port:** dibujar con CPU para ayudar al blitter.
+Además de no compartir las ventajas del A1200, viola la convención
+del proyecto. Tampoco eliminar esperas al blitter por analogía con
+una demo sin probar ubicación del código, BLTPRI y todos los canales.
+
+## 17. Experimentos priorizados y métricas de aceptación
+
+Son propuestas vinculadas a las tarjetas existentes, **no tarjetas cerradas
+ni un reemplazo del orden de ROADMAP**. Primero OAM+O5 integrado; G3–G9
+siguen con sus dependencias. No se promete un porcentaje de mejora.
+
+### 17.1 Matriz de trabajo
+
+| ID | Experimento / tarjetas | Qué compara | Métrica que debe mejorar | Puerta de corrección / descarte |
+|---|---|---|---|---|
+| E01 | Perfil de DMA; O1/O3, G5 | Frame normal, columna, vuelta y recargas | Diagnóstico: tiempo por fase, esperas y ranuras disponibles | Reproduce banco conocido y perfil OCS/KS 1.2; no usar otro preset para aprobar |
+| E02 | Multiplexado híbrido; G4–G6 | Poses compartidas vs cadenas por objeto | Menos bobs o menor preparación sin más fotos omitidas | Todos los píxeles OAM y prioridades exactos; copia y chip incluidos |
+| E03 | Lotes del blitter; G7, columna | Configurar cada bloque vs conservar estado por lote | Máximo integrado, número de escrituras custom, espera total | Columnas/bobs exactos; estado reinstalado al cambiar usuario del blitter |
+| E04 | Interior opaco; G3/G7 | Cookie-cut completo vs copia interior + bordes | Tiempo total para Banzai, incluidos lanzamientos adicionales | Todas las poses y shifts exactos; descartar si dividir aumenta coste |
+| E05 | Recorte y máscara; G3/G7 | Máscara repetida/un blit vs única/tres blits | Chip final y peor dibujo/restauración | Origen, borde circular y recorte exactos; no premiar solo el asset menor |
+| E06 | Restauración válida; G7/O5 | Fondo guardado, copia espejo o bloques reconstruidos | Coste total y memoria auxiliar | No leer una copia contaminada por otro bob; publicada intacta al abortar |
+| E07 | GCC y ABI; L5 | Primero mismo ABI; `-mshort` después | Máximo lógica con OAM y coste integrado | RAM/mapa/ABI/PIC exactos, oráculos PC y 68000, regresión sin empeorar |
+| E08 | Audio por eventos; A3–A7 | Tick, retrigger y efecto en distintas fases del haz | Máximo ≤3 %, jitter y ticks lógicos perdidos | Tempo independiente de fotos O5; muestras exactas según tolerancias D5 |
+| E09 | Plan offline exacto; S5/S7 | Plan actual vs nuevas asignaciones de índices/ventanas | Máximo vuelta y palabras de lista escritas por foto | Píxeles iguales, ida/vuelta/cámara Y; no aproximar colores para pasar |
+| E10 | Precálculo selectivo; S3/S5/C2 | Plantillas solo de zonas costosas vs construir todo | Pico de vuelta con bytes de memoria limitados | Datos CPU a slow; lista activa a chip; posiciones no grabadas también correctas |
+
+**E06 requiere una cautela nueva para §14.7:** la segunda copia del
+buffer circular no es un fondo limpio por definición. Si ambos espejos
+reciben bobs, o una restauración lee píxeles dibujados por otro objeto,
+contamina el fondo. Etiquetar regiones/columnas con versión de mapa y
+buffer, o reconstruirlas desde bloques limpios. Primero restaurar todo
+lo viejo, luego dibujar lo nuevo; contabilizar ambos pasos. Una foto O5
+retenida no autoriza escribir en su PF1 ni en sus flujos DMA.
+
+**E09 es una hipótesis nuestra**, inspirada en el precálculo de §3/§14:
+la asignación de colores a índices puede admitir alternativas con igual
+imagen y menos cambios. Optimizar registros que de verdad estén sin uso
+en la ventana, incluidos sprites; no borrar un MOVE solo porque repita el
+valor de una línea sin comprobar estado de entrada de ambas listas.
+Evaluar el codo de P51, no una rejilla uniforme de seis planos.
+
+**E10 no implica precalcular cada cámara.** Solo 49 500 B × 16 fases
+serían 792 000 B de listas, antes de cubrir todo el nivel. Esa estrategia
+no cabe en chip, y copiar desde slow sigue costando bus. Medir plantillas
+parciales de los postes y los bytes reales que habría que copiar/parchear.
+No codificar frames del replay: la selección depende de cámara/mapa.
+
+### 17.2 Qué debe guardar cada medición
+
+1. Commit y hash del binario/datos, flags (`SPR_OAM`, O5, BENCH), versión
+   de WinUAE, ROM y configuración exacta. Baseline A y candidato B iguales
+   en todo salvo la modificación. Assets y capturas quedan en `work/` (R9).
+2. Escenario reproducible: cámara x/y y sentido, entradas, poses,
+   solapes, cantidad de columnas, bobs, cambios de mapa y estado del audio.
+   Incluir vuelta en s≈4580, Banzai, Mario grande, solapes y HUD activo.
+3. Tiempo integrado por foto y por tick lógico; media, p99, máximo,
+   fotos omitidas, mayor racha, edad de la foto mostrada y ticks perdidos.
+   Separar fps de imagen de frecuencia de lógica. La latencia de foto
+   importa aunque no cambie el estado simulado.
+4. DMA por fase del haz, CPU preparando, espera al blitter, número y
+   ancho de blits, MOVEs del copper y bytes escritos/copias. No sumar
+   porcentajes DMA a tiempo transcurrido como si fueran trabajo independiente.
+5. Pico de chip/slow **en vivo**, incluyendo alineación, bancos de 64 KiB,
+   segundo PF1, tres fotos O5, listas, muestras, tablas e inicialización.
+6. Regresión, reconstrucción exacta OAM y captura cycle-exact contra
+   referencia. Para cambios del terreno, también comparación apilada contra
+   `SuperMarioWorldMap02.png`. Si no hay evidencia integrada, queda pendiente.
+
+Los escenarios sintéticos sirven para aislar causas, pero **aprobar una
+optimización exige volver al juego integrado**. Con DMA, una ganancia
+en Musashi puede convertirse en una espera igual o mayor.
+
+### 17.3 Qué conviene intentar primero
+
+- **Medición inicial hecha:** OAM+O5 pasa el objetivo de lógica en el
+  replay probado, sin incidencias COPER detectadas y sin aumentar las
+  fotos omitidas; ver [informe](medida-oam-o5.md). E01 sigue pendiente
+  como perfil de ranuras DMA, y falta el renderer final.
+- **Durante G3–G6:** E02/E05, con comparación exacta de píxeles y coste de
+  chip; evitar construir una solución que dependa de ventanas inexistentes.
+- **Después de C2/C4, en G7:** E03/E04/E06. La mejora de bobs todavía
+  es potencial: los enemigos no se dibujan en el ADF vigente.
+- **En audio:** E08 desde el primer driver, no después de integrar música.
+- **Sesión acotada de S5:** E09/E10 sobre el pico de vuelta. Si no ganan,
+  conservar O5 y registrar el resultado; no bajar fidelidad por iniciativa propia.
+- **L5:** E07 si el perfil identifica lógica como limitante; no mezclar
+  migración de compilador, ABI y reescritura de rutinas en una sola prueba.
+
+## 18. Trazabilidad y límites de la ampliación
+
+### 18.1 Registro de fuentes consultadas el 2026-10-05
+
+| Fuente primaria | Qué se leyó | Evidencia / límite |
+|---|---|---|
+| [Bartman/Abyss README](https://github.com/BartmanAbyss/vscode-amiga-debug) y [releases](https://github.com/BartmanAbyss/vscode-amiga-debug/releases) | Perfilador CPU/DMA, debugger gráfico, presets | Capacidades publicadas; no se instaló ni se probó nuestro ADF |
+| [Power Programs: Dual Layer Graphics](https://www.powerprograms.nl/amiga/dual-layer.html) | Comparativas, buffers, agrupación y preparación | Experimento del autor; geometría y distribución de planos diferentes |
+| [Power Programs: Fast Bobs](https://www.powerprograms.nl/amiga/dpl-fastbobs.html) | Algoritmo, restricciones y rendimiento publicado | La mejora depende de PF vacío y separación; no aplica globalmente a YI1 |
+| [Power Programs: Free Form Sprite Layer](https://www.powerprograms.nl/amiga/spr-layer.html) | Coste de sprites/copper y scroll del layer | No usar sus cuentas PAL como calibración nuestra: las páginas manejan distintos totales de líneas/ciclos |
+| [Power Programs: Modulo Tricks](https://www.powerprograms.nl/amiga/modulo-tricks.html) | Fórmulas, repetición de líneas y precálculo | Demo específica, no sustituto de `build_mid` |
+| [Power Programs: CPU Assisted Blitting](https://www.powerprograms.nl/amiga/cpu-blit-assist.html) | Hardware y condiciones del método | Ventaja de bus de 32 bits; descartado en A500 y por convención del port |
+| [ACE PR #292](https://github.com/AmigaPorts/ACE/pull/292) | Descripción, límites y condiciones de pruebas | PR abierta al consultar; no afirmar integrada ni probada en 512 KB chip |
+| [ACE documentación fijada en `10ca68a`](https://github.com/AmigaPorts/ACE/blob/10ca68a321989738e9ac40f895bdd9f1d8e040fe/docs/programming/advancedmultiplexedsprites.md) | Formato, columnas y canales | Referencia reproducible; no se ejecutó el gestor |
+| [LSP README](https://github.com/arnaud-carre/LSPlayer) | Modos estándar/insane y benchmark | Coste publicado, no medida de nuestro tema ni de ISR completas |
+| [LSP wrapper CIA](https://github.com/arnaud-carre/LSPlayer/blob/main/LightSpeedPlayer_cia.asm) | Código de tick, timers y reactivación DMA | Se leyó implementación; no se portó ni se copió |
+| [GCC, opciones M680x0](https://gcc.gnu.org/onlinedocs/gcc/M680x0-Options.html) | `-m68000`, `-mshort` y convenciones | Documentación genérica; forks y puentes requieren comprobación local |
+| [SMBNeo README](https://github.com/sabino/smbneo) | Arquitectura y problemas observados en hardware | Otro presupuesto de CPU/memoria/vídeo; no demuestra fps en Amiga |
+| [SMBNeo VS README](https://github.com/sabino/smbneo/blob/main/variants/vs/README.md) | C directo, oráculo y pruebas diferenciales | Método trasladable; tests ajenos no ejecutados |
+| HRM: [canales](https://www.amigadev.elowar.com/read/ADCD_2.1/Hardware_Manual_guide/node011B.html), [máscaras](https://www.amigadev.elowar.com/read/ADCD_2.1/Hardware_Manual_guide/node011F.html), [regiones](https://www.amigadev.elowar.com/read/ADCD_2.1/Hardware_Manual_guide/node0121.html) | Extractos indexados del manual de Commodore | Las aperturas directas fallaron; no se presenta como lectura completa del capítulo |
+
+Los enlaces a `main/master` pueden cambiar. Antes de reutilizar código
+o reproducir una cifra, fijar commit/versión y licencia. En esta ampliación
+se incorporan explicaciones y propuestas, sin código ni assets de terceros.
+
+### 18.2 Búsquedas que no justifican una implementación todavía
+
+- **Solid Gold:** localizado el paquete del autor en
+  [Aminet](https://aminet.net/package/game/jump/SolidGold.adf), pero lectura
+  bloqueada (403); la entrevista devolvió 429. No se descargó ni auditó su
+  motor. Pendiente: restauración, scroll vertical y distribución de memoria.
+- **Agony:** encontrados anuncios de archivo de fuentes y descripciones;
+  no se obtuvo el archivo original del autor ni se leyó el motor.
+  No atribuirle un algoritmo de restauración por deducción de un vídeo.
+- **Tiny Bobble/Tinyus:** no se obtuvo fuente original del juego en esta
+  búsqueda. El código de un instalador WHDLoad no es el motor del juego.
+  El antecedente de doble lista de §12.6 sigue teniendo alcance de testimonio.
+- **Sonic AGA/Scorpion:** los resultados encontrados no demuestran el
+  objetivo OCS/512 KB chip + A501 a 50 Hz. No incorporarlos como garantía.
+- **Copperline:** permanece candidato de §14.9; no se verificó su exactitud
+  contra nuestros bancos. No reemplaza WinUAE de referencia para cerrar puertas.
+- **EAB:** no se volvió a leer íntegramente todo el foro. Las limitaciones
+  de acceso del relevamiento anterior permanecen; no completar citas de memoria.
+
+**Resultado de esta ampliación:** hay diez experimentos acotados y varias
+correcciones de aplicabilidad. La investigación amplía las opciones medibles;
+los objetivos ≤25 % scroll, ≤40 % lógica, ≤8 % preparación de sprites y
+≤3 % audio siguen siendo puertas del port, no resultados obtenidos aquí.
+
+---
+
+## Fuentes del relevamiento original (§1–§14)
 
 - JOTD: [amiga68ktools](https://github.com/jotd666/amiga68ktools)
   (`tools/6502to68k.py`, `z80268k.py`, `asmcoverage.py`, `profiler.s`),

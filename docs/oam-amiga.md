@@ -117,6 +117,16 @@ el juego previo reconstruido falla con 3 absolutas; un banco ensamblado de
 `JSR/JMP/BRA/BSR` largos y `JSR/JMP` cortos falla con 6, sin confundir
 `dc.l $4EB90000` con una instrucción; un listado vacío también falla.
 
+## Medida integrada en WinUAE (2026-10-05)
+
+[Comparación OAM + O5 contra base](medida-oam-o5.md): la lógica alcanza
+37,24 % del frame PAL y la interrupción lógica + foto, 46,40 %. En ambos
+builds: 6312 frames lógicos, 0 incidencias COPER detectadas y 14 fotos
+omitidas por O5. La puerta de lógica ≤ 40 % pasa para este replay.
+El renderer de enemigos/bobs, HUD y audio sigue pendiente; `SPR_OAM`
+permanece opt-in. Estos tiempos incluyen el DMA actual y no deben
+confundirse con los resultados anteriores de Musashi.
+
 ## Reproducir (bash, en worktree separado)
 
 ```sh

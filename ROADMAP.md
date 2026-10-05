@@ -297,11 +297,14 @@ abajo queda como referencia histórica.
 Lo que viene, en orden. Cada paso con su puerta; nada empieza con el
 anterior en rojo.
 
-1. **Medir OAM + O5 integrado en WinUAE** (`game.s` con
-   `CDEFS='-DNOOAM -DSPR_OAM'`, `-DBENCH`, cycle-exact). En Musashi la OAM
-   sube el máximo de `level_frame` un 19,7 %; falta el número real con DMA
-   y cuántos ticks lógicos pierde O5. Con eso se decide si `SPR_OAM` pasa a
-   ser el modo por defecto (decisión del usuario si cuesta ticks).
+1. **OAM + O5 medido en WinUAE cycle-exact (2026-10-05)**:
+   [informe y comparación contra base](docs/medida-oam-o5.md).
+   `level_frame` máximo **37,24 %**, interrupción lógica + foto **46,40 %**;
+   6312 frames lógicos, **0 incidencias COPER** detectadas y **14 fotos
+   omitidas en ambas variantes** (0,22 %, racha máxima 1). Pasa el objetivo
+   de lógica ≤ 40 % en este replay. `SPR_OAM` sigue opt-in: faltan otros
+   estados en vivo y el DMA de enemigos/bobs/HUD/audio. `build_mid` llega
+   al **89,16 %**; el barrido separado alcanza 87,2 % en s=4576.
 2. **G3 final** (`tools/mksprgfx.py`): poses recortadas, remapeo exacto de
    color a los sprites de hardware, banco en chip y máscaras de bob, con
    autoprueba de ida y vuelta en todas las poses de los oráculos.
