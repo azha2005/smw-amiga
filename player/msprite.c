@@ -1416,7 +1416,11 @@ gfx:                                        /* _Spr0to13Gfx */
    Aunque SubOffscreen lo borre, el resto del frame sigue (como el ROM). */
 MSS void banzai_bill(u8 x)
 {
+#ifdef SPR_OAM
+    banzai_gfx(x);
+#else
     get_draw_info(x);                       /* CODE_02D5E4 */
+#endif
     if (SPR(wm_SpriteStatus, x) == 0x02 || R8(wm_SpritesLocked))
         return;
     sub_offscreen3(x);
@@ -1438,6 +1442,9 @@ void jumping_piranha(u8 x)
     u16 y;
     SETSPR(wm_SpritePal, x, tx_166E[SPR(wm_SpriteNum, x)] & 0x0F);     /* LoadSpriteTables */
     sprite_tweakers(x);
+#ifdef SPR_OAM
+    piranha_gfx(x);
+#else
     /* dibujo: la cabeza (GenericSprGfxRt2) y el tallo 8 px mas abajo
        (GenericSprGfxRt0); los flags de pantalla quedan los del tallo */
     y = (u16)(SPR(wm_SpriteYLo, x) | SPR(wm_SpriteYHi, x) << 8);
@@ -1448,6 +1455,7 @@ void jumping_piranha(u8 x)
     SETSPR(wm_SpriteYHi, x, y >> 8);
     SETSPR(wm_SpriteGfxTbl, x, ((SPR(wm_SpriteMiscTbl3, x) & 0x04) >> 2) + 1);
     SETSPR(wm_SpritePal, x, 0x0A);
+#endif
     if (R8(wm_SpritesLocked))
         return;
     sub_offscreen3(x);                      /* SubOffscreen0Bnk2 */

@@ -979,6 +979,9 @@ _jumping_piranha:
         and.b   #$0f,d0
         move.b  d0,wm_SpritePal(a3)         ; LoadSpriteTables
         CALLX   _sprite_tweakers
+        ifd SPR_OAM
+        CALLX   _piranha_gfx
+        else
         move.b  wm_SpriteYHi(a3),d3
         lsl.w   #8,d3
         move.b  wm_SpriteYLo(a3),d3         ; y
@@ -998,6 +1001,7 @@ _jumping_piranha:
         addq.b  #1,d0
         move.b  d0,wm_SpriteGfxTbl(a3)
         move.b  #$0a,wm_SpritePal(a3)
+        endif
         tst.b   wm_SpritesLocked(a2)
         bne     .ret
         CALLX   _sub_offscreen3

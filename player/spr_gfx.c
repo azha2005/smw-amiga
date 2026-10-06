@@ -37,6 +37,11 @@
 #define OAM_SIZE(i)     ram[wm_OamSize + (i)]
 
 u8 spr_oam_first[12], spr_oam_n[12];    /* lo que escribio cada ranura (verificador) */
+#ifdef __VBCC__
+extern u8 logic68k_zero;              /* P47: base de RAM sin direccion absoluta */
+#else
+#define logic68k_zero 0
+#endif
 
 static void oam_mark(u8 x, u8 y, u8 n)
 {
@@ -159,13 +164,13 @@ static void oam_offscreen_vert(u8 x, u8 i)
    codigo); los sprites portados que pasan por aca con numero >= $54 (la
    nube del salto con giro, $B9, $BD) escriben despues su propio tile, asi
    que ese tile no se ve nunca: el port deja 0. */
-u8 sub_spr_gfx2(u8 x, u8 m4v)
+static u8 sub_spr_gfx2_at(u8 x, u8 m4v)
 {
     u8 y, n, t, a;
     u8 near;
     W8(m4, m4v);
     near = (u8)get_draw_info1(x);
-    y = spr_oam_index(x);
+    y = SPR(wm_SprOAMIndex, x);
     W8(m0, (u8)(SPR(wm_SpriteXLo, x) - R8(wm_Bg1HOfs)));
     W8(m1, (u8)(SPR(wm_SpriteYLo, x) - R8(wm_Bg1VOfs)));
     if (!near)
@@ -189,6 +194,12 @@ u8 sub_spr_gfx2(u8 x, u8 m4v)
     oam_offscreen_vert(x, (u8)(y >> 2));
     oam_mark(x, y, 1);
     return 1;
+}
+
+u8 sub_spr_gfx2(u8 x, u8 m4v)
+{
+    spr_oam_index(x);
+    return sub_spr_gfx2_at(x, m4v);
 }
 
 /* SubSprGfx2Entry1 y despues un tile fijo en la ficha (STA
@@ -225,5 +236,203 @@ void spr013_gfx(u8 x)
     }
     sub_spr_gfx2(x, 0);
     SETSPR(wm_SpriteDir, x, d);
+}
+
+/* CODE_02D5E4: las dieciseis fichas de Banzai, en orden inverso. */
+void banzai_gfx(u8 x)
+{
+    u8 y, i;
+    spr_oam_index(x);
+    if (!get_draw_info(x)) return;
+    y = SPR(wm_SprOAMIndex, x);
+    W8(m0, (u8)(SPR(wm_SpriteXLo, x) - R8(wm_Bg1HOfs)));
+    W8(m1, (u8)(SPR(wm_SpriteYLo, x) - R8(wm_Bg1VOfs)));
+    for (i = 15; ; i--) {
+        OAM_X(y) = (u8)(R8(m0) + tg2_DATA_02D5A4[i]);
+        OAM_Y(y) = (u8)(R8(m1) + tg2_DATA_02D5B4[i]);
+        OAM_TILE(y) = tg2_BanzaiBillTiles[i];
+        OAM_PROP(y) = tg2_DATA_02D5D4[i];
+        y = (u8)(y + 4);
+        if (!i) break;
+    }
+    finish_oam_write(x, 15, 2);
+}
+
+/* SubSprGfx0Entry0: cuatro fichas de 8x8, A = selector de volteo. */
+static void sub_spr_gfx0(u8 x, u8 flip)
+{
+    u8 y, i;
+    W8(m5, flip);
+    W8(m15, 0);
+    if (!get_draw_info1(x)) return;
+    W8(m0, (u8)(SPR(wm_SpriteXLo, x) - R8(wm_Bg1HOfs)));
+    W8(m1, (u8)(SPR(wm_SpriteYLo, x) - R8(wm_Bg1VOfs)));
+    W8(m2, (u8)((SPR(wm_SpriteGfxTbl, x) << 2) + tg2_SprTilemapOffset[SPR(wm_SpriteNum, x)]));
+    W8(m3, SPR(wm_SpritePal, x) | R8(wm_SpriteProp));
+    y = SPR(wm_SprOAMIndex, x);
+    for (i = 3; ; i--) {
+        W8(m4, i);
+        OAM_X(y) = (u8)(R8(m0) + tg2_GeneralSprDispX[i]);
+        OAM_Y(y) = (u8)(R8(m1) + tg2_GeneralSprDispY[i]);
+        OAM_TILE(y) = tg2_SprTilemap[(u8)(R8(m2) + i)];
+        OAM_PROP(y) = tg2_GeneralSprGfxProp[(u8)((flip << 2) + i)] | R8(m3);
+        y = (u8)(y + 4);
+        if (!i) break;
+    }
+    W8(m4, 0xFF);
+    finish_oam_write(x, 3, 0);
+}
+
+/* CODE_02E0CD: cabeza 16x16 y tallo de cuatro fichas; restaura Y y prioridad. */
+void piranha_gfx(u8 x)
+{
+    u8 first = spr_oam_index(x), prop = R8(wm_SpriteProp), n;
+    u16 sy = (u16)(SPR(wm_SpriteYLo, x) | SPR(wm_SpriteYHi, x) << 8);
+    W8(wm_SpriteProp, 0x10);
+    SETSPR(wm_SpriteGfxTbl + logic68k_zero, x, ((SPR(wm_SpriteMiscTbl6, x) & 8) >> 2) ^ 2);
+    sub_spr_gfx2_at(x, 0);
+    n = spr_oam_n[x];
+    SETSPR(wm_SprOAMIndex, x, (u8)(first + 4));
+    SETSPR(wm_SpriteGfxTbl + logic68k_zero, x, ((SPR(wm_SpriteMiscTbl3, x) & 4) >> 2) + 1);
+    SETSPR(wm_SpriteYLo, x, (u8)(sy + 8));
+    SETSPR(wm_SpriteYHi, x, (u16)(sy + 8) >> 8);
+    SETSPR(wm_SpritePal, x, 0x0A);
+    sub_spr_gfx0(x, 1);
+    if (spr_oam_n[x] == 4) oam_mark(x, first, 5);
+    else if (n) oam_mark(x, first, 1);
+    SETSPR(wm_SpriteYLo, x, (u8)sy);
+    SETSPR(wm_SpriteYHi, x, sy >> 8);
+    W8(wm_SpriteProp, prop);
+}
+
+/* CODE_01C12D: cinta sin cortar, tres fichas de 8x8. */
+void goal_gfx(u8 x)
+{
+    u8 y, i;
+    spr_oam_index(x);
+    if (!get_draw_info1(x)) return;
+    y = SPR(wm_SprOAMIndex, x);
+    W8(m0, (u8)(SPR(wm_SpriteXLo, x) - R8(wm_Bg1HOfs)));
+    W8(m1, (u8)(SPR(wm_SpriteYLo, x) - R8(wm_Bg1VOfs)));
+    for (i = 0; i < 3; i++) {
+        OAM_X(y) = (u8)(R8(m0) - 8 + (i << 3));
+        OAM_Y(y) = (u8)(R8(m1) + 8);
+        OAM_TILE(y) = i ? 0xD5 : 0xD4;
+        OAM_PROP(y) = 0x32;
+        y = (u8)(y + 4);
+    }
+    finish_oam_write(x, 2, 0);
+}
+
+/* CODE_019806 / CODE_019A2A: caparazon y sus dos fichas de humo. */
+void shell_gfx(u8 x, u8 kicked)
+{
+    u8 first = spr_oam_index(x), y, t, a, n, phase = (R8(wm_FrameB) >> 2) & 3;
+    a = first ? 6 : 8;
+    if (kicked) {
+        SETSPR(wm_SpriteDecTbl3, x, SPR(wm_SpriteState, x));
+        a = tg2_ShellAniTiles[phase];
+    }
+    SETSPR(wm_SpriteGfxTbl, x, a);
+    y = first ? (u8)(first + 8) : first;
+    SETSPR(wm_SprOAMIndex, x, y);
+    sub_spr_gfx2_at(x, 0);
+    n = spr_oam_n[x];
+    SETSPR(wm_SprOAMIndex, x, first);
+    if (!NEG(R8(wm_MapData + 0x49)) && a == 6) { /* OwLvFlags.Lv125 */
+        t = SPR(wm_SpriteDecTbl3, x);
+        if (t || ((t = SPR(wm_SpriteDecTbl1, x)) && t < 0x30)) {
+            if (t < 0x30 || SPR(wm_SpriteDecTbl3, x)) {
+                u16 w = (u16)OAM_X((u8)(first + 8)) + (t & 1);
+                if (w < 0x100) OAM_X((u8)(first + 8)) = (u8)w;
+            }
+        }
+        if ((SPR(wm_SpriteDecTbl3, x) || SPR(wm_SpriteDecTbl1, x))
+            && SPR(wm_SpriteNum, x) != 0x11
+            && !(SPR(wm_OffscreenHorz, x) | SPR(wm_OffscreenVert, x))) {
+            W8(m0, (SPR(wm_SpritePal, x) & 0x80) ? 0 : 8);
+            OAM_X(first) = (u8)(OAM_X((u8)(first + 8)) + 2);
+            OAM_X((u8)(first + 4)) = (u8)(OAM_X(first) + 4);
+            OAM_Y(first) = OAM_Y((u8)(first + 4)) = (u8)(OAM_Y((u8)(first + 8)) + R8(m0));
+            OAM_TILE(first) = OAM_TILE((u8)(first + 4)) = (R8(wm_FrameB) & 0xF8) ? 0x64 : 0x4D;
+            OAM_PROP(first) = OAM_PROP((u8)(first + 4)) = R8(wm_SpriteProp);
+            OAM_SIZE(first >> 2) = OAM_SIZE((first >> 2) + 1) = 0;
+            n = 3;
+        }
+    }
+    if (n) oam_mark(x, first, first ? 3 : 1);
+    if (kicked) {
+        SETSPR(wm_SpriteDecTbl3, x, 0);
+        OAM_PROP((u8)(first + 8)) ^= tg2_ShellGfxProp[phase];
+    }
+}
+
+/* CODE_02C81A: cabeza, cuerpo y manos del Chuck $95; cinco ranuras. */
+void chuck_gfx(u8 x)
+{
+    u8 pose, dir, y, j, idx, h, off, body, shift = 0;
+    spr_oam_index(x);
+    if (!get_draw_info(x)) return;
+    W8(m0, (u8)(SPR(wm_SpriteXLo, x) - R8(wm_Bg1HOfs)));
+    W8(m1, (u8)(SPR(wm_SpriteYLo, x) - R8(wm_Bg1VOfs)));
+    pose = SPR(wm_SpriteGfxTbl, x);
+    W8(m7, 0);
+    W8(m4, pose);
+    if (pose == 9 && SPR(wm_SpriteDecTbl1, x) >= 0x20) {
+        shift = (SPR(wm_SpriteDecTbl1, x) - 0x20) >> 5;
+        W8(m7, shift);
+        /* El ultimo LSR deja su carry al ADC m0,#0. */
+        W8(m0, R8(m0) + (((SPR(wm_SpriteDecTbl1, x) - 0x20) >> 1) & 1));
+    }
+    h = SPR(wm_SpriteMiscTbl3, x);
+    dir = SPR(wm_SpriteDir, x);
+    W8(m2, h); W8(m3, dir);
+    W8(m8, SPR(wm_SpritePal, x) | R8(wm_SpriteProp));
+    W8(m5, SPR(wm_SprOAMIndex, x));
+    y = (u8)(R8(m5) + tg2_DATA_02C864[pose]);
+    off = tg2_DATA_02C830[pose];
+    OAM_X(y) = (u8)(R8(m0) + (dir ? off : (u8)-off));
+    OAM_Y(y) = (u8)(R8(m1) + tg2_DATA_02C84A[pose] - shift);
+    OAM_PROP(y) = tg2_DATA_02C885[h] | R8(m8);
+    OAM_TILE(y) = tg2_ChuckHeadTiles[h]; OAM_SIZE(y >> 2) = 2;
+    W8(m6, dir ? 0 : 0x40);
+    body = dir ? pose : (u8)(pose + 0x1A);
+    y = (u8)(R8(m5) + tg2_DATA_02CA0D[pose]);
+    OAM_X(y) = (u8)(R8(m0) + tg2_DATA_02C909[body]);
+    OAM_X((u8)(y + 4)) = (u8)(R8(m0) + tg2_DATA_02C93D[body]);
+    OAM_Y(y) = (u8)(R8(m1) + tg2_DATA_02C971[pose]);
+    OAM_Y((u8)(y + 4)) = R8(m1);
+    OAM_TILE(y) = tg2_ChuckBody1[pose]; OAM_TILE((u8)(y + 4)) = tg2_ChuckBody2[pose];
+    OAM_PROP(y) = (R8(m8) | R8(m6)) ^ tg2_DATA_02C9BF[pose];
+    OAM_PROP((u8)(y + 4)) = (R8(m8) | R8(m6)) ^ tg2_DATA_02C9D9[pose];
+    OAM_SIZE(y >> 2) = tg2_DATA_02C9F3[pose]; OAM_SIZE((y >> 2) + 1) = 2;
+    y = R8(m5);
+    if (pose == 6 || pose == 7) {
+        idx = pose - 6;
+        for (j = 0; j < 2; j++) {
+            OAM_X(y) = (u8)(R8(m0) + (j ? tg2_DATA_02CA95[idx] : tg2_DATA_02CA93[idx]));
+            OAM_Y(y) = (u8)(R8(m1) + tg2_DATA_02CA99[idx]);
+            OAM_TILE(y) = tg2_ClappinChuckTiles[idx];
+            OAM_PROP(y) = R8(m8) | (j ? 0x40 : 0);
+            OAM_SIZE(y >> 2) = tg2_DATA_02CA9B[idx]; y = (u8)(y + 4);
+        }
+    } else if (pose == 18 || pose == 19) {
+        for (j = 0; j < 2; j++) {
+            OAM_X(y) = (u8)(R8(m0) + ((dir << 3) ^ (j ? 0 : 8)));
+            OAM_Y(y) = (u8)(R8(m1) - 8); OAM_TILE(y) = 0x1C + j;
+            OAM_PROP(y) = tg2_ChuckGfxProp[dir] | R8(wm_SpriteProp);
+            OAM_SIZE(y >> 2) = 0; y = (u8)(y + 4);
+        }
+    } else if (pose >= 20) {
+        W8(m2, pose); idx = (u8)(pose + (dir ? 0 : 6));
+        y = (u8)(R8(m5) + 8);
+        OAM_X(y) = (u8)(R8(m0) + tg2_DATA_02CB41[idx - 20]);
+        off = tg2_DATA_02CB41[pose - 8];
+        if (off) {
+            OAM_Y(y) = (u8)(R8(m1) + off); OAM_TILE(y) = 0xAD;
+            OAM_PROP(y) = 9 | R8(wm_SpriteProp); OAM_SIZE(y >> 2) = 0;
+        }
+    }
+    finish_oam_write(x, 4, 0xFF);
 }
 #endif

@@ -108,6 +108,11 @@ u8 sub_spr_gfx2(u8 x, u8 m4v);          /* SubSprGfx2Entry0/1 */
 void spr_gfx2_tile(u8 x, u8 t);         /* SubSprGfx2Entry1 + un tile fijo */
 void spin_jump_gfx(u8 x);               /* HandleSprSpinJump: la nube */
 void spr013_gfx(u8 x);                  /* _Spr0to13Gfx de una ficha */
+void banzai_gfx(u8 x);
+void piranha_gfx(u8 x);
+void chuck_gfx(u8 x);
+void goal_gfx(u8 x);
+void shell_gfx(u8 x, u8 kicked);
 #endif
 
 #endif

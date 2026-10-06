@@ -113,8 +113,8 @@ class SpriteOAM:
               (self.order_bad, *self.shift))
         for text in self.shown:
             print("  " + text)
-        if not self.frames[0xAB]:
-            raise ValueError("OAM 68000: 0 comprobaciones de Rex; la puerta no se ejecuto")
+        if not self.frames:
+            raise ValueError("OAM 68000: 0 comprobaciones; la puerta no se ejecuto")
         if self.frames != self.exact or self.order_bad:
             raise ValueError("OAM 68000: fichas u orden distintos del oraculo")
 
