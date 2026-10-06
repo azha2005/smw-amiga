@@ -308,7 +308,11 @@ static void chuck_run(u8 x)
     u8 a, y;
     if (SPR(wm_SpriteStatus, x) != 0x08) {      /* CODE_02C217: muriendo */
         SETSPR(wm_SpriteMiscTbl3, x, tc_02C213[(R8(wm_FrameB) >> 2) & 0x03]);
+#ifdef SPR_OAM
+        chuck_gfx(x);
+#else
         get_draw_info(x);                       /* CODE_02C81A */
+#endif
         return;
     }
     if (SPR(wm_SpriteDecTbl5, x))
@@ -316,7 +320,11 @@ static void chuck_run(u8 x)
     if (!(SPR(wm_SprObjStatus, x) & 0x04) && NEG(SPR(wm_SpriteSpeedY, x))
         && SPR(wm_SpriteState, x) < 5)
         SETSPR(wm_SpriteGfxTbl, x, 6);
+#ifdef SPR_OAM
+    chuck_gfx(x);
+#else
     get_draw_info(x);                           /* CODE_02C81A: dibujo */
+#endif
     if (R8(wm_SpritesLocked))
         return;
     sub_offscreen3(x);                          /* SubOffscreen0Bnk2 */

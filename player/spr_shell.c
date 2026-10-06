@@ -189,7 +189,11 @@ static void shell_stunned(u8 x)
         spr_spr_interact(x);                    /* _SubSprSprMarioSpr */
         mario_spr_interact(x);
     }
+#ifdef SPR_OAM
+    shell_gfx(x, 0);
+#else
     spr_draw_info1(x);                          /* _0195F5: CODE_01A187 (dibujo) */
+#endif
     sub_offscreen3(x);
 }
 
@@ -231,7 +235,11 @@ static void shell_kicked(u8 x)
         mario_spr_interact(x);
     }
     sub_offscreen3(x);                          /* _01998F */
+#ifdef SPR_OAM
+    shell_gfx(x, 1);
+#else
     spr_draw_info1(x);                          /* CODE_019A2A (dibujo) */
+#endif
     SETSPR(wm_SpriteDecTbl3, x, 0);
 }
 
@@ -342,7 +350,11 @@ static void shell_carried(u8 x)
                 shell_release(x);
         }
     }
+#ifdef SPR_OAM
+    shell_gfx(x, 0);
+#else
     spr_draw_info1(x);                          /* CODE_01A187 (dibujo) */
+#endif
 }
 
 /* el despachador de los estados 9 / A / B (HandleSprite: ExecutePtr) */

@@ -114,6 +114,16 @@ WANT_POWERUP = [
 # Rutinas de graficos que escriben la OAM (G8, player/spr_gfx.c): bloque
 # #ifdef SMWTABX_GFX, igual que los de arriba (P36/P78).
 WANT_GFX = [
+    *[("sprite_2-2.s", lab, "tg2_" + lab) for lab in
+      ("DATA_02D5A4", "DATA_02D5B4", "BanzaiBillTiles", "DATA_02D5D4")],
+    *[("sprite_2-1.s", lab, "tg2_" + lab) for lab in
+      ("DATA_02C830", "DATA_02C84A", "DATA_02C864", "ChuckHeadTiles", "DATA_02C885",
+       "DATA_02C909", "DATA_02C93D", "DATA_02C971", "ChuckBody1", "ChuckBody2",
+       "DATA_02C9BF", "DATA_02C9D9", "DATA_02C9F3", "DATA_02CA0D", "DATA_02CA93",
+       "DATA_02CA95", "ClappinChuckTiles", "DATA_02CA99", "DATA_02CA9B", "ChuckGfxProp",
+       "DATA_02CB41")],
+    *[("sprite_1-main.s", lab, "tg2_" + lab) for lab in
+      ("GeneralSprDispX", "GeneralSprDispY", "GeneralSprGfxProp", "ShellAniTiles", "ShellGfxProp")],
     ("sprite_3-1.s", "RexTileDispX", "tg2_RexTileDispX"),
     ("sprite_3-1.s", "RexTileDispY", "tg2_RexTileDispY"),
     ("sprite_3-1.s", "RexTiles", "tg2_RexTiles"),

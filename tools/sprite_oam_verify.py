@@ -39,6 +39,7 @@ class SpriteOAM:
         self.order_pos = []
         self.shown = []
         self.samples = {}
+        self.sample_types = {0xAB}
 
     def flush_order(self):
         lastpos = lastslot = -1
@@ -95,8 +96,8 @@ class SpriteOAM:
             if pos >= 0:
                 self.exact[num] += 1
                 self.order_pos.append((first[k], pos))
-                key = tuple(e[2:] for e in entries)
-                if num == 0xAB and len(self.samples) < 8:
+                key = (num, tuple(e[2:] for e in entries))
+                if num in self.sample_types and len(self.samples) < 8:
                     self.samples.setdefault(key, (frame, recorded[pos:pos + len(entries)], entries))
             elif len(self.shown) < 10:
                 self.shown.append("sprite %02X frame %d ranura %d: %s" %
@@ -113,8 +114,8 @@ class SpriteOAM:
               (self.order_bad, *self.shift))
         for text in self.shown:
             print("  " + text)
-        if not self.frames[0xAB]:
-            raise ValueError("OAM 68000: 0 comprobaciones de Rex; la puerta no se ejecuto")
+        if not self.frames:
+            raise ValueError("OAM 68000: 0 comprobaciones; la puerta no se ejecuto")
         if self.frames != self.exact or self.order_bad:
             raise ValueError("OAM 68000: fichas u orden distintos del oraculo")
 
@@ -125,16 +126,18 @@ class SpriteOAM:
         vram, _, _ = G.build_vram(G._DEF_SRC, G.LEVEL)
         cg = G.level_cgram(G._DEF_SRC, G.LEVEL)
         samples = list(self.samples.values())
-        im = Image.new("RGB", (160 * len(samples), 300), "#19212b")
+        if not samples:
+            raise ValueError("preview: no hay muestras de los tipos requeridos")
+        im = Image.new("RGB", (240 * len(samples), 460), "#19212b")
         draw = ImageDraw.Draw(im)
         for c, (frame, reference, actual) in enumerate(samples):
-            draw.text((c * 160 + 4, 3), "frame %d" % frame, fill="white")
+            draw.text((c * 240 + 4, 3), "frame %d" % frame, fill="white")
             decoded = [[tuple(G.entries(e))[0] for e in es] for es in (reference, actual)]
             xs = [x - 512 if x >= 256 else x for es in decoded for x, *_ in es]
             ys = [y - 256 if y >= 224 else y for es in decoded for _, y, *_ in es]
             x0, y0 = min(xs) - 4, min(ys) - 4
             for r, es in enumerate(decoded):
-                draw.text((c * 160 + 4, 20 + r * 140), "SNES" if not r else "68000", fill="white")
+                draw.text((c * 240 + 4, 20 + r * 220), "SNES" if not r else "68000", fill="white")
                 for x, y, tile, attr, hi in es:
                     x = x - 512 if x >= 256 else x
                     y = y - 256 if y >= 224 else y
@@ -144,7 +147,7 @@ class SpriteOAM:
                     for dy, row in enumerate(pixels):
                         for dx, index in enumerate(row):
                             if index:
-                                px, py = c * 160 + (x - x0 + dx) * 3, 34 + r * 140 + (y - y0 + dy) * 3
+                                px, py = c * 240 + (x - x0 + dx) * 3, 34 + r * 220 + (y - y0 + dy) * 3
                                 draw.rectangle((px, py, px + 2, py + 2), fill=palette[index])
         im.save(path)
         print("evidencia OAM (paleta SNES, no OCS): " + path)
@@ -170,6 +173,7 @@ def main():
     cpu = V.MusashiCPU()
     cpu.write(V.BASE, code)
     check = SpriteOAM(cpu, V.BASE, syms, a.oracle, records)
+    check.sample_types = {int(x, 16) for x in a.require.split(",")}
     cpu.call(V.BASE + syms["_logic68k_init"], V.BASE)
     cpu.call(V.BASE + syms["_mcoll_init"], V.BASE)
     calls = bad = marker_bad = abi_bad = 0

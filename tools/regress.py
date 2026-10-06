@@ -236,13 +236,22 @@ def game_oam_checks(r, k, out):
     """G8: marioverify game, la OAM que escriben las rutinas de graficos
     portadas (player/spr_gfx.c) contra la grabada (<oraculo>_oam.bin), por
     numero de sprite: frames con fichas visibles y exactas"""
-    for n, fr, ok in re.findall(r"oam ([0-9A-F]{2}): frames (\d+) exactas (\d+)", out):
+    rows = re.findall(r"oam ([0-9A-F]{2}): frames (\d+) exactas (\d+)", out)
+    for n, fr, ok in rows:
         r.put(k + "oam_%s.frames" % n, int(fr), "info")
         r.put(k + "oam_%s.exactas" % n, int(ok), "max")
         r.put(k + "oam_%s.distintas" % n, int(fr) - int(ok), "min")
     t = num(r"oam: fuera de orden (\d+)", out)
     if t:
         r.put(k + "oam.fuera_de_orden", t[0], "min")
+    required = {"orc.chuck.game.": "95", "orc.goal.game.": "7B",
+                "orc.shells.game.": "05", "orc.banzai.game.": "9F",
+                "orc.stress_piranha.game.": "4F"}.get(k)
+    if required:
+        counts = {n: (int(fr), int(ok)) for n, fr, ok in rows}
+        fr, ok = counts.get(required, (0, 0))
+        r.note(k + "oam_" + required, fr > 0 and fr == ok and t == (0,),
+               "%d/%d OAM exactas, orden %s" % (ok, fr, t[0] if t else "sin comprobar"))
 
 
 def sprgfx_checks(r):
@@ -273,7 +282,7 @@ def sprgfx_checks(r):
 # oraculos guionizados de snesorc (tools/snesorc/*.orc -> work/oracle_X.txt,
 # en git): el .bin se regenera si falta o si el .txt es mas nuevo
 SNESORC = ("normal", "diagpipe", "hills", "banzai", "chuck", "goal", "goalhit", "shells", "pw_seta",
-           "spin_kill", "chuck_kill", "turn_block")
+           "spin_kill", "chuck_kill", "turn_block", "stress_piranha")
 
 
 def orc_checks(r):

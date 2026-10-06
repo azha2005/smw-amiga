@@ -122,7 +122,11 @@ void goal_tape(u8 x)
         if (!SPR(wm_SpriteDecTbl1, x))      /* DecTbl1 != 0: dibuja los puntos (CODE_07F1CA) */
             SETSPR(wm_SpriteStatus, x, 0);  /* CODE_01C17F */
     } else {
+#ifdef SPR_OAM
+        goal_gfx(x);
+#else
         get_draw_info1(x);                  /* CODE_01C12D: GetDrawInfoBnk1 + OAM */
+#endif
     }
     if (R8(wm_SpritesLocked))
         return;
