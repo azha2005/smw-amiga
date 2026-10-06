@@ -55,12 +55,32 @@ for f in mario mcoll manim mgfx mcam msprite mspr $SPRS gen/smwrom00; do
     ' $CC/$b.s
     touch $CC/$b.data.s $CC/$b.code.s
 done
+# G8b/P102: solo las instrucciones de llamada de esos TUs opt-in se
+# redirigen a puentes cercanos; declaraciones, datos y otros TUs intactos.
+SPR_PIC=
+case " $LBDEFS " in
+    *" -DSPR_OAM"*)
+        SPR_PIC=1
+        sed -i -E 's/^([[:space:]]*jsr[[:space:]]+)_powerup_from_block([[:space:]]*)$/\1_powerup_from_block_bridge\2/' "$CC/mcoll.code.s"
+        sed -i -E 's/^([[:space:]]*jsr[[:space:]]+)_mario_E2BD([[:space:]]*)$/\1_mario_E2BD_bridge\2/' "$CC/manim.code.s"
+        sed -i -E 's/^([[:space:]]*jsr[[:space:]]+)_sprite_run([[:space:]]*)$/\1_sprite_run_bridge\2/' "$CC/manim.code.s"
+        sed -i -E 's/^([[:space:]]*jsr[[:space:]]+)_mario_hurt([[:space:]]*)$/\1_mario_hurt_rex_bridge\2/' "$CC/spr_rex.code.s"
+        ;;
+esac
 # Los spr_*.c se anexan a msprite.data.s / msprite.code.s: los arneses
 # (game.s, logicbench.s) incluyen por nombre y asi no hay que tocarlos al
 # agregar un sprite. Los datos siguen yendo antes que todo el codigo (P36).
 for b in $SPRS; do
     cat $CC/$b.data.s >> $CC/msprite.data.s
     cat $CC/$b.code.s >> $CC/msprite.code.s
+    if [ -n "$SPR_PIC" ] && [ "$b" = spr_rex ]; then
+        # Puente al lado del emisor: PICJUMP mantiene argumentos/retorno.
+        printf '%s\n' \
+            '; --- _mario_hurt_rex_bridge: ABI vbcc, +32 ciclos sin DMA ---' \
+            '        public _mario_hurt_rex_bridge' \
+            '_mario_hurt_rex_bridge:' \
+            '        PICJUMP _mario_hurt' >> "$CC/msprite.code.s"
+    fi
 done
 # El binario se carga en cualquier direccion: el codigo del C solo puede
 # llegar a sus datos por (a4) y a su codigo por (pc)/bsr. vbcc puede emitir

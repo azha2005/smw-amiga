@@ -18,3 +18,20 @@
         public  _f44d_asm_bridge
 _f44d_asm_bridge:
         PICJUMP _f44d_asm
+
+        ifd SPR_OAM
+; --- _powerup_from_block_bridge / _mario_E2BD_bridge ---
+; entrada: argumentos vbcc intactos en la pila (retorno y ranuras long).
+; salida: la del destino; el salto final conserva el retorno original.
+; registros destruidos: a0 (caller saved); los del destino.
+; ciclos: +32 por puente (68000 sin DMA); ver informe G8b.
+        public  _powerup_from_block_bridge
+_powerup_from_block_bridge:
+        PICJUMP _powerup_from_block
+        public  _mario_E2BD_bridge
+_mario_E2BD_bridge:
+        PICJUMP _mario_E2BD
+        public  _sprite_run_bridge
+_sprite_run_bridge:
+        PICJUMP _sprite_run
+        endif
