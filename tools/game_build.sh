@@ -4,6 +4,8 @@
 #
 #   sh tools/game_build.sh                       # replay entero (-DREPLAY)
 #   GDEFS="-DREPLAY -DSTOPF=1200" OUT=work/g1200 sh tools/game_build.sh
+#   ORACLE=work/oracle_stress_back.bin REPLAY=work/stress_back_replay.bin \
+#     OUT=work/d1-back GDEFS="-DREPLAY -DBENCH" sh tools/game_build.sh
 #
 # 1. El C: lo compila tools/logicbench_build.sh (work/cc/*.s; arma tambien
 #    logicbench, que no molesta).
@@ -27,6 +29,8 @@ case " $CDEFS " in
     *) GDEFS="$GDEFS -DSPR_OAM"; SPR_MODE=1 ;;
 esac
 OUT=${OUT:-work}
+REPLAY=${REPLAY:-work/yi1_replay.bin}
+ORACLE=${ORACLE:-work/oracle_yi1.bin}
 mkdir -p "$OUT"
 [ -n "$NOCC" ] || sh tools/logicbench_build.sh
 # NOCC tambien debe usar un C ya compilado con estas opciones (P36/P98).
@@ -35,11 +39,38 @@ if grep -q '^_rex_gfx' work/cc/msprite.code.s; then CC_SPR=1; else CC_SPR=0; fi
 [ -f work/cc/spr.lv ] || cp ../smw-src-master/project/mw_e10/levels/data/world_1/1/spr.lv work/cc/spr.lv
 [ -f work/yi1_s.dat ] || $PY tools/mkscroll.py
 [ -f work/cc/gfx32f.bin ] && [ -f work/cc/mario_pal.bin ] || $PY tools/mkmario.py
-if [ ! -f work/yi1_replay.bin ] || [ work/logicbench.bin -nt work/yi1_replay.bin ]; then
-    $PY tools/m68kverify.py --mode loop --sprites --replay work/yi1_replay.bin
+REPLAY_KEY=$($PY - "$ORACLE" work/logicbench.bin <<'PY'
+import hashlib
+import pathlib
+import sys
+print(" ".join(hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest() for p in sys.argv[1:]))
+PY
+)
+if [ ! -f "$REPLAY" ] || [ ! -f "$REPLAY.oracle" ] || [ "$(cat "$REPLAY.oracle")" != "$REPLAY_KEY" ]; then
+    mkdir -p "$(dirname "$REPLAY")"
+    $PY tools/m68kverify.py --mode loop --sprites --oracle "$ORACLE" --replay "$REPLAY"
+    printf '%s\n' "$REPLAY_KEY" > "$REPLAY.oracle"
+fi
+HARNESS=player/game.s
+if [ "$REPLAY" != work/yi1_replay.bin ]; then
+    # Fuente temporal, como logicbench PROF: no modificar el replay normal
+    # ni player/game.s. Los otros includes conservan sus rutas originales.
+    HARNESS="$OUT/game.replay.s"
+    $PY - "$REPLAY" "$HARNESS" <<'PY'
+import pathlib
+import sys
+replay = str(pathlib.Path(sys.argv[1]).resolve())
+if any(c in replay for c in ('"', '\n', '\r')):
+    raise SystemExit("ERROR: ruta del replay no representable en incbin")
+source = pathlib.Path("player/game.s").read_text()
+old = 'incbin  "work/yi1_replay.bin"'
+if source.count(old) != 1:
+    raise SystemExit("ERROR: cambió el incbin del replay en player/game.s")
+pathlib.Path(sys.argv[2]).write_text(source.replace(old, 'incbin  "' + replay + '"'))
+PY
 fi
 "$VBCC/bin/vasmm68k_mot$X" -quiet -Fbin -m68000 $GDEFS -I player -I . -L "$OUT/game.lst" \
-    -o "$OUT/game.bin" player/game.s
+    -o "$OUT/game.bin" "$HARNESS"
 $PY tools/piccheck.py --lst "$OUT/game.lst"
 $PY tools/mkadf.py --boot work/boot.bin --stage2 "$OUT/game.bin" --data work/yi1_s.dat \
     --out "$OUT/game.adf"
