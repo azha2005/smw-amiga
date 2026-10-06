@@ -98,7 +98,37 @@ banco y tablas al sumarla.
 
 ---
 
-## 2. Después, en orden
+## 2. Sesión experimental: E11-E14 (de los juegos de referencia)
+
+**Objetivo:** decidir con números si las técnicas de Lionheart, Elfmania,
+Kid Chaos y Robocod (`docs/investigacion-ports.md` §19) le sirven a YI1,
+**antes** de que S5 y G7 las necesiten. La primera mitad es solo offline,
+sobre `tools/` y los oráculos, y no depende de G2-G5: puede ir en paralelo
+con la sesión de §1 o en un hueco. Ninguna toca el juego hasta que su
+recuento lo justifique.
+
+| tarjeta | modelo | toca | entrega y puerta |
+|---|---|---|---|
+| **E11a** — recuento de líneas donde PF2 cabe en 2 planos | Sol medium | solo `tools/` (herramienta nueva, salida en `work/`) | para cada línea de pantalla y cada cámara del recorrido de los oráculos (ida, vuelta, cámara Y), el índice máximo de PF2 usado: líneas con ≤ 3 (DPF 3+2) y con 0 (PF2 vacío). Con el modelo de `copsim.py` (ranura cada 12 px con 5 planos, en vez de 16), cuántas cargas de `build_mid` dejan de retrasarse y cuánto baja el pico de vuelta. **Puerta:** un número por cámara y el total; si las líneas aptas no mueven el pico, E11 se cierra con ese número en §18.2 |
+| **E11b** — franjas de 5 planos en la lista | Sol high | `tools/mkleveld.py`, `copsim.py`, `player/scroll.s` | **solo si E11a da.** `BPLCON0` por franja en el borrado, `BPL6PT` recargado al volver a 6 planos, franjas rehechas al mover la cámara en vertical. **Puerta:** píxeles iguales (capturas cycle-exact, `cmp_ref.py` sin cambios), ida/vuelta/cámara Y, pico de vuelta y fotos omitidas con el protocolo de §17.2 |
+| **E12** — índices de PF1 sin conflicto por línea | Sol medium | solo `tools/` (plan offline) | los índices de PF1 cuyas variantes nunca comparten línea en YI1, **en todas las cámaras posibles** (no solo las grabadas), y cuántas cargas de `build_mid` pasarían al borrado. Es el recuento de E09; **comparte la herramienta con E11a**. **Puerta:** píxeles iguales; si son pocos índices, se cierra con el número |
+| **E14a** — ¿cabe el Banzai en los 8 sprites? | Luna medium | solo `tools/`, sobre `work/oracle_*.txt` | en `oracle_stress_sprites` y `oracle_banzai`, cuántos frames tienen las 64 líneas del Banzai libres de otra OAM (Mario incluido). **Puerta:** si casi nunca están libres, E14 se descarta (el peor caso sigue siendo el bob de E04); si sí, queda como dato para G7 |
+
+**E13** (prioridad por franja con `BPLCON2`) **no se abre**: no hay caso
+en YI1. Se anota como recurso en `docs/plan-tecnico.md` hasta que una
+comparación 1:1 lo pida.
+
+Herramienta de apoyo, solo para diagnosticar: Engine9000 (§19.4) para ver
+franjas y canales. Las medidas que cierran una puerta siguen siendo las
+de WinUAE con `a500.uae`.
+
+Al cerrar: el resultado de cada tarjeta (sirve, o se descarta con su
+número) va a `docs/investigacion-ports.md` §19.5, y si E11b o E12 entran,
+pasan a §3 junto a S5.
+
+---
+
+## 3. Después, en orden
 
 Cada paso con su puerta; nada empieza con el anterior en rojo. Detalle de
 cómo hacer cada cosa: `docs/plan-tecnico.md` §10; tarjetas: `SUBAGENTES.md`.
@@ -129,7 +159,7 @@ cómo hacer cada cosa: `docs/plan-tecnico.md` §10; tarjetas: `SUBAGENTES.md`.
    uno), §16.6. HUD (H2): trucos de módulo para líneas constantes, §16.9.
    Lógica (L5): E07 (GCC) solo si un perfil muestra que la lógica limita, §16.7.
 
-## 3. Pendiente del usuario o de la PC
+## 4. Pendiente del usuario o de la PC
 
 - **U1:** jugar `work/live/game.adf` en WinUAE con teclado (KS 1.2,
   512 KB chip + 512 KB slow). Los enemigos todavía no se dibujan; si se

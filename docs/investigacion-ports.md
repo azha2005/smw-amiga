@@ -15,6 +15,10 @@
 > **Ampliación:** §15 actualiza las conclusiones contra el port vigente;
 > §16 contrasta nuevas fuentes primarias; §17 convierte los hallazgos en
 > experimentos con puertas; §18 registra fuentes, límites y pendientes.
+> **§19 (2026-10-06):** diez juegos de referencia del A500 (Lionheart,
+> Agony, Beast, Kid Chaos, Jim Power, Elfmania, Disposable Hero, Apidya,
+> Turrican II, Ruff 'n' Tumble) más Robocod, vistos con el depurador
+> Engine9000; experimentos E11-E14.
 > Las cifras de terceros y los cálculos teóricos **no son medidas del port**.
 >
 > Límite de la búsqueda: **English Amiga Board (eab.abime.net) no se pudo
@@ -51,6 +55,9 @@
 | Recarga de sprites contra copiar cadenas | **ACE PR #292**: encadenado DMA, gap 1, sin reasignador automático | Evaluar una combinación por objeto, contando CPU, chip y ventanas reales | §16.5, E02 |
 | Música barata con picos de interrupción | **LSP**: tick y reactivación DMA separados; modo generado a cambio de memoria | Medir las dos fases y su interferencia con O5; eventos en slow, muestras en chip | §16.6, E08 |
 | Cambio de compilador y traducción de lógica | **GCC oficial + SMBNeo/VS**: ABI explícita y C nativo contrastado con traducción de referencia | Separar prueba del compilador de cambios semánticos y conservar el oráculo | §16.7–§16.8, E07 |
+| Ranuras del copper en `build_mid` | **Lionheart, Elfmania, Kid Chaos**: el número de planos cambia por franjas (4/5/6/5; 5→4; DPF 3+2) | Donde PF2 usa ≤ 3 colores, DPF 3+2 da una ranura de copper cada 12 px en vez de 16 | §19.3, **E11** |
+| Colores de PF1 sin cargas a mitad de línea | **Kid Chaos, Lionheart**: colores copperizados por Y del nivel, en 8 direcciones a 50 fps; la lista se rehace al mover la cámara en vertical | Pasar al borrado los índices de PF1 que en YI1 nunca comparten línea con otra variante | §19.3, **E12** |
+| Banzai Bill (64×64) | **Lionheart**: la bestia montada ocupa los 8 sprites; **Robocod**: sprite o bob según la banda | Banzai en sprites solo cuando sus líneas están libres; el peor caso sigue siendo el bob | §19.3, **E14** |
 
 ---
 
@@ -1630,6 +1637,235 @@ se incorporan explicaciones y propuestas, sin código ni assets de terceros.
 correcciones de aplicabilidad. La investigación amplía las opciones medibles;
 los objetivos ≤25 % scroll, ≤40 % lógica, ≤8 % preparación de sprites y
 ≤3 % audio siguen siendo puertas del port, no resultados obtenidos aquí.
+
+---
+
+## 19. Los diez escaparates del A500, vistos por dentro (2026-10-06)
+
+> Lista pedida por el usuario: Lionheart, Agony, Shadow of the Beast,
+> Ruff 'n' Tumble, Kid Chaos, Elfmania, Disposable Hero, Apidya,
+> Turrican II y Jim Power. Se añadió Robocod porque §2.1 y §5.3 ya se
+> apoyan en él.
+>
+> **De dónde sale cada dato.** Casi ningún autor documentó su motor. La
+> fuente principal es la serie de vídeos **"How Amiga Games Work"**
+> (canal `@psquaredish`, 72 episodios). Cada juego se inspecciona con el
+> depurador **Engine9000** (alpine9000): se apagan planos y sprites uno a
+> uno, se "bloquea" el copper a partir de una línea y se ven el
+> visualizador de blits, los de paleta y copper, las ranuras DMA y los fps.
+> Se leyeron las transcripciones automáticas de los episodios 1 y 36
+> (Lionheart), 4 (Agony), 5 (Beast), 7 (Kid Chaos), 8 (Turrican II), 13
+> (Jim Power), 18 (Apidya), 27 (Disposable Hero), 41 (Robocod) y 48
+> (Elfmania), bajadas con `yt-dlp` y `youtube-transcript-api`. Son
+> **observaciones de un emulador (libretro-uae)**, narradas por quien no
+> programa ("I'm not a coder myself"). Valen como "qué registro cambia y
+> dónde", no como cifras de ciclos. Donde había fuente escrita se
+> contrastó: Codetapper para Agony, Beast y Jim Power, y Wikipedia y
+> entrevistas para Ruff 'n' Tumble y Kid Chaos. **Ruff 'n' Tumble no
+> tiene episodio** y su motor queda sin documentar.
+
+### 19.1 Qué hace cada uno
+
+| juego | modo de pantalla | sprites de hardware | copper | blitter / fps |
+|---|---|---|---|---|
+| **Lionheart** (1993) | DPF 3+3, pero **cambia el número de planos por bandas**: 5 arriba, 6 solo donde están las montañas, 5 y 4 abajo (visto en el mapa DMA). Otros niveles: 16 colores normales (4 planos) o EHB | héroe = 2 pares adosados (32 px, 15 colores); el agua es **un sprite de 3 colores repetido en horizontal**; HUD con sprites (0/1 pasan de corazones a "pausa"); la bestia montada usa **los 8 sprites**; la luna en 6/7 con COLOR29-31 recargados | en los niveles de 16 colores **copperiza los 15 colores, uno por línea en rotación** (1, 2, … 15, vuelve a 1): degradados suaves, 70-190 colores en pantalla, **con scroll en 8 direcciones**. Paralaje de fondo **por línea** cambiando `BPLxPT`. Cambia la prioridad (`BPLCON2`) en una franja para que un trozo del fondo pase delante | poco blitter (héroe en sprites): enemigos y columnas nuevas. DMA total ≈ ½ del frame |
+| **Agony** (1992) | DPF, el fondo **partido en 1 plano (fondo fijo) + 2 planos (medio)**: tres capas | búho = 4 sprites (2 pares adosados, 32 px). Balas en 4/5. Lluvia y pociones **comparten** 6/7 porque el diseño nunca las pone a la vez | degradado en la capa de 1 plano. **Paleta del PF delantero cambiada por franjas horizontales**: los enemigos de arriba y los de abajo tienen paletas distintas, y **el diseño del nivel no los deja cruzar la línea** (en los niveles 3, 5 y 6 se les escapa y cambian de color) | ~26 blits por frame; 50 fps fijos en el emulador; DMA ≈ ¾ |
+| **Shadow of the Beast** (1989) | DPF 3+3, 13 franjas de paralaje | héroe = 4 sprites, **6 al estirar brazo o pierna**. Los enemigos-sprite van todos en 6/7 (32 px, 3 colores). El juego **impide la patada mientras vuela el plasma**: no quedan canales | **cambia los 7 colores del PF delantero en la línea exacta del suelo** para el bob que pasa, y vuelve a la paleta del suelo en su pie. Bobs con paletas distintas **separados al menos una pantalla**. Prioridad de sprites cambiada por franja | columna de 16 px al ir en horizontal; **en vertical re-blitea la pantalla entera** y aun así va a 50 fps |
+| **Kid Chaos** (1994) | DPF **3+2** (5 planos) | Kid (2 pares adosados) + marcador en el mismo canal más abajo | **colores copperizados también en el PF delantero**: un índice vale rojo, naranja y luego azul según la línea. El nivel está pintado para que dos variantes **nunca compartan línea**: no hay ladrillo de color en la línea del agua. **La lista se reescribe al mover la cámara en vertical**: el visualizador la ve cambiar al subir y bajar | columnas nuevas en 2 bordes a la vez (8 direcciones); solo se blitea lo animado. 50 fps |
+| **Jim Power** (1992) | DPF arriba; **desde el suelo hacia abajo otra pantalla de 16 colores** abierta por copper (`BPLxPT`) | **fondo entero con 2 sprites (6/7) reposicionados cada 16 px** a lo ancho de la línea; disparos en 4/5 (máximo 2); héroe ≤ 32 px | lista **fija**: no es de 8 direcciones. Prioridad cambiada por franja; en el jefe final, `BPLCON1` y módulos por línea | **los jefes grandes son un playfield entero que se mueve**; solo se blitean sus partes móviles. 320×256 a 50 fps |
+| **Elfmania** (1994) | 5 planos (32 colores) arriba; **`BPLCON0` baja a 4 planos** en la franja de abajo, con la misma paleta repetida para que no se note el corte | fondos (peces, postes, la luna) con **pares adosados multiplexados en horizontal y en vertical**; nunca más de 4 objetos-sprite por línea. Pantalla de 288 px **para que entren los 8 sprites** | agua: en un solo playfield el scroll por línea deformaría a los luchadores, así que **lo hace con blits de franjas finas**. Abajo, donde no hay personajes, usa `BPLCON1` y módulos por línea | luchadores troceados en blits por parte del cuerpo. Concesión: **las animaciones de fondo se paran cuando hay mucho trabajo**. 50 fps |
+| **Disposable Hero** (1993) | 32 colores; en el último nivel la pantalla **cambia de modo a mitad**: 32 colores, 8 y una franja DPF para la lava | marcador y recuadro multiplexados en horizontal; disparos mejorados en 0/1 (multiplexados en vertical); estrellas en un solo canal | **reflejo del agua: módulo negativo + todos los colores teñidos a partir de una línea que se mueve** con el objeto (63-95 colores). Un "edificio" que en realidad son barras de COLOR00 | todo lo demás por blitter, 50 fps. El autor: carga máxima "at all times" sin caer de 50 fps; las armas están diseñadas para que nunca se pasen |
+| **Apidya** (1992) | **cada nivel con otra configuración**: 32 colores con franjas de 16 arriba y abajo, DPF con deformación de `BPLxPT`, 16 colores a 256×192 | fondos (trigo, engranajes) con **los 8 sprites repetidos cada 128 px** por copper; el jugador es bob en unos niveles y sprite en otros | partición de paleta en la línea del agua: **los enemigos no la cruzan, pero los colores del jugador quedan fijos** en ambos lados. Partición de la lista para enganchar arriba con abajo (scroll vertical infinito) | el pez gigante es pantalla, no blit; solo se blitean aletas y jinete. 50 fps |
+| **Turrican II** (1991) | **4 planos, 16 colores, sin DPF** | solo el jugador (y en la nave, 6 sprites + 2 de plasma). El HUD no es de sprites | casi nada | **todo por blitter**; el paralaje de la nave se hace blitteando **solo las franjas que se mueven, a 2 planos**, y solo donde se ve el fondo. El puente se blitea **solo en la parte pisada**; ~4 blits a la vez. 50 fps |
+| **Robocod** (1991) | 16 colores **repetidos dos veces en la paleta de 32**: el 5.º plano es un fondo de 1 plano que no altera el resto | **cada objeto pasa de bob a sprite y vuelve** según las bandas (≤ 32 px de alto, sin cruzar el borde de la banda). Se vio a 8 sprites en una línea y, al saltar, dos enemigos volviendo a bob | 2 colores con degradado (6 y 22) | el plano de fondo solo se re-blitea **al cruzar 16 px**. Excepción documentada: baja a 12,5 fps con el cuerpo estirado |
+| **Ruff 'n' Tumble** (1994) | 32 colores (las afirmaciones de foro de que es EHB **no están verificadas**) | — | — | **renunciaron al paralaje** "to make the game fast and playable"; fondos difuminados para dar profundidad. Sin análisis técnico publicado |
+
+### 19.2 Lo que se repite, y qué significa para nosotros
+
+1. **Nadie mueve cargas de color en horizontal con el scroll.** Lo
+   confirma §3.1 con diez casos más. Hasta Lionheart y Kid Chaos, los
+   que más color sacan en un nivel de 8 direcciones, cambian colores
+   **por línea, según la Y del nivel**. Cuando la cámara se mueve en
+   vertical se reescribe la lista; en horizontal no cambia nada. `build_mid`
+   sigue siendo una técnica sin precedente comercial encontrado.
+2. **El diseño del nivel paga las franjas de paleta**: Agony, Beast,
+   Kid Chaos y Apidya separan los objetos de paletas distintas (una
+   pantalla de distancia, o "no cruza la línea del agua"). Nosotros no
+   podemos rediseñar YI1 (1:1). Por eso las bandas solo de Y siguen siendo
+   el **plan B con pérdida** de §3.1, no un atajo.
+3. **El sprite de Mario con colores fijos es lo que hace Apidya**: sus
+   colores no cambian al cruzar la partición y los de los enemigos sí.
+   Es nuestro D8/D9 (Mario en 17-31 fijos y los demás recargados por
+   línea). El aviso de Lionheart (§3.1) es el mismo que ven Agony en los
+   niveles 3, 5 y 6 y Beast con sus bobs: **un objeto que cruza la línea
+   de recarga cambia de color**. `copsim.py` tiene que seguir comprobándolo.
+4. **El número de planos no es fijo en toda la pantalla.** Lionheart
+   (4/5/6/5), Elfmania (5→4), Kid Chaos (DPF 3+2), Disposable Hero
+   (32→8→DPF) y Jim Power (DPF→16 colores) cambian `BPLCON0` o la
+   distribución por franjas. Es la idea nueva más aprovechable (§19.3, E11).
+5. **Un sprite repetido a lo ancho de la línea** (Lionheart, Jim Power,
+   Apidya, Elfmania y Risky Woods en §3.1) da una capa entera con un
+   par de canales. Exige que **ningún otro objeto use esos canales en
+   esas líneas** (en Jim Power, como mucho 2 disparos y un héroe de 32 px).
+6. **Los objetos grandes no se blitean enteros.** Jim Power y Apidya
+   convierten al jefe en un playfield que se mueve; Turrican II y Kid
+   Chaos blitean solo la parte que cambia. Elfmania deja quietas las
+   animaciones de fondo cuando no llega. Todos degradan algo **elegido de
+   antemano**; ninguno deja que el frame caiga al azar.
+7. **Sprite o bob se decide por objeto y por frame**: Robocod (bandas),
+   Beast (enemigos en 6/7 y bloqueo de la patada), Agony (lluvia y pociones
+   nunca juntas). Coincide con §5.3 y `d8demote`. Lo nuevo es la **regla de
+   exclusión explícita**: cuando los canales no alcanzan, el juego
+   prohíbe la combinación en vez de perder un objeto.
+
+### 19.3 Cómo lo podemos implementar
+
+En orden de lo que más mueve el presupuesto. Todos son **experimentos con
+puerta**, como en §17; ninguno se ha probado en el port.
+
+**E11 — Menos planos donde PF2 no los usa (Lionheart, Elfmania, Kid
+Chaos).** La primera fila no depende de la cámara: es la recarga de 16
+colores por línea de `build_mid` (P39/P42) y vale para cualquier línea.
+En DPF de 6 planos el copper tiene **una ranura cada 16 px**; con 5,
+cada 12 (roondar, §3.1) y con 4, cada 8.
+
+- **Medir primero, sin tocar el juego.** En `mkleveld.py` (o en una
+  herramienta aparte), para cada línea de pantalla y cada cámara del
+  recorrido del oráculo, buscar el **índice máximo de PF2** usado:
+  - si es ≤ 3, basta con 2 planos de PF2 (DPF 3+2, como Kid Chaos);
+  - si es 0, PF2 está vacío en esa línea.
+
+  Con el mismo recuento sale cuánto `build_mid` gana con el
+  copper a 12 px en esas líneas (P51 ya mostró cuánto cambia el modelo
+  con más ranuras libres). Si en YI1 casi no hay líneas así (el cielo
+  de capa 2 con colinas probablemente ocupa casi todo), **se descarta con
+  el número** y se anota en §18.2.
+- Si da, el plan del copper escribe `BPLCON0` (5 o 6 planos) al principio
+  de cada franja, en el borrado horizontal, y `copsim.py` modela el cambio
+  de ranuras por línea. Detalles: con 5 planos en DPF, PF2 solo lee los
+  planos 2 y 4, así que en esas líneas sus píxeles tienen que caber en
+  los índices 0-3 de PF2 (es lo que mide el recuento). Y `BPL6PT` no
+  avanza mientras el plano está apagado: hay que recargarlo al volver a
+  6 planos, como ya se hace con los punteros en la partición vertical.
+- **Puerta:** píxeles iguales (capturas cycle-exact contra la referencia y
+  `cmp_ref.py` sin cambios), ida/vuelta/cámara Y. Métrica: el pico de vuelta
+  y las fotos omitidas con el protocolo de §17.2. Una franja depende de la
+  Y de la cámara (como en Kid Chaos), así que la lista se rehace al moverse
+  en vertical: entra en el mismo mecanismo que S8/§12.1.
+
+**E12 — Colores de PF1 por línea con el nivel, sin pérdida (Kid Chaos,
+Lionheart).** Es lo que E09 (§17.1) llamaba "asignación de índices".
+Kid Chaos muestra que puede hacerse **en un nivel de 8 direcciones a 50
+fps** si las variantes de un índice nunca comparten línea. Nosotros no
+elegimos el arte. Lo que sí podemos hacer es buscar en el plan offline los
+índices de PF1 cuyas variantes **por casualidad** nunca comparten línea en
+YI1, y pasarlos de carga a mitad de línea (`build_mid`) a carga en el borrado
+según la Y del nivel. Solo se aceptan los que dan píxeles iguales; los
+demás siguen en `build_mid`. Puerta: la de E09. Si no hay suficientes
+índices así, el número cierra la idea.
+
+**E13 — Cambiar la prioridad por franja (Lionheart, Beast, Jim Power).**
+Lionheart pone un trozo del fondo **delante** del PF1 cambiando
+`BPLCON2` en una franja. Es la herramienta para tiles de **capa 2 con
+prioridad sobre capa 1** o para sprites detrás del terreno en una zona,
+si YI1 los tiene. **Sin caso confirmado en YI1**: anotarlo en `docs/plan-tecnico.md`
+como recurso y no abrir tarjeta hasta que una comparación 1:1 lo pida.
+
+**Banzai Bill (§16.4), dos opciones a medir junto con E04:**
+
+- **Con sprites, como la bestia de Lionheart**: 64 px de ancho = 4 pares
+  adosados = **los 8 sprites**, 15 colores. Solo sirve si en sus 64
+  líneas no hay nadie más en sprites. Mario sí puede estar en esas
+  líneas, así que por sí sola **no basta**. Como mixto al estilo Robocod
+  ("sprite cuando cabe, bob cuando no"), el coste en el peor caso sigue
+  siendo el del bob. Vale si reduce las fotos omitidas en el replay de
+  estrés (`oracle_stress_sprites`), no por el caso medio.
+- **Como playfield, como los jefes de Jim Power**: **no se traslada**. PF2
+  ya lleva la capa 2 y PF1 el terreno. Descartado por D8.
+
+**HUD (D11, H2-H4) — una alternativa para comparar, no para reemplazar.**
+Lionheart, Kid Chaos, Disposable Hero y Robocod hacen el marcador con
+sprites, multiplexados en horizontal por copper. Para nosotros eso
+**gasta los canales en y = 0..35** (`docs/medida-hud.md`), donde Mario y
+los enemigos sí pueden estar. Haría falta comprobar en los oráculos
+si alguna OAM entra en esa banda. El overlay de D11 no tiene esa
+restricción. Queda solo como medida comparativa si el overlay sale caro
+en H2.
+
+**Degradar algo elegido de antemano (Elfmania, Robocod), para O5.**
+Elfmania deja quietas las animaciones de fondo cuando no llega; Robocod
+re-blitea el plano de fondo solo al cruzar 16 px. En el port, el
+equivalente sería **retrasar la animación de tiles** (moneda de Yoshi
+P22/P23, bloques `?`) un frame en las fotos que vienen justas, con la
+lógica a 50 Hz intacta (O5). **Choca con el criterio 1:1**: es una
+diferencia visible, aunque mínima. Solo se plantea al usuario con los
+números de D1-medida, junto al plan B de 25 Hz de ROADMAP §3, nunca por
+iniciativa propia.
+
+**Lo que no se traslada, y por qué:**
+
+- **Copperizar los 15 colores por línea en rotación (Lionheart):** da
+  degradados donde el arte original no los tiene. Contradice el 1:1.
+- **Fondo de 1 plano con paleta duplicada (Robocod, Agony):** la capa 2
+  de SMW tiene más de 2 colores por línea. Ya la resuelve PF2 en
+  hardware (D8).
+- **Sin paralaje (Ruff 'n' Tumble), 4 planos sin DPF (Turrican II):**
+  más rápidos, pero sin la capa 2 que D8 decidió mantener.
+- **Reflejo con módulo negativo (Disposable Hero), agua con blits por
+  franja (Elfmania):** YI1 no tiene agua. Quedan para niveles futuros
+  (`docs/mas-alla-yi1.md`).
+
+### 19.4 Engine9000 como herramienta (diagnóstico, no medida)
+
+[alpine9000/engine9000-public](https://github.com/alpine9000/engine9000-public)
+es emulador (fork de libretro-uae) y depurador. Tiene justo lo que se usa en
+los vídeos: apagar planos y sprites, bloquear el copper desde una línea,
+visualizadores de blitter, copper, paleta y DMA, fps, depuración en fuente
+(ELF o stabs) y un **"smoke tester"** que graba un escenario, lo repite y
+compara vídeo y audio. Tiene periféricos de depuración en `$FC0000`-`$FC0300`:
+salida por consola, checkpoints de perfilado y contadores que se ven en la
+barra de estado. En `$B7E928` se lee el **contador de ciclos ÷ 4**.
+
+Para el port:
+
+- **Útil para ver** si una franja de E11/E12 cambia lo que se cree, o qué
+  sprite ocupa qué canal en un frame de G5a. Es lo mismo que haríamos
+  a mano con capturas, pero interactivo.
+- **No sirve para cerrar puertas:** AGENTS §11 exige `a500.uae` en WinUAE.
+  Los vídeos marcan que el juego va "más lento en el depurador", y los
+  fps que muestra no son una medida nuestra.
+- Las escrituras a `$FC0000` caen en la zona de la ROM. Si se usan, irían
+  tras un flag de compilación (como `-DBENCH`) y nunca en el ADF que se
+  mide. El soporte de Windows es vía MSYS2 y el autor dice que está "poco
+  probado".
+- Lo mismo vale para §16.1 (Bartman): las dos herramientas solo sirven
+  de diagnóstico.
+
+### 19.5 Experimentos nuevos (se suman a §17.1)
+
+| ID | Experimento / tarjetas | Qué compara | Métrica que debe mejorar | Puerta de corrección / descarte |
+|---|---|---|---|---|
+| E11 | Planos por franja; S5/S7, `build_mid` | DPF 3+3 en toda la pantalla vs 3+2 o 3+0 donde PF2 lo permite | Primero: líneas aptas por cámara (herramienta offline). Después: pico de vuelta y fotos omitidas | Píxeles iguales, ida/vuelta/cámara Y; descartar con el recuento si las líneas aptas no alcanzan |
+| E12 | Índices de PF1 por Y; S7/E09 | Carga a mitad de línea vs carga en el borrado para los índices sin conflicto en la misma línea | Palabras de lista por foto y pico de vuelta | Solo índices que den píxeles iguales en todas las cámaras posibles, no solo las grabadas |
+| E13 | Prioridad por franja; D8 | — | — | Sin caso en YI1; se abre solo si una comparación 1:1 lo pide |
+| E14 | Banzai en 8 sprites; G7/§16.4 | Bob (E04) vs sprite cuando las líneas están libres | Fotos omitidas en `oracle_stress_sprites` | OAM y prioridades exactas; el peor caso no puede empeorar |
+
+### 19.6 Fuentes de esta sección
+
+| fuente | qué se usó | límite |
+|---|---|---|
+| "How Amiga Games Work" (`youtube.com/@psquaredish`): [Lionheart](https://www.youtube.com/watch?v=sk2tDtYSEqY), [Lionheart, niveles posteriores](https://www.youtube.com/watch?v=KoccBs7ItLo), [Agony](https://www.youtube.com/watch?v=_PHwir4xb3Q), [Shadow of the Beast](https://www.youtube.com/watch?v=_2NIkR0kRa0), [Kid Chaos](https://www.youtube.com/watch?v=D6JSY0pFhf0), [Turrican II](https://www.youtube.com/watch?v=4XueETgTXio), [Jim Power](https://www.youtube.com/watch?v=sxLp8yqgvR8), [Apidya](https://www.youtube.com/watch?v=eZZlTuQAwvQ), [Disposable Hero](https://www.youtube.com/watch?v=qdrgFQSJs9Q), [Robocod](https://www.youtube.com/watch?v=B81xfOHT6dA), [Elfmania](https://www.youtube.com/watch?v=zQuiCQzvX64) | Transcripciones automáticas, leídas completas | No se vieron las imágenes; un dato que solo está en pantalla no entra. Observación en emulador, narrador no programador |
+| Codetapper: [Agony](https://codetapper.com/amiga/sprite-tricks/agony/), [Shadow of the Beast](https://codetapper.com/amiga/sprite-tricks/shadow-of-the-beast/), [Jim Power](https://codetapper.com/amiga/sprite-tricks/jim-power/) | Reparto de planos y sprites, lista del copper | Coincide con los vídeos (Agony: fondo a 25 fps, agua de 12 frames cada 4) |
+| [Engine9000](https://github.com/alpine9000/engine9000-public) | README: funciones y periféricos de depuración | No se instaló ni se probó con nuestro ADF |
+| [Wikipedia, Ruff 'n' Tumble](https://en.wikipedia.org/wiki/Ruff_%27n%27_Tumble) (cita The One y Amiga Power, 1994) | La decisión de no hacer paralaje | Sin detalle del motor |
+| [Andrew Morris (amigapd)](https://www.amigapd.com/interview-andrew-morris.html), [Super Adventures, Kid Chaos](http://superadventuresingaming.blogspot.com/2023/02/kid-chaos-amiga-part-1-guest-post.html) | "3 colour backgrounds … closer to 100 colours", utilidades propias | Sin detalle de programación |
+| [Hardcore Gaming 101, Disposable Hero](https://www.hardcoregaming101.net/disposable-hero/) | Objetivo de 50 fps con carga máxima; armas pensadas para no pasarse | Entrevista indirecta |
+
+**Buscado y no encontrado:** una entrevista técnica de Jason Perkins
+(Ruff 'n' Tumble), Shaun Southern (Kid Chaos) o Erwin Kloibhofer
+(Lionheart). La página de Thalion Source (`home.wtal.de`) no resuelve.
+El hilo de EAB "Lionheart Parallax question" (t=59490) devuelve la
+protección anti-bots, igual que en §10.
 
 ---
 
