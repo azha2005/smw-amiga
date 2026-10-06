@@ -54,7 +54,7 @@ from asmlint.findings import ERROR, WARNING  # noqa: E402
 from asmlint.registers import LIST_PATTERN, REGISTERS  # noqa: E402
 from asmlint.source import is_local, parse_statement  # noqa: E402
 
-FILES = ["player/game.s", "player/scroll.s", "player/logic68k.s", "player/mspr68k.s"]
+FILES = ["player/game.s", "player/scroll.s", "player/logic68k.s", "player/mspr68k.s", "player/sprbank.s"]
 ABI_OUT, ABI_CLOB = "d0", "d0-d1/a0-a1"
 ALL = "d0-d7/a0-a6"
 

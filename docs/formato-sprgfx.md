@@ -1,6 +1,7 @@
-# SG3F/1 — formato de poses G3
+# SG3F — formato de poses G3 (versiones 1 y 2)
 
-Implementado por `tools/sprgfx_final.py`, mediante `mksprgfx.py --format-test`
+La descripción hasta la sección SG3F/2 corresponde al lector **SG3F/1**
+conservado. Esa versión está implementada por `tools/sprgfx_final.py`, mediante `mksprgfx.py --format-test`
 para la ida y vuelta y `--final` para la auditoría de cierre.
 Es un formato de herramientas verificable; todavía no está integrado en el
 loader ni en el renderer. Los archivos derivados quedan exclusivamente en
@@ -120,12 +121,69 @@ incompleta, incluso con un lote que pasó su ida y vuelta. Sin manifiesto se
 auditan fichas individuales observadas; eso no representa poses compuestas
 ni sustituye la VRAM dinámica de Mario.
 
-## Contrato revisado G2 (2026-10-06)
+## SG3F/2 — contrato G2 implementado (2026-10-06)
 
-Este documento describe SG3F/1, que sigue siendo el formato implementado.
-`diseno-9.2.md` §2 fija la revisión: banco DMA inmutable sin fuentes bob
-residentes, catálogo deduplicado sin reservas Mario y directorio de variantes.
-La evidencia SG2A de `g2_bank_audit.py` **no** la acepta el lector SG3F/1.
-G3 debe versionar el formato, comprobar límites y ausencia de bob explícita
-y pasar la puerta acotada de `PROXIMO.md`; no se modifica el formato anterior
-para declarar cubierta toda YI1. Medidas: `informe-g2.md`.
+`sprgfx_bank.py`, mediante `mksprgfx.py --final --scope g2-bounded`,
+implementa el banco acotado de `diseno-9.2.md` §2. El lector SG3F/1 anterior
+se conserva. SG2A continúa rechazado: es evidencia del diseño, no un asset.
+
+SG3F/2 mantiene cabecera de 24 B y descriptor de 32 B con versión = 2.
+El campo +20 de la cabecera mide exclusivamente la metadata. Source y mask
+en los descriptores deben ser **$FFFFFFFF**, incluso para una forma vacía:
+el bob está explícitamente ausente y nunca se interpreta como puntero.
+Las tablas por fila solo contienen mapas enemigos; las reservas con paleta
+255 se verifican para cada petición offline y no son residentes.
+
+El `.idx` concatena tres secciones sin padding intermedio:
+
+| sección | tamaño del lote | base de offsets |
+|---|---:|---|
+| metadata SG3F/2 | 71554 B | inicio del `.idx` |
+| directorio G2IX/1 | 1162 B | inicio del directorio |
+| trailer `>4sI`, magic `S2IX` y offset del directorio | 8 B | inicio del `.idx` |
+
+El lector exige que el offset del trailer coincida con el campo +20.
+El directorio tiene cabecera `>4sHH`: `G2IX`, versión 1, cantidad de formas.
+Cada forma ocupa 12 B (`>IBBHI`): offset de fichas en metadata, prioridad,
+cantidad de fichas, cantidad de variantes y offset de lista en el directorio.
+La lista contiene índices u16 de descriptor; debe cubrir cada descriptor
+exactamente una vez y todas sus variantes deben tener la misma forma.
+No hay nombres de replay ni índices de petición residentes.
+
+Todas las tablas suman **72724 B**, reserva slow **72728 B** redondeada a 8.
+El `.dma` mide **64528 B**; flujos completos inmutables se solapan a 8 B,
+sin borrar controles, terminadores o padding. Se recorta solo transparencia
+y se conserva el origen OAM. La asignación PT/POS/CTL de G5 sigue pendiente:
+el loader no parchea el banco ni dibuja nuevos enemigos.
+
+La aceptación acotada exige 2593 peticiones de yi1/normal/spin_kill, las
+cuentas de despachos AB/BD/02/B9 auditadas en G2, las ocho paletas reales de
+Mario y Rex legal. Se reconstruyen cada petición y los 289 descriptores de
+48 formas con cero diferencias, incluido PNG de referencia arriba y DMA
+decodificado abajo. Las cuentas fijas corresponden a este contrato aprobado;
+no son una interfaz de cobertura genérica. `final_complete` permanece false.
+`--final` global sigue devolviendo 1 y no declara cobertura completa de YI1.
+
+```sh
+python tools/mksprgfx.py --final --scope g2-bounded \
+  --manifest work/g3/variants.json --base work/g3/base.json --out work/g3/bank
+SPR_BANK=work/g3/bank CDEFS='-DNOOAM -DSPR_OAM' OUT=work/g3-replay sh tools/game_build.sh
+SPR_BANK=work/g3/bank CDEFS='-DNOOAM -DSPR_OAM' GDEFS='' OUT=work/g3-live sh tools/game_build.sh
+```
+
+`SPR_BANK` es opt-in y requiere `SPR_OAM`. `sprgfx_load.py` valida SG3F/2,
+genera tamaños/offsets relativos/CRC32 y agrega los dos archivos al final
+del ADF, sin cambiar `hdr_data_len` del scroll. `player/sprbank.s` se llama
+tras liberar la chip de stage2 y cargar scroll, antes de los buffers del juego.
+Lee DMA a una reserva chip de **65024 B** (496 B finales son padding de sector).
+Lee tablas sector a sector mediante **512 B chip transitorios**, copia solo
+los bytes válidos a slow, libera scratch y comprueba CRC32 de ambos archivos.
+Publica los punteros únicamente tras la validación completa. Comprueba además
+alineación 8, rangos físicos chip/slow y IO_ACTUAL en cada lectura. La CRC usa
+las constantes del asset cuya estructura ya fue verificada antes de ensamblar.
+No hay descompresión, recodificación o trabajo de este loader por frame.
+
+Con fallo de reserva, E/S o CRC, retorna error al `gfail` existente. Esa ruta
+congela en rojo y requiere reiniciar; no libera todas las reservas parciales.
+No incorpora bobs PF1, asignador G4, plazos G6 ni cobertura global de YI1.
+Pruebas, picos reales y arranques KS 1.2: `informe-g3-final.md`.

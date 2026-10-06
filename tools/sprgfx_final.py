@@ -289,6 +289,9 @@ def serialize(poses, bank):
 
 
 def deserialize(metadata, chip):
+    if len(metadata) >= 6 and metadata[:6] == b'SG3F\0\2':
+        from sprgfx_bank import deserialize_bank
+        return deserialize_bank(metadata, chip)[0]
     require(len(metadata) >= 24, 'cabecera truncada')
     magic, version, ds, count, start, bs, ms = struct.unpack_from(HEADER, metadata)
     require(magic == b'SG3F' and version == 1 and ds == 32 and start == 24,

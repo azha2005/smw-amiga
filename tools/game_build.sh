@@ -29,6 +29,11 @@ case " $CDEFS " in
     *) GDEFS="$GDEFS -DSPR_OAM"; SPR_MODE=1 ;;
 esac
 OUT=${OUT:-work}
+if [ -n "$SPR_BANK" ]; then
+    [ "$SPR_MODE" = 1 ] || { echo "ERROR: SPR_BANK requiere SPR_OAM"; exit 1; }
+    GDEFS="$GDEFS -DSPR_BANK"
+    $PY tools/sprgfx_load.py --bank "$SPR_BANK" --include work/sg3_bank.i
+fi
 REPLAY=${REPLAY:-work/yi1_replay.bin}
 ORACLE=${ORACLE:-work/oracle_yi1.bin}
 mkdir -p "$OUT"
@@ -74,3 +79,6 @@ fi
 $PY tools/piccheck.py --lst "$OUT/game.lst"
 $PY tools/mkadf.py --boot work/boot.bin --stage2 "$OUT/game.bin" --data work/yi1_s.dat \
     --out "$OUT/game.adf"
+if [ -n "$SPR_BANK" ]; then
+    $PY tools/sprgfx_load.py --bank "$SPR_BANK" --adf "$OUT/game.adf"
+fi

@@ -473,6 +473,8 @@ def main():
     ap.add_argument("--format-test", action="store_true", help="ida y vuelta SG3F; no declara cobertura final")
     ap.add_argument("--manifest", help="JSON de poses ordenadas con propietarios explícitos")
     ap.add_argument("--out", help="prefijo derivado dentro de work/")
+    ap.add_argument('--scope', choices=('global', 'g2-bounded'), default='global')
+    ap.add_argument('--base', help='manifiesto base con Rex legal (G2)')
     a = ap.parse_args()
     vram, sset, files = build_vram(a.src, a.level)
     cg = level_cgram(a.src, a.level)
@@ -481,7 +483,8 @@ def main():
         os.makedirs(os.path.join(WORK, "cc"), exist_ok=True)
         open(os.path.join(WORK, "cc", "sprvram.bin"), "wb").write(vram)
         print("work/cc/sprvram.bin: %d B (conjunto SSSS=%d)" % (len(vram), sset))
-    recs = all_recordings() if (a.selftest or a.sheet or a.report or a.final or a.format_test) else {}
+    recs = all_recordings() if (a.selftest or a.sheet or a.report or
+                               ((a.final or a.format_test) and a.scope != 'g2-bounded')) else {}
     if a.selftest:
         rc = selftest(vram, cg, recs)
     if a.report:
@@ -489,6 +492,9 @@ def main():
     if a.sheet:
         render_png(vram, cg, recs, files)
     if a.final or a.format_test:
+        if a.scope == 'g2-bounded':
+            from sprgfx_bank import run_bounded
+            sys.exit(run_bounded(vram, cg, a.src, a.manifest, a.base, a.out))
         from sprgfx_final import run
         rc = max(rc, run(vram, cg, recs, a.manifest, a.out))
         if a.final:

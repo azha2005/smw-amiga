@@ -254,6 +254,14 @@ def game_oam_checks(r, k, out):
                "%d/%d OAM exactas, orden %s" % (ok, fr, t[0] if t else "sin comprobar"))
 
 
+def g3_checks(r):
+    """Contrato SG3F/2 y memoria, con fixtures sin derivados de la ROM."""
+    for name in ('test_sprgfx_bank', 'test_sprgfx_memory'):
+        code, out = sh([PY, 'tools/' + name + '.py'])
+        r.logs[name] = out
+        r.note('G3 ' + name, code == 0, 'contrato estricto sin assets' if code == 0 else out[-800:])
+
+
 def sprgfx_checks(r):
     """G3a: verificar todas las poses de las grabaciones OAM disponibles.
     Los .bin derivados no van en git (R9): su ausencia avisa, no pasa por
@@ -663,6 +671,7 @@ def main():
 
     r = Run()
     sprgfx_checks(r)
+    g3_checks(r)
     ok_pc, ok_68k = (os.path.exists(MV), not a.quick) if a.no_build else build(r, not a.quick)
     pc = pc_checks(r) if ok_pc else {}
     if ok_pc:

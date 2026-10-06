@@ -410,13 +410,24 @@ def build_model(L, data=None, adf=None, data_len=None):
         check_block(L, m, b)
     audit_pointers(L, m)
     check_strides(L, m)
-    chip = sum(b.alloc for b in m.blocks if b.mem == "chip")
+    chip = sum(b.alloc for b in m.blocks if b.mem == "chip" and b.kind != 'transient')
     slow = sum(b.alloc for b in m.blocks if b.mem != "chip")
     if chip > CHIP_TOP:
         m.v("V-CHIP-TOTAL", "chip: %d B > %d (512 KB)" % (chip, CHIP_TOP))
     if slow > SLOW_TOP:
         m.v("V-SLOW-TOTAL", "slow: %d B > %d (512 KB)" % (slow, SLOW_TOP))
     m.chip, m.slow, m.stage2_len = chip, slow, stage2_len
+    if L.has('sg3_load'):
+        # La llamada ocurre tras FreeMem(stage2) y lectura del scroll, antes
+        # de PF1/copper/Mario/diagnostico. Scratch se libera antes de salir.
+        scratch = L.sym('SG3_SCRATCH_BYTES')
+        data_alloc = sum(b.alloc for b in m.blocks if b.kind == 'data')
+        m.loader_chip_peak = max(stage2_len, data_alloc + L.sym('SG3_DMA_ALLOC') + scratch, chip)
+        m.loader_slow_peak = slow
+        if m.loader_chip_peak > CHIP_TOP:
+            m.v('V-LOADER-PEAK', 'pico chip loader SG3 %d > 512 KB' % m.loader_chip_peak)
+        m.info.append('SG3 loader: pico chip %d B, slow %d B; scratch %d B transitorio' %
+                      (m.loader_chip_peak, slow, scratch))
     if not any(b.mem != "chip" and "binario" in b.name for b in m.blocks):
         m.warn.append("no hay AllocMem(MEMF_FAST) del binario: se queda en chip (%d B)" % binlen)
     return m
@@ -426,7 +437,19 @@ def classify(L, m, addr, size, flags, mem, d0expr, dest, data):
     """pone nombre y partes a un AllocMem"""
     nm = dest or ""
     ex = d0expr
-    if dest == "V_BUF1" or re.search(r"\bBUF1\b", ex):
+    if 'SG3_DMA_ALLOC' in ex:
+        m.blocks.append(Block('SG3 DMA inmutable', mem, size, 'sprite', flags,
+                              [Sub('banco+padding disco', 0, size, 'sprite', 8)]))
+        if L.sym('SG3_DMA_BYTES') > 65536 or size < L.sym('SG3_DMA_BYTES'):
+            m.v('V-SG3-BANK', 'banco SG3 fuera de 64 KiB/reserva')
+    elif 'SG3_TABLE_ALLOC' in ex:
+        m.blocks.append(Block('SG3 tablas/directorio', mem, size, 'cpu', flags))
+        if mem != 'slow' or L.sym('SG3_TABLE_BYTES') > 98304 or size < L.sym('SG3_TABLE_BYTES'):
+            m.v('V-SG3-TABLES', 'tablas SG3 fuera de slow/96 KiB/reserva')
+    elif 'SG3_SCRATCH_BYTES' in ex:
+        m.blocks.append(Block('SG3 scratch disco transitorio', mem, size, 'transient', flags,
+                              [Sub('trackdisk', 0, size, 'plane', 8)]))
+    elif dest == "V_BUF1" or re.search(r"\bBUF1\b", ex):
         m.blocks.append(Block("PF1: buffer circular (V_BUF1)", mem, size, "plane", flags,
                               [Sub("PF1", 0, size, "plane", 8)]))
     elif dest in ("V_COP", "V_COP2") or "CL_SIZE" in ex:

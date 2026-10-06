@@ -239,6 +239,10 @@ DF_REPLAY   equ 1                           ;        binario -DREPLAY
 ;----------------------------------------------------------------------
 ; Arranque. Desde boot.s: a0 = base (chip), a1 = IOStdReq, a6 = ExecBase
 ;----------------------------------------------------------------------
+        ifd     SPR_BANK
+        include "work/sg3_bank.i"
+        include "player/sprbank.s"
+        endc
 entry:
         move.l  4.w,a6
         move.l  a1,a2                       ; a2 = IOStdReq
@@ -293,6 +297,13 @@ entry:
         jsr     _LVODoIO(a6)
         tst.l   d0
         bne     gfail
+        ifd     SPR_BANK
+        GETBASE a0
+        move.l  hdr_data_off-binstart(a0),d7
+        bsr     sg3_load
+        tst.l   d0
+        bne     gfail
+        endc
         move.l  a2,a1
         move.w  #TD_MOTOR,IO_COMMAND(a1)
         clr.l   IO_LENGTH(a1)
