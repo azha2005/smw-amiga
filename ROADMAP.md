@@ -306,7 +306,9 @@ anterior en rojo.
    de lógica ≤ 40 % en este replay. `SPR_OAM` sigue opt-in: faltan otros
    estados en vivo y el DMA de enemigos/bobs/HUD/audio. `build_mid` llega
    al **89,16 %**; el barrido separado alcanza 87,2 % en s=4576.
-2. **G3 final** (`tools/mksprgfx.py`): poses recortadas, remapeo exacto de
+2. **G2 → G3 final**, en serie: revisar representación y deduplicación
+   con **GPT-6.1 Sol high**; implementar el contrato resuelto con
+   **GPT-6.1 Sol medium** (`tools/mksprgfx.py`). Poses recortadas, remapeo exacto de
    color a los sprites de hardware, banco en chip y máscaras de bob, con
    autoprueba de ida y vuelta en todas las poses de los oráculos.
    **Avance de esta sesión:** formato SG3F y lotes base verificados;
@@ -315,7 +317,8 @@ anterior en rojo.
    de blobs con esta estrategia, y el subconjunto emitido duplica demasiada
    metadata (693884 B slow). No son cotas mínimas. Ver `docs/informe-g3.md`;
    `--final` falla expresamente mientras la puerta siga pendiente.
-3. **G4 + G6**: asignador de columnas (C de referencia + asm, Mario
+3. **G4 (GPT-6.1 Sol high) + G6 (GPT-6.1 Sol medium)**, después de cerrar G2/G3:
+   asignador de columnas (C de referencia + asm, Mario
    reservado, cola explícita de bobs) y `sprcop_verify.py` contra
    `copsim.py`: 0 objetos sin asignar y reconstrucción exacta de píxeles.
 4. **G5 + G9**: `SPRxPOS`/`SPRxPT` y colores por línea en la misma lista
@@ -340,6 +343,58 @@ Regresión PC: `python tools/lint_port.py` y
 `python tools/regress.py --baseline tools/baseline_pc.json --level`.
 Las capturas deben tener perfiles/archivos privados por worker, máximo
 tres instancias; cerrar solo el PID/ventana propios.
+
+### Próxima sesión — banco y variantes G2/G3 (plan, 2026-10-05)
+
+**Marco de referencia de modelos [usuario]:** **Opus → GPT-6.1 Sol high**;
+**Sonnet high → GPT-6.1 Sol medium**; **Luna medium corresponde a Sonnet low**.
+Aplicar estas equivalencias de rol a las referencias
+históricas; la asignación por tarea está en `SUBAGENTES.md` §1. Astra queda fuera.
+
+**Objetivo:** que el banco de sprites y sus tablas entren en memoria con
+reconstrucción exacta. La estrategia actual requiere 145600 B chip frente
+al banco de 65536 B; las tablas del subconjunto emitido ocupan 693884 B slow.
+No son cotas mínimas. Casos y reproducción: `docs/informe-g3.md`.
+
+| orden | tarjeta | modelo / esfuerzo | entrega |
+|---|---|---|---|
+| 1 | G2: revisar representación y compartir poses, mapas de color y reservas de Mario | coordinador, GPT-6.1 Sol high (la tarjeta G2 la escribe el coordinador) | contrato actualizado en `docs/diseno-9.2.md`, con tamaños medidos, tope de slow en bytes y casos exactos que demuestren la reducción |
+| 2, tras la puerta de G2 | G3: implementar esa representación sobre el lote acotado (abajo) | GPT-6.1 Sol medium | conversor, formatos y autopruebas; inventario de poses y estados cubiertos y de los que faltan |
+| después del cierre G2/G3 | G4: asignador de columnas; G6: verificador | GPT-6.1 Sol high / medium, respectivamente | asignación y reconstrucción de píxeles según el contrato cerrado |
+
+**Lote de esta puerta (acotado):** las variantes de las tres trazas actuales
+(`yi1`, `normal`, `spin_kill`) con reservas reales de Mario y ocho paletas
+(hoy 2593), más las poses legales de Rex de `RexGfxRt`. **Fuera de esta
+puerta**, porque dependen de tarjetas que no están en la sesión: Banzai,
+Piraña, Chuck, meta, power-ups y partículas (sus rutinas G8 aún no escriben
+la OAM, `docs/informe-g3.md` "Cobertura y límites") y el remapeo de bobs a
+PF1 (G7). G2 diseña igual **con margen para esa cobertura**: el contrato
+estima cuánto crece el banco y las tablas al sumarla, y la representación
+no puede depender de que el lote sea el actual.
+
+**Puerta de cierre G2/G3:**
+
+- **Chip:** banco ≤ 65536 B; `memmap` con cero violaciones sobre el juego
+  actual + banco (≈ 456 KB de chip), en replay **y en vivo**. El segundo
+  PF1 y el audio no cuentan aquí: necesitan C2/C4 (`docs/diseno-9.2.md` §5).
+- **Slow:** las tablas entran en lo que queda **después** de C2/C4: 524288 −
+  207296 (uso actual) − 135468 (tablas CPU que C2/C4 mueven a slow) =
+  **181524 B**, menos lo que sume el modo en vivo. G2 fija en el contrato
+  el tope concreto en bytes, dejando margen para la cobertura de fuera.
+- **Exactitud:** todas las variantes del lote verificadas sin rechazos
+  ocultos, píxeles y colores exactos, PNG de referencia/decodificación
+  comparado y regresión PC/68000 en verde. `--final` debe aceptar el lote
+  completo; no basta con las 48 poses base ni con el subconjunto de 1724.
+- **Coste:** si la representación agrega trabajo por frame, medirlo en
+  WinUAE cycle-exact antes de cerrar.
+
+Después de esta puerta, la cobertura de fuera necesita sus tarjetas G8
+(OAM de cada sprite) antes de volver a pasar `--final` sobre el lote ampliado.
+
+G2 y G3 van en serie, con revisión del coordinador entre ambas. Si G3
+encuentra una decisión de diseño sin resolver, vuelve a G2 con evidencia.
+Las baselines se conservan. Esta sesión se centra en esa puerta; G4/G6
+quedan preparados para después.
 
 ### Sesión G3, Z1 y H1 — resultados e integración (2026-10-05)
 

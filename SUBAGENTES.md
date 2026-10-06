@@ -37,12 +37,24 @@ sobre el mapa de memoria). Si falla una de las tres, sube un nivel.
 
 ### Modelos de esta sesión (usuario, 2026-10-05)
 
-Solo **GPT-6.1 Sol** (esfuerzo `high` o `medium`) y **GPT-6 Luna**.
+Solo **GPT-6.1 Sol** (esfuerzo `high` o `medium`) y **GPT-6 Luna medium**.
 Astra queda fuera. Esta asignación reemplaza los perfiles Opus/Sonnet del
 plan histórico; expresa el papel de cada modelo, no una equivalencia medida.
 
+**Marco de referencia acordado con el usuario:**
+
+| perfil de referencia | perfil disponible para este proyecto |
+|---|---|
+| Opus | GPT-6.1 Sol high |
+| Sonnet high | GPT-6.1 Sol medium |
+| Sonnet low | GPT-6 Luna medium |
+
+Es decir: **Opus → Sol high**, **Sonnet high → Sol medium** y
+**Luna medium corresponde a Sonnet low**. Usar este marco al leer las tarjetas
+y planes históricos que todavía mencionan Opus/Sonnet.
+
 Para tarjetas sin excepción en la tabla: **F → Sol high**, **M → Sol medium**,
-**C → Luna low**. Si una medida exige derivar primero la temporización o
+**C → Luna medium**. Si una medida exige derivar primero la temporización o
 interpretar estados de hardware, el coordinador resuelve esa parte de diseño
 antes de delegar el recuento a Luna.
 
@@ -51,7 +63,7 @@ antes de delegar el recuento a Luna.
 | coordinador: revisión, integración y decisiones de diseño | GPT-6.1 Sol | high |
 | G4, G5, C2, C4, G7, A2, S5 | GPT-6.1 Sol | high |
 | G3 final, G6, G9, Z1, A0, A1 | GPT-6.1 Sol | medium |
-| H1, grabaciones, recuentos e informes de medidas con puerta clara | GPT-6 Luna | low; medium si exige coordinar varias fuentes |
+| H1, grabaciones, recuentos e informes de medidas con puerta clara | GPT-6 Luna | medium |
 
 Cada prompt fija **modelo, esfuerzo y condición de escalado**. Sol medium
 sube a high cuando aparece diseño no resuelto, un cruce de subsistemas o
@@ -626,7 +638,7 @@ para las tarjetas siguientes; el banco sintético no completa G5.
 
 **Reabierto el 2026-10-05:** la auditoría G3 excede tanto el banco chip de
 64 KiB como el presupuesto slow con sus variantes actuales. Revisar
-representación y deduplicación con Sol 6.1 high; los casos reproducibles
+representación y deduplicación con GPT-6.1 Sol high; los casos reproducibles
 están en `docs/informe-g3.md`. Resolver antes de fijar G4/G6.
 
 **F · G1** · documento en `ROADMAP.md` Etapa 9.2 (lo escribe el
@@ -644,6 +656,10 @@ oráculos.
 observadas y 12 rechazos verificados. **Final pendiente:** 2593 variantes
 con reservas de Mario requieren 145600 B con esta estrategia; el banco
 estricto emite 1724 y rechaza 869. No es una cota mínima. Ver informe G3.
+La puerta de la próxima sesión usa un **lote acotado** (tres trazas + Rex
+legal) y topes de chip/slow explícitos: ROADMAP, "Próxima sesión — banco y
+variantes G2/G3". Banzai, Piraña, Chuck, meta, power-ups y partículas
+esperan sus tarjetas G8.
 
 #### G4 — Asignador de columnas (C de referencia + asm)
 **M (F si se traba) · G2 + G3 · `player/msprasg.c` (nuevo), `logic68k.s`** ·
