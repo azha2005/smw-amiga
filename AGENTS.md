@@ -471,7 +471,7 @@ número siguiente (**la próxima es P104**).
 
 | ID | Decisión | Opciones | Estado |
 |---|---|---|---|
-| D1 | Compromiso de scroll/color/frecuencia | **1 px (`BPLCON1`) / 5 planos, 31 colores / 50 Hz** | **cerrado** con la etapa 4: scroll + 5 bobs = 48-68 % del frame. **Confirmado por el usuario el 2026-09-30: 50 Hz, haciendo todo lo posible**; 25 Hz solo si agotada la optimización no entra (ROADMAP §3) |
+| D1 | Compromiso de scroll/color/frecuencia | **1 px (`BPLCON1`) / 5 planos, 31 colores / 50 Hz** | **cerrado** con la etapa 4: scroll + 5 bobs = 48-68 % del frame. **Confirmado por el usuario el 2026-09-30: 50 Hz, haciendo todo lo posible**; 25 Hz solo si agotada la optimización no entra (ROADMAP §3). **Desde el 2026-10-05 la compuerta se mide en fotos omitidas** (objetivo 0; mínimo ≤ 0,1 %, racha 1, ≤ 1 cada 250 frames; ROADMAP §2) |
 | D2 | Nivel objetivo | **Yoshi's Island 1** (`world_1/1/`) | cerrado |
 | **D3** | Enemigos del demo | Los que tiene el nivel de verdad (`spr.lv`, ver abajo). **Goomba y Koopa Troopa NO aparecen en Yoshi's Island 1** | **corregido** — mínimo: Rex + Banzai Bill + Jumping Piranha |
 | D4 | Lenguaje principal | C para lógica + asm para hardware | cerrado |

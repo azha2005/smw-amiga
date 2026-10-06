@@ -509,15 +509,26 @@ pico: el problema es de **picos**, y el coste de `build_mid` depende de la
 posición de scroll, que es conocida de antemano. Repartir el trabajo entre
 frames (S5) es la palanca principal, antes que más asm a mano.
 
-**Propuesta pendiente del usuario:** expresar la compuerta D1 como
-**fotos omitidas** (porcentaje y racha máxima) en replays de estrés que
-incluyan la vuelta y el Banzai, en vez de "peor frame ≤ 100 %", que con
-O5 ya no describe lo que se ve.
+**Compuerta D1 [usuario, redefinida el 2026-10-05]:** con O5 la lógica va
+siempre a 50 Hz; lo que mide la fluidez son las **fotos omitidas** (VBL sin
+imagen nueva). "Peor frame ≤ 100 %" queda como dato, no como puerta.
+Criterio del usuario: **que se vea lo más fluido posible.**
 
-**Compuerta D1 [usuario]:** después de las Etapas 6.4, 8.2 y la 6b se mide el
-**peor frame del juego integrado**. Si pasa del 100 %, se le presentan al
-usuario estas opciones con números: (1) otra ronda de optimización, con
-ensamblador a mano en las sondas de colisión y en `build_mid`; (2) dibujo a
+| puerta | replays | umbral |
+|---|---|---|
+| **objetivo** | replay normal de YI1 (ida, `oracle_yi1`) | **0 fotos omitidas** |
+| **mínimo aceptable** | estrés: la vuelta (s ≈ 2832 y 4580), la zona del Banzai Bill y el tramo con más Rex en pantalla | **≤ 0,1 %** de las fotos, **racha máxima 1** (nunca dos VBL seguidos sin imagen) y **como mucho 1 en cualquier ventana de 250 frames** (5 s), para que no se agrupen en un mismo tramo |
+
+Se mide en WinUAE cycle-exact con el juego integrado: G5, HUD y audio
+incluidos en cuanto existan; antes, el número vale solo para lo que haya.
+Hoy (sin G5/HUD/audio) son 14 de 6312 = 0,22 % en el replay normal: **no
+pasa**; S5 tiene que bajarlo. Un frame omitido a 4 px/frame de scroll es un
+salto de 8 px; por eso la racha y la ventana importan tanto como el
+porcentaje.
+
+Si agotada la optimización (S5 primero, luego asm a mano en `build_mid` y
+en las sondas de colisión) no se llega al mínimo, se le presentan al usuario
+estas opciones con números: (1) otra ronda de optimización; (2) dibujo a
 25 Hz con la lógica a 50 Hz, que ahorra scroll y copper pero no lógica; (3)
 recortar el alcance, por ejemplo menos sprites a la vez. Mover el código a
 slow RAM **no** acelera (P29).
@@ -532,7 +543,7 @@ equilibrio entre 1:1 y coste. Solo queda abierta la compuerta D1.
 
 | ID | Decisión | Qué se hace | Consecuencias | Etapa |
 |---|---|---|---|---|
-| D1 | 50 Hz o no | **cerrada (usuario, 2026-09-30): 50 Hz, haciendo todo lo posible**; "si no se puede, no se puede" | la optimización (§9, §10.1-10.3) va antes que todo lo que suma coste. Si agotadas las ideas el peor frame sigue sin entrar, se le presentan al usuario los números y el plan B (dibujo a 25 Hz) | todas |
+| D1 | 50 Hz o no | **cerrada (usuario, 2026-09-30): 50 Hz, haciendo todo lo posible**; "si no se puede, no se puede" | la optimización (§9, §10.1-10.3) va antes que todo lo que suma coste. Compuerta medida en **fotos omitidas** desde el 2026-10-05 (§2): objetivo 0; mínimo ≤ 0,1 %, racha 1, ≤ 1 cada 250 frames. Si agotadas las ideas no se llega, se le presentan al usuario los números y el plan B (dibujo a 25 Hz) | todas |
 | **D15** | Velocidad: el ROM (U) es NTSC y la Amiga va a 50 Hz | **cerrada (usuario, 2026-09-30): se acepta** el 83 % de velocidad, como la SNES PAL (§10.12) | nada que hacer; la música mantiene el tempo (tick por CIA) | — |
 | **D16** | ¿La zona de la tubería (`obj-1.lv`) entra en el alcance? | **cerrada (usuario, 2026-09-30): entra** (§10.10) | conversión de una segunda zona, tuberías y transición | 12 |
 | **D5** | Música | **secuenciador propio** que lee las secuencias N-SPC de SMW convertidas offline a un formato compacto de eventos (no MOD) | Conserva glissandos, vibrato, envolventes (ADSR aproximado por tick) y el tempo del SPC700 (tick por timer de CIA). **Sin mezcla por CPU**: cada voz va directa a un canal de Paula, 3 de música + 1 de efectos, con prioridad por tema; el eco se omite. Límites: ≤ 64 KB de muestras en chip RAM y **≤ 3 % de CPU** medido. **Verificación** (como sonic2mod de reassembler): contra el registro de escrituras al DSP de `snesorc` en la partida del oráculo, nota por nota, con un informe por tema en `docs/audio/` (SUBAGENTES A0, A3, A6, A8) | 11 |
