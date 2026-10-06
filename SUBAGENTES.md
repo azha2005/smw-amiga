@@ -35,6 +35,31 @@ revisa cada rama, integra, corre la regresión completa, mantiene
 no diseño, y (3) toca **un área** (sin razonar sobre tiempos del copper ni
 sobre el mapa de memoria). Si falla una de las tres, sube un nivel.
 
+### Modelos de esta sesión (usuario, 2026-10-05)
+
+Solo **GPT-6.1 Sol** (esfuerzo `high` o `medium`) y **GPT-6 Luna**.
+Astra queda fuera. Esta asignación reemplaza los perfiles Opus/Sonnet del
+plan histórico; expresa el papel de cada modelo, no una equivalencia medida.
+
+Para tarjetas sin excepción en la tabla: **F → Sol high**, **M → Sol medium**,
+**C → Luna low**. Si una medida exige derivar primero la temporización o
+interpretar estados de hardware, el coordinador resuelve esa parte de diseño
+antes de delegar el recuento a Luna.
+
+| tarjetas / responsabilidad | modelo | esfuerzo |
+|---|---|---|
+| coordinador: revisión, integración y decisiones de diseño | GPT-6.1 Sol | high |
+| G4, G5, C2, C4, G7, A2, S5 | GPT-6.1 Sol | high |
+| G3 final, G6, G9, Z1, A0, A1 | GPT-6.1 Sol | medium |
+| H1, grabaciones, recuentos e informes de medidas con puerta clara | GPT-6 Luna | low; medium si exige coordinar varias fuentes |
+
+Cada prompt fija **modelo, esfuerzo y condición de escalado**. Sol medium
+sube a high cuando aparece diseño no resuelto, un cruce de subsistemas o
+fallos de la puerta tras intentos distintos; antes se informa al coordinador
+con evidencia. Luna solo recibe tareas mecánicas y acotadas con comprobación.
+Máximo de esta sesión: **coordinador + tres subagentes**. Dependencias en
+serie y un worktree por tarjeta, aunque se libere una plaza antes.
+
 ---
 
 ## 2. Protocolo
@@ -599,6 +624,11 @@ G0 tiene medida real a 256 px en `docs/medida-g0.md`; G8 también corre como
 opción en el 68000 (`docs/oam-amiga.md`). Usar esas interfaces y presupuestos
 para las tarjetas siguientes; el banco sintético no completa G5.
 
+**Reabierto el 2026-10-05:** la auditoría G3 excede tanto el banco chip de
+64 KiB como el presupuesto slow con sus variantes actuales. Revisar
+representación y deduplicación con Sol 6.1 high; los casos reproducibles
+están en `docs/informe-g3.md`. Resolver antes de fijar G4/G6.
+
 **F · G1** · documento en `ROADMAP.md` Etapa 9.2 (lo escribe el
 coordinador con el informe del F): formato de los frames precalculados
 por pose en chip, reuso vertical de canales, colores por fila, cuándo pasa
@@ -609,6 +639,11 @@ algo a bob, presupuesto de chip (hoy ~117 KB libres) y de CPU (≤ 8 %).
 adosados + máscara de bob, con `--selftest` de ida y vuelta (como
 `mkmario.py`). Puerta: autoprueba OK en todas las poses que aparecen en los
 oráculos.
+
+**Avance del 2026-10-05:** SG3F, 48 poses compuestas exactas, 241 fichas
+observadas y 12 rechazos verificados. **Final pendiente:** 2593 variantes
+con reservas de Mario requieren 145600 B con esta estrategia; el banco
+estricto emite 1724 y rechaza 869. No es una cota mínima. Ver informe G3.
 
 #### G4 — Asignador de columnas (C de referencia + asm)
 **M (F si se traba) · G2 + G3 · `player/msprasg.c` (nuevo), `logic68k.s`** ·
@@ -693,6 +728,10 @@ Puerta: el ADF arranca en FS-UAE y el replay coincide (capturas).
 **C · — · informe** · con la cámara Y de la partida (192), cuántas líneas
 ocupa la barra de la SNES y si la capa 1 aparece en ellas (desde
 `yi1_d.dat` y la referencia de la capa 3).
+
+**Medida conservadora entregada el 2026-10-05:** `tools/hud_measure.py`
+y `docs/medida-hud.md`. Máscara inicial y cruces PF1 cuantificados;
+la alineación raster exacta sigue pendiente de referencia PPU SNES.
 
 #### H2 — Gráficos de la barra
 **M · H1 · `tools/mkhud.py` (nuevo)** · tiles de capa 3 a 2 bpp (`gb-*`,
@@ -790,7 +829,7 @@ momento qué está bien y qué no, sin escucharlo.
 
 | tarjeta | nivel | depende de | qué | puerta |
 |---|---|---|---|---|
-| **Z1** | M | P8 | muerte y reinicio del nivel con la animación del ROM (hoy el diagnóstico) | `oracle_death` (R5) exacto |
+| **Z1** | M | P8 | muerte normal y reinicio implementados el 2026-10-05; punto medio y game over siguen en diagnóstico | oráculos enemigo 188/188 y caída 190/190; O5/user, cinco vidas, captura y coste en `docs/validacion-z1.md` |
 | **Z2** | M | R5 | punto medio: el poste, el estado guardado, reaparecer ahí | grabación de R5 |
 | **Z3** | M (F revisa) | P5, R4 | secuencia de la meta hasta el final | `oracle_goal` |
 | **Z4** | C | — | tiempo agotado | guion que espera |

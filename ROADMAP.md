@@ -23,7 +23,7 @@
    cuándo está hecho. No se empieza el siguiente con el anterior en rojo.
 3. Al cerrar un paso: commit `Etapa N.x: <qué>` y actualizar §1.2. Si aparece
    una trampa nueva, se agrega como `Pnn` en `docs/pitfalls.md` y en el índice de `AGENTS.md` §8 (la próxima es
-   **P103**).
+   **P104**).
 4. Al cerrar la sesión: handoff con la plantilla de §7, que reemplaza a §1.
 5. Para repartir el trabajo entre subagentes (tarjetas por etapa, niveles,
    olas, mapa de conflictos y protocolo de integración): **`SUBAGENTES.md`**.
@@ -43,13 +43,13 @@
 
 ---
 
-## 1. Handoff (actualizado al 2026-10-05; estado vigente después de la ola 3 abajo)
+## 1. Handoff (2026-10-05; sesión G3, Z1 y H1 integrada)
 
 ### 1.1 Ramas
 
 | rama | contenido |
 |---|---|
-| `master` | base hasta el 2026-09-27: primer ADF jugable (etapas 0, 6.1-6.3, 8.2, 6b) |
+| `master` | primer ADF jugable y olas posteriores; esta sesión integra G3 (`88e156a`), Z1 (`589658c`) y H1 (`e753e9c`). Commit local, sin push; puertas y límites abajo |
 | `claude/brave-ritchie-mm5o6r` | sesión cloud del 2026-09-30, sobre `master`: oráculos sin usuario (snesorc), Etapa 9.1 (6 sprites más, `game` sin resincronizaciones), entrada y modo diagnóstico (6b.7), tres bugs arreglados (cámara vertical, copper de la línea 255, `mario_sprite` mal compilado) y herramientas de la 6.4. **Mergeada a `master` el 2026-09-30** (pedido del usuario, avance rápido) |
 | `wt/*` de la ola 3 y su continuación | G2/G0/OAM opt-in (`cf2ce56`), P51 (`0361736`) y el banco SX/SX2 (`1258ce9`). **Integradas a `master` el 2026-10-05** con la baseline de coste actualizada, pusheadas, y ramas y worktrees borrados (pedido del usuario). Capturas y ADF de SX en `work/sxverify/` (fuera de git, R9; sus `capture_*.ps1` apuntan al worktree viejo: `sxverify.py --build` los regenera) |
 
@@ -75,9 +75,9 @@
 | 8.1 | Grabaciones | **oráculos sin usuario**: `work/snesorc` corre la ROM (U) en el emulador de snesrev/smw con entrada guionizada (`tools/snesorc/*.orc`) y reproduce `oracle_yi1` línea a línea (6871/6871). Grabadas: `normal`, `diagpipe`, `hills`, `banzai`; **ola 1 (2026-09-30, en la PC Windows, P82)**: `hills2`, `chuck`, `shells` (sin pisar al `$02`), `goal` (una altura), `pw_seta`, `pw_flor` (Mario grande por `poke`), `pw_morir_enemigo`, `pw_morir_caida`, `stress_piranha`; `tools/orc_has.py` (qué sprites y qué Mario hay en un oráculo). **Faltan**: `goal_low`/`goal_miss`, R9 `pipe` (notas abajo), punto medio, monedas de Yoshi, estrella, 1-UP, 3-UP, `$C7`, bloques `!`, `stress_back` (a medias: `tools/wipr/`, llega a x `$0BC0`), `stress_sprites`, `stress_vert` (P84) | `tools/snesorc/`, `snesorc_setup.sh`, `snesorc_make.sh` |
 | 8.2 | Optimizar la lógica | **hecha** el 2026-09-27 (peor frame con sprites 40,1 % en WinUAE). Con los sprites nuevos, peor frame en Musashi 43 116 → **45 896** (frame 9715: 2 pirañas, 1 Rex, `$8E`, `$C7`), **~45 % estimado** en la A500 (por encima del 40 %). **L1a (2026-09-30)**: `f7f4` hacia arriba en asm, peor frame con sprites en Musashi (vbcc de la PC) 46 000 → 45 054 | `player/logic68k.s` |
 | 9.1 | Sprites: lógica | Rex, `$83`, `$B9`, **`$BD` Koopa deslizante, `$02` Koopa sin caparazón, `$9F` Banzai Bill, `$4F` piraña, `$8E` warp, `$C7` seta invisible**. `game`: **0 resincronizaciones** de Mario en los 5 oráculos; sprites exactos por tipo en `regress.py`. Faltan Chuck `$95`, caparazón rojo `$DB`, cinta de meta `$7B` y lo de D12 (grabados: `oracle_chuck`, `shells`, `goal`, `pw_*`). **I1 (2026-09-30)**: cada sprite nuevo va en su `player/spr_*.c` (entra por glob en los tres builds; el Rex ya está en `spr_rex.c`, P78) | `player/msprite.c`, `spr_*.c` |
-| 9.2 | Sprites: dibujo | Mario hecho. **G2 documentado, G0 medido a 256 px, G3a en regresión y OAM 68000 opt-in verificada (2026-10-05)**. Falta G3 final, asignador, colores/DMA y bobs; los enemigos todavía no se ven en Amiga | `docs/diseno-9.2.md`, `docs/medida-g0.md`, `docs/oam-amiga.md` |
+| 9.2 | Sprites: dibujo | Mario hecho. G0 y OAM opt-in verificados. **SG3F probado: 48 poses compuestas exactas; G3 final pendiente y G2 reabierto por tamaño de variantes** (145600 B con la estrategia ensayada frente a 65536 B). Faltan cobertura, asignador, colores/DMA y bobs; los enemigos todavía no se ven en Amiga | `docs/diseno-9.2.md`, `docs/informe-g3.md`, `docs/formato-sprgfx.md` |
 | 6b | Integración | primer ADF jugable (2026-09-27) + **6b.7** (2026-09-30): entrada como `ControllerUpdate` (P60) y **modo diagnóstico** (P58) con historial del joypad y reproducción en el PC desde una captura. **6b.6 medida (O1, 2026-09-30)**: `game.s -DBENCH` + `game_read.py`; en WinUAE (antes de S1a+S2) peor `build_mid` 84,8 % (s = 1825), `level_frame` 35,6 %, total 127 %, media 46 %, 362 de 6312 frames pasados. Falta la decisión D1 (O4) y 6b.1 (vlink, compresión) | `player/game.s`, `tools/diag_read.py`, `gamesim.py`, `inputtest.py` |
-| 10-12 | HUD, audio, pulido | no empezados | — |
+| 10-12 | HUD, audio, pulido | **Z1:** muerte normal y recarga sin perder estado, verificados en KS 1.2 cycle-exact; carga 300,19 ms. Game over/time up y punto medio siguen en diagnóstico. **H1:** máscara y cruces conservadores medidos; falta alineación exacta PPU. HUD visible y audio pendientes | `docs/validacion-z1.md`, `docs/medida-hud.md` |
 
 ### 1.3 Números de regresión (2026-09-30, cloud)
 
@@ -136,10 +136,11 @@ GDEFS=" " OUT=work/live sh tools/game_build.sh                # el de jugar
    modo diagnóstico (ESPACIO cambia de página; RETURN, Z, A o el botón
    vuelven a empezar), el handshake del teclado y los dobles saltos (P55).
    **Esperado:** si Mario se queda quieto al empezar, el Koopa deslizante
-   (que se simula pero todavía no se dibuja) lo mata en el frame 219, y el
-   diagnóstico muestra `MOTIVO 10 DANO`, `FRAME 00DB`. El juego original
-   hace lo mismo en el mismo frame (`$71` = 9; comprobado con snesorc); lo
-   que falta es la animación de muerte (P8, Z1) y dibujar al Koopa (9.2).
+   (que se simula pero todavía no se dibuja) lo mata en el frame 219.
+   La animación termina en 410 y vuelve al inicio en 411, conservando la
+   vida descontada (Z1). Sin pulsar teclas, cuatro recargas y la quinta
+   muerte llevan a game over en 2050: `MOTIVO 11 MUERTE`, `FRAME 0802`.
+   La animación coincide con los oráculos; falta dibujar al Koopa (9.2).
    Si se congela: captura de la **página 2** y
    `python3 tools/diag_read.py --shot X.png --repro --bin work/live/game.bin`
    (el `game.bin` del ADF que se usó) dice en qué frame y por qué.
@@ -308,6 +309,12 @@ anterior en rojo.
 2. **G3 final** (`tools/mksprgfx.py`): poses recortadas, remapeo exacto de
    color a los sprites de hardware, banco en chip y máscaras de bob, con
    autoprueba de ida y vuelta en todas las poses de los oráculos.
+   **Avance de esta sesión:** formato SG3F y lotes base verificados;
+   **antes de cerrar G3 hay que revisar G2**. Las 2593 variantes con
+   reservas reales por fila de Mario y ocho paletas requieren 145600 B
+   de blobs con esta estrategia, y el subconjunto emitido duplica demasiada
+   metadata (693884 B slow). No son cotas mínimas. Ver `docs/informe-g3.md`;
+   `--final` falla expresamente mientras la puerta siga pendiente.
 3. **G4 + G6**: asignador de columnas (C de referencia + asm, Mario
    reservado, cola explícita de bobs) y `sprcop_verify.py` contra
    `copsim.py`: 0 objetos sin asignar y reconstrucción exacta de píxeles.
@@ -319,9 +326,10 @@ anterior en rojo.
 5. **C2/C4** (vlink + loader nuevo) para liberar las ~135 KB de tablas solo
    de CPU que hoy viven en chip; recién después el segundo PF1 y **G7**
    (bobs: Banzai Bill y los que no entren en sprites).
-6. En paralelo, según dependencias: **Z1** (reiniciar el nivel tras la
-   muerte, hoy congela), **H1** (medir el HUD superpuesto, D11), **A1/A2**
-   (audio: BRR → PCM y formato N-SPC, D5).
+6. En paralelo, según dependencias: **Z1 implementado** para muerte normal
+   sin punto medio (ver límites en `docs/validacion-z1.md`); **H1 medido**
+   conservadoramente, falta referencia PPU exacta; **A1/A2** siguen
+   pendientes (audio: BRR → PCM y formato N-SPC, D5).
 7. **S5** acotado a una sesión, al pico de la vuelta (s ≈ 4580, ahora
    111 520 ciclos con P51): con O5 ya no atrasa la lógica, solo saltea
    imágenes, así que va detrás del dibujo de sprites.
@@ -333,7 +341,37 @@ Regresión PC: `python tools/lint_port.py` y
 Las capturas deben tener perfiles/archivos privados por worker, máximo
 tres instancias; cerrar solo el PID/ventana propios.
 
-### Próxima sesión (plan, 2026-10-03)
+### Sesión G3, Z1 y H1 — resultados e integración (2026-10-05)
+
+Autorizada por el usuario después de revisar el orden y los modelos.
+Base `8102ffc`: lint y regresión completa PC con `--level` en verde antes
+de lanzar. Coordinación con Sol high; Astra excluida por el usuario.
+
+| tarjeta | modelo / esfuerzo | worktree | entrega y puerta |
+|---|---|---|---|
+| G3 final | GPT-6.1 Sol medium | `../wt-g3final` | formato DMA/bob y colores exactos según G2; autoprueba, cobertura y tamaño del banco; PNG comparado |
+| Z1 | GPT-6.1 Sol medium | `../wt-z1` | fin de muerte y reinicio seguro con O5; binario real, replay, capturas cycle-exact y coste |
+| H1 | GPT-6 Luna low | `../wt-h1` | banda real del HUD y cruces con capa 1, script reproducible, informe y PNG |
+
+Resultados: G3 aporta conversor/formatos y pruebas exactas, **sin cerrar la
+tarjeta final**; 48 poses compuestas (10840 B chip, 5276 B slow), 241 fichas
+observadas y 12 rechazos negativos comprobados. G2 debe resolver banco y
+diccionario de variantes antes de G4/G6 definitivos. Z1 pasa oráculos de
+muerte 188/188 y 190/190, cinco vidas, mando sostenido, O5 y bucle antiguo
+en modo usuario; carga real 300,19 ms y reaparición visible en 411. H1
+deriva la máscara inicial (1342 píxeles opacos) y cuantifica los cruces;
+no sustituye la referencia PPU pendiente. P103 documenta el fallo de `SR`
+en modo usuario encontrado con WinUAE y corregido mediante `INTENA`.
+
+El coordinador repitió las puertas en los worktrees y en el árbol integrado;
+lint y regresión completa PC con `--level` pasan. Las baselines no se
+modifican. `work/live/game.adf` está reconstruido; los informes, PNG y
+manifiestos de la sesión se conservaron en `work/` (R9). La política queda
+en `SUBAGENTES.md` §1. La siguiente sesión debe comenzar por **G2/G3:
+reducir el banco y las tablas de variantes con píxeles exactos**, usando los
+casos reproducibles del informe, antes de lanzar el asignador definitivo.
+
+### Plan histórico de sesión (2026-10-03; reemplazado por el orden vigente)
 
 Cerrar la ola 3 con el camino de `docs/automatizar-9.2.md` y la red de
 seguridad O5. Modelos según la preferencia del usuario: optimización →
@@ -1113,14 +1151,18 @@ los pasos originales de cada etapa, en §5.
 
 - **Falta:** la barra de estado, **las 2 cajas de mensaje** del nivel (la
   lógica del sprite `$B9` está, pero el texto no se muestra) y la pausa.
+- **H1 medido el 2026-10-05:** `docs/medida-hud.md` cuantifica la máscara
+  inicial y la banda conservadora. Hay cruces con PF1 (hasta 6 píxeles
+  en 9216; 16 en 9472 al incluir la línea 36). H2/H3 deben conservar
+  ese terreno al componer la tinta; la alineación raster exacta sigue pendiente.
 - **Cómo lo haría:**
-  - **Barra (D11, overlay).** En sus líneas, el copper apunta PF1 a un
-    bitmap fijo con retardo 0 y carga los 7 colores del HUD. PF2 sigue con
-    su paralaje. Es el mismo mecanismo de recarga por línea que ya existe.
-    Primero, medir si la capa 1 aparece alguna vez en esas líneas (H1):
-    con la cámara en Y = 192 es casi todo cielo. Los dígitos se blitean
-    solo cuando cambian: el tiempo cambia cada ~40 frames y el resto casi
-    nunca.
+  - **Barra (D11, overlay).** H1 detecta terreno en esas líneas, por lo
+    que H2/H3 deben probar una composición por máscara de blitter que
+    conserve PF1, con colores y scroll coordinados mediante el copper.
+    PF2 sigue con su paralaje. Falta demostrar la paleta de hasta 7 colores
+    y su coste con O5; un bitmap fijo que sustituya toda la banda perdería
+    los cruces medidos. Los dígitos se actualizan cuando cambian, aunque
+    hay que conservar la tinta al restaurar el terreno bajo el HUD.
   - **Cajas de mensaje.** En YI1 son solo 2 textos, que están en
     `strings/level_messages.a`. Los **renderizaría offline** a dos bitmaps
     con la fuente `gb-1`. En la Amiga, mostrar uno es cambiar punteros y
@@ -1195,9 +1237,11 @@ los pasos originales de cada etapa, en §5.
 
 ### 10.11 Pulido y final del nivel (12)
 
+- **Z1 implementado el 2026-10-05:** animación de muerte normal y regreso
+  al inicio conservando vidas y estado persistente; O5 y KS 1.2 cycle-exact
+  verificados. Carga 300,19 ms, reaparición en 411. Ver `docs/validacion-z1.md`.
 - **Falta:**
-  - la muerte con su animación, y reaparecer (en el punto medio si se
-    pasó);
+  - reaparecer en el punto medio si se pasó; ese caso sigue en diagnóstico;
   - el **punto medio**: el objeto `Midway/Goal point` + `Midway point
     rope` del nivel; al tocarlo, marca y Mario grande;
   - la **meta**: la cinta, "course clear", la cuenta de puntos

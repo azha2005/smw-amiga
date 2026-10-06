@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 """
 mksprgfx.py - G3a: los graficos de los sprites del nivel (VRAM de OBJ de la
-SNES) y su paso a planar Amiga, SIN el formato final (el empaquetado en
-sprites adosados lo fija G2). Los .bin/.png van a work/, no a git (R9).
+SNES) y su paso a planar Amiga. El formato SG3F attached/bob y sus mapas
+se prueban con --format-test; --final audita su cobertura (aún pendiente).
+Los derivados van a work/, no a git (R9).
 
 1. VRAM de sprites como la SNES (UploadSpriteGFX, game.s:4768):
    el nibble bajo del byte 2 de la cabecera del nivel (SSSS) elige una fila
@@ -468,6 +469,10 @@ def main():
     ap.add_argument("--sheet", action="store_true")
     ap.add_argument("--report", action="store_true")
     ap.add_argument("--dump-vram", action="store_true")
+    ap.add_argument("--final", action="store_true", help="SG3F: banco attached/bob y auditoría de cobertura")
+    ap.add_argument("--format-test", action="store_true", help="ida y vuelta SG3F; no declara cobertura final")
+    ap.add_argument("--manifest", help="JSON de poses ordenadas con propietarios explícitos")
+    ap.add_argument("--out", help="prefijo derivado dentro de work/")
     a = ap.parse_args()
     vram, sset, files = build_vram(a.src, a.level)
     cg = level_cgram(a.src, a.level)
@@ -476,13 +481,19 @@ def main():
         os.makedirs(os.path.join(WORK, "cc"), exist_ok=True)
         open(os.path.join(WORK, "cc", "sprvram.bin"), "wb").write(vram)
         print("work/cc/sprvram.bin: %d B (conjunto SSSS=%d)" % (len(vram), sset))
-    recs = all_recordings() if (a.selftest or a.sheet or a.report) else {}
+    recs = all_recordings() if (a.selftest or a.sheet or a.report or a.final or a.format_test) else {}
     if a.selftest:
         rc = selftest(vram, cg, recs)
     if a.report:
         report(vram, recs, files)
     if a.sheet:
         render_png(vram, cg, recs, files)
+    if a.final or a.format_test:
+        from sprgfx_final import run
+        rc = max(rc, run(vram, cg, recs, a.manifest, a.out))
+        if a.final:
+            # Aún faltan poses legales y la puerta de variantes simultáneas.
+            rc = max(rc, 1)
     sys.exit(rc)
 
 

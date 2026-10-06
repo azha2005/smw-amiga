@@ -255,6 +255,7 @@ def repro(h, st, last, binp, lst, verbose=True):
         print("AVISO: la firma de %s es %04X y la de la captura %04X: no es el mismo binario, "
               "la reproduccion puede no coincidir" % (os.path.relpath(binp), s.sign(), h["build"]))
         ok = False
+    restart_setup(s)
     s.start(h["pad0"] >> 8, h["pad0"] & 0xFF)
     nf = frame_of(h)
     top = nf if not h["ver"] & 1 else min(nf, last)
@@ -262,7 +263,26 @@ def repro(h, st, last, binp, lst, verbose=True):
         m = s.step(st[f] >> 4, (st[f] & 15) << 4)
         if m:
             return f, m, s, ok
+        restart_step(s)
     return None, 0, s, ok
+
+
+def restart_setup(s):
+    """Copia inicial como live_init; los builds previos a Z1 siguen legibles."""
+    if not s.has('live_defaults'):
+        return
+    s.call('live_defaults')
+    data = s.read(s.a('cdata0'), s.syms['cdata1'] - s.syms['cdata0'])
+    data += s.read(s.a('map16'), 2 * s.syms['MAPHALF'])
+    s.write(0xD0000, data)
+    s.w32('g_save', 0xD0000)
+
+
+def restart_step(s):
+    """La carga no consume joypad ni tick; el arnés reproduce solo CPU."""
+    if s.has('g_restart') and s.r16('g_restart'):
+        s.call('live_death_restart')
+        s.write(s.a('g_restart'), bytes(2))
 
 
 def check_repro(h, st, last, binp, lst):
@@ -406,11 +426,15 @@ def selftest(binp, lst):
     import gamesim as G
     s = G.GameSim(binp, lst)
     pads = G.replay_pads()
+    restart_setup(s)
+    if s.has('live_defaults'):
+        pads = [(0, 0, 0, 0, 0)] * 2500  # cinco muertes y game over, Z1
     s.start()
     for f in range(1, len(pads)):
         m = s.step(pads[f][1], pads[f][3] & 0xF0)
         if m:
             break
+        restart_step(s)
     else:
         print("--sim: el joypad del replay no para al port")
         return 1

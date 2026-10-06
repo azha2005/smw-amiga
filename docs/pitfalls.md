@@ -864,6 +864,21 @@ instrucciones. Verificar el binario integrado con `gamecheck --spr`, el
 cruce de RAM/ABI y la regresión normal, sin actualizar baseline para
 ocultar diferencias. Detalle y pruebas negativas: `docs/oam-amiga.md`.
 
+**P103 — El bucle principal corre en modo usuario (Z1).** El bootblock
+entra al juego conservando el modo usuario de Exec; las ISR sí ejecutan en
+supervisor. Escribir `SR` para enmascarar interrupciones desde el bucle
+principal provoca Guru `$80000008` en KS 1.2. El primer arnés de reinicio
+corría en supervisor y dejó pasar ese defecto; la captura cycle-exact lo
+detectó al terminar la primera muerte.
+
+Para la carga atómica se guarda `INTENAR`, se borra MASTER en `INTENA`
+vía `a4`, se reconstruyen RAM, mapa, PF1, listas y fotos, se reconocen las
+peticiones VERTB/COPER acumuladas y se restaura la máscara original. No
+retornar desde una ISR cambiando su pila ni publicar fotos a medio cargar.
+`tools/restart_verify.py` ejecuta la transacción real en modo usuario y
+comprueba retorno, modo CPU, INTENA y reanudación de O5. La captura de
+reaparición y la medida de CIA-B están en `docs/validacion-z1.md`.
+
 **P44 — Los "derrames" de la etapa 5 alargan el tramo anterior.**
 `mkleveld.py` asigna los píxeles que quedan fuera de todo tramo al registro
 que *todavía conserva* el color: después del fin de un tramo puede haber

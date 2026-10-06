@@ -115,6 +115,14 @@ enumeración excede el banco o no resuelve una coincidencia de colores, G2 se
 reabre con los casos concretos. No declarar resuelto por contar solamente la
 unión de colores, ni esconder el problema con el color más cercano.
 
+**Puerta reabierta el 2026-10-05:** la auditoría de G3 reconstruye las
+2593 variantes con reservas de Mario sin diferencias de color, pero la estrategia
+ensayada necesita 145600 B de blobs chip; el banco estricto de 65536 B
+solo admite 1724. Su diccionario también ocupa 693884 B slow. Estas cifras
+no son un mínimo demostrado: hay que reducir variantes y representación
+antes de fijar G4/G6. Los casos, el formato SG3F y los comandos están en
+`informe-g3.md` y `formato-sprgfx.md`; `--final` rechaza la cobertura incompleta.
+
 ## 3. Asignación y reuso de canales (G4/G6)
 
 Se parte de cuatro parejas `(0,1)`, `(2,3)`, `(4,5)`, `(6,7)` a 256 px.
