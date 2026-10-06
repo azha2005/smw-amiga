@@ -411,6 +411,26 @@ encuentra una decisión de diseño sin resolver, vuelve a G2 con evidencia.
 Las baselines se conservan. Esta sesión se centra en esa puerta; G4/G6
 quedan preparados para después.
 
+**Tarjetas en paralelo de la misma sesión** (acordadas con el usuario el
+2026-10-05; no tocan los ficheros de G2/V1 ni entre sí):
+
+| tarjeta | modelo / esfuerzo | toca | entrega y puerta |
+|---|---|---|---|
+| **R-estrés**: `stress_back` (a medias en `tools/wipr/`, llega a x `$0BC0`), `stress_sprites` y la zona del Banzai Bill | GPT-6 Luna medium | `tools/snesorc/*.orc`, `work/oracle_*` | replays reproducibles que recorren la vuelta (s ≈ 2832 y 4580), el Banzai y el tramo con más Rex; `orc_has.py` los muestra. **Sin esto la compuerta D1 (§2) no se puede medir** |
+| **G8 + 9.1: Chuck `$95`, cinta de meta `$7B`, caparazón rojo `$DB`** | GPT-6.1 Sol medium | `player/spr_*.c` (un fichero por sprite, P78), sus rutinas de gráficos | lógica exacta contra `oracle_chuck`, `goal`, `shells` en `regress.py`; OAM atribuida igual a la grabada. Amplía la cobertura que G3 dejó fuera de la puerta |
+| **A1**: `tools/brr2pcm.py` | GPT-6.1 Sol medium | solo `tools/` | muestras BRR → PCM de 8 bits con signo (P7), ida y vuelta contra el decodificador de referencia; tamaño total frente a los 64 KB de D5 |
+
+**Para la sesión siguiente, no esta:** C2 (vlink) toca el build y el
+loader que usa V1, y el banco entra en chip sin C2. Después de G5: medida
+de estrés + S5 (punto 7 de "Próximamente").
+
+**Estado de las olas al 2026-10-05:** olas 1 y 2 cerradas (S4 descartada
+por P89). Ola 3 casi cerrada: hechas O5, G0, G1, G8, G3a, R10, C1, L1b,
+L1d, SX/SX2 y H1 medido; faltan G2 (reabierta), S5 (tras G5), A1, A2 y R7.
+Adelantadas de olas posteriores: Z1, parte de G3, lógica de sprites P1-P8.
+Van ~5 de las 12-15 sesiones estimadas; el hito más atrasado es ver
+enemigos en la Amiga (V1/G5).
+
 ### Sesión G3, Z1 y H1 — resultados e integración (2026-10-05)
 
 Autorizada por el usuario después de revisar el orden y los modelos.
