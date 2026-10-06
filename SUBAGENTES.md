@@ -135,6 +135,10 @@ Entrega: <qué poner en el informe>
 8. Informe final: qué hiciste, commits (hash + título), la salida de la
    puerta, números antes → después con su herramienta y emulador, qué no
    pudiste probar, trampas nuevas redactadas como `Pnn`.
+9. **Nada nuevo fijo a YI1** (`docs/mas-alla-yi1.md` §11.8): las
+   herramientas leen el nivel de `levels/<nivel>.json`, los datos de
+   sprites van por tipo y la memoria separa lo común de lo que es de cada
+   nivel. Si algo tiene que quedar fijo, decirlo en el informe.
 
 ### 2.4 Revisión e integración (coordinador)
 
@@ -579,6 +583,9 @@ ROADMAP, "Próxima sesión — banco y variantes G2/G3".
 coordinador con el informe del F): formato de los frames precalculados
 por pose en chip, reuso vertical de canales, colores por fila, cuándo pasa
 algo a bob, presupuesto de chip (hoy ~117 KB libres) y de CPU (≤ 8 %).
+**Otros niveles (§11.8 de `docs/mas-alla-yi1.md`):** banco **por tipo de
+sprite**, con una tabla de tipos que se carga por nivel; nada fijo al Rex.
+Vale igual para G3 (`mksprgfx.py` recibe el nivel y los tipos).
 
 #### G3 — Conversor `tools/mksprgfx.py`
 **M · G2** · GFX `20` (Rex, Banzai) y los demás → frames de sprites
@@ -658,6 +665,9 @@ mapa de `AGENTS.md` §4.
 **F · C1** · direcciones fijas en chip y en `$C00000`; desaparecen P36 y
 P52. `m68kverify`/`abcheck`/`gamecheck` aprenden a cargar en la dirección
 fija (E3).
+**Otros niveles (§11.8):** regiones separadas para lo común (código, Mario,
+HUD) y lo de cada nivel (bloques, capa 2, plan del copper, gráficos de sus
+sprites, muestras), así un nivel se reemplaza sin reenlazar lo común.
 
 #### C3 — Compresor y descompresor
 **M · — · `tools/lzpack.py`, `player/unlz.s` (nuevos)** · LZ simple y
@@ -742,6 +752,8 @@ Paula precalculado, glissando/vibrato y ADSR como tablas por tick.
 Puerta: `tools/audiocmp.py` (nuevo) contra el registro de A0, nota por
 nota: N/N notas de las voces elegidas, inicio a ±1 tick, tono a ±5 cents,
 volumen a ±1 dB; informe `docs/audio/yi1.md`.
+**Otros niveles (§11.8):** eventos y muestras **por tema**; las muestras
+compartidas (efectos) aparte. Vale también para A4.
 
 #### A4 — Secuenciador del 68000
 **M · A3 · `player/audio.s` (nuevo)** · tick por timer de CIA, escribe
