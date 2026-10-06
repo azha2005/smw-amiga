@@ -28,7 +28,7 @@
 | problema nuestro | quién lo resolvió y cómo | qué nos sirve | acción |
 |---|---|---|---|
 | El peor frame pasa del 100 % (D1, O4) | **Robocod** (Chris Sorrell): la lógica corre a 50 Hz fija por interrupción de timer y el bucle principal dibuja "lo antes que puede" las peticiones de render acumuladas | Una cuarta opción para el informe D1: **lógica siempre a 50 Hz, imagen que pierde un frame solo cuando no llega**. Ni 25 Hz fijos ni recortar | §2.1, tarjeta **O5** |
-| Cola de blits por interrupción (ROADMAP §9.6) | **AmiGalaga**: sin fast RAM no gana de forma consistente; con `BLTPRI` pierde en los casos publicados | Comparar también máximos; no implementar la cola sin medirla | §2.2, corrige §9.6 |
+| Cola de blits por interrupción (`docs/plan-tecnico.md` §9.6) | **AmiGalaga**: sin fast RAM no gana de forma consistente; con `BLTPRI` pierde en los casos publicados | Comparar también máximos; no implementar la cola sin medirla | §2.2, corrige §9.6 |
 | Bobs con un solo buffer de PF1 (10.6) | **Battle Squadron**: borra y redibuja los bobs **detrás del haz**, en franjas de 1/3 de pantalla, sin doble buffer | Confirma la opción "detrás del haz" y ahorra los 59 KB del segundo buffer | §2.3 |
 | `build_mid` (scroll a ≤ 25 %) | **Ningún juego** encontrado hace cargas de color a mitad de línea con scroll horizontal a esta densidad. Los que más copper usan (**Risky Woods**, 27 KB de lista) la tienen **precalculada** y por frame cambian un puñado de palabras | Confirma la dirección S3/S5/S6/S7 (que el cambio por frame no dependa del contenido), y S1c (postes con sprites) | §3 |
 | Cámara vertical (§10.2b) y coste de escribir la lista | **Toni Wilen** (EAB): lista precalculada por línea del nivel, con WAIT solo horizontal, en la que se entra y se sale con `COPJMP`; **DanScott** (Chuck Rock 2): el blitter copia la lista del copper | Mover la cámara en vertical = 2-3 palabras; S8 tiene precedente comercial | §12.1 |
@@ -98,7 +98,7 @@ imagen se pierden en el replay y en los escenarios de estrés.
 
 ### 2.2 La cola de blits por interrupción no gana de forma consistente en A500
 
-ROADMAP §9.6 propone "columna nueva y bobs en una cola servida por la
+`docs/plan-tecnico.md` §9.6 propone "columna nueva y bobs en una cola servida por la
 interrupción del blitter". AmiGalaga lo midió (`experiment-7`, misma
 escena con sonido y 25 000 ciclos de "lógica", en líneas de raster, peor
 frame entre paréntesis):
@@ -123,7 +123,7 @@ blit grande, P31) la cola no aporta nada.
 Martin Pedersen (Battle Squadron): los enemigos se "borran y reimprimen"
 en posiciones fijas del haz (1/3 y 2/3 de la pantalla), sin doble buffer,
 lo que deja "about 1.5 frames to delete/print the bobs" y ahorra mucha
-CPU. Es la opción "detrás del haz" de ROADMAP §10.6 para el Banzai en PF1:
+CPU. Es la opción "detrás del haz" de `docs/plan-tecnico.md` §10.6 para el Banzai en PF1:
 confirma que funciona en un juego real a 50 Hz y evita los +59 KB del
 segundo buffer. Coste de su música: "5-10 % of the raster time".
 
@@ -282,7 +282,7 @@ acarreo.
 ### 4.2 `R16` byte a byte: el truco de los emuladores (memoria "swizzled")
 
 Hoy `smwmac.h` arma cada valor de 16 bits con 2 lecturas + `lsl` + `or`
-(~50 ciclos contra 12 de un `move.w`, ROADMAP §9.7). Los emuladores que
+(~50 ciclos contra 12 de un `move.w`, `docs/plan-tecnico.md` §9.7). Los emuladores que
 corren una máquina de un endian en un host del otro (Mega Drive, 32X,
 Saturn en PC; N64 con `^3`) guardan la memoria **con los bytes de cada
 palabra intercambiados**: el byte de la dirección `a` vive en `a ^ 1`. Así
@@ -386,7 +386,7 @@ formas en el PR #292 ("Multiplexed sprites"):
 - **recargar los registros con el copper**: "more flexible but costs
   copper and CPU time".
 
-ROADMAP §10.6 eligió la segunda (un `SPRxPT` nuevo por copper, sin copiar
+`docs/plan-tecnico.md` §10.6 eligió la segunda (un `SPRxPT` nuevo por copper, sin copiar
 datos). El dato a favor de la primera: **nuestro copper es el recurso
 escaso** (las 1916 cargas que no entran de `copsim.py` son todas de la
 capa 1), y cada `SPRxPT` son 2 MOVE en líneas que ya están llenas. Con
@@ -405,7 +405,7 @@ Los multiplexores del C64 (Cadaver, codebase64) compararon burbuja,
 **inserción continua** ("Ocean sort"): un array de orden que **no se
 reinicia** entre frames, así cada orden es la continuación del anterior.
 Es la recomendada: casi O(n) porque los objetos se mueven poco entre
-frames. Coincide con lo que ROADMAP §9.5 ya intuía ("inserción: casi
+frames. Coincide con lo que `docs/plan-tecnico.md` §9.5 ya intuía ("inserción: casi
 ordenados de un frame al siguiente"). Su regla de rechazo (comparar la Y
 del nuevo con la del último del mismo canal físico) es la que hay que
 aplicar para "una línea libre entre dos objetos".
@@ -594,7 +594,7 @@ técnicos: 103 mensajes):
   **75 % con 5 y al 50 % con 6**; fuera de las líneas visibles, al 100 %.
   "A 5 BPL 320x256 scrolling screen has the CPU running ... roughly 80%
   overall". Nuestro DPF es de 6 planos: en las 224 líneas visibles la CPU
-  rinde la mitad. Es la regla ×1,3-1,4 de ROADMAP §9 vista desde el
+  rinde la mitad. Es la regla ×1,3-1,4 de `docs/plan-tecnico.md` §9 vista desde el
   hardware, y refuerza §9.6: lo que sea trabajo de bus va en las 88
   líneas sin planos. ReadOnlyCat agrega que las instrucciones largas sin
   acceso al bus (`mulu`, `divu`, desplazamientos largos) siguen corriendo
@@ -619,7 +619,7 @@ técnicos: 103 mensajes):
   pensado para fast RAM): es la idea de S3. Con slow RAM (P29) no hay
   paralelismo de bus, así que lo que cuenta es escribir menos, no dónde.
 - **Cambiar RAM por CPU** (zero): precalcular movimientos y usar tablas
-  en todo lo posible. Ya es nuestra regla (ROADMAP §9.7, `T8X`/`T16X`).
+  en todo lo posible. Ya es nuestra regla (`docs/plan-tecnico.md` §9.7, `T8X`/`T16X`).
 - **Colisiones con una lista ordenada** (DanScott, varios juegos
   comerciales): "a sorted list will not change a great deal from one
   frame to the next". Para L2 (`spr_spr_interact` es O(n²)): mantener los
@@ -673,7 +673,7 @@ de raster**. Las respuestas:
 
 **Para nosotros:**
 
-1. **La cámara vertical (ROADMAP §10.2b, S8)** es exactamente el caso
+1. **La cámara vertical (`docs/plan-tecnico.md` §10.2b, S8)** es exactamente el caso
    de Toni Wilen: los segmentos ya son por línea; si quedan indexados por
    línea **del nivel** y encadenados, mover la cámara en vertical es
    cambiar el punto de entrada (`COP2LC`) y el de salida (un salto
@@ -717,7 +717,7 @@ Photon escribió en Coppershade los tiempos de MOVE y WAIT.
 ### 12.4 "optimisations for 68000" (t=113136)
 
 - jotd: `MULU` es más lento que una tabla; usa un macro que genera la
-  tabla (`rept 256 / dc.w REPTN*n`). Es nuestra regla (ROADMAP §9.7).
+  tabla (`rept 256 / dc.w REPTN*n`). Es nuestra regla (`docs/plan-tecnico.md` §9.7).
 - **roondar, el matiz**: la tabla gana en ciclos de CPU pero **hace más
   accesos a memoria** que el `MULU` (que corre sin tocar el bus). Cuando
   el bus está ocupado (blitter trabajando, o planos), "it ends up taking
@@ -763,7 +763,7 @@ Es la pregunta abierta de §5.1 (G0: encadenar por DMA o recargar
   en una línea, aunque esté habilitado, la ranura la puede usar el resto,
   la CPU incluida. Los sprites que no se ven no cuestan bus.
 
-**Para nosotros:** la elección de ROADMAP §10.6 (un `SPRxPT` nuevo por
+**Para nosotros:** la elección de `docs/plan-tecnico.md` §10.6 (un `SPRxPT` nuevo por
 copper, sin copiar datos) tiene respaldo en hardware real y en juegos
 comerciales. El coste en el copper es 1-2 MOVE por recarga (`SPRxPTL`, y
 `SPRxPTH` si cambia el banco de 64 KB); si los frames de las poses quedan
@@ -874,7 +874,7 @@ el C nuestro.
 
 Mismo CPU, y bastante más trabajo publicado sobre gcc que en la Amiga:
 
-- **`-mshort` (int de 16 bits).** ROADMAP §9.7 regla 2: con vbcc `int` es
+- **`-mshort` (int de 16 bits).** `docs/plan-tecnico.md` §9.7 regla 2: con vbcc `int` es
   de 32 bits y cada `u8`/`u16` se promociona con `ext`/`and.l`. gcc tiene
   `-mshort`, que hace `int` de 16 bits. Nosotros no usamos libc, así que
   hay menos dependencia de bibliotecas, pero sigue habiendo ABI con el
@@ -948,7 +948,7 @@ demostrada y la integración no se limita necesariamente al build.
 
 Menos multiplicaciones y divisiones, tablas, `(An)+`, comparar con cero
 y con el signo, y "hacer menos" antes que micro-optimizar: ya están en
-ROADMAP §9.7. El que no se puede: **repartir el trabajo de los objetos
+`docs/plan-tecnico.md` §9.7. El que no se puede: **repartir el trabajo de los objetos
 entre frames** y no procesar los que están fuera de pantalla. Cambia la
 semántica respecto del ROM (§9.8); solo vale donde el ROM ya lo hace.
 

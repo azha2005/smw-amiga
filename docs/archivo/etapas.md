@@ -1,5 +1,10 @@
 # Etapas: el paso a paso (2026-09-26)
 
+> **ARCHIVADO el 2026-10-05.** Lo pendiente de cada etapa, más nuevo, está en
+> `docs/plan-tecnico.md` §10 y en las tarjetas de `SUBAGENTES.md`; el estado,
+> en `ROADMAP.md` §1. Los "§" de abajo son del ROADMAP de entonces
+> (`docs/archivo/roadmap-2026-10-05.md`).
+>
 > Movido textual desde `ROADMAP.md` §5 el 2026-10-03. Estado actual: `ROADMAP.md`
 > §1.2; lo pendiente, más nuevo, en `ROADMAP.md` §10.
 

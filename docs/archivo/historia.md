@@ -1,5 +1,9 @@
 # Historia: handoffs y planes superados
 
+> **ARCHIVADO el 2026-10-05** (movido a `docs/archivo/`). Lo vigente:
+> `PROXIMO.md` y `ROADMAP.md`; las sesiones desde el 2026-10-05, en
+> `docs/archivo/sesiones.md`.
+>
 > Movido textual el 2026-10-03 desde `AGENTS.md` (los handoffs del 2026-09-24 y la
 > tabla de etapas original de §10) y desde `ROADMAP.md` §1 (el día a día de las
 > olas 1-3). Es historial: lo vigente está en `ROADMAP.md`. Sirve para saber

@@ -590,7 +590,7 @@ tileset y el bit 7 como "scroll vertical", y en el byte 2 metía la
 prioridad de la capa 3 en la música. De ahí salió "el header de YI1 no
 tiene scroll vertical": vale **2** ("solo en algunos casos",
 `CODE_00F82A`), y en las grabaciones de snesorc la cámara sube hasta 4 px
-(`Bg1VOfs` = `$BC`). La Amiga no lee `Bg1VOfs` (ROADMAP §10.2b). Para las
+(`Bg1VOfs` = `$BC`). La Amiga no lee `Bg1VOfs` (`docs/plan-tecnico.md` §10.2b). Para las
 cabeceras, la fuente de verdad es `lv_read.s`.
 
 **P78 — vbcc y los `spr_*.c` (I1, 2026-09-30).** Tres reglas para un

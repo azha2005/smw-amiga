@@ -20,6 +20,10 @@ ERRORES (salen con 1):
   V3   una rutina asm cambia un registro que su cabecera no declara
        ("salida" o "registros destruidos"; las public _xxx: la ABI de vbcc)
        o desbalancea la pila (P53; tools/asmlint_port.py)
+  D1   falta PROXIMO.md o su "## 1." (la proxima sesion; ROADMAP.md §7)
+  D2   una seccion "proxima sesion" / "empezar por aqui" fuera de PROXIMO.md
+  D3   un documento citado como docs/X.md que se movio a docs/archivo/, o
+       una fila de docs/README.md que no existe
 AVISOS (no fallan; revisar):
   V3   un registro declarado en la cabecera que la rutina nunca cambia
   P40  (An,Dn.w) en player/*.s: el indice es de 16 bits CON signo. Si el
@@ -27,6 +31,9 @@ AVISOS (no fallan; revisar):
        registro extendido. Una linea revisada se marca con "; P40 ok".
   C4   'int' a secas en player/*.c (en vbcc 68000 es de 32 bits: cada
        operacion .l cuesta mas; preferir u8/u16/s16 salvo donde haga falta)
+  D4   un .md de docs/ que no esta en docs/README.md
+  D5   commits en player/ o tools/ posteriores al ultimo PROXIMO.md (al
+       cerrar la sesion hay que reescribirlo)
 """
 import argparse
 import os
@@ -55,6 +62,51 @@ def git_files():
 def strip_c_comments(src):
     src = re.sub(r"/\*.*?\*/", lambda m: "\n" * m.group(0).count("\n"), src, flags=re.S)
     return re.sub(r"//[^\n]*", "", src)
+
+
+PROXIMO_RX = re.compile(r"^#{1,4} .*(pr[oó]xima sesi[oó]n|empezar por aqu[ií])", re.I)
+
+
+def check_docs(errors, warns):
+    """Reglas de los docs (ROADMAP.md §7): un solo lugar dice qué sigue,
+    los enlaces a docs/ existen y docs/README.md lista todo."""
+    prox = os.path.join(ROOT, "PROXIMO.md")
+    if not os.path.isfile(prox) or "\n## 1." not in open(prox, encoding="utf-8").read():
+        errors.append(("D1", "PROXIMO.md", 0, "falta, o no tiene su '## 1.' (la proxima sesion)"))
+    docs = os.path.join(ROOT, "docs")
+    main_md = ["AGENTS.md", "ROADMAP.md", "SUBAGENTES.md", "PROXIMO.md"]
+    main_md += ["docs/" + f for f in sorted(os.listdir(docs)) if f.endswith(".md")]
+    for rel in main_md:
+        p = os.path.join(ROOT, rel)
+        if not os.path.isfile(p):
+            continue
+        for i, ln in enumerate(open(p, encoding="utf-8"), 1):
+            if rel != "PROXIMO.md" and PROXIMO_RX.search(ln):
+                errors.append(("D2", rel, i, "seccion de 'que sigue' fuera de PROXIMO.md: %s" % ln.strip()))
+            for m in re.finditer(r"`docs/([\w.-]+\.md)`", ln):
+                # un documento movido a docs/archivo/ y citado con la ruta vieja
+                if not os.path.isfile(os.path.join(docs, m.group(1)))                         and os.path.isfile(os.path.join(docs, "archivo", m.group(1))):
+                    errors.append(("D3", rel, i, "docs/%s esta en docs/archivo/" % m.group(1)))
+    idx = os.path.join(docs, "README.md")
+    if os.path.isfile(idx):
+        src = open(idx, encoding="utf-8").read()
+        listed = set(re.findall(r"^\| `([\w./-]+\.md)`", src, re.M))
+        for n in sorted(listed):
+            if not os.path.isfile(os.path.join(docs, n)):
+                errors.append(("D3", "docs/README.md", 0, "no existe docs/%s" % n))
+        for sub in ("", "archivo/"):
+            d = os.path.join(docs, sub)
+            for f in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+                if f.endswith(".md") and f != "README.md" and sub + f not in listed:
+                    warns.append(("D4", "docs/" + sub + f, 0, "no esta en docs/README.md"))
+    # cierre de sesion: commits de codigo despues del ultimo PROXIMO.md
+    def last(*paths):
+        out = subprocess.run(["git", "log", "-1", "--format=%ct", "--"] + list(paths),
+                             cwd=ROOT, stdout=subprocess.PIPE).stdout.strip()
+        return int(out) if out else 0
+    if last("PROXIMO.md") and last("player", "tools") > last("PROXIMO.md"):
+        warns.append(("D5", "PROXIMO.md", 0, "hay commits en player/ o tools/ posteriores; "
+                      "al cerrar la sesion, reescribirlo (ROADMAP.md §7)"))
 
 
 def main():
@@ -140,6 +192,9 @@ def main():
     import asmlint_port
     for sev, f, i, text in asmlint_port.check():
         (errors if sev == "error" else warns).append(("V3", f, i, text))
+
+    # --- D: los documentos (ROADMAP.md §7, docs/README.md) -----------------
+    check_docs(errors, warns)
 
     for code, f, i, text in errors:
         print("ERROR %-4s %s%s  %s" % (code, f, ":%d" % i if i else "", text))

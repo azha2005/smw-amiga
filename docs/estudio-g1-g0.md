@@ -277,7 +277,7 @@ Encadenar exige que los objetos de una columna estén contiguos en un mismo
 flujo: la CPU copia, por frame, el flujo de las columnas con ≥ 2 objetos (menos
 el de Mario, que ya escribe `mspr.c`). Un objeto de `k` columnas y `L` líneas
 son `k · 2 · (8 + 4 L)` bytes (el Rex de 32 líneas: 272 B por columna, como decía
-ROADMAP §10.6). `MOVEM.L` copia a 4,6 ciclos/B (76 + 72 por 32 B); un frame PAL
+`docs/plan-tecnico.md` §10.6). `MOVEM.L` copia a 4,6 ciclos/B (76 + 72 por 32 B); un frame PAL
 son 141 876 ciclos.
 
 ```bash

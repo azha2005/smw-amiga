@@ -2,21 +2,23 @@
 
 > Este fichero define **cómo trabajar** en este proyecto. Es el contrato entre
 > quien implementa (persona o agente de IA) y el hardware objetivo.
-> El análisis de viabilidad original (el *porqué* de la primera versión del
-> plan) está en **`docs/plan-original.md`** (antes `PLAN.md`).
 >
-> **Qué hacer ahora y en qué orden: `ROADMAP.md`** (plan a futuro por etapas
-> y handoff vigente).
+> **Qué hacer ahora: `PROXIMO.md`** — el único lugar que lo dice.
 >
-> **Cómo repartirlo entre subagentes: `SUBAGENTES.md`** (tarjetas de todo lo
-> que falta, con nivel, puerta y ficheros que tocan).
+> **Estado, presupuesto del frame, decisiones y sesiones que faltan:
+> `ROADMAP.md`.** Cómo hacer cada cosa (optimización, lo que falta, más allá
+> de YI1): `docs/plan-tecnico.md`.
 >
-> **El detalle de referencia vive en `docs/`** (compactado el 2026-10-03; nada
-> se borró, se movió textual): `formato-nivel.md` (antes §5, §5b, §5c y §8b),
-> `pitfalls.md` (el texto completo de §8), `decisiones-medidas.md` (los datos
-> de §9: D8/D9 y "Etapa 4 — resultados"), `historia.md` (los handoffs viejos
-> y la tabla de etapas original) e `investigacion-ports.md` (qué hicieron otros
-> ports y juegos de A500).
+> **Cómo repartirlo entre subagentes y el estado de cada tarjeta:
+> `SUBAGENTES.md`.**
+>
+> **Índice de `docs/`: `docs/README.md`.** Lo superado está textual en
+> `docs/archivo/` (plan original, historia, etapas, ROADMAP anterior,
+> registro de sesiones). Reorganizado el 2026-10-05; nada se borró.
+>
+> **Al cerrar una sesión es obligatorio escribir qué sigue** (`ROADMAP.md`
+> §7): archivar el `PROXIMO.md` cumplido en `docs/archivo/sesiones.md`,
+> reescribirlo y actualizar los estados.
 
 ---
 
@@ -186,7 +188,12 @@ Sin excepciones.
 
 ### Mapa medido del juego (`player/game.s`, 2026-09-27)
 
-Lo de arriba era el plan; esto es lo que usa hoy el primer ADF jugable.
+> **Actual (2026-10-05, `memmap.py work/rg_game/game.lst`, replay):** chip
+> 390 704 B, slow 207 296 B, tablas solo de CPU todavía en chip 135 468 B.
+> Reservas futuras (banco de sprites, segundo PF1, audio) y el margen:
+> `docs/diseno-9.2.md` §5. La tabla de abajo es la del primer ADF jugable.
+
+Lo de arriba era el plan; esto es lo que usaba el primer ADF jugable.
 **Hace falta la expansión A501**: el binario solo, más los datos del scroll,
 PF1 y las dos listas no entran en 512 KB de chip.
 
@@ -485,8 +492,8 @@ número siguiente (**la próxima es P104**).
 | **D12** | Power-ups | **todos los de Yoshi's Island 1**: seta, flor + bolas de fuego, estrella, 1-UP, luna 3-UP, champiñón invisible (no hay pluma en el nivel) | **cerrado** (usuario, 2026-09-26) |
 | **D13** | Carga y memoria | loader propio con `trackdisk`; lo que lee el chipset a chip RAM y el código y los datos de CPU a `$C00000`, todo en **direcciones fijas enlazadas en absoluto** (vlink) | **cerrado** (usuario, 2026-09-26); esquema en `ROADMAP.md` §3 |
 | **D14** | Controles | **teclado primero** (flechas, Z = B, X = A, A = Y, S = X, Return = Start, Shift der. = Select), joystick como alternativa | **cerrado** (usuario, 2026-09-26) |
-| **D15** | Velocidad (ROM NTSC en una Amiga PAL) | **se acepta el 83 %**, como la SNES PAL | **cerrado** (usuario, 2026-09-30), ROADMAP §10.12 |
-| **D16** | Zona de la tubería (`obj-1.lv`, 2 pantallas) | **entra en el alcance** | **cerrado** (usuario, 2026-09-30), ROADMAP §10.10 |
+| **D15** | Velocidad (ROM NTSC en una Amiga PAL) | **se acepta el 83 %**, como la SNES PAL | **cerrado** (usuario, 2026-09-30), `docs/plan-tecnico.md` §10.12 |
+| **D16** | Zona de la tubería (`obj-1.lv`, 2 pantallas) | **entra en el alcance** | **cerrado** (usuario, 2026-09-30), `docs/plan-tecnico.md` §10.10 |
 
 ### D3 — los sprites reales de Yoshi's Island 1
 
@@ -521,9 +528,18 @@ objetos, copper, CPU y blitter) y "D7 — cómo se cerró". Las referencias
 
 ## 10. Roadmap
 
-El plan vigente es **`ROADMAP.md`**. La tabla de etapas original de este
-fichero (2026-09-22) y los handoffs del 2026-09-24 ("Dónde quedó el trabajo"
-y "Handoff cloud → sesión local") están textuales en **`docs/historia.md`**.
+Lo que sigue: **`PROXIMO.md`**. Estado y sesiones que faltan:
+**`ROADMAP.md`** (§1 y §4). La tabla de etapas original de este fichero
+(2026-09-22) y los handoffs del 2026-09-24 ("Dónde quedó el trabajo" y
+"Handoff cloud → sesión local") están textuales en
+**`docs/archivo/historia.md`**.
+
+**Regla de cierre de sesión [usuario, 2026-10-05]:** ninguna sesión termina
+sin escribir qué es lo que sigue. El procedimiento (archivar el
+`PROXIMO.md` cumplido, reescribirlo, actualizar §1/§4 del ROADMAP y la
+tabla de estado de `SUBAGENTES.md`, archivar lo que quedó viejo en vez de
+apilarlo) está en `ROADMAP.md` §7, y `tools/lint_port.py` comprueba lo
+básico.
 
 ---
 

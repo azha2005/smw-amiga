@@ -1,6 +1,6 @@
 # Más allá de YI1
 
-> Movido textual desde `ROADMAP.md` §11 el 2026-10-03.
+> Movido textual desde `docs/plan-tecnico.md` §11 el 2026-10-03.
 
 ---
 

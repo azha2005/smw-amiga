@@ -1,7 +1,7 @@
 #!/bin/sh
 # setup_cloud.sh - prepara un entorno Linux (Claude cloud) para compilar el
 # port y VERIFICARLO contra el oraculo, sin la ROM del usuario ni WinUAE.
-# Ver "Donde quedo el trabajo" en docs/historia.md (antes en AGENTS.md).
+# Ver "Donde quedo el trabajo" en docs/archivo/historia.md (antes en AGENTS.md).
 #
 #   sh tools/setup_cloud.sh          # herramientas en ~/vbcc (VBCC=... para cambiarlo)
 #

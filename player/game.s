@@ -1257,7 +1257,7 @@ g_lpal: dc.b    $ff,$ff                     ; paleta de Mario en la lista A, B
 ;   COPER (linea 272: una cola en cada lista, dc_puttail; dc_cop): la
 ;      logica, game_step (entrada + level_frame), una vez por frame y en el
 ;      mismo punto que el bucle de antes (desde la $110: las lineas sin DMA
-;      de planos, ROADMAP §9.6), y la foto (dc_capture): s = Bg1HOfs
+;      de planos, docs/plan-tecnico.md §9.6), y la foto (dc_capture): s = Bg1HOfs
 ;      dentro del nivel, mspr_draw en un buffer de sprites que no se ve ni
 ;      se esta dibujando (3 buffers) y la paleta de Mario. Es todo lo que
 ;      el render lee del estado del juego. Corre con el nivel bajado a 0:

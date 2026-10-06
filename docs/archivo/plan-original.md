@@ -2,6 +2,8 @@
 
 Documento de viabilidad y plan técnico. Fecha: 22/09/2026.
 
+> **ARCHIVADO el 2026-10-05** (movido a `docs/archivo/`).
+>
 > **Documento histórico — manda `AGENTS.md`.** Revisado el 2026-09-22; estas
 > partes están superadas o eran incorrectas:
 >
