@@ -1616,6 +1616,12 @@ se incorporan explicaciones y propuestas, sin código ni assets de terceros.
 
 ### 18.2 Búsquedas que no justifican una implementación todavía
 
+**Ronda offline del 2026-10-06:** E11b no se abre para `build_mid`: cero
+cargas PF1 caen en las franjas aptas de PF2 en 15.755 frames (modo actual
+y cámaras del oráculo). E12 se descarta sobre los índices actuales:
+0/7 sin conflicto en el dominio completo de cámaras. Evidencia,
+limitaciones y reproducción: `docs/experimentos-e11-e14.md`.
+
 - **Solid Gold:** localizado el paquete del autor en
   [Aminet](https://aminet.net/package/game/jump/SolidGold.adf), pero lectura
   bloqueada (403); la entrevista devolvió 429. No se descargó ni auditó su
@@ -1845,10 +1851,12 @@ Para el port:
 
 | ID | Experimento / tarjetas | Qué compara | Métrica que debe mejorar | Puerta de corrección / descarte |
 |---|---|---|---|---|
-| E11 | Planos por franja; S5/S7, `build_mid` | DPF 3+3 en toda la pantalla vs 3+2 o 3+0 donde PF2 lo permite | Primero: líneas aptas por cámara (herramienta offline). Después: pico de vuelta y fotos omitidas | Píxeles iguales, ida/vuelta/cámara Y; descartar con el recuento si las líneas aptas no alcanzan |
-| E12 | Índices de PF1 por Y; S7/E09 | Carga a mitad de línea vs carga en el borrado para los índices sin conflicto en la misma línea | Palabras de lista por foto y pico de vuelta | Solo índices que den píxeles iguales en todas las cámaras posibles, no solo las grabadas |
+| E11 | Planos por franja; S5/S7, `build_mid` | DPF 3+3 vs 3+2 donde PF2 lo permite | **E11a hecha; E11b descartada para `build_mid` (2026-10-06):** 0 cargas beneficiadas en 15.755 frames; tardías del modelo 10.252 →10.252 | Cruce completo de SMWD y PNG reducido: 0 px distintos; ganancias generales de DMA/CPU sin medir |
+| E12 | Índices de PF1 por Y; S7/E09 | Carga mid vs borrado con índices actuales | **Descartada (2026-10-06):** 0/7 índices; 0 MOVE evitados en 1.016.785 cámaras | 2.211.840 px, 0 diferencias; 7 testigos de conflicto. Reasignación E09 sigue abierta |
 | E13 | Prioridad por franja; D8 | — | — | Sin caso en YI1; se abre solo si una comparación 1:1 lo pide |
-| E14 | Banzai en 8 sprites; G7/§16.4 | Bob (E04) vs sprite cuando las líneas están libres | Fotos omitidas en `oracle_stress_sprites` | OAM y prioridades exactas; el peor caso no puede empeorar |
+| E14 | Banzai en 8 sprites; G7/§16.4 | Bob (E04) vs sprite cuando las líneas están libres | **E14a hecha; E14 descartada para estrés (2026-10-06):** 0/202 frames completos libres; Banzai solo 16/331 | Atribución y clipping auditados, 0 ambiguos; peor caso sigue bob E04/G7; sin medida runtime |
+
+Resultados de la ronda, comandos y límites: `docs/experimentos-e11-e14.md`.
 
 ### 19.6 Fuentes de esta sección
 

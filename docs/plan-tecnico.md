@@ -137,6 +137,11 @@ barata a más cara:
   mientras la CPU corre la lógica; la CPU solo parchea las h. Evaluarlo
   después de S3-S5: depende de cuánta chip haga falta.
 
+**Recurso E13 (2026-10-06):** cambiar `BPLCON2` por franja permite alterar
+la prioridad entre playfields y sprites (Lionheart, Beast, Jim Power;
+`docs/investigacion-ports.md` §19.3). No hay un caso confirmado en YI1:
+no se abre implementación hasta que una comparación 1:1 lo requiera.
+
 Orden propuesto: S1a + S2 (baratas) → S4 → S5 → S3 → S6. Hecho cuando el
 máximo es ≤ 25 % **en los dos sentidos** y en los escenarios de O2, con
 `scrollsim.py --ret` (≤ 9282 px, ida = vuelta) y las capturas de las 6 x

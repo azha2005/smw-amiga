@@ -208,7 +208,7 @@ original del 2026-09-30, ola por ola, está textual en
 
 ## 4. Tarjetas
 
-### Estado de las tarjetas (al 2026-10-05)
+### Estado de las tarjetas (al 2026-10-06)
 
 **Única fuente del estado de cada tarjeta.** Se actualiza al integrar
 (`ROADMAP.md` §7). Estados: **hecha**, **parcial** (lo que falta, dicho),
@@ -248,6 +248,12 @@ original del 2026-09-30, ola por ola, está textual en
 | Z2-Z8 | pendiente | |
 | E1 | hecha | resuelta como P51 (`0361736`) |
 | E2, E3 | pendiente | |
+| E11a | hecha | 15.755 frames; 0 cargas PF1 en franjas aptas; `docs/experimentos-e11-e14.md` |
+| E11b | descartada | no beneficia cargas de `build_mid` con el banco actual; DMA general sin medir |
+| E12 | descartada | 0/7 índices elegibles, 0 MOVE en todas las cámaras posibles; reasignación E09 no evaluada |
+| E13 | pendiente | no se abre: ningún caso confirmado en YI1; recurso en `docs/plan-tecnico.md` §9.2 |
+| E14a | hecha | atribución exacta auditada; 234 frames visibles de estrés, 347 de Banzai; `docs/experimentos-e11-e14.md` |
+| E14 | descartada | estrés: 0/202 frames con 64 filas libres; Banzai solo: 16/331. Peor caso bob E04/G7 intacto |
 | V2, V3 (de la investigación) | hecha | `tools/coverage.py`, `tools/asmlint_port.py` |
 
 Formato corto: **Nivel · Depende de · Toca**, y después Lee / Hace /

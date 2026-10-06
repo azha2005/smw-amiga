@@ -48,7 +48,7 @@
 
 ---
 
-## 1. Estado por etapa (al 2026-10-05)
+## 1. Estado por etapa (al 2026-10-06)
 
 Cifras medidas, con su fuente. Lo que no dice emulador es del PC o de
 Musashi. Los números de regresión completos están en
@@ -71,6 +71,7 @@ copian acá.
 | 9.2 | Sprites: dibujo | Mario hecho. G0, G1, G8 (Rex), G3a hechas; OAM opt-in (`-DSPR_OAM`). **G2 reabierta** por el tamaño del banco (G3: 145600 B frente a 65536 B). Faltan G3 final, G4-G7, G9, G8b. **Los enemigos todavía no se ven en la Amiga** | `docs/diseno-9.2.md`, `docs/informe-g3.md` |
 | 6b | Integración | ADF jugable en vivo y replay; O5 (render desacoplado) por defecto; modo diagnóstico (P58). Chip 390 704 B, slow 207 296 B (replay, `memmap.py`). Falta 6b.1 (vlink C2, compresión C3, loader C4) | `player/game.s`, `docs/diseno-9.2.md` §5 |
 | 10-12 | HUD, audio, pulido | **Z1** hecho (muerte normal y reinicio; `docs/validacion-z1.md`). **H1** medido conservadoramente (`docs/medida-hud.md`; falta la alineación exacta PPU). HUD visible, audio, punto medio, meta, game over: pendientes | — |
+| Experimental E11-E14 | Técnicas de juegos de referencia | E11a hecha: 0 cargas PF1 en franjas aptas de 15.755 frames; E11b descartada para `build_mid`. E12 descartada: 0/7 índices sin conflicto en 1.016.785 cámaras. E13 sin caso. E14a hecha; E14 descartada para estrés: 0/202 frames con las 64 filas libres (Banzai solo: 16/331). No cambia el presupuesto ni la compuerta D1 | `docs/experimentos-e11-e14.md` |
 
 ---
 
@@ -205,11 +206,17 @@ cambiable en un solo lugar (una tabla).
 
 ---
 
-## 4. Olas y sesiones (estimado el 2026-10-05)
+## 4. Olas y sesiones (revisado el 2026-10-06)
 
 Una **sesión** = un coordinador + 3-5 subagentes en worktrees, unas horas, e
 integración al final. Una **ola** agrupa tarjetas que pueden ir a la vez.
 Tarjetas y su estado: `SUBAGENTES.md` §4.
+
+La ronda offline E11-E14 se ejecutó aparte el 2026-10-06. No completa
+ninguna tarjeta de la ruta crítica del dibujo: quedan **9-11 sesiones**
+(estimado sin cambios), comenzando por el banco de sprites. E11b y E12
+no se suman a S5 con la representación actual; detalle y límites en
+`docs/experimentos-e11-e14.md`. No hubo una nueva medida de D1.
 
 **Hechas: ~5 sesiones** (2026-09-30 a 2026-10-05). Olas 1 y 2 cerradas; la 3
 casi. La ola 3 se alargó porque el diseño del dibujo de sprites (G0, G2, G3)

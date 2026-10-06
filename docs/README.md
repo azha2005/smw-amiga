@@ -46,6 +46,7 @@
 | `informe-g3.md` | 2026-10-05 | G3: formato verificable y banco que no entra |
 | `validacion-z1.md` | 2026-10-05 | Z1: muerte y recarga del nivel |
 | `medida-hud.md` | 2026-10-05 | H1: banda del HUD y cruces con la capa 1 |
+| `experimentos-e11-e14.md` | 2026-10-06 | ronda offline: franjas PF2, conflictos PF1 y ocupación de Banzai |
 
 ## Archivo (`archivo/`)
 
