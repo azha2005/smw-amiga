@@ -18,7 +18,7 @@
 ;
 ; En vivo (sin -DREPLAY): teclado + joystick -> $15-$18 como el
 ; ControllerUpdate de SMW (P55) -> level_frame. Cuando el port no puede
-; seguir (mario_unsupported, la muerte, el dano con Mario chico) la
+; seguir (mario_unsupported, game over/time up o punto medio pendiente) la
 ; pantalla se congela en MODO DIAGNOSTICO (P58): debajo del juego, una
 ; franja con el motivo, la X/Y de Mario, el frame...; ESPACIO cambia a la
 ; pagina del historial (el joypad desde el principio del nivel, en bits:
@@ -458,6 +458,13 @@ gframe:
         bne.s   .dg                         ; congelado: solo el diagnostico
         endc
         bsr     game_step
+        ifnd    REPLAY
+        move.w  g_restart(pc),d0
+        beq.s   .nr
+        bsr     live_restart_hw
+        bra.s   .w2
+.nr:
+        endc
         ifd     BENCH
         GBS     3
         endc
@@ -485,6 +492,41 @@ gframe:
         bra.s   .w2
         endc
         endc                                ; ifnd DECOUPLE
+
+        ifnd    REPLAY
+        ifnd    DECOUPLE
+; --- live_restart_hw --- carga en el bucle anterior, sin ISR de lógica
+; entrada:  a3/a4/a5 = datos/CUSTOM/vars; salida: ambas listas del nivel nuevo
+; registros destruidos: d0-d7/a0-a2
+; ciclos:   carga, fuera del presupuesto por frame de juego
+live_restart_hw:
+        move.w  INTENAR(a4),-(sp)
+        move.w  #$4000,INTENA(a4)           ; bucle en user mode: no MOVE SR
+        bsr     bwait
+        move.w  #$01a0,DMACON(a4)
+        move.w  #0,COLOR00(a4)
+        bsr     live_death_restart
+        bsr     cam_to_s
+        bsr     scroll_init
+        lea     g_lpal(pc),a0
+        move.w  #$ffff,(a0)
+        move.l  V_BACK(a5),-(sp)
+        move.l  V_COP(a5),V_BACK(a5)
+        bsr     mario_draw
+        move.l  V_COP2(a5),V_BACK(a5)
+        bsr     mario_draw
+        move.l  (sp)+,V_BACK(a5)
+        move.l  V_COP(a5),COP1LC(a4)
+        move.w  #0,COPJMP1(a4)
+        move.w  #$81a0,DMACON(a4)
+        lea     g_restart(pc),a0
+        clr.w   (a0)
+        move.w  (sp)+,d0
+        or.w    #$8000,d0
+        move.w  d0,INTENA(a4)
+        rts
+        endc
+        endc
 
 ;----------------------------------------------------------------------
 ; --- cam_to_s --- V_S = Bg1HOfs, dentro del nivel
@@ -686,13 +728,14 @@ g_sts:  dc.l    0                           ; siguiente estado
 ; En vivo (6b.3): teclado y joystick -> $15-$18 -> level_frame. Lo que el
 ; port no tiene (animaciones de Mario, tuberias, meta...) congela el frame
 ; en el modo diagnostico (P58). El dano, crecer y morir los hace el C (P8,
-; manim.c): congela recien cuando la muerte pide reiniciar el nivel.
+; manim.c): muerte normal recarga el nivel; game over/time up queda en diagnóstico.
 ;----------------------------------------------------------------------
 
 ; live_init: guarda los datos del C (con ram[]) y el mapa como estan al
 ; cargar, y pone el estado del primer frame de la partida
 live_init:
         movem.l d2/a2/a6,-(sp)
+        bsr     live_defaults
         move.l  4.w,a6
         move.l  #(cdata1-cdata0)+MAPHALF*2,d0
         moveq   #MEMF_PUBLIC,d1
@@ -714,6 +757,19 @@ live_init:
         dbf     d0,.c2
         movem.l (sp)+,d2/a2/a6
         bra.s   live_start
+
+; --- live_defaults --- nuevo juego, _009E17 de game.s original
+; entrada:  datos del C iniciales; salida: 5 vidas mostradas y modo nivel
+; registros destruidos: a0
+live_defaults:
+        GETBASE a0
+        add.l   #_ram-binstart,a0
+        move.b  #4,$0dbe(a0)                ; SMW guarda vidas mostradas menos 1
+        move.b  #$14,$100(a0)
+        move.b  #3,$0f31(a0)                ; YI1: lv_read.s LoadLevel, 300
+        clr.w   $0f32(a0)
+        move.b  #$1e,$0dc0(a0)              ; CODE_0091A6 al entrar al nivel
+        rts
 
 ; live_restart: todo como al cargar, y el primer frame
 live_restart:
@@ -747,6 +803,13 @@ game_step:
         bsr     pad_synth
         endc
         bsr     live_logic
+        ifd     Z1STOP
+        move.l  g_frame(pc),d1
+        cmp.l   #Z1STOP,d1
+        bne.s   .zs
+        moveq   #-1,d0                      ; captura reproducible, solo arnés Z1
+.zs:
+        endc
         tst.b   d0
         beq.s   .x
         bsr     diag_trigger                ; congelar (diag_enter, en el bucle)
@@ -771,8 +834,86 @@ live_logic:
         clr.l   _mario_events(a2)
         bsr     callframe
         bsr     diag_cause                  ; d0 = motivo
+        cmp.b   #MOT_MUERTE,d0
+        bne.s   .x
+        GETBASE a0
+        add.l   #_ram-binstart,a0
+        cmp.b   #$0b,$100(a0)               ; $15: game over/time up, sin portar
+        bne.s   .x
+        tst.b   $13ce(a0)                  ; Z2: no reaparecer en otro sitio
+        bne.s   .x
+        tst.b   $0dbe(a0)
+        bmi.s   .x
+        lea     g_restart(pc),a0
+        move.w  #1,(a0)                    ; el bucle restaura, nunca la ISR
+        moveq   #0,d0
+.x:
         movem.l (sp)+,d2-d4/a2
         rts
+
+; --- live_death_restart --- restaurar nivel conservando estado persistente
+; entrada:  g_save = copia inicial; muerte normal ya descontó una vida
+; salida:   nivel inicial, vidas/monedas/reserva/puntos conservados
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   medidos por tools/restart_verify.py (sin DMA)
+live_death_restart:
+        movem.l d2-d3/a2,-(sp)
+        GETBASE a2
+        add.l   #_ram-binstart,a2
+        move.l  $0dbe(a2),d2               ; vidas, monedas, GreenStarCoins, Yoshi
+        move.b  $0dc2(a2),d3               ; reserva del jugador
+        sub.l   #36,sp                     ; flags permanentes, no se borran en ROM
+        move.l  sp,a1
+        lea     $1f2f(a2),a0               ; 5 Yoshi coins, 1-UP invisible, lunas
+        bsr     .flags
+        lea     $1f3c(a2),a0
+        bsr     .flags
+        lea     $1fee(a2),a0
+        bsr     .flags
+        move.l  $0f34(a2),-(sp)            ; puntos Mario + primer byte Luigi
+        move.w  $0f38(a2),-(sp)            ; resto de puntos Luigi
+        move.w  $0f48(a2),-(sp)            ; bonus stars de los dos jugadores
+        move.l  g_frame(pc),-(sp)          ; historial de toda la partida, incluso cargas
+        lea     h_last(pc),a0
+        move.l  (a0)+,-(sp)
+        move.l  (a0)+,-(sp)
+        move.l  (a0),-(sp)
+        bsr     live_restart
+        lea     h_last+12(pc),a0
+        move.l  (sp)+,-(a0)
+        move.l  (sp)+,-(a0)
+        move.l  (sp)+,-(a0)
+        lea     g_frame(pc),a0
+        move.l  (sp)+,(a0)
+        move.w  (sp)+,$0f48(a2)
+        move.w  (sp)+,$0f38(a2)
+        move.l  (sp)+,$0f34(a2)
+        move.l  d2,$0dbe(a2)
+        move.b  #$1e,$0dc0(a2)              ; green star coins se reinicia en ROM
+        move.b  d3,$0dc2(a2)
+        clr.b   $19(a2)                    ; la muerte deja Mario pequeño
+        move.l  sp,a0
+        lea     $1f2f(a2),a1
+        bsr     .flags
+        lea     $1f3c(a2),a1
+        bsr     .flags
+        lea     $1fee(a2),a1
+        bsr     .flags
+        add.l   #36,sp
+        movem.l d0-d7/a0-a6,-(sp)
+        GETBASE a4
+        move.l  a4,a0
+        add.l   #_mario_E2BD-binstart,a0     ; OAM/paleta de entrada, sin tick de física
+        jsr     (a0)
+        movem.l (sp)+,d0-d7/a0-a6
+        movem.l (sp)+,d2-d3/a2
+        rts
+.flags: moveq   #12-1,d0                    ; $1F2F es impar: copia por bytes
+.f:     move.b  (a0)+,(a1)+
+        dbf     d0,.f
+        rts
+
+g_restart: dc.w 0                          ; carga de nivel, sin ticks de juego
 
 ;----------------------------------------------------------------------
 ; --- pad_convert --- $15-$18 como ControllerUpdate (game.s:708 de SMW)
@@ -1208,6 +1349,12 @@ dc_vbl:
 ; registros destruidos: d0/d7
 dc_act:
         moveq   #1,d7
+        ifnd    REPLAY
+        move.w  g_restart(pc),d0
+        beq.s   .nr
+        moveq   #0,d7
+.nr:
+        endc
         ifd     REPLAY
         move.w  g_left(pc),d0
         bne.s   .run
@@ -1309,6 +1456,10 @@ dc_cop:
         lea     dc_ran(pc),a0
         st      (a0)
         bsr     dc_act
+        ifnd    REPLAY
+        tst.w   d7
+        beq     .x                         ; carga: no lógica ni fotos parciales
+        endc
         ifd     DIAG
         move.w  g_dst(pc),d0
         bne     .x                          ; congelado
@@ -1595,6 +1746,18 @@ dc_hdr:
 ;----------------------------------------------------------------------
 dc_loop:
         lea     dc_st(pc),a2
+        ifnd    REPLAY
+        move.w  g_restart(pc),d0
+        beq.s   .nr
+        tst.w   DC_PEND(a2)
+        bpl.s   .nr
+        move.w  DC_NEW(a2),d0
+        cmp.w   DC_FRONT(a2),d0
+        bne.s   .nr                         ; mostrar último frame de muerte
+        bsr     dc_restart
+        bra     dc_loop
+.nr:
+        endc
         ifd     BENCH
         move.b  gl_done(pc),d0              ; el replay se acabo y la ultima
         beq.s   .nb                         ; foto ya se ve: los resultados
@@ -1668,6 +1831,68 @@ dc_loop:
         bsr     gb_rnd_end                  ; d7 = la foto
         endc
         bra     dc_loop
+
+        ifnd    REPLAY
+; --- dc_restart --- carga del demo tras la muerte (overworld fuera de alcance)
+; entrada:  bucle principal, última foto visible, ninguna publicación pendiente
+; salida:   PF1/listas/fotos/cámara del nivel nuevo; lógica en próxima COPER
+; registros destruidos: d0-d7/a0-a2
+; ciclos:   medidos por tools/restart_verify.py; es carga, no frame de juego
+dc_restart:
+        move.w  INTENAR(a4),-(sp)
+        move.w  #$4000,INTENA(a4)           ; user mode: bloquear IRQ en el chipset
+        ifd     Z1MEASURE
+        move.b  #$7f,CIAB_ICR
+        clr.b   CIAB_CRA
+        clr.b   $bfdf00                    ; CRB
+        move.b  #$ff,CIAB_TALO
+        move.b  #$ff,CIAB_TAHI
+        move.b  #$ff,$bfd600                ; TBLO
+        move.b  #$ff,$bfd700                ; TBHI
+        move.b  #$51,$bfdf00                ; TB cuenta underflow de TA
+        move.b  #$11,CIAB_CRA
+        endc
+        bsr     bwait
+        move.w  #$01a0,DMACON(a4)           ; parar lectores de listas/PF/sprites
+        move.w  #0,COLOR00(a4)
+        bsr     live_death_restart
+        bsr     cam_to_s
+        bsr     scroll_init                 ; reconstruir ambas listas y ventana
+        lea     g_lpal(pc),a0
+        move.w  #$ffff,(a0)                 ; invalidar paletas de las dos listas
+        bsr     dc_init                     ; fotos/punteros/colas nuevos
+        bsr     bwait
+        move.l  V_COP(a5),COP1LC(a4)
+        move.w  #0,COPJMP1(a4)
+        move.w  #$0030,INTREQ(a4)           ; no ejecutar COPER vieja acumulada
+        move.w  #$0030,INTREQ(a4)           ; doble ACK, patrón de la ISR
+        move.w  #$81a0,DMACON(a4)
+        lea     g_restart(pc),a0
+        clr.w   (a0)
+        ifd     Z1MEASURE
+        clr.b   CIAB_CRA
+        clr.b   $bfdf00
+        moveq   #0,d1
+        move.b  $bfd700,d1
+        lsl.l   #8,d1
+        move.b  $bfd600,d1
+        lsl.l   #8,d1
+        move.b  CIAB_TAHI,d1
+        lsl.l   #8,d1
+        move.b  CIAB_TALO,d1
+        not.l   d1                         ; ticks CIA (10 ciclos CPU PAL)
+        lea     g_frame(pc),a0
+        move.l  d1,(a0)                    ; arnés: FRAME del diagnóstico = ticks
+        moveq   #-1,d0
+        bsr     diag_trigger
+        lea     g_dst(pc),a0
+        move.w  #1,(a0)
+        endc
+        move.w  (sp)+,d0
+        or.w    #$8000,d0
+        move.w  d0,INTENA(a4)
+        rts
+        endc
 
         even
 g_sbuf:  ds.l   NSPRB                       ; los buffers de sprites (chip)
@@ -2310,7 +2535,7 @@ diag_cause:
         bne.s   .x
         move.b  $100(a0),d1                 ; wm_GameMode: la muerte ($71=9, P8)
         cmp.b   #$0b,d1                     ; termino y pide el reinicio del
-        beq.s   .m                          ; nivel, que no esta portado (Z1)
+        beq.s   .m                          ; live_logic decide si puede cargar (Z1)
         cmp.b   #$15,d1
         bne.s   .na
 .m:     moveq   #MOT_MUERTE,d0
@@ -2846,7 +3071,7 @@ g_dlist: dc.l   0                           ; la lista del juego congelada
 g_dtime: dc.w   0                           ; frames en el diagnostico
 g_dprev: dc.b   0                           ; teclas del diagnostico (frame anterior)
         even
-g_frame: dc.l   0                           ; frame desde el principio del nivel
+g_frame: dc.l   0                           ; frame desde el nuevo juego (incluye reinicios)
 h_last:  dc.w   0                           ; historial: ultimo estado
 h_t:     dc.l   0                           ;   frame de la ultima entrada
 h_n:     dc.w   0                           ;   entradas
