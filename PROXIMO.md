@@ -32,6 +32,19 @@ GPT-6.1 Sol medium; Sonnet low → GPT-6 Luna medium. Astra queda fuera.
 | **G8b** — OAM de Banzai `$9F`, piraña `$4F`, Chuck `$95`, meta `$7B`, caparazones | Sol medium | `player/spr_*.c` y `spr_gfx.c` de esos sprites | sus rutinas de gráficos escriben la OAM atribuida como G8 hizo con Rex: `oam_XX` exactas en `regress.py` contra `oracle_chuck`, `goal`, `shells`, `banzai`, `stress_piranha`. La lógica ya está; esto amplía la cobertura que G3 dejó fuera |
 | **A1** — `tools/brr2pcm.py` | Sol medium | solo `tools/` | muestras BRR → PCM de 8 bits con signo (P7), ida y vuelta contra el decodificador de referencia; tamaño total frente a los 64 KB de D5 |
 
+**De la investigación** (`docs/investigacion-ports.md`, una línea por tarjeta):
+
+- **D1-medida:** usar §17.2 como protocolo (A/B iguales salvo el cambio;
+  fotos omitidas, racha, edad de la foto, ticks perdidos, p99 y máximo; no
+  sumar máximos de frames distintos).
+- **G2/G3:** E05 (§16.4): recortar márgenes transparentes conservando el
+  origen OAM y comparar máscara repetida contra única; la fórmula de
+  palabras por fila sirve para el presupuesto de Banzai.
+- **G5a:** E02 (§16.5): medir sobre Rex poses compartidas contra cadena DMA
+  copiada, con su coste en MOVE, para darle el número a G2. E01 (§16.1,
+  perfilador de Bartman) solo como diagnóstico si un pico no se explica;
+  las medidas que valen siguen siendo las de `a500.uae`.
+
 G2 y G3 van **en serie**: G3 (Sol medium, `tools/mksprgfx.py`) implementa
 el contrato de G2 después de que el coordinador lo revise; si G3 encuentra
 una decisión sin resolver, vuelve a G2 con evidencia. Si G2 cierra temprano,
@@ -100,11 +113,21 @@ cómo hacer cada cosa: `docs/plan-tecnico.md` §10; tarjetas: `SUBAGENTES.md`.
    (scroll + sprites) en la vuelta (s ≈ 2832 y 4580), el Banzai y el tramo
    con más Rex; después S5 (repartir el trabajo de `build_mid` entre frames)
    con esos números. Compuerta D1 en fotos omitidas (`ROADMAP.md` §2).
+   Para S5: E09 (reasignar colores a índices con la misma imagen y menos
+   MOVE) y E10 (precalcular solo las zonas caras, p. ej. los postes; todas
+   las listas serían 792 KB y no caben), `docs/investigacion-ports.md` §17.1.
 5. **C2/C4** (vlink + loader) para liberar las ~135 KB de tablas de CPU que
    hoy viven en chip; después el segundo PF1 y **G7** (bobs).
+   Para G7: E03 (lotes del blitter), E04 (interior opaco del Banzai) y E06
+   (restauración: la copia espejo del buffer circular no es fondo limpio;
+   una foto O5 retenida no se toca), `docs/investigacion-ports.md` §16.2-16.4, §17.1.
 6. En paralelo según dependencias: S8 (cámara vertical de YI1), lógica que
    falta (P7 bolas de fuego, P9 monedas, P10 reserva), A0/A2 (audio), H2-H4
    (HUD), T1 (zona de la tubería).
+   Audio (A3-A7): E08 desde el primer driver (tick separado de la
+   reactivación de Paula; auditar qué timer de CIA usa cada cosa, O1 ya usa
+   uno), §16.6. HUD (H2): trucos de módulo para líneas constantes, §16.9.
+   Lógica (L5): E07 (GCC) solo si un perfil muestra que la lógica limita, §16.7.
 
 ## 3. Pendiente del usuario o de la PC
 
