@@ -640,6 +640,9 @@ para las tarjetas siguientes; el banco sintético no completa G5.
 64 KiB como el presupuesto slow con sus variantes actuales. Revisar
 representación y deduplicación con GPT-6.1 Sol high; los casos reproducibles
 están en `docs/informe-g3.md`. Resolver antes de fijar G4/G6.
+Evaluar primero el remapeo de color por copper (una pose guardada una vez),
+con los números de **V1** (prueba mínima de Rex, descartable, en paralelo):
+ROADMAP, "Próxima sesión — banco y variantes G2/G3".
 
 **F · G1** · documento en `ROADMAP.md` Etapa 9.2 (lo escribe el
 coordinador con el informe del F): formato de los frames precalculados

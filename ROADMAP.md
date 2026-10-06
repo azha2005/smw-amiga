@@ -333,9 +333,15 @@ anterior en rojo.
    sin punto medio (ver límites en `docs/validacion-z1.md`); **H1 medido**
    conservadoramente, falta referencia PPU exacta; **A1/A2** siguen
    pendientes (audio: BRR → PCM y formato N-SPC, D5).
-7. **S5** acotado a una sesión, al pico de la vuelta (s ≈ 4580, ahora
-   111 520 ciclos con P51): con O5 ya no atrasa la lógica, solo saltea
-   imágenes, así que va detrás del dibujo de sprites.
+7. **Medida de estrés + S5, inmediatamente después de G5** (fijado
+   2026-10-05; antes decía "acotado a una sesión, detrás del dibujo de
+   sprites", sin fecha). Primero, una medida cycle-exact del render
+   completo (scroll + sprites de G5) en los peores tramos: la vuelta
+   (s ≈ 2832 y 4580, hoy 111 520 ciclos con P51) y la zona del Banzai
+   Bill; métrica: fotos omitidas y racha máxima. Después S5 con esos
+   números: G5 escribe en la misma lista que `build_mid`, así que el
+   presupuesto del render solo se puede repartir con los dos juntos. Ver
+   §2, "Lectura del 2026-10-05".
 
 Notas: O5 es el modo por defecto (`-DNODECOUPLE` = bucle viejo); si cambia
 `scroll_frame`, sincronizar `dc_loop` y `gb_scroll_frame` (P97).
@@ -360,7 +366,16 @@ No son cotas mínimas. Casos y reproducción: `docs/informe-g3.md`.
 |---|---|---|---|
 | 1 | G2: revisar representación y compartir poses, mapas de color y reservas de Mario | coordinador, GPT-6.1 Sol high (la tarjeta G2 la escribe el coordinador) | contrato actualizado en `docs/diseno-9.2.md`, con tamaños medidos, tope de slow en bytes y casos exactos que demuestren la reducción |
 | 2, tras la puerta de G2 | G3: implementar esa representación sobre el lote acotado (abajo) | GPT-6.1 Sol medium | conversor, formatos y autopruebas; inventario de poses y estados cubiertos y de los que faltan |
+| en paralelo con G2 | **V1: prueba mínima de Rex** (descartable): G4 + G5 mínimos sobre el banco base de 48 poses ya verificado (10840 B chip), solo Rex, en `-DSPR_OAM` | GPT-6.1 Sol high | Rex visible en WinUAE, comparado con la OAM del oráculo; MOVE del copper por línea que consume junto a `build_mid` (P51), coste de CPU y DMA medidos en cycle-exact. Los números alimentan G2; el código no es el G4/G5 definitivo |
 | después del cierre G2/G3 | G4: asignador de columnas; G6: verificador | GPT-6.1 Sol high / medium, respectivamente | asignación y reconstrucción de píxeles según el contrato cerrado |
+
+**Nota para G2 — evaluar primero el remapeo por copper:** la explosión de
+variantes (pose × reservas de Mario por fila × ocho paletas) viene de hornear
+el color en el bitmap. D8 ya recarga los colores 17-31 por línea; si el
+remapeo pasa a esa recarga, cada pose se guarda **una vez**. Medir esa
+opción (bytes de banco/tablas y MOVE extra por línea, con los datos de V1)
+antes de optimizar la deduplicación de la estrategia actual. Si se
+descarta, dejar en el contrato el número que la descarta.
 
 **Lote de esta puerta (acotado):** las variantes de las tres trazas actuales
 (`yi1`, `normal`, `spin_kill`) con reservas reales de Mario y ocho paletas
@@ -481,6 +496,23 @@ sin HUD y sin audio. De media: scroll ~15 % a la ida (~37 % a la vuelta) +
 lógica ~23-30 % + Mario 7 %. Por eso la 6.4 va **antes** que las etapas que
 suman coste (9.2, 10 y 11), y la compuerta D1 se prepara ya con estos
 números (6b.6).
+
+**Lectura del 2026-10-05** (la tabla de arriba es anterior a O5 y P51;
+números actuales en `docs/medida-oam-o5.md`): `level_frame` máx. 37,24 %,
+lógica + foto 46,40 %, `build_mid` máx. 89,16 % (ida, replay YI1);
+14 fotos omitidas de 6312 (0,22 %), racha máxima 1. Con O5 la lógica va
+siempre a 50 Hz y lo que se pierde son imágenes, solo cuando coinciden
+picos. Faltan en el render: dibujo de sprites del nivel (G5), HUD, audio
+y Banzai (bob, 22,7-33,8 %), y la vuelta solo está medida en Musashi
+(94,8 %, ×~1,3). La media del scroll (~15 % a la ida) está lejos del
+pico: el problema es de **picos**, y el coste de `build_mid` depende de la
+posición de scroll, que es conocida de antemano. Repartir el trabajo entre
+frames (S5) es la palanca principal, antes que más asm a mano.
+
+**Propuesta pendiente del usuario:** expresar la compuerta D1 como
+**fotos omitidas** (porcentaje y racha máxima) en replays de estrés que
+incluyan la vuelta y el Banzai, en vez de "peor frame ≤ 100 %", que con
+O5 ya no describe lo que se ve.
 
 **Compuerta D1 [usuario]:** después de las Etapas 6.4, 8.2 y la 6b se mide el
 **peor frame del juego integrado**. Si pasa del 100 %, se le presentan al
