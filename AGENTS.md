@@ -577,7 +577,7 @@ $PY -c "print('playfield', 272*224*4//8, 'B')"
 - **Portar las 82.000 líneas de 65816.** No. Reimplementa el nivel 1.
 - **Usar el CPU para dibujar píxeles.** Todo el dibujado va por blitter.
 - **Poner gráficos en slow RAM.** El chipset no los verá (R2).
-- **Asumir que existe scroll por hardware.** No existe (R5).
+- **Re-blitear el playfield para mover 1 px.** El scroll fino es `BPLCON1` y el grueso `BPLxPT` (R5, corregida el 2026-09-22); solo se blitea la columna nueva.
 - **Asumir que el layout de paletas es un array plano.** No lo es (P1).
 - **Usar `float`.** No hay FPU. Punto fijo 8.8.
 - **Copiar código de `smwre`/`smwrecomp`.** No tienes sus fuentes.
