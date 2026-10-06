@@ -119,3 +119,13 @@ cualquier rechazo. `--final` devuelve 1 mientras la cobertura final siga
 incompleta, incluso con un lote que pasó su ida y vuelta. Sin manifiesto se
 auditan fichas individuales observadas; eso no representa poses compuestas
 ni sustituye la VRAM dinámica de Mario.
+
+## Contrato revisado G2 (2026-10-06)
+
+Este documento describe SG3F/1, que sigue siendo el formato implementado.
+`diseno-9.2.md` §2 fija la revisión: banco DMA inmutable sin fuentes bob
+residentes, catálogo deduplicado sin reservas Mario y directorio de variantes.
+La evidencia SG2A de `g2_bank_audit.py` **no** la acepta el lector SG3F/1.
+G3 debe versionar el formato, comprobar límites y ausencia de bob explícita
+y pasar la puerta acotada de `PROXIMO.md`; no se modifica el formato anterior
+para declarar cubierta toda YI1. Medidas: `informe-g2.md`.

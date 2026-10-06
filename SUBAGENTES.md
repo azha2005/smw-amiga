@@ -234,8 +234,8 @@ original del 2026-09-30, ola por ola, está textual en
 | P7, P9, P10 | pendiente | bolas de fuego, monedas de Yoshi y puntos, reserva |
 | X1 | pendiente | estudio |
 | G0, G1, G3a, G8 | hecha | `docs/medida-g0.md`, `docs/estudio-g1-g0.md`, `docs/oam-amiga.md` |
-| G2 | reabierta | el banco no entra (`docs/informe-g3.md`); en `PROXIMO.md` |
-| G3 | parcial | SG3F y 48 poses exactas; final pendiente de G2 |
+| G2 | hecha (diseño acotado) | 64528 B chip / 72716 B tablas; 2593 peticiones + Rex legal exactos; `docs/informe-g2.md`. Sin subagentes ni medida G5a |
+| G3 | parcial | SG3F/1 y 48 poses; implementar contrato G2 acotado, loader y aceptación final explícita |
 | G5a (prueba mínima de Rex) | pendiente | definida en `PROXIMO.md` |
 | G8b | hecha (OAM opt-in) | Banzai 391/391, Chuck 599/599, meta 82/82, caparazón 526/526 y piraña 1552/1552 en PC/68000; coste sin DMA y límites en `docs/validacion-g8b.md`; sin activar por defecto ni dibujar enemigos |
 | D1-medida | parcial | replays 4127/1915 operaciones y contador CSV verificados; faltan exportador por VBL y WinUAE (`docs/medida-d1-estres.md`) |
@@ -580,18 +580,17 @@ G0 tiene medida real a 256 px en `docs/medida-g0.md`; G8 también corre como
 opción en el 68000 (`docs/oam-amiga.md`). Usar esas interfaces y presupuestos
 para las tarjetas siguientes; el banco sintético no completa G5.
 
-**Reabierto el 2026-10-05:** la auditoría G3 excede tanto el banco chip de
-64 KiB como el presupuesto slow con sus variantes actuales. Revisar
-representación y deduplicación con GPT-6.1 Sol high; los casos reproducibles
-están en `docs/informe-g3.md`. Resolver antes de fijar G4/G6.
-Evaluar primero el remapeo de color por copper (una pose guardada una vez),
-con los números de **V1** (prueba mínima de Rex, descartable, en paralelo):
-ROADMAP, "Próxima sesión — banco y variantes G2/G3".
+**Revisión cerrada el 2026-10-06, sin subagentes:** prueba offline y contrato
+acotado en `docs/informe-g2.md`: 64528 B DMA, 72716 B tablas, 2593 peticiones
+y Rex legal, sin diferencias. Matching exacto descarta una imagen por forma
+con recargas por fila en 12/43 formas. Banco inmutable, bob PF1 separado;
+slow tablas ≤98304 B, trabajo ≤32768 B, fotos 2376 B. G3 y G5a no completadas.
+Ampliar G8b sin Banzai ya cuesta 77152 B DMA sin reservas nuevas de Mario.
 
 **F · G1** · documento en `ROADMAP.md` Etapa 9.2 (lo escribe el
 coordinador con el informe del F): formato de los frames precalculados
 por pose en chip, reuso vertical de canales, colores por fila, cuándo pasa
-algo a bob, presupuesto de chip (hoy ~117 KB libres) y de CPU (≤ 8 %).
+algo a bob, presupuesto de chip (G2: vivo + banco 466760 B) y de CPU (≤ 8 %).
 **Otros niveles (§11.8 de `docs/mas-alla-yi1.md`):** banco **por tipo de
 sprite**, con una tabla de tipos que se carga por nivel; nada fijo al Rex.
 Vale igual para G3 (`mksprgfx.py` recibe el nivel y los tipos).
@@ -603,13 +602,14 @@ adosados + máscara de bob, con `--selftest` de ida y vuelta (como
 oráculos.
 
 **Avance del 2026-10-05:** SG3F, 48 poses compuestas exactas, 241 fichas
-observadas y 12 rechazos verificados. **Final pendiente:** 2593 variantes
+observadas y 12 rechazos verificados. **Formato anterior:** 2593 variantes
 con reservas de Mario requieren 145600 B con esta estrategia; el banco
 estricto emite 1724 y rechaza 869. No es una cota mínima. Ver informe G3.
-La puerta de la próxima sesión usa un **lote acotado** (tres trazas + Rex
-legal) y topes de chip/slow explícitos: ROADMAP, "Próxima sesión — banco y
-variantes G2/G3". Banzai, Piraña, Chuck, meta, power-ups y partículas
-esperan sus tarjetas G8.
+**G3 sigue parcial:** implementar formato versionado y loader conforme a
+G2 (`docs/diseno-9.2.md` §2); no cargar el prototipo SG2A. Puerta y lote
+en `PROXIMO.md`. G8b ya tiene OAM de los nuevos tipos, pero no amplía el
+banco automáticamente. Bobs PF1, convivencia de enemigos, recargas reales
+y cobertura completa siguen pendientes.
 
 #### G4 — Asignador de columnas (C de referencia + asm)
 **M (F si se traba) · G2 + G3 · `player/msprasg.c` (nuevo), `logic68k.s`** ·

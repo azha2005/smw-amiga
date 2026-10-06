@@ -431,7 +431,8 @@ los pasos originales de cada etapa, en §5.
 
 ### 10.6 Los sprites que faltan: dibujo (9.2)
 
-- **G2 documentado el 2026-10-05:** [diseño e interfaces](docs/diseno-9.2.md).
+- **G2 revisado y auditado el 2026-10-06:** [diseño e interfaces](diseno-9.2.md),
+  prueba offline en `informe-g2.md`: 64528 B DMA y 72716 B tablas para el lote acotado.
   G8 escribe OAM de Rex y rutinas compartidas en el PC; G3a convierte las
   fichas (227/227 poses en las grabaciones actuales). Los enemigos todavía
   **no se ven** en la Amiga: faltan G3 final, G4/G6, G5/G9 y G7.
@@ -451,11 +452,11 @@ los pasos originales de cada etapa, en §5.
   cuando O5 repite un frame. G7 restaura y dibuja en el buffer libre, y
   publica al terminar los blits. Los casos sin color exacto de
   `d8demote.py` siguen pendientes.
-- **Memoria:** mapa actual de replay: chip 390 704 B. Con banco de poses,
-  segundo PF1 y audio: 580 912 B. C2/C4 deben sacar las tablas de CPU
-  (135 468 B) de chip antes de integrar todo; quedarían 78 844 B para
-  HUD, listas adicionales, flujos encadenados y subzona. Es una reserva
-  de diseño, no el tamaño final demostrado de los assets.
+- **Memoria:** vivo opt-in + banco G2: 466760 B chip proyectados.
+  Con banco máximo, PF1 doble y audio: 592440 B; C2/C4 sacan 135468 B CPU
+  de chip, dejando 67312 B para bobs, HUD y listas. Slow: tablas ≤98304 B,
+  trabajo ≤32768 B y fotos 2376 B; con vivo y C2/C4 quedan 4248 B al tope.
+  Auditar el binario/loader concreto, incluido el pico de carga.
 - **Puertas:** OAM real del 68000 contra grabaciones; asignación y píxeles
   reconstruidos exactos; capturas contra la OAM; `memmap`; coste de lógica
   con OAM ≤40 %, preparación de sprites ≤8 %, ticks/fotos perdidos O5

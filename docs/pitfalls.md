@@ -936,3 +936,14 @@ rechaza discontinuidades; sus umbrales numéricos no prueban procedencia
 WinUAE ni temporización cycle-exact. `game_read.py` conserva el origen
 YI1 5145: los replays de estrés empiezan en 1453. Protocolo completo:
 `docs/medida-d1-estres.md`.
+
+**P108 — Flujos DMA solapados: controles inmutables e índices de Mario.**
+Compartir un flujo como subcadena a 8 B conserva datos, ATTACH y terminador,
+pero parchear sus controles en memoria altera también las otras poses. G5
+debe escribir PT/POS/CTL en registros por copper conforme a G0. Una recarga
+de colores por fila tampoco cambia los índices existentes de Mario: tres
+colores Rex (`$44D/$66D/$88F`) solo admiten 7 y 15 al exigir una imagen
+única para todas sus reservas reales. Fallan 12/43 formas en el matching
+exacto. No confundir esa prueba con una refutación de recargas por X.
+Comandos y testigos: `docs/informe-g2.md`, `tools/g2_bank_audit.py`; no cargar
+el prototipo SG2A con el lector SG3F/1.

@@ -9,19 +9,19 @@
 > Estado de cada etapa: `ROADMAP.md` §1 · olas y sesiones: `ROADMAP.md` §4 ·
 > tarjetas con su estado: `SUBAGENTES.md` §4 · índice de docs: `docs/README.md`.
 
-**Escrito el 2026-10-06**, tras revisar A1, G8b y la preparación D1.
-A1 convierte las 20 muestras a 50560 B PCM y pasa la referencia DSP;
-G8b amplía la OAM exacta en PC/68000, conservando el modo opt-in.
-La OAM ampliada de G8b consume hasta 43,8 % PAL de lógica en Musashi
-sin DMA: antes de activarla por defecto hay que optimizarla y medirla.
-D1 tiene replays y contador preparados, pero faltan el exportador por VBL
-y la medida real en WinUAE. Evidencia: `docs/informe-a1.md`,
-`docs/validacion-g8b.md` y `docs/medida-d1-estres.md`. El banco G2/G3
-y el primer Rex visible siguen pendientes.
+**Escrito el 2026-10-06**, tras G2 sin subagentes. El contrato acotado
+está auditado: **64528 B DMA, 72716 B tablas**, 2593 peticiones y Rex legal
+sin diferencias. Copper con una imagen por forma/recargas por fila falla
+con Mario en 12/43 formas; la ampliación G8b tampoco cabe automáticamente.
+Evidencia: `docs/informe-g2.md`, contrato `docs/diseno-9.2.md`.
+G3 y su loader siguen pendientes; los enemigos todavía no se ven en Amiga.
+A1/G8b/D1 mantienen sus resultados y límites de la sesión anterior:
+`docs/informe-a1.md`, `docs/validacion-g8b.md`, `docs/medida-d1-estres.md`.
+G8b sigue opt-in (máximo 43,8 % PAL sin DMA); D1 aún no tiene traza WinUAE.
 
 ---
 
-## 1. La próxima sesión: banco de sprites (G2/G3) y primer enemigo visible
+## 1. La próxima sesión: implementar G3 y medir el primer Rex
 
 **Objetivo:** que el banco de gráficos de sprites y sus tablas entren en
 memoria con reconstrucción exacta, ver el primer Rex en la Amiga y poder
@@ -32,8 +32,8 @@ GPT-6.1 Sol medium; Sonnet low → GPT-6 Luna medium. Astra queda fuera.
 
 | tarjeta | modelo | toca | entrega y puerta |
 |---|---|---|---|
-| **G2** — revisar la representación del banco (la escribe el coordinador) | Sol high | `docs/diseno-9.2.md` | contrato con tamaños medidos, tope de slow en bytes y casos exactos que demuestren la reducción. **Evaluar primero el remapeo de color por copper** (nota abajo) |
-| **G5a** — prueba mínima de Rex, descartable | Sol high | rama propia; `player/` mínimo | G4 + G5 mínimos sobre el banco base de 48 poses ya verificado (10840 B chip), solo Rex, `-DSPR_OAM`. Rex visible en WinUAE comparado con la OAM del oráculo; MOVE del copper por línea junto a `build_mid` (P51), CPU y DMA medidos en cycle-exact. Los números alimentan G2; medir también la lógica G8b (hoy máx. 43,8 % sin DMA) antes de activar la OAM ampliada. El código no es el G4/G5 definitivo |
+| **G3** — conversor y loader del banco acotado | Sol medium | `tools/mksprgfx.py`, `tools/sprgfx_final.py`, `player/` carga mínima | implementar el contrato G2: DMA inmutable solapado, catálogo enemigo deduplicado y directorio. Todas las 2593 peticiones y Rex legal, cero rechazos; tablas ≤98304 B. Formato versionado con bob ausente explícito; memmap real replay/vivo y pico del loader. `--final --scope g2-bounded` acepta solo el lote declarado; `--final` global no declara cubierto todo YI1 |
+| **G5a** — prueba mínima de Rex, descartable | Sol high | rama propia; `player/` mínimo | G4 + G5 mínimos sobre el banco base de 48 poses ya verificado (10840 B chip), solo Rex, `-DSPR_OAM`. Rex visible en WinUAE comparado con la OAM del oráculo; MOVE del copper por línea junto a `build_mid` (P51), CPU y DMA medidos en cycle-exact. Los números validan G5/G6; medir también la lógica G8b (hoy máx. 43,8 % sin DMA) antes de activar la OAM ampliada. El código no es el G4/G5 definitivo |
 | **D1-medida** — exportar y medir los replays de estrés | Sol medium (el coordinador fija la exportación; recuento ya disponible) | `tools/`, `docs/` | usar `ORACLE`/`REPLAY` de `game_build.sh` y `d1_count.py`; obtener una traza completa por VBL en WinUAE cycle-exact, con identidad de foto puesta y ticks terminados. `stress_back`: 4127 operaciones; `stress_sprites`: 1915. Medir omisiones, racha, ventana250, edad y p99; los agregados BENCH no bastan (`docs/medida-d1-estres.md`) |
 | **A0** — registro del DSP | Sol medium | `tools/snesorc/orc.c`, `tools/dsplog.py` | escrituras DSP con frame/tick, notas por voz y efectos; oráculo idéntico con/sin registro. A1 ya da conversión exacta; A0 permite estudiar A2 y contrastar el audio (SUBAGENTES A0) |
 
@@ -50,45 +50,46 @@ GPT-6.1 Sol medium; Sonnet low → GPT-6 Luna medium. Astra queda fuera.
   perfilador de Bartman) solo como diagnóstico si un pico no se explica;
   las medidas que valen siguen siendo las de `a500.uae`.
 
-G2 y G3 van **en serie**: G3 (Sol medium, `tools/mksprgfx.py`) implementa
-el contrato de G2 después de que el coordinador lo revise; si G3 encuentra
-una decisión sin resolver, vuelve a G2 con evidencia. Si G2 cierra temprano,
-G3 entra en esta misma sesión.
+G2 está cerrada como **diseño acotado**; G3 implementa su contrato.
+`g2_bank_audit.py` emite evidencia SG2A descartable, no sustituye el
+conversor/loader definitivo. Si G3 descubre un caso nuevo o un límite
+incumplido, vuelve a G2 con evidencia. No ampliar el lote sin auditarlo.
 
-### Nota para G2: el remapeo por copper
+### Decisión de color y DMA
 
-La explosión de variantes (pose × reservas de Mario por fila × ocho
-paletas) viene de hornear el color en el bitmap. D8 ya recarga los colores
-17-31 por línea; si el remapeo pasa a esa recarga, cada pose se guarda
-**una vez**. Medir esa opción (bytes de banco y tablas, MOVE extra por línea
-con los datos de G5a) antes de optimizar la deduplicación actual. Si se
-descarta, dejar en el contrato el número que la descarta.
+La imagen única con recargas por fila falla con reservas reales de Mario;
+se eligen variantes precalculadas con flujos **inmutables** compartidos.
+G5 programa PT completo y POS/CTL por copper (G0); no parchea el banco ni
+recodifica/copia imágenes por frame. Recargas por X siguen siendo una
+alternativa pendiente de G5a/G6, no una medida ya realizada.
 
 ### Lote y puerta de G2/G3
 
-Hoy: 2593 variantes necesitan 145600 B de chip con la estrategia ensayada
-(banco: 65536 B); el subconjunto emitido (1724) ocupa 693884 B de tablas
-en slow. No son cotas mínimas. Casos y reproducción: `docs/informe-g3.md`.
+G2 demuestra **64528 B chip + 72716 B tablas** para el lote. El diseño
+anterior de 145600 B incluía fuentes bob de 15 índices que no completan
+G7/PF1; G7 tiene presupuesto separado. Ampliar con las trazas G8b mide
+77152 B DMA aun excluyendo Banzai y sin nuevas variantes Mario: no cabe.
 
 **Lote de la puerta (acotado):** las variantes de las tres trazas actuales
 (`yi1`, `normal`, `spin_kill`) con reservas reales de Mario y ocho paletas,
 más las poses legales de Rex de `RexGfxRt`. **Fuera de este lote**:
 Banzai, piraña, Chuck, meta, power-ups y partículas, y el remapeo de bobs
 a PF1 (G7). G8b ya proporciona OAM de los cinco tipos, pero G3 no amplía
-su lote automáticamente: G2 estima cuánto crecen banco y tablas al
-sumarlos y fija el contrato antes de ampliar la puerta.
+su lote automáticamente: G2 ya midió el crecimiento; antes de ampliar
+la puerta se necesita otro presupuesto y auditoría (`docs/informe-g2.md`).
 
 **Puerta de cierre:**
 
-- **Chip:** banco ≤ 65536 B; `memmap` con cero violaciones sobre el juego
-  actual + banco (≈ 456 KB), en replay **y en vivo**. Segundo PF1 y audio no
-  cuentan aquí: necesitan C2/C4 (`docs/diseno-9.2.md` §5).
-- **Slow:** las tablas entran en lo que queda después de C2/C4: 524288 −
-  207296 (uso actual) − 135468 (tablas de CPU que C2/C4 mueven a slow) =
-  **181524 B**, menos lo que sume el modo en vivo. G2 fija el tope concreto.
+- **Chip:** banco ≤65536 B; `memmap` concreto con cero violaciones en
+  replay y vivo con SPR_OAM. Proyección G2: 455232/466760 B chip. Auditar
+  también el pico del loader y copias transitorias. PF1 doble/audio requieren C2/C4.
+- **Slow:** tablas+índices ≤98304 B; trabajo G4/G6 ≤32768 B; fotos 2376 B.
+  Vivo opt-in usa 251120 B; C2/C4 moverán 135472 B redondeados. Tope total
+  nuevo 133448 B, margen 4248 B con el binario actual. Recalcular con
+  crecimiento de código/loader; no usar el margen de replay para vivo.
 - **Exactitud:** todas las variantes del lote sin rechazos ocultos, píxeles
   y colores exactos, PNG referencia/decodificación comparado, regresión
-  PC/68000 en verde. `--final` acepta el lote completo (no basta con las 48
+  PC/68000 en verde. `--final --scope g2-bounded` acepta el lote completo (no basta con las 48
   poses base ni con el subconjunto de 1724).
 - **Coste:** si la representación agrega trabajo por frame, medirlo en
   WinUAE cycle-exact antes de cerrar.
@@ -109,7 +110,7 @@ sumarlos y fija el contrato antes de ampliar la puerta.
 Cada paso con su puerta; nada empieza con el anterior en rojo. Detalle de
 cómo hacer cada cosa: `docs/plan-tecnico.md` §10; tarjetas: `SUBAGENTES.md`.
 
-1. **G3** sobre el contrato de G2 (si no entró en la sesión de arriba).
+1. Terminar **G3** si la sesión de arriba no completa su puerta.
 2. **G4 + G6** (asignador de columnas y `sprcop_verify.py`), con el
    contrato cerrado.
 3. **G5 + G9**: `SPRxPOS`/`SPRxPT` y colores por línea en la misma lista que

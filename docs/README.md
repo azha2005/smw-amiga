@@ -22,10 +22,10 @@
 | documento | qué |
 |---|---|
 | `plan-tecnico.md` | cómo hacer lo que falta: optimización (§9), cada bloque pendiente (§10), más allá de YI1 (§11). Escrito el 2026-09-30; sus números de estado son de esa fecha |
-| `pitfalls.md` | texto completo de las trampas P1-P107 (índice en `AGENTS.md` §8) |
+| `pitfalls.md` | texto completo de las trampas P1-P108 (índice en `AGENTS.md` §8) |
 | `formato-nivel.md` | assets, formato `.lv`, Map16, tileset, paletas, comparación contra la referencia |
 | `formato-sprgfx.md` | formato SG3F de las poses de sprites (G3) |
-| `diseno-9.2.md` | **G2**: diseño del dibujo de sprites desde la OAM, interfaces, presupuesto de memoria (§5). Reabierto el 2026-10-05 por el tamaño del banco |
+| `diseno-9.2.md` | **G2**: diseño del dibujo de sprites desde la OAM, interfaces, presupuesto de memoria (§5). Revisado el 2026-10-06: banco acotado auditado, loader G3 pendiente |
 | `oam-amiga.md` | `SPR_OAM` en el 68000: opción, puertas y comandos |
 | `decisiones-medidas.md` | datos con los que se cerraron D7, D8 y D9 y los resultados de la etapa 4 |
 | `cobertura.md` | qué del C no corre con ninguna grabación (`tools/coverage.py`, con notas a mano) |
@@ -43,6 +43,7 @@
 | `medida-g0.md` | 2026-10-05 | G0 real a 256 px en WinUAE |
 | `medida-oam-o5.md` | 2026-10-05 | OAM + O5 en WinUAE cycle-exact: lógica, `build_mid`, fotos omitidas |
 | `validacion-sx.md` | 2026-10-05 | SX/SX2 y P51: 24 capturas cycle-exact |
+| `informe-g2.md` | 2026-10-06 | banco acotado 64528 B DMA / 72716 B tablas, remapeo copper evaluado y crecimiento G8b |
 | `informe-g3.md` | 2026-10-05 | G3: formato verificable y banco que no entra |
 | `validacion-z1.md` | 2026-10-05 | Z1: muerte y recarga del nivel |
 | `medida-hud.md` | 2026-10-05 | H1: banda del HUD y cruces con la capa 1 |
@@ -57,6 +58,7 @@
 
 | documento | qué |
 |---|---|
+| `archivo/diseno-9.2-2026-10-05.md` | diseño G2 anterior a la revisión del banco y memoria vivo/G8b |
 | `archivo/sesiones.md` | **registro de sesiones**: cada cierre agrega el `PROXIMO.md` cumplido y qué se hizo (lo más nuevo arriba) |
 | `archivo/roadmap-2026-10-05.md` | el `ROADMAP.md` completo antes de la reorganización del 2026-10-05 |
 | `archivo/olas-2026-09-30.md` | el reparto original en olas de `SUBAGENTES.md` §3 |

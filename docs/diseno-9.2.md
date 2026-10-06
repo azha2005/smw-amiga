@@ -1,6 +1,6 @@
 # G2 — Dibujo de sprites desde la OAM
 
-Diseño del 2026-10-05, después de la ola 3. Este documento fija las interfaces
+Contrato revisado el 2026-10-06, auditado sin subagentes. Este documento fija las interfaces
 de G3–G7; no declara implementado el dibujador. Insumos:
 `estudio-g1-g0.md`, `automatizar-9.2.md`, G8 (`spr_gfx.c`), G3a
 (`mksprgfx.py`) y O5 (`game.s`). Los resultados del banco G0 se documentan
@@ -17,16 +17,11 @@ No se copia toda la RAM ni se repite la lógica para dibujar.
 Se conserva `NOOAM` para Mario, su `mario_oam` y `mspr_draw` en asm. La opción
 separada `SPR_OAM` habilita las rutinas G8 de enemigos, incluido
 `CALLX _rex_gfx` en `rex_main_asm`. Los builds de C y asm deben habilitarla
-juntos. Primero se verifica como opción de compilación: activarla por defecto
-requiere medir el juego integrado con DMA y comprobar que no pierde ticks
-lógicos. La medida integrada de Musashi con OAM, limpieza y puentes PIC pasa
-de 39 026 a 46 718 ciclos máximos (+19,7 %), y de 28 588 a 32 692 de media
-(+14,4 %). Son incrementos **relativos al coste de `level_frame`**, no puntos
-del frame PAL; sustituyen la estimación anterior de G8 (+13,7 %).
-
-G8 cubre Rex, las rutinas compartidas ya portadas y la nube del giro. No cubre
-todavía todas las rutinas de Banzai, Piraña, Chuck, meta ni partículas. Activar
-la OAM no hace visibles los enemigos: faltan asignación, DMA y copper.
+juntos. G8b verifica también Banzai, Piraña, Chuck, meta y caparazones en
+PC/68000 (`validacion-g8b.md`). Sigue opt-in: el máximo observado de lógica
+con OAM ampliada es 62110 ciclos, 43,8 % PAL **sin DMA**, por encima del
+objetivo del 40 %. Activarla por defecto requiere optimizar y medir el juego
+integrado. La OAM exacta no implica que los enemigos sean ya visibles.
 
 La foto de O5 se amplía, por cada uno de sus tres buffers, con:
 
@@ -53,75 +48,133 @@ punteros GFX32, que no son fichas estáticas
 del GFX 00 (P99). La pertenencia sale de quien escribe la OAM, no de la
 heurística por proximidad de `g1study.py`.
 
-## 2. Formato que debe emitir G3
+## 2. Contrato del banco G3 acotado
 
-Índices, tablas y descriptores: big endian, sin punteros absolutos en el
-fichero. Los offsets se validan al cargar. Tablas y diccionarios van a slow;
-únicamente los flujos DMA y las fuentes del blitter van a chip, alineados a
-8 B. Salidas derivadas en `work/`, nunca en git.
+La prueba reproducible de G2 está en `informe-g2.md` y
+`tools/g2_bank_audit.py`. Cierra la decisión de representación; el conversor,
+el loader y el dibujador definitivos siguen pendientes. El prototipo **SG2A**
+no es aceptado por SG3F/1 y nunca debe cargarse como si fuera ese formato.
 
-Un descriptor de pose contiene ancho y alto reales, origen relativo a la
-ranura, número de columnas, paleta SNES, prioridad OAM, offsets de los dos
-flujos de cada columna y offset de máscara/fuente planar para bob. Su clave
-es la lista ordenada de fichas `(dx,dy,tile9,tamaño,flipX,flipY,paleta)`;
-no incluye posición absoluta ni frame del replay. Recortar solo márgenes
-transparentes, conservando el origen. Rex normal mide 20 px: **dos columnas**.
+### Cobertura y límites
 
-Cada columna adosada almacena dos flujos de canal:
+Lote: `yi1`, `normal` y `spin_kill`, solo las rutinas compartidas AB/BD/02/B9,
+con pertenencia SOT1 cotejada con la OAM del oráculo, reservas reales por fila
+y ocho paletas de Mario. Se agregan las seis poses legales normales de Rex,
+ambas direcciones. Las 2593 peticiones observadas abarcan 43 formas; faltan
+cinco formas legales, que se agregan sin reservas. Resultado: **48 formas,
+289 descriptores, cero peticiones rechazadas**. No agregar mapas nuevos para
+formas legales que ya tienen un descriptor compatible sin reservas.
 
-```
-POS provisional, CTL provisional
-DATA, DATB                  ; 4 bytes por fila, por canal
-...
-0, 0                        ; terminador
-```
+Fuera de esta puerta: Banzai, Piraña, Chuck, meta, power-ups y partículas
+adicionales; prioridad/estados no recorridos; reservas de todas las poses de
+Mario; convivencia de varios enemigos; bobs PF1 de G7. La nube del giro y las
+partículas que comparten VRAM/paleta de Mario sí están en las trazas/reservas.
+Cobertura acotada aprobada no significa cobertura final de todo YI1.
 
-Los dos canales de una columna de altura H cuestan `16 + 8*H` B, antes de
-alineación. El segundo activa ATTACH. Una pose compartida no contiene la
-posición de un objeto: G5 debe programar POS y CTL tras la lectura de control
-y antes del fetch de sus píxeles, conforme al banco G0. No basta actualizar
-PT. Dos objetos con igual pose y posiciones distintas deben funcionar.
+| componente | bytes medidos | límite de contrato |
+|---|---:|---:|
+| flujos DMA, controles, terminadores, alineación y variantes | **64528** | **65536** |
+| descriptores y tablas de color/fichas | 71554 | parte del límite de tablas |
+| directorio por forma/listas de variantes | 1162 | parte del límite de tablas |
+| todas las tablas e índices residentes | **72716** | **98304** |
+| espacio de trabajo G4/G6 | sin implementar | **32768** slow |
+| ampliación de las tres fotos O5 | 2376 | **2376** slow |
 
-Objetivo: **un banco de 64 KiB** para poses DMA. El límite incluye variantes,
-flips, controles, terminadores y alineación; no sale de los ~11 KB de fichas
-del formato intermedio. El puntero alto solo puede omitirse si ambos canales
-permanecen en el mismo banco físico de 64 KiB. Hasta C2, presupuestar dos MOVE
-por puntero y comprobar las direcciones reales; un `AllocMem(65536)` normal
-no garantiza el banco. No reservar silenciosamente otros 64 KiB para alinear.
+### DMA directo e inmutable
 
-El conversor debe rechazar un banco que se desborde, una ficha desconocida o
-una pose que pierda píxeles. Para el juego en vivo, enumerar las poses legales
-de las tablas del ROM además de las observadas: un replay no cubre todo (P69).
+La clave de forma sigue siendo la lista **ordenada** de fichas
+`(dx,dy,tile9,tamaño,flipX,flipY,paleta)` y prioridad. No incorpora frame,
+posición absoluta ni nombre de replay. Recortar solo márgenes transparentes
+conservando el origen; Rex normal necesita dos columnas.
 
-### Colores: el remapeo es parte del formato
+Cada columna conserva dos flujos attached completos: POS/CTL provisionales,
+DATA/DATB (4 B por fila por canal) y terminador cero. Para H filas son
+`16 + 8*H` B por columna antes de alineación. Los offsets se alinean a 8 B;
+solo el canal alto lleva ATTACH. No se borra padding transparente ni se
+acortan alturas para ahorrar bytes.
 
-Todos los pares adosados comparten COLOR17–31. Copiar índices SNES de distintas
-paletas sin remapearlos genera colores incorrectos aunque quepan 15 colores.
-El estudio de `copsim.py` usa filas de unas poses de referencia: es una
-estimación, no una prueba de todas las poses ni de todos los estados de Mario.
+El empaquetador offline primero comparte flujos iguales, después subcadenas
+completas a offsets alineados y por último el sufijo/prefijo exacto más largo.
+Orden reproducible: longitud decreciente y bytes lexicográficos. El banco
+sin solapes mide 66336 B; con solapes **64528 B**. Todos los bytes de cada
+flujo siguen presentes y se decodifican de nuevo desde sus offsets finales.
 
-G3 conserva el índice SNES y la máscara como fuente de verdad y emite por fila
-la correspondencia `(paleta,índice) → color OCS` y el conjunto de colores
-opacos. El empaquetado DMA usa una correspondencia explícita a índices 1–15;
-0 siempre transparente. Se reutiliza un índice entre colores distintos solo
-si sus intervalos de uso no se solapan y hay plazo para la recarga del copper.
-El mapeo debe respetar los índices del buffer de Mario existente, o producir
-una variante de Mario verificada; cambiar COLOR17–31 no remapea sus píxeles.
+**El banco es inmutable.** G5 escribe PT completo y POS/CTL en registros
+mediante copper, según G0; no parchea controles compartidos en chip. No hay
+copias, descompresión ni recodificación por frame en esta representación.
+El tamaño ≤64 KiB no garantiza que AllocMem lo ubique dentro de un único
+banco físico: presupuestar PT alto **y** bajo, sin otra reserva de alineación.
+Reuso y plazos con el copper real siguen siendo puertas G5/G6.
 
-Primera puerta de G3/G6: auditar con los píxeles reales todos los remapeos,
-incluidas variantes de paleta de Mario. Precalcular las variantes necesarias
-de pose y su mapa de colores; contar sus bytes dentro del banco. Si esa
-enumeración excede el banco o no resuelve una coincidencia de colores, G2 se
-reabre con los casos concretos. No declarar resuelto por contar solamente la
-unión de colores, ni esconder el problema con el color más cercano.
+### Tablas y selección de variantes
 
-**Puerta reabierta el 2026-10-05:** la auditoría de G3 reconstruye las
-2593 variantes con reservas de Mario sin diferencias de color, pero la estrategia
-ensayada necesita 145600 B de blobs chip; el banco estricto de 65536 B
-solo admite 1724. Su diccionario también ocupa 693884 B slow. Estas cifras
-no son un mínimo demostrado: hay que reducir variantes y representación
-antes de fijar G4/G6. Los casos, el formato SG3F y los comandos están en
-`informe-g3.md` y `formato-sprgfx.md`; `--final` rechaza la cobertura incompleta.
+Big endian, offsets relativos y comprobados. Metadata y directorio se cargan
+en **una reserva slow**, concatenados a frontera par (72720 B redondeados);
+el directorio conserva su propia base relativa. Mover también las tablas
+CPU de C2/C4 como un bloque para usar el redondeo presupuestado.
+Para la revisión siguiente de
+SG3F conservar el descriptor de 32 B y las tablas directas actuales: fichas
+10 B, parejas de offsets u32, puntero u32 por fila, mapa por fila con cuenta
+u16 y entradas `(paleta,índiceSNES,índiceDMA,pad,colorOCS)` de 6 B. Internar
+cada tabla idéntica. El descriptor conserva origen s16, W/H, columnas,
+prioridad y cantidad de fichas. En este lote DMA **source y mask = $FFFFFFFF**
+indican bob ausente; nunca se usan como punteros. G3 debe versionar y validar
+esa ausencia de forma explícita. SG3F/1 conserva su lector anterior.
+
+Deduplicar el descriptor por forma y **mapas del enemigo**. Las entradas 255
+con reservas de Mario no son datos del enemigo: no se almacenan por variante.
+El directorio residente, medido en el prototipo, tiene cabecera 8 B y por
+forma 12 B: offset de fichas u32, prioridad u8, cantidad de fichas u8, número
+de variantes u16 y offset de lista u32; la lista contiene índices u16 de
+descriptor. Usa como fuente las fichas de la tabla, sin duplicarlas.
+
+G4 busca por la OAM de la misma foto y prueba la compatibilidad de cada mapa
+con sus reservas de Mario y con los otros enemigos asignados. Hay hasta
+**31 candidatos por forma** en este lote; debe presupuestar ese peor caso.
+G3 debe ofrecer `--final --scope g2-bounded`: acepta únicamente el lote
+declarado tras su verificación; el modo global sigue exigiendo cobertura
+completa de YI1.
+
+No seleccionar por frame grabado ni usar el índice de petición como una
+tabla del juego. El JSON de aliases es evidencia offline, fuera de RAM.
+Sin candidato compatible: salida explícita para G6/G7; nunca descarte,
+color aproximado ni lectura de RAM viva. La selección y los MOVE de color
+siguen pendientes de implementación y medida dentro del 8 % de G4/G5.
+
+Se conserva la fuente SNES y la máscara como verdad offline. **No duplicar
+cada variante DMA en una fuente bob y máscara residente:** G7 debe generar
+su propio banco PF1 con siete índices y el terreno. Quitar esas fuentes
+incompatibles con PF1 de este lote no completa G7 ni elimina su cola.
+
+### Copper con una imagen por forma: alternativa evaluada
+
+Sin reservas, las 48 formas ocuparían 4824 B DMA tras solapes (5104 B sin
+solapes; 10840 B en el formato antiguo con bobs). Pero una recarga por fila
+no cambia los índices fijos del bitmap de Mario. El matching bipartito exacto,
+con píxeles reales y las ocho paletas, falla en **12 de 43 formas observadas**,
+incluso permitiendo un mapa de índices distinto en cada fila de la imagen.
+
+Caso `trace_ab_f5811_m0_291`, fila local 6: los colores OCS `$44D`, `$66D`
+y `$88F` solo pueden ocupar 7 y 15 si la misma imagen ha de respetar todas
+sus reservas reales. Tres colores necesitan tres índices y solo quedan dos.
+No basta contar la unión de colores ni recargar COLOR17–31 por fila.
+
+Se descarta **esa** alternativa para este contrato. Recargas a mitad de
+línea podrían separar usos en X; no están refutadas por la prueba por fila,
+pero requieren posiciones de ambos objetos, plazos de `build_mid` (P51) y
+medida G5a/G6. No se presupuestan como solución ya medida. No se altera D8.
+
+### Ampliación del alcance
+
+La muestra de cinco trazas G8b agrega 106 formas observadas. Sin reservas de
+Mario para esas formas nuevas, el mismo esquema ocupa 81904 B DMA y 85798 B
+de metadata, antes del directorio; **excede** 64 KiB. Es una medición de esta
+representación, no un mínimo demostrado ni cobertura legal completa.
+Banzai seguirá en bob: excluyéndolo aún se necesitan **77152 B DMA**,
+con 148 formas y 83526 B metadata, sin reservas nuevas de Mario.
+El escaso margen de 1008 B no autoriza ampliar el lote automáticamente.
+G3 debe informar alcance, crecimiento y límites; banco bob/PF1 y nuevos
+estados requieren presupuesto propio y una nueva auditoría de G2/G7.
 
 ## 3. Asignación y reuso de canales (G4/G6)
 
@@ -181,42 +234,55 @@ caso y consultar al usuario; no queda autorizada por este diseño.
 
 ## 5. Memoria y coste
 
-Mapa actual reproducido con `memmap.py work/rg_game/game.lst` el 2026-10-05:
-chip 390 704 B; slow 207 296 B; tablas solo de CPU en chip 135 468 B.
-Estos números corresponden al replay, sin diagnóstico en vivo.
+Medida del 2026-10-06 con `memmap.py`, listados de G8b opt-in:
 
-| reserva de chip | bytes |
+| modo | chip actual | slow actual | chip + banco G2 |
+|---|---:|---:|---:|
+| replay | 390704 | 214880 | **455232** |
+| vivo | 402232 | 251120 | **466760** |
+
+La auditoría aplica el modelo de `memmap` al banco propuesto (MEMF_CHIP,
+alineación 8) y a esas bases: cero violaciones. **Es una proyección, no un
+ADF que ya cargue el banco.** G3 verifica las reservas concretas y el loader
+en ambos modos. También debe medir el pico transitorio de carga; evitar
+que una segunda copia de assets quede residente en el binario slow/chip.
+
+C2/C4 mueven 135468 B de tablas CPU a slow; presupuestar 135472 B con
+redondeo de AllocMem. En vivo quedan **137696 B**. El tope es:
+`98304 tablas + 32768 trabajo + 2376 fotos = 133448 B`; margen final mínimo
+**4248 B** con el binario actual. El crecimiento de código/loader exige
+recalcular, nunca consumir un margen ficticio del replay. La implementación
+medida usa 72720 B de tablas redondeadas + 2376 fotos; con C2/C4 dejaría
+**461688 B slow**, o **494456 B** reservando todo el espacio de trabajo.
+
+| reserva de chip, modo vivo opt-in | bytes |
 |---|---:|
-| juego actual | 390 704 |
-| banco máximo de poses DMA + fuentes de bob | 65 536 |
-| segundo PF1 | 59 136 |
-| audio (D5) | 65 536 |
-| subtotal, antes de HUD/copper extra | **580 912** |
-| subtotal después de mover tablas CPU a slow (C2/C4) | **445 444** |
-| margen restante, para HUD, listas, flujos encadenados y subzona | **78 844** |
+| juego actual | 402232 |
+| banco máximo DMA | 65536 |
+| segundo PF1 | 59136 |
+| audio D5 (tope; A1 mide 50560) | 65536 |
+| subtotal antes de C2/C4 | **592440** |
+| después de mover tablas CPU | **456976** |
+| margen para banco bob G7, HUD, copper, cadenas y subzona | **67312** |
 
-El banco de 64 KiB es un **tope propuesto**, no el tamaño demostrado por G3a.
-Sus ~11 040 B describen 276 fichas fuente de 8×8 con máscara; con flips y
-composición por objeto el tamaño cambia. Los 3 snapshots añaden ~2,4 KB a
-slow, no chip. G5 debe contar el crecimiento real de ambas listas; no consumir
-el margen como si las recargas fueran gratuitas en memoria.
+La reserva futura acredita conservadoramente **135464 B liberados de chip**
+(alineación 8) y carga 135472 B a slow; el loader definitivo debe comprobar
+sus redondeos reales.
 
-**C2/C4 preceden a G7+audio:** las reservas juntas no entran en 512 KB.
-G3/G4/G6 pueden desarrollarse antes; cada integración pasa `memmap` sobre el
-ADF concreto, también en vivo. Queda además comprobar el pico de carga del
-loader: el binario transitorio en chip no es memoria libre durante el arranque.
+Las fuentes bob ya no están dentro de los 64 KiB DMA. G7 debe contar ese
+coste en el margen restante y demostrar color PF1 exacto. Segundo PF1 y
+audio juntos siguen necesitando C2/C4. No hay presupuesto para un banco
+G8b de 81904 B bajo este contrato.
 
-Presupuestos separados: lógica con OAM ≤40 % del frame PAL; asignación,
-preparación DMA y copper de enemigos ≤8 %; audio ≤3 %; HUD ≤2 %. Bobs se miden
-aparte. Los ciclos Musashi son cota inferior: P96 propone ×1,05 para lógica y
-×1,5 para preparación/scroll, sin sustituir una medida cycle-exact. Publicar
-media, máximo y frame del máximo, junto con fotos omitidas/ticks perdidos de
-O5. Ninguna cifra del diseño declara que el conjunto ya entra a 50 Hz.
+Presupuestos separados: lógica con OAM ≤40 % PAL (G8b hoy excede el objetivo);
+asignación, preparación DMA y copper de enemigos ≤8 %; audio ≤3 %; HUD ≤2 %.
+Bobs se miden aparte. Musashi es cota inferior; no sustituye cycle-exact.
+Publicar media/máximo/frame del máximo, fotos omitidas y ticks perdidos O5.
+No se han medido aquí tiempos del renderer nuevo ni sus recargas de color.
 
-El banco G0 mide copiar 1408 B chip→chip en **7,47–7,52 %** con DMA de seis
-planos activo y **4,81–4,95 %** en VBlank (32 repeticiones, timer CIA-B,
-coste del arnés restado). La alternativa de encadenar no debe presupuestarse
-con el 4,5 % sin DMA del estudio inicial; puede consumir casi todo el 8 %.
+G0 mide copiar 1408 B chip→chip en 7,47–7,52 % con seis planos DMA y
+4,81–4,95 % en VBlank. Esta representación no agrega esa copia por frame.
+Cadenas dinámicas, selección y cargas reales quedan sujetos a G4/G5/G6.
 
 ## 6. Puertas y siguiente orden
 
@@ -226,7 +292,11 @@ con el 4,5 % sin DMA del estudio inicial; puede consumir casi todo el 8 %.
 2. ~~OAM en Amiga~~ **hecho el 2026-10-05** como opción `-DNOOAM -DSPR_OAM`
    (`docs/oam-amiga.md`): Rex 2671/2671, RAM/ABI exactos, replay sin
    diferencias. Activarla por defecto sigue pendiente de medir OAM/O5 con DMA.
-3. G3: empaquetado, remapeo exacto de color y tamaño del banco comprobados.
+3. **G2 revisada y auditada el 2026-10-06** (`informe-g2.md`): contrato
+   acotado 64528 B chip / 72716 B tablas, sin recodificación por frame.
+   **G3 pendiente:** conversor y loader versionados, aceptación explícita
+   del lote completo y memmap concreto replay/vivo. `--final` antiguo
+   sigue rechazando cobertura incompleta; no se cambia para fingir cierre.
 4. G4 + G6: asignador C/asm, cola de bobs explícita, píxeles reconstruidos
    exactos y plazos de cada recarga. No confundirlos con enemigos visibles.
 5. G5 + G9: listas del copper y capturas de enemigos contra la OAM; medir DMA

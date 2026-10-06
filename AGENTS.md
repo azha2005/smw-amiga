@@ -364,7 +364,7 @@ En español. Cada rutina de hardware (blitter/copper) lleva arriba:
 Índice, una línea por trampa. **El texto completo (causa, síntoma, arreglo y
 comandos) está en `docs/pitfalls.md`, textual**: leer ahí las del área que se
 toca antes de cambiar nada. Una trampa nueva se agrega allí y aquí con el
-número siguiente (**la próxima es P108**).
+número siguiente (**la próxima es P109**).
 
 - **P1** El layout de paletas de SMW no es un array 8×16. ✅ RESUELTO
 - **P2** El blitter tiene prioridad sobre la CPU y la "roba" ciclos
@@ -475,6 +475,7 @@ número siguiente (**la próxima es P108**).
 - **P105** El historial BRR atraviesa los loops; una vuelta PCM fija puede diferir
 - **P106** Los offsets de loop de SMW son externos al BRR raw
 - **P107** D1: VBL repetidos, fotos descartadas y ticks tardíos son contadores distintos
+- **P108** G2: los controles DMA solapados son inmutables; Mario fija índices, no solo colores
 
 ---
 
