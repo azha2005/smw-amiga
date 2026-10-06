@@ -9,11 +9,15 @@
 > Estado de cada etapa: `ROADMAP.md` §1 · olas y sesiones: `ROADMAP.md` §4 ·
 > tarjetas con su estado: `SUBAGENTES.md` §4 · índice de docs: `docs/README.md`.
 
-**Escrito el 2026-10-06**, al cerrar la ronda experimental E11–E14.
-E11a y E12 integradas; E11b y E14 descartadas para sus objetivos
-con la representación actual. E13 no se abrió. Resultados, límites
-y comandos: `docs/experimentos-e11-e14.md`. La sesión de banco de
-sprites de abajo sigue pendiente.
+**Escrito el 2026-10-06**, tras revisar A1, G8b y la preparación D1.
+A1 convierte las 20 muestras a 50560 B PCM y pasa la referencia DSP;
+G8b amplía la OAM exacta en PC/68000, conservando el modo opt-in.
+La OAM ampliada de G8b consume hasta 43,8 % PAL de lógica en Musashi
+sin DMA: antes de activarla por defecto hay que optimizarla y medirla.
+D1 tiene replays y contador preparados, pero faltan el exportador por VBL
+y la medida real en WinUAE. Evidencia: `docs/informe-a1.md`,
+`docs/validacion-g8b.md` y `docs/medida-d1-estres.md`. El banco G2/G3
+y el primer Rex visible siguen pendientes.
 
 ---
 
@@ -29,10 +33,9 @@ GPT-6.1 Sol medium; Sonnet low → GPT-6 Luna medium. Astra queda fuera.
 | tarjeta | modelo | toca | entrega y puerta |
 |---|---|---|---|
 | **G2** — revisar la representación del banco (la escribe el coordinador) | Sol high | `docs/diseno-9.2.md` | contrato con tamaños medidos, tope de slow en bytes y casos exactos que demuestren la reducción. **Evaluar primero el remapeo de color por copper** (nota abajo) |
-| **G5a** — prueba mínima de Rex, descartable | Sol high | rama propia; `player/` mínimo | G4 + G5 mínimos sobre el banco base de 48 poses ya verificado (10840 B chip), solo Rex, `-DSPR_OAM`. Rex visible en WinUAE comparado con la OAM del oráculo; MOVE del copper por línea junto a `build_mid` (P51), CPU y DMA medidos en cycle-exact. Los números alimentan G2; el código no es el G4/G5 definitivo |
-| **D1-medida** — fluidez con los replays de estrés | Sol medium (el coordinador fija el método; el recuento puede bajar a Luna medium) | `tools/game_build.sh` (variable de replay), `docs/` | replays de `oracle_stress_back` (vuelta de x `$1240` a `$0500`) y `oracle_stress_sprites` (Banzai + 3 Rex) armados como el de `oracle_yi1` (`m68kverify --oracle`); fotos omitidas, racha máxima y peor ventana de 250 frames en WinUAE cycle-exact. Es la primera medida de la compuerta D1 (`ROADMAP.md` §2) en estrés |
-| **G8b** — OAM de Banzai `$9F`, piraña `$4F`, Chuck `$95`, meta `$7B`, caparazones | Sol medium | `player/spr_*.c` y `spr_gfx.c` de esos sprites | sus rutinas de gráficos escriben la OAM atribuida como G8 hizo con Rex: `oam_XX` exactas en `regress.py` contra `oracle_chuck`, `goal`, `shells`, `banzai`, `stress_piranha`. La lógica ya está; esto amplía la cobertura que G3 dejó fuera |
-| **A1** — `tools/brr2pcm.py` | Sol medium | solo `tools/` | muestras BRR → PCM de 8 bits con signo (P7), ida y vuelta contra el decodificador de referencia; tamaño total frente a los 64 KB de D5 |
+| **G5a** — prueba mínima de Rex, descartable | Sol high | rama propia; `player/` mínimo | G4 + G5 mínimos sobre el banco base de 48 poses ya verificado (10840 B chip), solo Rex, `-DSPR_OAM`. Rex visible en WinUAE comparado con la OAM del oráculo; MOVE del copper por línea junto a `build_mid` (P51), CPU y DMA medidos en cycle-exact. Los números alimentan G2; medir también la lógica G8b (hoy máx. 43,8 % sin DMA) antes de activar la OAM ampliada. El código no es el G4/G5 definitivo |
+| **D1-medida** — exportar y medir los replays de estrés | Sol medium (el coordinador fija la exportación; recuento ya disponible) | `tools/`, `docs/` | usar `ORACLE`/`REPLAY` de `game_build.sh` y `d1_count.py`; obtener una traza completa por VBL en WinUAE cycle-exact, con identidad de foto puesta y ticks terminados. `stress_back`: 4127 operaciones; `stress_sprites`: 1915. Medir omisiones, racha, ventana250, edad y p99; los agregados BENCH no bastan (`docs/medida-d1-estres.md`) |
+| **A0** — registro del DSP | Sol medium | `tools/snesorc/orc.c`, `tools/dsplog.py` | escrituras DSP con frame/tick, notas por voz y efectos; oráculo idéntico con/sin registro. A1 ya da conversión exacta; A0 permite estudiar A2 y contrastar el audio (SUBAGENTES A0) |
 
 **De la investigación** (`docs/investigacion-ports.md`, una línea por tarjeta):
 
@@ -69,10 +72,11 @@ en slow. No son cotas mínimas. Casos y reproducción: `docs/informe-g3.md`.
 
 **Lote de la puerta (acotado):** las variantes de las tres trazas actuales
 (`yi1`, `normal`, `spin_kill`) con reservas reales de Mario y ocho paletas,
-más las poses legales de Rex de `RexGfxRt`. **Fuera**: Banzai, piraña,
-Chuck, meta, power-ups y partículas (esperan G8b) y el remapeo de bobs a
-PF1 (G7). G2 diseña con margen para esa cobertura: estima cuánto crecen
-banco y tablas al sumarla.
+más las poses legales de Rex de `RexGfxRt`. **Fuera de este lote**:
+Banzai, piraña, Chuck, meta, power-ups y partículas, y el remapeo de bobs
+a PF1 (G7). G8b ya proporciona OAM de los cinco tipos, pero G3 no amplía
+su lote automáticamente: G2 estima cuánto crecen banco y tablas al
+sumarlos y fija el contrato antes de ampliar la puerta.
 
 **Puerta de cierre:**
 
@@ -91,9 +95,9 @@ banco y tablas al sumarla.
 
 ### Antes de lanzar y al cerrar
 
-- Antes: `python tools/lint_port.py` y
-  `python tools/regress.py --baseline tools/baseline_pc.json --level` en
-  verde; worktree por tarjeta (`sh tools/wt_new.sh <tarjeta>`); capturas con
+- Antes: `python tools/lint_port.py` y `python tools/regress.py --level`
+  en verde (cloud: `tools/baseline.json`; PC: agregar
+  `--baseline tools/baseline_pc.json`); worktree por tarjeta (`sh tools/wt_new.sh <tarjeta>`); capturas con
   perfiles privados, máximo tres WinUAE a la vez, cada uno cierra solo su
   PID.
 - Al cerrar: la regla de `ROADMAP.md` §7 (reescribir este fichero).

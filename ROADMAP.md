@@ -31,7 +31,7 @@
 2. Trabajar **un paso por vez**; no se empieza el siguiente con el anterior
    en rojo. Commit `Etapa N.x: <qué>`. Trampa nueva: `Pnn` en
    `docs/pitfalls.md` y en el índice de `AGENTS.md` §8 (la próxima es
-   **P104**).
+   **P108**).
 3. **Al cerrar la sesión: §7** (obligatorio: reescribir `PROXIMO.md`).
 
 **Reglas del proceso (no negociables, vienen de lo que ya costó caro):**
@@ -66,11 +66,11 @@ copian acá.
 | 8a/8b/8c | Física, colisión, pendientes | **hecho**: `full` 6510/6547 en `oracle_yi1`; pendientes 2154/2154 (`oracle_hills`) | `player/mario.c`, `mcoll.c`, `manim.c` |
 | 8 (gfx, cámara) | Gráficos de Mario y cámara | **hecho**; `gfx` 100 % en los oráculos (P69 arreglada) | `player/mgfx.c`, `mcam.c` |
 | 8.1 | Grabaciones | **32 oráculos** con snesorc sin usuario (`tools/snesorc/*.orc`), entre ellos `stress_back`, `stress_sprites`, `stress_vert`, `pipe`, `goal`/`goal_low`/`goal_miss`, `pw_*` (seta, flor, estrella, 1-UP, `$C7`, bloques, medio, monedas de Yoshi) y los de R10. Faltan: luna 3-UP, R7 (contadores del HUD), R8/A0 (audio) | `tools/snesorc/`, `work/oracle_*.txt` |
-| 8.2 | Lógica ≤ 40 % | **hecha**: `level_frame` máx. **37,24 %** en WinUAE con OAM (replay YI1, `docs/medida-oam-o5.md`); L1a-L1d, MA1 integradas | `player/logic68k.s` |
+| 8.2 | Lógica ≤ 40 % | **hecha para el alcance anterior**: `level_frame` máx. **37,24 %** en WinUAE con OAM (replay YI1, `docs/medida-oam-o5.md`); L1a-L1d, MA1 integradas. **Reabierta para la OAM ampliada de G8b**: opt-in máx. 62110 ciclos = 43,8 % PAL en Musashi sin DMA; necesita optimización y WinUAE (`docs/validacion-g8b.md`) | `player/logic68k.s` |
 | 9.1 | Sprites: lógica | **casi hecha**: Rex, `$83`, `$B9`, `$BD`, `$02`, `$9F`, `$4F`, `$8E`, `$C7`, Chuck `$95`, caparazones, meta `$7B`, power-ups (P6), Mario crecer/encoger/morir/estrella (P8); `game` 0 resincronizaciones. Faltan P7 (bolas de fuego), P9 (monedas de Yoshi, puntos), P10 (reserva) | `player/msprite.c`, `spr_*.c` |
-| 9.2 | Sprites: dibujo | Mario hecho. G0, G1, G8 (Rex), G3a hechas; OAM opt-in (`-DSPR_OAM`). **G2 reabierta** por el tamaño del banco (G3: 145600 B frente a 65536 B). Faltan G3 final, G4-G7, G9, G8b. **Los enemigos todavía no se ven en la Amiga** | `docs/diseno-9.2.md`, `docs/informe-g3.md` |
+| 9.2 | Sprites: dibujo | Mario hecho. G0, G1, G8 (Rex), G3a hechas; OAM opt-in (`-DSPR_OAM`). **G2 reabierta** por el tamaño del banco (G3: 145600 B frente a 65536 B). G8b hecha: OAM de Banzai, piraña, Chuck, meta y caparazones exacta en PC/68000, opt-in (`docs/validacion-g8b.md`). Faltan G3 final, G4-G7, G9. **Los enemigos todavía no se ven en la Amiga** | `docs/diseno-9.2.md`, `docs/informe-g3.md` |
 | 6b | Integración | ADF jugable en vivo y replay; O5 (render desacoplado) por defecto; modo diagnóstico (P58). Chip 390 704 B, slow 207 296 B (replay, `memmap.py`). Falta 6b.1 (vlink C2, compresión C3, loader C4) | `player/game.s`, `docs/diseno-9.2.md` §5 |
-| 10-12 | HUD, audio, pulido | **Z1** hecho (muerte normal y reinicio; `docs/validacion-z1.md`). **H1** medido conservadoramente (`docs/medida-hud.md`; falta la alineación exacta PPU). HUD visible, audio, punto medio, meta, game over: pendientes | — |
+| 10-12 | HUD, audio, pulido | **Z1** hecho (muerte normal y reinicio; `docs/validacion-z1.md`). **H1** medido conservadoramente (`docs/medida-hud.md`; falta la alineación exacta PPU). **A1**: conversor verificado, 20 muestras / 50560 B PCM (`docs/informe-a1.md`); audio reproducido y R8 pendientes. HUD visible, punto medio, meta, game over: pendientes | — |
 | Experimental E11-E14 | Técnicas de juegos de referencia | E11a hecha: 0 cargas PF1 en franjas aptas de 15.755 frames; E11b descartada para `build_mid`. E12 descartada: 0/7 índices sin conflicto en 1.016.785 cámaras. E13 sin caso. E14a hecha; E14 descartada para estrés: 0/202 frames con las 64 filas libres (Banzai solo: 16/331). No cambia el presupuesto ni la compuerta D1 | `docs/experimentos-e11-e14.md` |
 
 ---
@@ -79,11 +79,12 @@ copian acá.
 
 Un frame PAL son 20 ms, ~141 800 ciclos de CPU. Con O5 (render
 desacoplado) la **lógica corre siempre a 50 Hz** y lo que se pierde cuando
-no entra es la **imagen** de ese VBL. Números al 2026-10-05:
+no entra es la **imagen** de ese VBL. Medidas WinUAE al 2026-10-05; la fila G8b del 2026-10-06 es solo CPU:
 
 | componente | medido (peor frame) | objetivo | fuente |
 |---|---|---|---|
 | lógica `level_frame` con sprites y OAM | **37,24 %** (WinUAE, replay YI1) | ≤ 40 % | `docs/medida-oam-o5.md` |
+| lógica con OAM ampliada G8b (opt-in) | **62110 ciclos, 43,8 % PAL sin DMA** (Musashi, replay YI1) | ≤ 40 % real; optimización y WinUAE pendientes | `docs/validacion-g8b.md` |
 | interrupción lógica + foto | 46,40 % (WinUAE) | — | ídem |
 | scroll: `build_mid` + columna + lista | ida **89,16 %** (WinUAE, s ≈ 4576, con P51); vuelta 94,8 % en Musashi (s = 2832; ×~1,3 en la Amiga, **sin medir en WinUAE**). Media de la ida ~15 % | repartir los picos (S5) | ídem; `scrollprof.py` |
 | Mario en sprites de hardware (`mspr_draw`) | máx. 7 750 ciclos, media 4 169 (Musashi, tras MA1) | ≤ 3 % de media | `baseline_pc.json` |
@@ -216,7 +217,7 @@ La ronda offline E11-E14 se ejecutó aparte el 2026-10-06. No completa
 ninguna tarjeta de la ruta crítica del dibujo: quedan **9-11 sesiones**
 (estimado sin cambios), comenzando por el banco de sprites. E11b y E12
 no se suman a S5 con la representación actual; detalle y límites en
-`docs/experimentos-e11-e14.md`. No hubo una nueva medida de D1.
+`docs/experimentos-e11-e14.md`. Se adelantaron A1 (conversor) y G8b (OAM opt-in), y se prepararon los dos replays D1 con contador CSV. No hubo una nueva medida real de D1; faltan exportador por VBL y WinUAE. El banco sigue en la ruta crítica; el estimado 9-11 no se reduce por estos avances parciales.
 
 **Hechas: ~5 sesiones** (2026-09-30 a 2026-10-05). Olas 1 y 2 cerradas; la 3
 casi. La ola 3 se alargó porque el diseño del dibujo de sprites (G0, G2, G3)
@@ -227,7 +228,7 @@ todos los sprites (P1-P6, P8), Z1 y las grabaciones de la ola 4.
 |---|---|---|---|
 | 1. Medir y preparar | — | **cerrada** | 0 |
 | 2. 50 Hz (1) | — (S4 descartada, P89) | **cerrada** | 0 |
-| 3. 50 Hz (2) + diseños | G2 (reabierta) + G5a (Rex mínimo), G3, D1-medida, G8b, A1; A2 y R7. S5 pasa a la ola 5, junto a G5 | **casi cerrada** | **1** (la de `PROXIMO.md`) |
+| 3. 50 Hz (2) + diseños | G2 (reabierta) + G5a (Rex mínimo), G3, exportación/medida D1; A2 y R7. A1 y G8b adelantadas. S5 pasa a la ola 5, junto a G5 | **casi cerrada** | **1** (la de `PROXIMO.md`) |
 | 4. Motores y estructura | G4 + G6, G5 + G9, C2 (vlink), S8 (cámara vertical), A0 + A2, P7/P9/P10, T1, I/E sueltas | pendiente | 2-3 |
 | 5. Integraciones y 50 Hz con sprites | S5 (+ S3/S6) con G5 ya hecho, C3/C4/C5 (loader), segundo PF1 + G7 (bobs), H2-H4 (HUD), A3/A4 (música) | pendiente | 2-3 |
 | 6. El juego completo | Z2-Z6 (punto medio, meta, tiempo, fundidos, poste), T2/T3 (tubería), A5-A8 (efectos, comparación), H5, R7 | pendiente | 2 |

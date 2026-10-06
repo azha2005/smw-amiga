@@ -152,6 +152,18 @@
   "how": "info",
   "value": 206
  },
+ "orc.banzai.game.oam_9F.distintas": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.banzai.game.oam_9F.exactas": {
+  "how": "max",
+  "value": 391
+ },
+ "orc.banzai.game.oam_9F.frames": {
+  "how": "info",
+  "value": 391
+ },
  "orc.banzai.game.oam_BD.distintas": {
   "how": "min",
   "value": 0
@@ -223,6 +235,18 @@
  "orc.chuck.game.oam_02.frames": {
   "how": "info",
   "value": 3
+ },
+ "orc.chuck.game.oam_95.distintas": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.chuck.game.oam_95.exactas": {
+  "how": "max",
+  "value": 599
+ },
+ "orc.chuck.game.oam_95.frames": {
+  "how": "info",
+  "value": 599
  },
  "orc.chuck.game.oam_AB.distintas": {
   "how": "min",
@@ -559,6 +583,18 @@
  "orc.goal.game.oam_02.frames": {
   "how": "info",
   "value": 3
+ },
+ "orc.goal.game.oam_7B.distintas": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.goal.game.oam_7B.exactas": {
+  "how": "max",
+  "value": 82
+ },
+ "orc.goal.game.oam_7B.frames": {
+  "how": "info",
+  "value": 82
  },
  "orc.goal.game.oam_AB.distintas": {
   "how": "min",
@@ -1100,6 +1136,18 @@
   "how": "info",
   "value": 3
  },
+ "orc.shells.game.oam_05.distintas": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.shells.game.oam_05.exactas": {
+  "how": "max",
+  "value": 526
+ },
+ "orc.shells.game.oam_05.frames": {
+  "how": "info",
+  "value": 526
+ },
  "orc.shells.game.oam_AB.distintas": {
   "how": "min",
   "value": 0
@@ -1259,6 +1307,122 @@
  "orc.spin_kill.sprload.exactos": {
   "how": "max",
   "value": 7
+ },
+ "orc.stress_piranha.full.ok": {
+  "how": "max",
+  "value": 2914
+ },
+ "orc.stress_piranha.full.tot": {
+  "how": "eq",
+  "value": 2919
+ },
+ "orc.stress_piranha.game.oam.fuera_de_orden": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.stress_piranha.game.oam_02.distintas": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.stress_piranha.game.oam_02.exactas": {
+  "how": "max",
+  "value": 3
+ },
+ "orc.stress_piranha.game.oam_02.frames": {
+  "how": "info",
+  "value": 3
+ },
+ "orc.stress_piranha.game.oam_4F.distintas": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.stress_piranha.game.oam_4F.exactas": {
+  "how": "max",
+  "value": 1552
+ },
+ "orc.stress_piranha.game.oam_4F.frames": {
+  "how": "info",
+  "value": 1552
+ },
+ "orc.stress_piranha.game.oam_9F.distintas": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.stress_piranha.game.oam_9F.exactas": {
+  "how": "max",
+  "value": 88
+ },
+ "orc.stress_piranha.game.oam_9F.frames": {
+  "how": "info",
+  "value": 88
+ },
+ "orc.stress_piranha.game.oam_AB.distintas": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.stress_piranha.game.oam_AB.exactas": {
+  "how": "max",
+  "value": 2416
+ },
+ "orc.stress_piranha.game.oam_AB.frames": {
+  "how": "info",
+  "value": 2416
+ },
+ "orc.stress_piranha.game.oam_BD.distintas": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.stress_piranha.game.oam_BD.exactas": {
+  "how": "max",
+  "value": 161
+ },
+ "orc.stress_piranha.game.oam_BD.frames": {
+  "how": "info",
+  "value": 161
+ },
+ "orc.stress_piranha.game.resync": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.stress_piranha.game.spr_74.exactos": {
+  "how": "max",
+  "value": 72
+ },
+ "orc.stress_piranha.game.spr_74.seguidos": {
+  "how": "info",
+  "value": 72
+ },
+ "orc.stress_piranha.game.spr_distintos": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.stress_piranha.game.tramo": {
+  "how": "max",
+  "value": 3017
+ },
+ "orc.stress_piranha.gfx.oam_ok": {
+  "how": "max",
+  "value": 3017
+ },
+ "orc.stress_piranha.gfx.scr_ok": {
+  "how": "max",
+  "value": 3017
+ },
+ "orc.stress_piranha.loop.resync": {
+  "how": "min",
+  "value": 5
+ },
+ "orc.stress_piranha.loop.tramo": {
+  "how": "max",
+  "value": 1665
+ },
+ "orc.stress_piranha.sprload.distintos": {
+  "how": "min",
+  "value": 0
+ },
+ "orc.stress_piranha.sprload.exactos": {
+  "how": "max",
+  "value": 33
  },
  "orc.turn_block.full.ok": {
   "how": "max",

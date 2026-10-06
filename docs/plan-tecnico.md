@@ -522,12 +522,16 @@ los pasos originales de cada etapa, en §5.
 
 ### 10.9 Audio (11)
 
-- **Falta:** todo.
+- **Falta:** registro DSP, secuencias y reproducción. A1 convierte y
+  verifica muestras contra el DSP; R8 WAV y escucha siguen pendientes.
 - **Números:**
-  - todas las muestras BRR del juego son 92 KB (`sound/samples`), unos
-    164 KB en PCM de 8 bits: no entran en 64 KB. Hay que quedarse con las
-    del tema del nivel y los efectos, y bajar la frecuencia de muestreo de
-    alguna si hace falta;
+  - inventario A1 medido el 2026-10-06: las 20 muestras de
+    `mw_e10/sound/samples` suman 28440 B BRR y 50560 B PCM8, con
+    14976 B de margen frente a 65536 B (`docs/informe-a1.md`). Esto
+    sustituye la estimación histórica de 92 KB BRR / 164 KB PCM, que no
+    describe ese directorio. No demuestra que audio y las otras reservas
+    quepan juntos en chip; además, 12/13 loops cambian entre vueltas por
+    el historial BRR, que A3/A4 deben representar (P105);
   - música: el tema del nivel está en `sound/music1`; las secuencias son de
     N-SPC.
 - **Cómo lo haría** (el cambio más grande respecto de la idea original de

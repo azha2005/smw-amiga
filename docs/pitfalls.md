@@ -902,3 +902,37 @@ ancho de banda del copper) y puntos sueltos.
 **P8 — El slow RAM de la A501 no está disponible si el software lo desactiva.**
 Algunas rutinas de arranque desactivan `/EXRAM`. Verifica que `$C00000`
 responde antes de usarlo.
+
+**P104 — BRR satura a 16 bits y después envuelve a 15.** El historial del
+DSP usa 15 bits firmados. Tras aplicar el filtro, primero se limita a
+`[-32768, 32767]` y después se envuelve a 15 bits; saturar directamente a
+15 cambia las muestras. Los rangos BRR 13-15 también tienen tratamiento
+especial. `brr2pcm.py --selftest --reference-dsp <dsp.c>` compara 1024
+bloques con filtros, rangos e historias extremas contra la función C
+original; el vector de saturación produce PCM16 -2, no 32766.
+
+**P105 — El historial BRR atraviesa el salto de loop.** En 12 de las 13
+muestras con loop de SMW el PCM8 de la primera y segunda vuelta difiere;
+en cello, 48/48 bytes. Reiniciar el historial o repetir una vuelta PCM
+congelada no reproduce esa evolución. `brr2pcm.py --loops N` conserva el
+historial y permite contrastar vueltas finitas con el DSP. A3/A4 deben
+fijar cómo representar esa evolución antes de dar por exacta la
+reproducción en Paula. Evidencia: `docs/informe-a1.md`.
+
+**P106 — El offset de loop no está dentro del BRR raw de SMW.** Las 20
+muestras del fuente tienen bloques de 9 bytes, sin prefijo de dos bytes;
+las direcciones de loop están en `sound/samples.S`. Quitar un supuesto
+prefijo corrompe muestras válidas. El conversor recibe `--loop-offset` o
+`--loop-map`; `--loop-header` es una opción explícita para otros formatos.
+Sin offset conocido puede convertir la primera vuelta, pero no repetirla.
+
+**P107 — D1 cuenta VBL sin foto nueva, no fotos lógicas descartadas.**
+`DC_NLOST` y `DC_REP` miden cosas distintas; `DC_LATE` indica fallback a
+VERTB, no demuestra un tick perdido. Los agregados BENCH no permiten
+reconstruir ventana250, edad ni p99. La traza debe identificar la foto
+realmente puesta (`DC_FRONT`/`R_FRAME`) y los ticks terminados por VBL,
+con contadores extendidos, origen correcto y sin huecos. `d1_count.py`
+rechaza discontinuidades; sus umbrales numéricos no prueban procedencia
+WinUAE ni temporización cycle-exact. `game_read.py` conserva el origen
+YI1 5145: los replays de estrés empiezan en 1453. Protocolo completo:
+`docs/medida-d1-estres.md`.

@@ -22,7 +22,7 @@
 | documento | qué |
 |---|---|
 | `plan-tecnico.md` | cómo hacer lo que falta: optimización (§9), cada bloque pendiente (§10), más allá de YI1 (§11). Escrito el 2026-09-30; sus números de estado son de esa fecha |
-| `pitfalls.md` | texto completo de las trampas P1-P103 (índice en `AGENTS.md` §8) |
+| `pitfalls.md` | texto completo de las trampas P1-P107 (índice en `AGENTS.md` §8) |
 | `formato-nivel.md` | assets, formato `.lv`, Map16, tileset, paletas, comparación contra la referencia |
 | `formato-sprgfx.md` | formato SG3F de las poses de sprites (G3) |
 | `diseno-9.2.md` | **G2**: diseño del dibujo de sprites desde la OAM, interfaces, presupuesto de memoria (§5). Reabierto el 2026-10-05 por el tamaño del banco |
@@ -46,6 +46,11 @@
 | `informe-g3.md` | 2026-10-05 | G3: formato verificable y banco que no entra |
 | `validacion-z1.md` | 2026-10-05 | Z1: muerte y recarga del nivel |
 | `medida-hud.md` | 2026-10-05 | H1: banda del HUD y cruces con la capa 1 |
+| `informe-a1.md` | 2026-10-06 | BRR exacto, inventario PCM y límites de loops/R8 |
+| `medida-d1-estres.md` | 2026-10-06 | replays y contador verificados; sin medida real de fluidez |
+| `informe-g8b.md` | 2026-10-06 | entrega inicial PC exacta, bloqueo PIC; superado por validacion-g8b |
+| `integracion-a1-g8b-d1.md` | 2026-10-06 | revisión conjunta, regresión, cobertura añadida y límites de hardware |
+| `validacion-g8b.md` | 2026-10-06 | OAM PC/68000, puentes PIC, coste CPU sin DMA y límites |
 | `experimentos-e11-e14.md` | 2026-10-06 | ronda offline: franjas PF2, conflictos PF1 y ocupación de Banzai |
 
 ## Archivo (`archivo/`)

@@ -236,13 +236,16 @@ original del 2026-09-30, ola por ola, está textual en
 | G0, G1, G3a, G8 | hecha | `docs/medida-g0.md`, `docs/estudio-g1-g0.md`, `docs/oam-amiga.md` |
 | G2 | reabierta | el banco no entra (`docs/informe-g3.md`); en `PROXIMO.md` |
 | G3 | parcial | SG3F y 48 poses exactas; final pendiente de G2 |
-| G5a (nueva, prueba mínima de Rex), G8b (nueva, OAM de Banzai, piraña, Chuck, meta, caparazones), D1-medida (nueva) | pendiente | definidas en `PROXIMO.md` |
+| G5a (prueba mínima de Rex) | pendiente | definida en `PROXIMO.md` |
+| G8b | hecha (OAM opt-in) | Banzai 391/391, Chuck 599/599, meta 82/82, caparazón 526/526 y piraña 1552/1552 en PC/68000; coste sin DMA y límites en `docs/validacion-g8b.md`; sin activar por defecto ni dibujar enemigos |
+| D1-medida | parcial | replays 4127/1915 operaciones y contador CSV verificados; faltan exportador por VBL y WinUAE (`docs/medida-d1-estres.md`) |
 | G4, G5, G6, G7, G9 | pendiente | después de G2/G3 |
 | C1 | hecha | `tools/memmap.py` |
 | C2, C3, C4, C5 | pendiente | |
 | H1 | hecha | medida conservadora; falta la alineación exacta PPU (`docs/medida-hud.md`) |
 | H2-H5 | pendiente | |
-| A0-A8 | pendiente | A1 en `PROXIMO.md` |
+| A1 | hecha (conversor) | 1024 bloques y 20 muestras contra DSP C, 0 diferencias; 50560 B PCM; R8 WAV y reproducción de loops pendientes (`docs/informe-a1.md`) |
+| A0, A2-A8 | pendiente | A0 en `PROXIMO.md`; A3/A4 deben resolver la historia BRR de los loops |
 | T1-T3 | pendiente | |
 | Z1 | hecha | `docs/validacion-z1.md` |
 | Z2-Z8 | pendiente | |

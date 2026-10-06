@@ -1,5 +1,11 @@
 # SPR_OAM en el 68000 — 2026-10-05
 
+Actualización del 2026-10-06: G8b amplía la OAM opt-in a Banzai, piraña,
+Chuck, cinta de meta y caparazones. La validación nueva y sus puentes están
+en `docs/validacion-g8b.md`; las medidas WinUAE de este documento
+corresponden al alcance anterior. La lógica ampliada alcanza 43,8 % PAL
+sin DMA en Musashi: no se activa por defecto.
+
 El paso 3 después de la ola 3 queda implementado como **opción**, con
 `CDEFS='-DNOOAM -DSPR_OAM'`. Mario conserva `mario_oam`, `mario_E2BD` y
 `mspr_draw` en asm; el Rex llama a `_rex_gfx` desde `_rex_main_asm` en la fase
@@ -39,8 +45,9 @@ partida; no se inyectan desde la SNES. La salida derivada vive en `work/` (R9).
 prepara esos estados de entrada y llama a `_sprite_run`, incluido el Rex
 en asm. Comprueba RAM entera, mapa, marcas y ABI (`d2-d7/a2-a6`, pila).
 Después busca las fichas visibles completas y su orden en el `_oam.bin` del
-mismo frame. Falla si hay diferencias, si la traza está vacía o no hubo Rex;
-`--require` y `--require-state` exigen los tipos/estados deseados.
+mismo frame. Falla si hay diferencias o la traza está vacía; `--require` exige Rex
+por defecto y puede seleccionar otros tipos (G8b), siempre con muestras
+visibles no vacías. `--require-state` exige los estados deseados.
 
 Esto prueba el **despacho 68000** contra el host validado por el oráculo.
 La equivalencia del `level_frame` completo se verifica aparte con `--cross`;
