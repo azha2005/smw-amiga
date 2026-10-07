@@ -239,10 +239,6 @@ DF_REPLAY   equ 1                           ;        binario -DREPLAY
 ;----------------------------------------------------------------------
 ; Arranque. Desde boot.s: a0 = base (chip), a1 = IOStdReq, a6 = ExecBase
 ;----------------------------------------------------------------------
-        ifd     SPR_BANK
-        include "work/sg3_bank.i"
-        include "player/sprbank.s"
-        endc
 entry:
         move.l  4.w,a6
         move.l  a1,a2                       ; a2 = IOStdReq
@@ -300,7 +296,8 @@ entry:
         ifd     SPR_BANK
         GETBASE a0
         move.l  hdr_data_off-binstart(a0),d7
-        bsr     sg3_load
+        add.l   #sg3_load-binstart,a0       ; detras de los datos (P102)
+        jsr     (a0)
         tst.l   d0
         bne     gfail
         endc
@@ -430,6 +427,12 @@ entry:
         move.w  #$83e0,DMACON(a4)           ; MASTER|BPLEN|COPEN|BLTEN|SPREN
         ifd     BENCH
         bsr     gb_init                     ; timer, calibracion
+        ifd     D1TIMER
+        bsr     d1_timer_init
+        endc
+        ifd     D1TRACE
+        bsr     d1_init
+        endc
         endc
         ifnd    REPLAY
         lea     kb_int(pc),a0               ; teclado: nivel 2 (PORTS)
@@ -1331,6 +1334,9 @@ dc_vbl:
         move.w  #$0020,INTREQ(a4)
         move.w  #$0020,INTREQ(a4)
         bsr     dc_vb
+        ifd     D1TRACE
+        bsr     d1_vbl
+        endc
         move.w  INTREQR(a4),d0
 .cop:   btst    #4,d0                       ; COPER
         beq.s   .out
@@ -1490,6 +1496,9 @@ dc_cop:
         lea     dc_st(pc),a2
         add.w   d7,DC_NLOG(a2)
         move.w  d7,-(sp)
+        ifd     D1TRACE
+        bsr     d1_tick_start
+        endc
         bsr     game_step                   ; la logica
         ifd     BENCH
         GBS     3
@@ -1502,7 +1511,13 @@ dc_cop:
 .cap:
         endc
         move.w  (sp)+,d0
+        ifd     D1TRACE
+        bsr     d1_photo_start
+        endc
         bsr     dc_capture                  ; la foto
+        ifd     D1TRACE
+        bsr     d1_tick_end
+        endc
         ifd     BENCH
         GBS     13
         bsr     gb_isr_end
@@ -1827,6 +1842,9 @@ dc_loop:
         bsr     dc_hdr
         lea     dc_st(pc),a2
         move.l  V_BACK(a5),DC_PLIST(a2)     ; publicar (en este orden: la
+        ifd     D1TRACE
+        bsr     d1_publish
+        endc
         move.w  d7,DC_PEND(a2)              ; interrupcion nunca ve la foto
         move.w  #-1,DC_REND(a2)             ; libre)
         addq.w  #1,DC_NPUB(a2)
@@ -1908,6 +1926,18 @@ dc_restart:
         even
 g_sbuf:  ds.l   NSPRB                       ; los buffers de sprites (chip)
 g_data:  dc.l   0                           ; a3: datos del scroll
+        ifd     D1TRACE
+        ifnd    D1TIMER
+        fail    "D1TRACE requiere D1TIMER"
+        endc
+        endc
+        ifd     D1TIMER
+        ifnd    BENCH
+        fail    "D1TIMER requiere BENCH/REPLAY"
+        endc
+        include "d1trace.s"
+        endc
+
 dc_st:   ds.b   DC_SIZE
 dc_busy: dc.b   0                           ; la logica esta corriendo
 dc_ran:  dc.b   0                           ; la COPER llego en este frame
@@ -2296,6 +2326,9 @@ gb_rnd_end:
 gb_show:
         ifd     DECOUPLE
         move.w  #$0030,INTENA(a4)           ; sin las interrupciones (la logica)
+        ifd     D1TRACE
+        bsr     d1_stop
+        endc
         lea     dc_st(pc),a2
         bsr     dc_streak                   ; la racha abierta, al histograma
         endc
@@ -3120,4 +3153,13 @@ gfx32f: incbin  "work/cc/gfx32f.bin"        ; con los bits al reves (volteo)
         cnop    0,4
 replay: incbin  "work/yi1_replay.bin"       ; en vivo: solo el primer estado
         cnop    0,4
+        ifd     SPR_BANK
+; El loader G3 va detras de todo. Antes de entry alargaba el tramo entre el
+; juego y scroll.s (con BENCH + D1TRACE, los bsr a columns/build_mid pasaban
+; de 32 KB); al final del codigo, en vivo, dejaba spr_lv(pc) fuera de
+; alcance (P102). Se llama por la base; sg3_dma/sg3_tables, igual.
+        include "work/sg3_bank.i"
+        include "player/sprbank.s"
+        cnop    0,4
+        endc
 binend:
