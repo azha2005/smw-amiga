@@ -37,6 +37,8 @@ def main():
                     help="con --worst: tambien el perfil de este frame")
     ap.add_argument("--hot", type=int, default=0,
                     help="ademas: las N lineas del listado con mas ciclos y el resumen por instruccion")
+    ap.add_argument("--oracle", default=os.path.join(WORK, "oracle_yi1.bin"),
+                    help="oraculo a recorrer (p. ej. work/oracle_stress_back.bin)")
     ap.add_argument("--sprites", action="store_true",
                     help="_level_sprites = 1: el frame corre tambien los sprites (etapa 9)")
     a = ap.parse_args()
@@ -48,7 +50,7 @@ def main():
     starts = [f[0] for f in funcs]
     code = open(a.bin, "rb").read()
     map0 = open(os.path.join(WORK, "yi1_map16.bin"), "rb").read()
-    db = open(os.path.join(WORK, "oracle_yi1.bin"), "rb").read()
+    db = open(a.oracle, "rb").read()
     RAM, MAP = V.BASE + syms["_ram"], V.BASE + syms["map16"]
 
     cpu = V.MusashiCPU()

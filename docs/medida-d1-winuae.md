@@ -75,3 +75,32 @@ python tools/d1_count_v2.py work/d1-back-final/raw.bin --expected-ops 4127 --out
 ```
 
 Para sprites cambiar escenario y --ops 1915. El capturador usa el ejecutable Python que lo invoca; en la PC evitar el stub python3 de WindowsApps. Las cinco pruebas de tools/test_d1_trace.py entran en regress.py: continuidad, múltiples eventos, overflow, evento fuera de intervalo y conservación del rechazo singular. Los datos anteriores v1/v2 preliminares se conservan en work/ pero no sustituyen la tabla final. No hubo A/B que compare optimizaciones del juego; esta entrega mide y deja la puerta roja.
+
+## A/B sin traza: sin OAM ampliada, con `SPR_OAM` y con el banco G3 (2026-10-06, revisión)
+
+Mismos replays de estrés, `GDEFS=-DREPLAY -DBENCH`, sin `D1TIMER`/`D1TRACE`;
+WinUAE cycle-exact (KS 1.2, OCS PAL, `tools/shot.ps1 -Exact` con copias
+privadas por slot), lectura `tools/game_read.py --auto`. Capturas en
+`work/st_{back,sprites}_{nooam,oam,g3}/bench.png`.
+
+| escenario | build | fotos perdidas | racha máx. | `level_frame` máx. | total medio |
+|---|---|---:|---:|---:|---:|
+| stress_back | `-DNOOAM` | 145 / 4126 = 3,51 % | 3 | 55,1 % | 46,2 % |
+| stress_back | `SPR_OAM` | 713 = 17,28 % | 48 | 83,1 % | 56,3 % |
+| stress_back | `SPR_OAM` + `SPR_BANK` (G3) | 712 = 17,26 % | 48 | 83,1 % | 56,3 % |
+| stress_sprites | `-DNOOAM` | 0 / 1914 | 0 | 53,5 % | 40,9 % |
+| stress_sprites | `SPR_OAM` | 99 = 5,17 % | 10 | 86,6 % | 51,0 % |
+| stress_sprites | `SPR_OAM` + `SPR_BANK` (G3) | 99 = 5,17 % | 10 | 86,9 % | 51,0 % |
+
+- **El banco G3 no cuesta nada por frame** (solo carga al arrancar);
+  todavía no dibuja nada, así que esto no mide G5.
+- **El derrumbe lo pone la OAM ampliada de G8b**: la lógica pasa de 55 % a
+  83-87 % del frame en el peor caso y, con O5, al render no le queda tiempo.
+  Perfil en Musashi (`tools/m68kprof.py --oracle work/oracle_stress_back.bin
+  --sprites`, sin DMA): media 35 000 → 47 000 ciclos; peor frame 58 000 →
+  81 700. En ese peor frame (Banzai en pantalla) `finish_oam_write` se lleva
+  21 000 ciclos (25,7 %): transcripción literal que lee y escribe `$00-$0B`
+  en la RAM emulada en cada ficha.
+- **Sin OAM ampliada, `stress_back` tampoco pasa la compuerta** (3,51 %,
+  racha 3; objetivo ≤ 0,1 %, racha 1): el pico es `build_mid` en la vuelta
+  (165 % en s = 4606), que es lo que tiene que resolver S5.

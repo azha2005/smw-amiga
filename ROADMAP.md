@@ -92,7 +92,7 @@ no entra es la **imagen** de ese VBL. Medidas WinUAE al 2026-10-05; la fila G8b 
 | bobs en PF1 (Banzai, excedentes) | 22,7-33,8 % (Banzai + 4 Rex, `bench2.s` W3) | caso raro | `docs/decisiones-medidas.md` |
 | HUD | sin hacer (H1 midió la banda) | ≤ 2 % | `docs/medida-hud.md` |
 | audio | sin hacer | ≤ 3 % (D5) | — |
-| estrés D1 (`stress_back`/`stress_sprites`, con `SPR_OAM`) | sin traza: 714/4126 y 100/1914 VBL repetidos; con traza: 753 (18,25 %, racha 57) y 205 (10,71 %, racha 93) | **roja**; falta sin `SPR_OAM` | `docs/medida-d1-winuae.md` |
+| estrés D1 (`stress_back`/`stress_sprites`, con `SPR_OAM`) | sin traza: 714/4126 y 100/1914 VBL repetidos; con traza: 753 (18,25 %, racha 57) y 205 (10,71 %, racha 93) | **roja**; sin `SPR_OAM`: 145/4126 (3,51 %, racha 3) y 0/1914 | `docs/medida-d1-winuae.md` |
 | **fotos omitidas** | **14 de 6312 = 0,22 %**, racha máx. 1 (WinUAE, replay YI1, sin G5/HUD/audio) | ver la compuerta | `docs/medida-oam-o5.md` |
 
 **Lectura:** el problema es de **picos**, no de media. El coste de

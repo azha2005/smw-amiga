@@ -27,7 +27,9 @@ G3/G5a/D1 (detalle en `docs/archivo/sesiones.md`, al final).
   y 100 de 1914 (`stress_sprites`). Con traza, 753/4126 (18,25 %, racha 57)
   y 205/1914 (10,71 %, racha 93); la traza en sí suma 403/169 ticks de
   media, así que p99, edad y ventana250 describen el build instrumentado,
-  no el juego. Falta la misma medida sin `SPR_OAM`. `docs/medida-d1-winuae.md`.
+  no el juego. Sin `SPR_OAM` (A/B de la revisión, sin traza): 3,51 % y
+  racha 3 en `stress_back`, 0 en `stress_sprites`; el banco G3 no agrega
+  nada por frame. `docs/medida-d1-winuae.md`.
 - **G5a NO está hecha.** La rama `wt/g5a-1006` (`a2da1fd`) pega el Rex de
   **un solo frame** (oráculo 6277) en una posición fija de pantalla: en
   movimiento el Rex se queda quieto con la cámara, y en sus líneas
@@ -55,9 +57,14 @@ reproduce cada puerta antes de aceptarla**).
 
 | tarjeta | nivel | toca | entrega y puerta |
 |---|---|---|---|
+| **L-OAM** — abaratar la OAM ampliada, **primero** | alto | `player/spr_gfx.c` (+ asm si hace falta), opt-in | con `SPR_OAM` el estrés se derrumba: 17,3 % de fotos perdidas en `stress_back` contra 3,5 % sin ella (`docs/medida-d1-winuae.md`, último apartado). Empezar por `finish_oam_write` (25,7 % del peor frame): variables temporales en registros y `$00-$0B` escritos una vez al final con su valor final; después `banzai_gfx`, `rex_gfx`, `spr_tile_asm`. Puerta: `regress.py --level` (cruce de RAM entera PC = 68000) igual, `m68kprof.py --oracle work/oracle_stress_back.bin --sprites` y WinUAE con el mismo A/B: `level_frame` ≤ 40 % en YI1 y fotos perdidas de `stress_*` con `SPR_OAM` no peores que sin ella |
 | **G5a-bis** — Rex desde la OAM, por frame | alto | rama propia; `player/` mínimo, opt-in (`SPR_OAM` + `SPR_BANK`) | en cada frame, POS/CTL/PT del Rex salen de la OAM que calcula el 68000 y la imagen de la **variante G3 con las reservas reales de Mario** (no del banco base de 48 poses). Ningún color fijo ni posición fija en el código. Puerta: (1) comparación automática OAM→imagen en **todos** los frames con Rex de `yi1`, `normal` y `spin_kill`, no en uno; (2) capturas WinUAE de al menos tres frames distintos con cámara distinta, una con Mario y Rex en las mismas líneas: Mario con su paleta; (3) coste A/B contra el mismo build sin Rex (como el de esta revisión) |
-| **Perfil OAM ampliada** | alto | `logic68k.s`, opt-in | localizar el pico de `level_frame` con `SPR_OAM` (49,4 %) y bajarlo a ≤ 40 % sin cambiar la semántica (PC = 68000 en `regress.py`) |
-| **D1 sin OAM ampliada** | medio | `tools/d1_*`, sin tocar `game.s` | repetir el A/B de `docs/medida-d1-winuae.md` con `CDEFS=-DNOOAM` para separar lo que pone G8b de lo que pone el scroll |
+
+
+
+Sin L-OAM, cualquier dibujo de enemigos se monta sobre una lógica que ya
+no deja tiempo al render: G5a-bis puede desarrollarse en paralelo, pero no
+se mide su coste hasta que L-OAM cierre.
 
 G4 completo (asignador de columnas para varios enemigos) y G6
 (`sprcop_verify.py`) siguen después: G5a-bis es un solo Rex y no los
