@@ -654,8 +654,8 @@ REXOAM macro
         addq.b  #4,d3                     ; alto de d3 sigue cero
         endm
 
-        public  _rex_gfx
-_rex_gfx:
+        public  _rex_gfx_asm
+_rex_gfx_asm:
         movem.l d2-d7/a2-a3,-(sp)
         moveq   #0,d2
         move.b  32+7(sp),d2

@@ -116,8 +116,13 @@ static void finish_oam_write(u8 x, u8 a, u8 ysz)
 #endif
 
 /* RexGfxRt: dos fichas (cuerpo y cabeza; aplastado, dos de 8x8) */
-#ifndef LOGIC68K
-/* El PC/NOASM conserva esta referencia; _rex_gfx en logic68k.s hace
+#ifdef LOGIC68K
+/* Mantener el punto de entrada C: game_build valida con este simbolo que
+   el C y el asm comparten SPR_OAM. La implementacion sigue en asm. */
+void rex_gfx_asm(u8 x);
+void rex_gfx(u8 x) { rex_gfx_asm(x); }
+#else
+/* El PC/NOASM conserva esta referencia; _rex_gfx_asm en logic68k.s hace
    exactamente las mismas escrituras con indices y coordenadas locales. */
 void rex_gfx(u8 x)
 {
