@@ -158,6 +158,17 @@ Por cada rama:
    la tabla de §4 y, si cambió una etapa, a `ROADMAP.md` §1;
    `sh tools/wt_new.sh --rm <id>`. Al terminar la sesión, `ROADMAP.md` §7.
 
+**Además (2026-10-07, después de la sesión G3/G5a/D1, en la que se dio por
+hecha una G5a que pegaba el Rex de un solo frame):** las reglas de
+`docs/instrucciones-olas.md` §1.3 son obligatorias para integrar. En
+corto: repetir la puerta y **mirar las imágenes** uno mismo; una prueba de
+un solo frame no prueba movimiento; comprobar con `grep` en
+`work/regress.log` que lo que el informe dice que "entra en `regress.py`"
+se ejecuta; citar hashes de `git log`; los builds por defecto idénticos
+byte a byte si el cambio es opt-in; toda medida de la compuerta D1 con su
+control en la misma tanda (`tools/stress_ab_*`); nada sin commitear en
+master ni en los worktrees al cerrar.
+
 ### 2.5 Mapa de conflictos
 
 Dos tarjetas de la misma ola no pueden tocar el mismo fichero. Las zonas:

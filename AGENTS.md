@@ -5,6 +5,12 @@
 >
 > **Qué hacer ahora: `PROXIMO.md`** — el único lugar que lo dice.
 >
+> **Cómo ejecutarlo: `docs/instrucciones-olas.md`** (entorno de la PC, red
+> de seguridad antes de cada commit, reglas del coordinador y guía de las
+> olas 3-8). Las tarjetas en curso tienen instrucciones paso a paso propias
+> (`docs/instrucciones-*.md`, enlazadas desde `PROXIMO.md`). Leer la que
+> toque **antes** de empezar.
+>
 > **Estado, presupuesto del frame, decisiones y sesiones que faltan:
 > `ROADMAP.md`.** Cómo hacer cada cosa (optimización, lo que falta, más allá
 > de YI1): `docs/plan-tecnico.md`.
