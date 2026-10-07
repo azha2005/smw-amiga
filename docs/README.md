@@ -50,6 +50,8 @@
 | `informe-loam-1007.md` | 2026-10-07 | L-OAM: FinishOAMWrite y Rex en asm, puertas RAM/OAM, perfiles y A/B de estrés |
 | `informe-g5bis-1007.md` | 2026-10-07 | G5a-bis fase A parcial: máscaras y variantes exactas, ventanas vacías; B/C detenidas |
 | `informe-coordinacion-1007.md` | 2026-10-07 | revisión independiente, integración parcial de L-OAM y bloqueo temporal de G5a-bis |
+| `informe-g2t-1007.md` | 2026-10-07 | G2T: tres alternativas temporales, auditoría de 3404 frames, ocho recargas cycle-exact y barrera PAL255; contrato candidato |
+| `instrucciones-g2t-a.md` | 2026-10-07 | propuesta A-T: timeline calibrado y puerta horizontal offline completa antes de G5 B/C |
 | `instrucciones-revision-1007.md` | 2026-10-07 | revisión propuesta tras las dos paradas: diagnóstico de coste OAM y contrato temporal, antes de nueva implementación |
 | `instrucciones-loam.md` | 2026-10-07 | L-OAM paso a paso: abaratar la OAM ampliada (paso 1 hecho y medido) |
 | `instrucciones-g5a-bis.md` | 2026-10-07 | G5a-bis paso a paso: el Rex desde la OAM por frame, fases A (offline), B (C) y C (copper) |
