@@ -64,44 +64,48 @@ u8 spr_oam_index(u8 x)
    ficha (CODE_01B844) y la Y fuera de pantalla a $F0 (CODE_01C9BF) */
 static void finish_oam_write(u8 x, u8 a, u8 ysz)
 {
-    u8 y = SPR(wm_SprOAMIndex, x), i, t, hi, c;
-    u16 w;
+    /* Los temporales $00-$0B de la ROM viven en variables locales y se
+       escriben UNA vez al final, con el valor que la ROM les deja (la
+       semantica de la RAM no cambia: regress.py cruza la RAM entera).
+       m5:m4 = X del sprite (16 bits) + desplazamiento de la ficha con
+       signo: es lo que hacen LDX #0 / BPL / DEX / ADC m2 / TXA / ADC m3. */
+    u8 y = SPR(wm_SprOAMIndex, x), i, n = a;
+    u8 s0 = SPR(wm_SpriteYLo, x), s1 = SPR(wm_SpriteYHi, x);
+    u8 s2 = SPR(wm_SpriteXLo, x), s3 = SPR(wm_SpriteXHi, x);
+    u8 s6 = (u8)(s0 - R8(wm_Bg1VOfs)), s7 = (u8)(s2 - R8(wm_Bg1HOfs));
+    u16 bx = (u16)(s2 | s3 << 8), by = (u16)(s0 | s1 << 8);
+    u16 hofs = R16(wm_Bg1HOfs), vofs = (u16)(R16(wm_Bg1VOfs) - 0x10);
+    u16 lx, ly;
     oam_mark(x, y, (u8)(a + 1));
-    W8(m11, ysz);
-    W8(m8, a);
-    W8(m0, SPR(wm_SpriteYLo, x));
-    W8(m6, (u8)(SPR(wm_SpriteYLo, x) - R8(wm_Bg1VOfs)));
-    W8(m1, SPR(wm_SpriteYHi, x));
-    W8(m2, SPR(wm_SpriteXLo, x));
-    W8(m7, (u8)(SPR(wm_SpriteXLo, x) - R8(wm_Bg1HOfs)));
-    W8(m3, SPR(wm_SpriteXHi, x));
     for (;;) {
         i = (u8)(y >> 2);
-        if (NEG(R8(m11)))
+        if (NEG(ysz))
             OAM_SIZE(i) &= 0x02;
         else
-            OAM_SIZE(i) = R8(m11);
-        t = (u8)(OAM_X(y) - R8(m7));        /* X de la ficha en el nivel */
-        hi = NEG(t) ? 0xFF : 0x00;
-        w = (u16)t + R8(m2);
-        c = (u8)(w >> 8);
-        W8(m4, (u8)w);
-        W8(m5, (u8)(hi + R8(m3) + c));
-        if ((u16)((R8(m4) | R8(m5) << 8) - R16(wm_Bg1HOfs)) >= 0x100)
+            OAM_SIZE(i) = ysz;
+        lx = (u16)(bx + (u16)(s16)(s8)(u8)(OAM_X(y) - s7));   /* X de la ficha en el nivel */
+        if ((u16)(lx - hofs) >= 0x100)
             OAM_SIZE(i) |= 0x01;
-        t = (u8)(OAM_Y(y) - R8(m6));        /* Y de la ficha en el nivel */
-        hi = NEG(t) ? 0xFF : 0x00;
-        w = (u16)t + R8(m0);
-        c = (u8)(w >> 8);
-        W8(m9, (u8)w);
-        W8(m10, (u8)(hi + R8(m1) + c));
-        if ((u16)((R8(m9) | R8(m10) << 8) + 0x10 - R16(wm_Bg1VOfs)) >= 0x100)
+        ly = (u16)(by + (u16)(s16)(s8)(u8)(OAM_Y(y) - s6));   /* Y de la ficha en el nivel */
+        if ((u16)(ly - vofs) >= 0x100)
             OAM_Y(y) = 0xF0;
         y = (u8)(y + 4);
-        W8(m8, (u8)(R8(m8) - 1));
-        if (NEG(R8(m8)))
+        n = (u8)(n - 1);
+        if (NEG(n))
             break;
     }
+    W8(m0, s0);
+    W8(m1, s1);
+    W8(m2, s2);
+    W8(m3, s3);
+    W8(m4, (u8)lx);
+    W8(m5, (u8)(lx >> 8));
+    W8(m6, s6);
+    W8(m7, s7);
+    W8(m8, n);
+    W8(m9, (u8)ly);
+    W8(m10, (u8)(ly >> 8));
+    W8(m11, ysz);
 }
 
 /* RexGfxRt: dos fichas (cuerpo y cabeza; aplastado, dos de 8x8) */
