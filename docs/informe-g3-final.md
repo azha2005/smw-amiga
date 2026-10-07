@@ -105,6 +105,19 @@ Los enemigos nuevos todavía no se dibujan; esa evidencia pertenece a G5a/G5.
 Este cambio no llama conversión, CRC, copia ni búsqueda de variantes por frame.
 No se atribuye un coste G4/G5 medido a esta representación.
 
+### Corrección del 2026-10-06 (revisión posterior): CRC por tabla
+
+El `sg3_crc` integrado en `3b42a2e` calculaba la CRC32 **bit a bit**:
+46 941 522 ciclos para los 137 252 B (DMA 64 528 + tablas 72 724), **6,62 s
+de arranque** a 7,09 MHz, medido en Musashi (sin esperas de DMA, así que en
+la A500 es algo más). Ahora `sg3_crc_init` arma una tabla de 256 entradas
+(87 572 ciclos, 1 KB dentro del binario, en slow) y `sg3_crc` va byte a
+byte por tabla: **12 627 324 ciclos = 1,78 s**. Da el mismo valor que
+`zlib.crc32` en los dos ficheros; el loader pasa otra vez los 7 casos por
+modo en Unicorn (las dos corrupciones se siguen detectando). Memmap: slow
+287 880 B replay / 324 120 B vivo (+1 064 B de binario), chip sin cambio,
+cero violaciones. Medir el arranque real en WinUAE sigue pendiente.
+
 ## Reproducción y comprobaciones
 
 En PC, usar Bash con PATH/VBCC/PY de `docs/reglas-ola-pc.md`. Manifiestos

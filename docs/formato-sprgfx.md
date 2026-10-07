@@ -181,6 +181,8 @@ los bytes válidos a slow, libera scratch y comprueba CRC32 de ambos archivos.
 Publica los punteros únicamente tras la validación completa. Comprueba además
 alineación 8, rangos físicos chip/slow y IO_ACTUAL en cada lectura. La CRC usa
 las constantes del asset cuya estructura ya fue verificada antes de ensamblar.
+La CRC32 se calcula por tabla (`sg3_crc_init`, 1 KB en el binario): 1,78 s
+de arranque para el banco acotado, medido en Musashi.
 No hay descompresión, recodificación o trabajo de este loader por frame.
 
 Con fallo de reserva, E/S o CRC, retorna error al `gfail` existente. Esa ruta

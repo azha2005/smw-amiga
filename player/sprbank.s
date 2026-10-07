@@ -9,6 +9,7 @@
 SG3_SCRATCH_BYTES equ 512
 sg3_load:
         movem.l d2-d7/a2-a6,-(sp)
+        bsr     sg3_crc_init
         move.l  #SG3_DMA_ALLOC,d0
         move.l  #MEMF_CHIP,d1
         jsr     _LVOAllocMem(a6)
@@ -127,29 +128,57 @@ sg3_read:
 .out:
         rts
 
-; --- sg3_crc ---
-; entrada: a0 bytes, d1 longitud; salida: d0 CRC32 IEEE
-; registros destruidos: d0-d1/a0; ciclos: arranque (~bit a bit)
-sg3_crc:
-        movem.l d2-d3,-(sp)
-        moveq   #-1,d0
-.byte:
-        moveq   #0,d2
-        move.b  (a0)+,d2
-        eor.l   d2,d0
-        moveq   #7,d3
+; --- sg3_crc_init ---
+; entrada: nada
+; salida: sg3_crctab = CRC32 IEEE (polinomio reflejado $EDB88320) de 0..255
+; registros destruidos: d0-d1/a0
+; ciclos: una vez por arranque (8 vueltas bit a bit por entrada)
+sg3_crc_init:
+        move.l  d2,-(sp)
+        lea     sg3_crctab(pc),a0
+        moveq   #0,d1                       ; indice 0..255
+.ent:
+        move.l  d1,d0
+        moveq   #7,d2
 .bit:
         lsr.l   #1,d0
         bcc.s   .next
         eor.l   #$edb88320,d0
 .next:
-        dbra    d3,.bit
+        dbra    d2,.bit
+        move.l  d0,(a0)+
+        addq.w  #1,d1
+        cmp.w   #256,d1
+        bne.s   .ent
+        move.l  (sp)+,d2
+        rts
+
+; --- sg3_crc ---
+; entrada: a0 bytes, d1 longitud (> 0); sg3_crctab armada (sg3_crc_init)
+; salida: d0 CRC32 IEEE, igual a zlib.crc32
+; registros destruidos: d0-d1/a0
+; ciclos: arranque, por tabla (antes bit a bit: 46,9 M ciclos = 6,6 s
+;         para los 137 252 B del banco acotado, medido en Musashi)
+sg3_crc:
+        movem.l d2-d3/a1,-(sp)
+        lea     sg3_crctab(pc),a1
+        moveq   #-1,d0
+.byte:
+        moveq   #0,d2
+        move.b  (a0)+,d2
+        eor.b   d0,d2
+        add.w   d2,d2
+        add.w   d2,d2
+        lsr.l   #8,d0
+        move.l  (a1,d2.w),d3                ; P40 ok: d2 = 0..1020
+        eor.l   d3,d0
         subq.l  #1,d1
         bne.s   .byte
         not.l   d0
-        movem.l (sp)+,d2-d3
+        movem.l (sp)+,d2-d3/a1
         rts
 
         cnop    0,4
 sg3_dma:       dc.l 0
 sg3_tables:    dc.l 0
+sg3_crctab:    ds.l 256                     ; la arma sg3_crc_init
