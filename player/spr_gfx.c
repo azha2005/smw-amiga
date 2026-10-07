@@ -62,6 +62,12 @@ u8 spr_oam_index(u8 x)
 
 /* FinishOAMWriteRt (A = fichas - 1, Y = tamaño o $FF): la X alta de cada
    ficha (CODE_01B844) y la Y fuera de pantalla a $F0 (CODE_01C9BF) */
+#ifdef LOGIC68K
+/* Solo la Amiga usa el bucle de registros; el C sigue como referencia
+   del PC/NOASM y oam68k_gate cruza todos los bytes de RAM. */
+void finish_oam_write_asm(u8 x, u8 a, u8 ysz);
+#define finish_oam_write finish_oam_write_asm
+#else
 static void finish_oam_write(u8 x, u8 a, u8 ysz)
 {
     /* Los temporales $00-$0B de la ROM viven en variables locales y se
@@ -107,8 +113,17 @@ static void finish_oam_write(u8 x, u8 a, u8 ysz)
     W8(m10, (u8)(ly >> 8));
     W8(m11, ysz);
 }
+#endif
 
 /* RexGfxRt: dos fichas (cuerpo y cabeza; aplastado, dos de 8x8) */
+#ifdef LOGIC68K
+/* Mantener el punto de entrada C: game_build valida con este simbolo que
+   el C y el asm comparten SPR_OAM. La implementacion sigue en asm. */
+void rex_gfx_asm(u8 x);
+void rex_gfx(u8 x) { rex_gfx_asm(x); }
+#else
+/* El PC/NOASM conserva esta referencia; _rex_gfx_asm en logic68k.s hace
+   exactamente las mismas escrituras con indices y coordenadas locales. */
 void rex_gfx(u8 x)
 {
     u8 y, i, idx, m2v, m3v;
@@ -138,6 +153,7 @@ void rex_gfx(u8 x)
     }
     finish_oam_write(x, 1, 0xFF);
 }
+#endif
 
 /* CODE_01A3DF: fuera de pantalla en vertical (bit 0: esta ficha, bit 1: la
    siguiente) -> X = $80 con el bit 8 puesto (x = $180) y tamaño 8x8.
