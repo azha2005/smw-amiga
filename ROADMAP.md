@@ -31,7 +31,7 @@
 2. Trabajar **un paso por vez**; no se empieza el siguiente con el anterior
    en rojo. Commit `Etapa N.x: <qué>`. Trampa nueva: `Pnn` en
    `docs/pitfalls.md` y en el índice de `AGENTS.md` §8 (la próxima es
-   **P108**).
+   **P109**).
 3. **Al cerrar la sesión: §7** (obligatorio: reescribir `PROXIMO.md`).
 
 **Reglas del proceso (no negociables, vienen de lo que ya costó caro):**
@@ -68,8 +68,8 @@ copian acá.
 | 8.1 | Grabaciones | **32 oráculos** con snesorc sin usuario (`tools/snesorc/*.orc`), entre ellos `stress_back`, `stress_sprites`, `stress_vert`, `pipe`, `goal`/`goal_low`/`goal_miss`, `pw_*` (seta, flor, estrella, 1-UP, `$C7`, bloques, medio, monedas de Yoshi) y los de R10. Faltan: luna 3-UP, R7 (contadores del HUD), R8/A0 (audio) | `tools/snesorc/`, `work/oracle_*.txt` |
 | 8.2 | Lógica ≤ 40 % | **hecha para el alcance anterior**: `level_frame` máx. **37,24 %** en WinUAE con OAM (replay YI1, `docs/medida-oam-o5.md`); L1a-L1d, MA1 integradas. **Reabierta para la OAM ampliada de G8b**: opt-in máx. 62110 ciclos = 43,8 % PAL en Musashi sin DMA; necesita optimización y WinUAE (`docs/validacion-g8b.md`) | `player/logic68k.s` |
 | 9.1 | Sprites: lógica | **casi hecha**: Rex, `$83`, `$B9`, `$BD`, `$02`, `$9F`, `$4F`, `$8E`, `$C7`, Chuck `$95`, caparazones, meta `$7B`, power-ups (P6), Mario crecer/encoger/morir/estrella (P8); `game` 0 resincronizaciones. Faltan P7 (bolas de fuego), P9 (monedas de Yoshi, puntos), P10 (reserva) | `player/msprite.c`, `spr_*.c` |
-| 9.2 | Sprites: dibujo | Mario hecho. G0, G1, G8 (Rex), G3a hechas; OAM opt-in (`-DSPR_OAM`). **G2 revisada (lote acotado): 64528 B DMA, 72716 B tablas, 2593 peticiones + Rex legal exactos**, sin loader G3 ni recargas reales. G8b hecha: OAM de Banzai, piraña, Chuck, meta y caparazones exacta en PC/68000, opt-in (`docs/validacion-g8b.md`). Faltan G3 final, G4-G7, G9. **Los enemigos todavía no se ven en la Amiga** | `docs/diseno-9.2.md`, `docs/informe-g2.md` |
-| 6b | Integración | ADF jugable en vivo y replay; O5 (render desacoplado) por defecto; modo diagnóstico (P58). Chip 390 704 B, slow 207 296 B (replay, `memmap.py`). Falta 6b.1 (vlink C2, compresión C3, loader C4) | `player/game.s`, `docs/diseno-9.2.md` §5 |
+| 9.2 | Sprites: dibujo | Mario hecho. G0, G1, G8 (Rex), G3a hechas; OAM opt-in (`-DSPR_OAM`). **G2 revisada (lote acotado): 64528 B DMA, 72716 B tablas, 2593 peticiones + Rex legal exactos**, **G3 acotada hecha** (`3b42a2e`, revisada en `525984a`/`58784d9`): SG3F/2, 72724 B tablas, loader replay/vivo (1,78 s de CRC al arrancar) y cero violaciones (`docs/informe-g3-final.md`). **G5a no hecha**: la rama pega el Rex de un frame en posición fija (revertida, `652b23c`). G8b hecha: OAM de Banzai, piraña, Chuck, meta y caparazones exacta en PC/68000, opt-in (`docs/validacion-g8b.md`). Faltan cobertura global del banco, G4-G7, G9. **Los enemigos todavía no se ven en la Amiga** | `docs/diseno-9.2.md`, `docs/informe-g2.md` |
+| 6b | Integración | ADF jugable en vivo y replay; O5 (render desacoplado) por defecto; modo diagnóstico (P58). G3 carga el banco opt-in: chip 455728/467256 B, slow 287888/324120 B en replay/vivo (`memmap.py`; `docs/informe-g3-final.md`). El default sin banco conserva su alcance. Falta 6b.1 (vlink C2, compresión C3, loader C4) | `player/game.s`, `docs/diseno-9.2.md` §5 |
 | 10-12 | HUD, audio, pulido | **Z1** hecho (muerte normal y reinicio; `docs/validacion-z1.md`). **H1** medido conservadoramente (`docs/medida-hud.md`; falta la alineación exacta PPU). **A1**: conversor verificado, 20 muestras / 50560 B PCM (`docs/informe-a1.md`); audio reproducido y R8 pendientes. HUD visible, punto medio, meta, game over: pendientes | — |
 | Experimental E11-E14 | Técnicas de juegos de referencia | E11a hecha: 0 cargas PF1 en franjas aptas de 15.755 frames; E11b descartada para `build_mid`. E12 descartada: 0/7 índices sin conflicto en 1.016.785 cámaras. E13 sin caso. E14a hecha; E14 descartada para estrés: 0/202 frames con las 64 filas libres (Banzai solo: 16/331). No cambia el presupuesto ni la compuerta D1 | `docs/experimentos-e11-e14.md` |
 
@@ -92,6 +92,7 @@ no entra es la **imagen** de ese VBL. Medidas WinUAE al 2026-10-05; la fila G8b 
 | bobs en PF1 (Banzai, excedentes) | 22,7-33,8 % (Banzai + 4 Rex, `bench2.s` W3) | caso raro | `docs/decisiones-medidas.md` |
 | HUD | sin hacer (H1 midió la banda) | ≤ 2 % | `docs/medida-hud.md` |
 | audio | sin hacer | ≤ 3 % (D5) | — |
+| estrés D1 (`stress_back`/`stress_sprites`, con `SPR_OAM`) | sin traza: 714/4126 y 100/1914 VBL repetidos; con traza: 753 (18,25 %, racha 57) y 205 (10,71 %, racha 93) | **roja**; falta sin `SPR_OAM` | `docs/medida-d1-winuae.md` |
 | **fotos omitidas** | **14 de 6312 = 0,22 %**, racha máx. 1 (WinUAE, replay YI1, sin G5/HUD/audio) | ver la compuerta | `docs/medida-oam-o5.md` |
 
 **Lectura:** el problema es de **picos**, no de media. El coste de
@@ -134,7 +135,7 @@ de Musashi por cada 1 % de frame.
 
 Cerradas por el usuario el 2026-09-26: se aceptan las recomendaciones, con
 el **teclado primero** en los controles. El criterio general es el mejor
-equilibrio entre 1:1 y coste. No queda ninguna abierta; la compuerta D1 se
+equilibrio entre 1:1 y coste. No queda ninguna decisión abierta; la compuerta D1 se
 mide como dice §2.
 
 | ID | Decisión | Qué se hace | Consecuencias | Etapa |
@@ -217,7 +218,7 @@ La ronda offline E11-E14 se ejecutó aparte el 2026-10-06. No completa
 ninguna tarjeta de la ruta crítica del dibujo: quedan **9-11 sesiones**
 (estimado sin cambios), comenzando por el banco de sprites. E11b y E12
 no se suman a S5 con la representación actual; detalle y límites en
-`docs/experimentos-e11-e14.md`. Se adelantaron A1 (conversor) y G8b (OAM opt-in), y se prepararon los dos replays D1 con contador CSV. No hubo una nueva medida real de D1; faltan exportador por VBL y WinUAE. El banco sigue en la ruta crítica; el estimado 9-11 no se reduce por estos avances parciales.
+`docs/experimentos-e11-e14.md`. Se adelantaron A1 (conversor) y G8b (OAM opt-in), y se prepararon los dos replays D1 con contador CSV. La sesión del 2026-10-06 integró G3 y la traza D1 (compuerta roja en estrés: 714/4126 y 100/1914 VBL repetidos sin traza, `docs/medida-d1-winuae.md`). G5a no se cumplió: la rama pega el Rex de un solo frame en posición fija; se revirtió su fusión y queda G5a-bis en `PROXIMO.md`. La lógica con OAM ampliada llega a 49,4 % PAL con DMA. El banco sigue en la ruta crítica; el estimado 9-11 no se reduce por estos avances parciales.
 
 **Hechas: ~5 sesiones** (2026-09-30 a 2026-10-05). Olas 1 y 2 cerradas; la 3
 casi. La ola 3 se alargó porque el diseño del dibujo de sprites (G0, G2, G3)
@@ -228,7 +229,7 @@ todos los sprites (P1-P6, P8), Z1 y las grabaciones de la ola 4.
 |---|---|---|---|
 | 1. Medir y preparar | — | **cerrada** | 0 |
 | 2. 50 Hz (1) | — (S4 descartada, P89) | **cerrada** | 0 |
-| 3. 50 Hz (2) + diseños | G2 hecha (diseño acotado); G3 + G5a (Rex mínimo), exportación/medida D1; A2 y R7. A1 y G8b adelantadas. S5 pasa a la ola 5, junto a G5 | **casi cerrada** | **1** (la de `PROXIMO.md`) |
+| 3. 50 Hz (2) + diseños | G2/G3 hechas (lote acotado), traza D1 integrada; G5a-bis (Rex por frame), perfil de la OAM ampliada, D1 sin `SPR_OAM`; A2 y R7. A1 y G8b adelantadas. S5 pasa a la ola 5, junto a G5 | **casi cerrada** | **1** (la de `PROXIMO.md`) |
 | 4. Motores y estructura | G4 + G6, G5 + G9, C2 (vlink), S8 (cámara vertical), A0 + A2, P7/P9/P10, T1, I/E sueltas | pendiente | 2-3 |
 | 5. Integraciones y 50 Hz con sprites | S5 (+ S3/S6) con G5 ya hecho, C3/C4/C5 (loader), segundo PF1 + G7 (bobs), H2-H4 (HUD), A3/A4 (música) | pendiente | 2-3 |
 | 6. El juego completo | Z2-Z6 (punto medio, meta, tiempo, fundidos, poste), T2/T3 (tubería), A5-A8 (efectos, comparación), H5, R7 | pendiente | 2 |
@@ -238,7 +239,7 @@ todos los sprites (P1-P6, P8), Z1 y las grabaciones de la ola 4.
 
 El proyecto completo queda en ~14-16 sesiones, contra las 12-15 estimadas el
 2026-09-30. Lo que más puede mover la cuenta: el tamaño del banco de
-sprites (G3/G5a; G2 acotada auditada) y el pico del scroll con G5 encima (S5). Si después de S5 la
+sprites (G5a-bis y ampliación del banco; G3 acotada implementada) y el pico del scroll con G5 encima (S5). Si después de S5 la
 compuerta D1 no pasa, se le llevan los números al usuario (§2).
 
 En paralelo, del lado del usuario (PC): jugar cada ADF nuevo (U1), la

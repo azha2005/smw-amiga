@@ -9,99 +9,92 @@
 > Estado de cada etapa: `ROADMAP.md` §1 · olas y sesiones: `ROADMAP.md` §4 ·
 > tarjetas con su estado: `SUBAGENTES.md` §4 · índice de docs: `docs/README.md`.
 
-**Escrito el 2026-10-06**, tras G2 sin subagentes. El contrato acotado
-está auditado: **64528 B DMA, 72716 B tablas**, 2593 peticiones y Rex legal
-sin diferencias. Copper con una imagen por forma/recargas por fila falla
-con Mario en 12/43 formas; la ampliación G8b tampoco cabe automáticamente.
-Evidencia: `docs/informe-g2.md`, contrato `docs/diseno-9.2.md`.
-G3 y su loader siguen pendientes; los enemigos todavía no se ven en Amiga.
-A1/G8b/D1 mantienen sus resultados y límites de la sesión anterior:
-`docs/informe-a1.md`, `docs/validacion-g8b.md`, `docs/medida-d1-estres.md`.
-G8b sigue opt-in (máximo 43,8 % PAL sin DMA); D1 aún no tiene traza WinUAE.
+**Escrito el 2026-10-06**, después de revisar el cierre de la sesión
+G3/G5a/D1 (detalle en `docs/archivo/sesiones.md`, al final).
+
+- **G3 integrada** (`3b42a2e`, corregida en `525984a` y `58784d9`): banco
+  acotado SG3F/2, 2593 peticiones + Rex legal, 64 528 B DMA / 72 724 B
+  tablas, cero diferencias; loader opt-in (`SPR_BANK`) en replay y vivo.
+  La revisión arregló dos cosas: la CRC32 bit a bit costaba **6,62 s de
+  arranque** (ahora 1,78 s, por tabla) y el loader, incluido antes de
+  `entry`, rompía el build BENCH + D1TRACE (P102); ahora va detrás de los
+  datos. Memmap: chip 455 728 / 467 256 B, slow 287 888 / 324 120 B
+  (replay/vivo), cero violaciones. `docs/informe-g3-final.md`.
+- **D1 integrada como medida** (`d30403a`, fusión `58784d9`): traza v2
+  opt-in (`D1TIMER`/`D1TRACE`), builds por defecto idénticos byte a byte.
+  **La compuerta D1 está roja** en los replays de estrés con `SPR_OAM`
+  (OAM ampliada G8b): sin traza, 714 VBL repetidos de 4126 (`stress_back`)
+  y 100 de 1914 (`stress_sprites`). Con traza, 753/4126 (18,25 %, racha 57)
+  y 205/1914 (10,71 %, racha 93); la traza en sí suma 403/169 ticks de
+  media, así que p99, edad y ventana250 describen el build instrumentado,
+  no el juego. Falta la misma medida sin `SPR_OAM`. `docs/medida-d1-winuae.md`.
+- **G5a NO está hecha.** La rama `wt/g5a-1006` (`a2da1fd`) pega el Rex de
+  **un solo frame** (oráculo 6277) en una posición fija de pantalla: en
+  movimiento el Rex se queda quieto con la cámara, y en sus líneas
+  (160-191) Mario, que también usa COLOR17-31, toma los colores del Rex.
+  El "0/57344 píxeles" vale solo en ese frame. La fusión se revirtió
+  (`652b23c`); la rama se conserva. Lo que sí sirve de ella: el armado
+  PT/POS/CTL en la línea 157 h=$40 después del DMA de SPR7, y el A/B en
+  WinUAE de esta revisión (1132 frames): escribir el recorte cuesta
+  **+1190 ticks de media (+8,4 % del frame)**; el DMA de los cuatro
+  sprites, casi nada (bench 6435 / sin DMA 6443 / vacío 5245 ticks).
+- La lógica con la OAM ampliada (G8b) llega a **49,4 % PAL con DMA**
+  (WinUAE, replay YI1): el objetivo ≤ 40 % está incumplido.
 
 ---
 
-## 1. La próxima sesión: implementar G3 y medir el primer Rex
+## 1. La próxima sesión: el primer Rex de verdad (G4 + G5 mínimos)
 
-**Objetivo:** que el banco de gráficos de sprites y sus tablas entren en
-memoria con reconstrucción exacta, ver el primer Rex en la Amiga y poder
-medir la fluidez (compuerta D1) con los replays de estrés.
+**Objetivo:** que el Rex aparezca donde dice la OAM del juego **en cada
+frame**, con la paleta de Mario intacta, comparado contra el oráculo en
+muchos frames y no en uno.
 
-Modelos (`SUBAGENTES.md` §1): Opus → GPT-6.1 Sol high; Sonnet high →
-GPT-6.1 Sol medium; Sonnet low → GPT-6 Luna medium. Astra queda fuera.
+Modelos: los de `SUBAGENTES.md` §1 (el usuario decide cuál; la sesión
+anterior entregó G5a como hecha sin serlo, así que **el coordinador
+reproduce cada puerta antes de aceptarla**).
 
-| tarjeta | modelo | toca | entrega y puerta |
+| tarjeta | nivel | toca | entrega y puerta |
 |---|---|---|---|
-| **G3** — conversor y loader del banco acotado | Sol medium | `tools/mksprgfx.py`, `tools/sprgfx_final.py`, `player/` carga mínima | implementar el contrato G2: DMA inmutable solapado, catálogo enemigo deduplicado y directorio. Todas las 2593 peticiones y Rex legal, cero rechazos; tablas ≤98304 B. Formato versionado con bob ausente explícito; memmap real replay/vivo y pico del loader. `--final --scope g2-bounded` acepta solo el lote declarado; `--final` global no declara cubierto todo YI1 |
-| **G5a** — prueba mínima de Rex, descartable | Sol high | rama propia; `player/` mínimo | G4 + G5 mínimos sobre el banco base de 48 poses ya verificado (10840 B chip), solo Rex, `-DSPR_OAM`. Rex visible en WinUAE comparado con la OAM del oráculo; MOVE del copper por línea junto a `build_mid` (P51), CPU y DMA medidos en cycle-exact. Los números validan G5/G6; medir también la lógica G8b (hoy máx. 43,8 % sin DMA) antes de activar la OAM ampliada. El código no es el G4/G5 definitivo |
-| **D1-medida** — exportar y medir los replays de estrés | Sol medium (el coordinador fija la exportación; recuento ya disponible) | `tools/`, `docs/` | usar `ORACLE`/`REPLAY` de `game_build.sh` y `d1_count.py`; obtener una traza completa por VBL en WinUAE cycle-exact, con identidad de foto puesta y ticks terminados. `stress_back`: 4127 operaciones; `stress_sprites`: 1915. Medir omisiones, racha, ventana250, edad y p99; los agregados BENCH no bastan (`docs/medida-d1-estres.md`) |
-| **A0** — registro del DSP | Sol medium | `tools/snesorc/orc.c`, `tools/dsplog.py` | escrituras DSP con frame/tick, notas por voz y efectos; oráculo idéntico con/sin registro. A1 ya da conversión exacta; A0 permite estudiar A2 y contrastar el audio (SUBAGENTES A0) |
+| **G5a-bis** — Rex desde la OAM, por frame | alto | rama propia; `player/` mínimo, opt-in (`SPR_OAM` + `SPR_BANK`) | en cada frame, POS/CTL/PT del Rex salen de la OAM que calcula el 68000 y la imagen de la **variante G3 con las reservas reales de Mario** (no del banco base de 48 poses). Ningún color fijo ni posición fija en el código. Puerta: (1) comparación automática OAM→imagen en **todos** los frames con Rex de `yi1`, `normal` y `spin_kill`, no en uno; (2) capturas WinUAE de al menos tres frames distintos con cámara distinta, una con Mario y Rex en las mismas líneas: Mario con su paleta; (3) coste A/B contra el mismo build sin Rex (como el de esta revisión) |
+| **Perfil OAM ampliada** | alto | `logic68k.s`, opt-in | localizar el pico de `level_frame` con `SPR_OAM` (49,4 %) y bajarlo a ≤ 40 % sin cambiar la semántica (PC = 68000 en `regress.py`) |
+| **D1 sin OAM ampliada** | medio | `tools/d1_*`, sin tocar `game.s` | repetir el A/B de `docs/medida-d1-winuae.md` con `CDEFS=-DNOOAM` para separar lo que pone G8b de lo que pone el scroll |
 
-**De la investigación** (`docs/investigacion-ports.md`, una línea por tarjeta):
+G4 completo (asignador de columnas para varios enemigos) y G6
+(`sprcop_verify.py`) siguen después: G5a-bis es un solo Rex y no los
+sustituye.
 
-- **D1-medida:** usar §17.2 como protocolo (A/B iguales salvo el cambio;
-  fotos omitidas, racha, edad de la foto, ticks perdidos, p99 y máximo; no
-  sumar máximos de frames distintos).
-- **G2/G3:** E05 (§16.4): recortar márgenes transparentes conservando el
-  origen OAM y comparar máscara repetida contra única; la fórmula de
-  palabras por fila sirve para el presupuesto de Banzai.
-- **G5a:** E02 (§16.5): medir sobre Rex poses compartidas contra cadena DMA
-  copiada, con su coste en MOVE, para darle el número a G2. E01 (§16.1,
-  perfilador de Bartman) solo como diagnóstico si un pico no se explica;
-  las medidas que valen siguen siendo las de `a500.uae`.
+### Decisión de color y DMA (de G2, sigue vigente)
 
-G2 está cerrada como **diseño acotado**; G3 implementa su contrato.
-`g2_bank_audit.py` emite evidencia SG2A descartable, no sustituye el
-conversor/loader definitivo. Si G3 descubre un caso nuevo o un límite
-incumplido, vuelve a G2 con evidencia. No ampliar el lote sin auditarlo.
+La imagen única con recargas por fila falla con las reservas reales de
+Mario (12/43 formas); se eligen **variantes precalculadas** con flujos DMA
+**inmutables** compartidos, que es lo que trae el banco G3. G5 programa PT
+completo y POS/CTL por copper (G0); no parchea el banco ni recodifica ni
+copia imágenes por frame. Lo que G5a intentó (cargar los 15 colores del
+Rex por fila y "restaurar" una paleta fija) es exactamente lo que G2
+descartó.
 
-### Decisión de color y DMA
+### Lote y límites de memoria
 
-La imagen única con recargas por fila falla con reservas reales de Mario;
-se eligen variantes precalculadas con flujos **inmutables** compartidos.
-G5 programa PT completo y POS/CTL por copper (G0); no parchea el banco ni
-recodifica/copia imágenes por frame. Recargas por X siguen siendo una
-alternativa pendiente de G5a/G6, no una medida ya realizada.
-
-### Lote y puerta de G2/G3
-
-G2 demuestra **64528 B chip + 72716 B tablas** para el lote. El diseño
-anterior de 145600 B incluía fuentes bob de 15 índices que no completan
-G7/PF1; G7 tiene presupuesto separado. Ampliar con las trazas G8b mide
-77152 B DMA aun excluyendo Banzai y sin nuevas variantes Mario: no cabe.
-
-**Lote de la puerta (acotado):** las variantes de las tres trazas actuales
-(`yi1`, `normal`, `spin_kill`) con reservas reales de Mario y ocho paletas,
-más las poses legales de Rex de `RexGfxRt`. **Fuera de este lote**:
-Banzai, piraña, Chuck, meta, power-ups y partículas, y el remapeo de bobs
-a PF1 (G7). G8b ya proporciona OAM de los cinco tipos, pero G3 no amplía
-su lote automáticamente: G2 ya midió el crecimiento; antes de ampliar
-la puerta se necesita otro presupuesto y auditoría (`docs/informe-g2.md`).
-
-**Puerta de cierre:**
-
-- **Chip:** banco ≤65536 B; `memmap` concreto con cero violaciones en
-  replay y vivo con SPR_OAM. Proyección G2: 455232/466760 B chip. Auditar
-  también el pico del loader y copias transitorias. PF1 doble/audio requieren C2/C4.
-- **Slow:** tablas+índices ≤98304 B; trabajo G4/G6 ≤32768 B; fotos 2376 B.
-  Vivo opt-in usa 251120 B; C2/C4 moverán 135472 B redondeados. Tope total
-  nuevo 133448 B, margen 4248 B con el binario actual. Recalcular con
-  crecimiento de código/loader; no usar el margen de replay para vivo.
-- **Exactitud:** todas las variantes del lote sin rechazos ocultos, píxeles
-  y colores exactos, PNG referencia/decodificación comparado, regresión
-  PC/68000 en verde. `--final --scope g2-bounded` acepta el lote completo (no basta con las 48
-  poses base ni con el subconjunto de 1724).
-- **Coste:** si la representación agrega trabajo por frame, medirlo en
-  WinUAE cycle-exact antes de cerrar.
+El banco G3 cubre solo el lote acotado: variantes de `yi1`, `normal` y
+`spin_kill` con reservas reales de Mario y ocho paletas, más las poses
+legales de Rex de `RexGfxRt`. **Fuera**: Banzai, piraña, Chuck, meta,
+power-ups, partículas y los bobs de PF1 (G7). Ampliar el lote necesita
+otro presupuesto (`docs/informe-g2.md`: con G8b sin Banzai ya son 77 152 B
+de DMA, no cabe). Topes: banco ≤ 65 536 B chip; tablas ≤ 98 304 B slow;
+trabajo G4/G6 ≤ 32 768 B; fotos 2376 B (`docs/informe-g3-final.md`).
 
 ### Antes de lanzar y al cerrar
 
-- Antes: `python tools/lint_port.py` y `python tools/regress.py --level`
-  en verde (cloud: `tools/baseline.json`; PC: agregar
-  `--baseline tools/baseline_pc.json`); worktree por tarjeta (`sh tools/wt_new.sh <tarjeta>`); capturas con
-  perfiles privados, máximo tres WinUAE a la vez, cada uno cierra solo su
-  PID.
-- Al cerrar: la regla de `ROADMAP.md` §7 (reescribir este fichero).
+- Entorno de la PC (`docs/reglas-ola-pc.md`):
+  `export PATH="$TEMP/pyshim:/c/msys64/ucrt64/bin:$PATH" VBCC=/c/Users/JC/vbcc PY=python`.
+  Sin `ucrt64` primero, gcc falla sin mensaje y `regress.py` dice solo
+  "FALLO build PC"; con el `python` de WorkBuddy falta `machine68k`.
+- Antes: `python tools/lint_port.py` y
+  `python tools/regress.py --baseline tools/baseline_pc.json --level` en
+  verde; worktree por tarjeta; WinUAE por el candado, cada uno cierra solo
+  su PID.
+- Al cerrar: la regla de `ROADMAP.md` §7. **Nada sin commitear** en master
+  ni en los worktrees.
 
 ---
 
@@ -110,31 +103,21 @@ la puerta se necesita otro presupuesto y auditoría (`docs/informe-g2.md`).
 Cada paso con su puerta; nada empieza con el anterior en rojo. Detalle de
 cómo hacer cada cosa: `docs/plan-tecnico.md` §10; tarjetas: `SUBAGENTES.md`.
 
-1. Terminar **G3** si la sesión de arriba no completa su puerta.
-2. **G4 + G6** (asignador de columnas y `sprcop_verify.py`), con el
-   contrato cerrado.
-3. **G5 + G9**: `SPRxPOS`/`SPRxPT` y colores por línea en la misma lista que
-   `build_mid`; comparación automática contra la OAM. **Los enemigos se ven
-   en la Amiga.**
-4. **Medida de estrés + S5, inmediatamente después de G5**: render completo
-   (scroll + sprites) en la vuelta (s ≈ 2832 y 4580), el Banzai y el tramo
-   con más Rex; después S5 (repartir el trabajo de `build_mid` entre frames)
-   con esos números. Compuerta D1 en fotos omitidas (`ROADMAP.md` §2).
-   Para S5: E09 (reasignar colores a índices con la misma imagen y menos
-   MOVE) y E10 (precalcular solo las zonas caras, p. ej. los postes; todas
-   las listas serían 792 KB y no caben), `docs/investigacion-ports.md` §17.1.
-5. **C2/C4** (vlink + loader) para liberar las ~135 KB de tablas de CPU que
-   hoy viven en chip; después el segundo PF1 y **G7** (bobs).
-   Para G7: E03 (lotes del blitter), E04 (interior opaco del Banzai) y E06
-   (restauración: la copia espejo del buffer circular no es fondo limpio;
-   una foto O5 retenida no se toca), `docs/investigacion-ports.md` §16.2-16.4, §17.1.
-6. En paralelo según dependencias: S8 (cámara vertical de YI1), lógica que
-   falta (P7 bolas de fuego, P9 monedas, P10 reserva), A0/A2 (audio), H2-H4
-   (HUD), T1 (zona de la tubería).
-   Audio (A3-A7): E08 desde el primer driver (tick separado de la
-   reactivación de Paula; auditar qué timer de CIA usa cada cosa, O1 ya usa
-   uno), §16.6. HUD (H2): trucos de módulo para líneas constantes, §16.9.
-   Lógica (L5): E07 (GCC) solo si un perfil muestra que la lógica limita, §16.7.
+1. **G4 + G6** (asignador de columnas y `sprcop_verify.py`) sobre el
+   contrato G3.
+2. **G5 + G9**: todos los enemigos del lote, comparación automática contra
+   la OAM. **Los enemigos se ven en la Amiga.**
+3. **Medida de estrés + S5, inmediatamente después de G5**: render completo
+   en la vuelta (s ≈ 2832 y 4580), el Banzai y el tramo con más Rex, con la
+   traza D1 ya integrada; después S5 (repartir el trabajo de `build_mid`
+   entre frames). Compuerta D1 en fotos omitidas (`ROADMAP.md` §2).
+   Para S5: E09 y E10, `docs/investigacion-ports.md` §17.1.
+4. **C2/C4** (vlink + loader) para liberar las ~135 KB de tablas de CPU que
+   hoy viven en chip; después el segundo PF1 y **G7** (bobs). Para G7:
+   E03, E04 y E06, `docs/investigacion-ports.md` §16.2-16.4, §17.1.
+5. En paralelo según dependencias: S8 (cámara vertical), P7 (bolas de
+   fuego), P9 (monedas, puntos), P10 (reserva), A0/A2 (audio), H2-H4 (HUD),
+   T1 (tubería).
 
 ## 3. Pendiente del usuario o de la PC
 
@@ -144,3 +127,6 @@ cómo hacer cada cosa: `docs/plan-tecnico.md` §10; tarjetas: `SUBAGENTES.md`.
   `python tools/diag_read.py --shot X.png --repro --bin work/live/game.bin`.
 - **U2:** Etapa 7 (`cmp_ref.py` de la capa 2 contra la referencia).
 - **U3**, opcional: probar en una A500 real.
+- Decidir qué modelo hace G5a-bis (ver arriba).
+- `master` va por delante de `origin/master`: sin push hasta que el
+  usuario lo diga.

@@ -235,10 +235,10 @@ original del 2026-09-30, ola por ola, está textual en
 | X1 | pendiente | estudio |
 | G0, G1, G3a, G8 | hecha | `docs/medida-g0.md`, `docs/estudio-g1-g0.md`, `docs/oam-amiga.md` |
 | G2 | hecha (diseño acotado) | 64528 B chip / 72716 B tablas; 2593 peticiones + Rex legal exactos; `docs/informe-g2.md`. Sin subagentes ni medida G5a |
-| G3 | parcial | SG3F/1 y 48 poses; implementar contrato G2 acotado, loader y aceptación final explícita |
-| G5a (prueba mínima de Rex) | pendiente | definida en `PROXIMO.md` |
+| G3 | hecha (lote acotado) | `3b42a2e` + `525984a`/`58784d9` (CRC por tabla, loader detrás de los datos): SG3F/2, 2593 peticiones, 48 formas, 289 descriptores, 64528 B DMA/72724 B tablas; loader replay/vivo y cero violaciones. `docs/informe-g3-final.md` |
+| G5a (prueba mínima de Rex) | **no cumplida** | `wt/g5a-1006` (`a2da1fd`) pega el Rex de un frame en posición fija: se mueve con la cámara y pisa la paleta de Mario. Fusión revertida (`652b23c`). Sigue G5a-bis en `PROXIMO.md` |
 | G8b | hecha (OAM opt-in) | Banzai 391/391, Chuck 599/599, meta 82/82, caparazón 526/526 y piraña 1552/1552 en PC/68000; coste sin DMA y límites en `docs/validacion-g8b.md`; sin activar por defecto ni dibujar enemigos |
-| D1-medida | parcial | replays 4127/1915 operaciones y contador CSV verificados; faltan exportador por VBL y WinUAE (`docs/medida-d1-estres.md`) |
+| D1-medida | hecha con `SPR_OAM`, compuerta roja | `d30403a` (fusión `58784d9`): traza v2 opt-in; sin traza 714/4126 y 100/1914 VBL repetidos. Falta sin `SPR_OAM`. `docs/medida-d1-winuae.md` |
 | G4, G5, G6, G7, G9 | pendiente | después de G2/G3 |
 | C1 | hecha | `tools/memmap.py` |
 | C2, C3, C4, C5 | pendiente | |
@@ -584,7 +584,7 @@ para las tarjetas siguientes; el banco sintético no completa G5.
 acotado en `docs/informe-g2.md`: 64528 B DMA, 72716 B tablas, 2593 peticiones
 y Rex legal, sin diferencias. Matching exacto descarta una imagen por forma
 con recargas por fila en 12/43 formas. Banco inmutable, bob PF1 separado;
-slow tablas ≤98304 B, trabajo ≤32768 B, fotos 2376 B. G3 y G5a no completadas.
+slow tablas ≤98304 B, trabajo ≤32768 B, fotos 2376 B. G3 acotada completada; G5a conserva su puerta independiente.
 Ampliar G8b sin Banzai ya cuesta 77152 B DMA sin reservas nuevas de Mario.
 
 **F · G1** · documento en `ROADMAP.md` Etapa 9.2 (lo escribe el
@@ -601,15 +601,7 @@ adosados + máscara de bob, con `--selftest` de ida y vuelta (como
 `mkmario.py`). Puerta: autoprueba OK en todas las poses que aparecen en los
 oráculos.
 
-**Avance del 2026-10-05:** SG3F, 48 poses compuestas exactas, 241 fichas
-observadas y 12 rechazos verificados. **Formato anterior:** 2593 variantes
-con reservas de Mario requieren 145600 B con esta estrategia; el banco
-estricto emite 1724 y rechaza 869. No es una cota mínima. Ver informe G3.
-**G3 sigue parcial:** implementar formato versionado y loader conforme a
-G2 (`docs/diseno-9.2.md` §2); no cargar el prototipo SG2A. Puerta y lote
-en `PROXIMO.md`. G8b ya tiene OAM de los nuevos tipos, pero no amplía el
-banco automáticamente. Bobs PF1, convivencia de enemigos, recargas reales
-y cobertura completa siguen pendientes.
+**Cierre acotado del 2026-10-06:** SG3F/2, 2593 peticiones con reservas de Mario y Rex legal, 48 formas y 289 descriptores; 64528 B DMA, 72724 B tablas, cero diferencias. Loader opt-in, memmap real y arranque KS 1.2 en replay/vivo verificados. `docs/informe-g3-final.md`. El formato anterior y sus rechazos están en `docs/informe-g3.md`. `--final --scope g2-bounded` acepta el contrato; `--final` global sigue rechazando cobertura incompleta. G8b no amplía el banco automáticamente: bobs PF1, convivencia y recargas reales conservan sus puertas.
 
 #### G4 — Asignador de columnas (C de referencia + asm)
 **M (F si se traba) · G2 + G3 · `player/msprasg.c` (nuevo), `logic68k.s`** ·

@@ -51,8 +51,7 @@ heurística por proximidad de `g1study.py`.
 ## 2. Contrato del banco G3 acotado
 
 La prueba reproducible de G2 está en `informe-g2.md` y
-`tools/g2_bank_audit.py`. Cierra la decisión de representación; el conversor,
-el loader y el dibujador definitivos siguen pendientes. El prototipo **SG2A**
+`tools/g2_bank_audit.py`. Cierra la decisión de representación. G3 implementa conversor y loader SG3F/2 para el lote acotado (`informe-g3-final.md`); el dibujador y la cobertura global siguen pendientes. El prototipo **SG2A**
 no es aceptado por SG3F/1 y nunca debe cargarse como si fuera ese formato.
 
 ### Cobertura y límites
@@ -294,9 +293,7 @@ Cadenas dinámicas, selección y cargas reales quedan sujetos a G4/G5/G6.
    diferencias. Activarla por defecto sigue pendiente de medir OAM/O5 con DMA.
 3. **G2 revisada y auditada el 2026-10-06** (`informe-g2.md`): contrato
    acotado 64528 B chip / 72716 B tablas, sin recodificación por frame.
-   **G3 pendiente:** conversor y loader versionados, aceptación explícita
-   del lote completo y memmap concreto replay/vivo. `--final` antiguo
-   sigue rechazando cobertura incompleta; no se cambia para fingir cierre.
+   **G3 acotada hecha:** conversor y loader SG3F/2, aceptación explícita y memmap concreto replay/vivo (`informe-g3-final.md`). `--final` global sigue rechazando cobertura incompleta; el scope acotado no cubre todo YI1.
 4. G4 + G6: asignador C/asm, cola de bobs explícita, píxeles reconstruidos
    exactos y plazos de cada recarga. No confundirlos con enemigos visibles.
 5. G5 + G9: listas del copper y capturas de enemigos contra la OAM; medir DMA

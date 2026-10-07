@@ -114,9 +114,22 @@ la A500 es algo más). Ahora `sg3_crc_init` arma una tabla de 256 entradas
 (87 572 ciclos, 1 KB dentro del binario, en slow) y `sg3_crc` va byte a
 byte por tabla: **12 627 324 ciclos = 1,78 s**. Da el mismo valor que
 `zlib.crc32` en los dos ficheros; el loader pasa otra vez los 7 casos por
-modo en Unicorn (las dos corrupciones se siguen detectando). Memmap: slow
-287 880 B replay / 324 120 B vivo (+1 064 B de binario), chip sin cambio,
-cero violaciones. Medir el arranque real en WinUAE sigue pendiente.
+modo en Unicorn (las dos corrupciones se siguen detectando). Memmap (con el cambio
+siguiente): slow 287 888 B replay / 324 120 B vivo, chip sin cambio, cero
+violaciones. Medir el arranque real en WinUAE sigue pendiente.
+
+### Corrección del 2026-10-06: el loader va detrás de los datos (P102)
+
+`sprbank.s` estaba incluido justo antes de `entry`, entre `scroll.s` y el
+código del juego. Al fusionar D1, el build `SPR_BANK` + BENCH + D1TRACE
+falló `piccheck`: cuatro `bsr` del banco de pruebas a `columns`,
+`apply_colors`, `set_pointers` y `build_mid` pasaban de 32 KB (ya faltaban
+2 bytes con la CRC original). Al final del código, en vivo, era `spr_lv(pc)`
+el que quedaba fuera de alcance. Ahora `sprbank.s` va detrás de `replay`
+(antes de `binend`) y `entry` lo llama por la base (`add.l
+#sg3_load-binstart,a0; jsr (a0)`). Los punteros `sg3_dma`/`sg3_tables`
+están igual de lejos: G5 tiene que leerlos con `GETBASE`. Replay, vivo,
+BENCH y BENCH + D1TRACE: cero llamadas absolutas, loader 7/7 en Unicorn.
 
 ## Reproducción y comprobaciones
 

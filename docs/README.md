@@ -25,7 +25,7 @@
 | `pitfalls.md` | texto completo de las trampas P1-P108 (índice en `AGENTS.md` §8) |
 | `formato-nivel.md` | assets, formato `.lv`, Map16, tileset, paletas, comparación contra la referencia |
 | `formato-sprgfx.md` | formato SG3F de las poses de sprites (G3) |
-| `diseno-9.2.md` | **G2**: diseño del dibujo de sprites desde la OAM, interfaces, presupuesto de memoria (§5). Revisado el 2026-10-06: banco acotado auditado, loader G3 pendiente |
+| `diseno-9.2.md` | **G2**: diseño del dibujo de sprites desde la OAM, interfaces, presupuesto de memoria (§5). Revisado el 2026-10-06: banco acotado y loader SG3F/2 implementados; presupuesto concreto en informe-g3-final |
 | `oam-amiga.md` | `SPR_OAM` en el 68000: opción, puertas y comandos |
 | `decisiones-medidas.md` | datos con los que se cerraron D7, D8 y D9 y los resultados de la etapa 4 |
 | `cobertura.md` | qué del C no corre con ninguna grabación (`tools/coverage.py`, con notas a mano) |
@@ -44,7 +44,9 @@
 | `medida-oam-o5.md` | 2026-10-05 | OAM + O5 en WinUAE cycle-exact: lógica, `build_mid`, fotos omitidas |
 | `validacion-sx.md` | 2026-10-05 | SX/SX2 y P51: 24 capturas cycle-exact |
 | `informe-g2.md` | 2026-10-06 | banco acotado 64528 B DMA / 72716 B tablas, remapeo copper evaluado y crecimiento G8b |
-| `informe-g3.md` | 2026-10-05 | G3: formato verificable y banco que no entra |
+| `informe-g3.md` | 2026-10-05 | G3: formato anterior y banco que no entra; superado para el lote acotado por informe-g3-final |
+| `informe-g3-final.md` | 2026-10-06 | SG3F/2, loader replay/vivo, negativos, memoria y arranque WinUAE verificados |
+| `medida-d1-winuae.md` | 2026-10-06 | D1: traza v2 en WinUAE de `stress_back`/`stress_sprites` con `SPR_OAM`; compuerta roja, coste de la traza |
 | `validacion-z1.md` | 2026-10-05 | Z1: muerte y recarga del nivel |
 | `medida-hud.md` | 2026-10-05 | H1: banda del HUD y cruces con la capa 1 |
 | `informe-a1.md` | 2026-10-06 | BRR exacto, inventario PCM y límites de loops/R8 |
