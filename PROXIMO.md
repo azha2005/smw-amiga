@@ -9,8 +9,9 @@
 > Estado de cada etapa: `ROADMAP.md` §1 · olas y sesiones: `ROADMAP.md` §4 ·
 > tarjetas con su estado: `SUBAGENTES.md` §4 · índice de docs: `docs/README.md`.
 
-**Escrito el 2026-10-06**, después de revisar el cierre de la sesión
-G3/G5a/D1 (detalle en `docs/archivo/sesiones.md`, al final).
+**Escrito el 2026-10-06 y actualizado el 2026-10-07**, después de revisar
+el cierre de la sesión G3/G5a/D1 (detalle en `docs/archivo/sesiones.md`,
+al final) y del paso 1 de L-OAM.
 
 - **G3 integrada** (`3b42a2e`, corregida en `525984a` y `58784d9`): banco
   acotado SG3F/2, 2593 peticiones + Rex legal, 64 528 B DMA / 72 724 B
@@ -22,14 +23,18 @@ G3/G5a/D1 (detalle en `docs/archivo/sesiones.md`, al final).
   (replay/vivo), cero violaciones. `docs/informe-g3-final.md`.
 - **D1 integrada como medida** (`d30403a`, fusión `58784d9`): traza v2
   opt-in (`D1TIMER`/`D1TRACE`), builds por defecto idénticos byte a byte.
-  **La compuerta D1 está roja** en los replays de estrés con `SPR_OAM`
-  (OAM ampliada G8b): sin traza, 714 VBL repetidos de 4126 (`stress_back`)
-  y 100 de 1914 (`stress_sprites`). Con traza, 753/4126 (18,25 %, racha 57)
-  y 205/1914 (10,71 %, racha 93); la traza en sí suma 403/169 ticks de
-  media, así que p99, edad y ventana250 describen el build instrumentado,
-  no el juego. Sin `SPR_OAM` (A/B de la revisión, sin traza): 3,51 % y
-  racha 3 en `stress_back`, 0 en `stress_sprites`; el banco G3 no agrega
-  nada por frame. `docs/medida-d1-winuae.md`.
+  **La compuerta D1 está roja** en estrés (WinUAE, sin traza, fotos
+  perdidas / racha):
+
+  | replay | sin `SPR_OAM` | con `SPR_OAM` antes | con `SPR_OAM` tras L-OAM paso 1 |
+  |---|---|---|---|
+  | `stress_back` | 3,51 % / 3 | 17,28 % / 48 | 14,93 % / 38 |
+  | `stress_sprites` | 0 % / 0 | 5,17 % / 10 | 2,93 % / 4 |
+  | `yi1` (replay entero) | 0,22 % / 1 | — | 0,44 % / 1 |
+
+  El banco G3 no agrega nada por frame. La traza D1 v2 suma 403/169 ticks
+  de media: sus p99/edad/ventana250 describen el build instrumentado.
+  `docs/medida-d1-winuae.md`, `docs/instrucciones-loam.md` §4.
 - **G5a NO está hecha.** La rama `wt/g5a-1006` (`a2da1fd`) pega el Rex de
   **un solo frame** (oráculo 6277) en una posición fija de pantalla: en
   movimiento el Rex se queda quieto con la cámara, y en sus líneas
@@ -40,16 +45,19 @@ G3/G5a/D1 (detalle en `docs/archivo/sesiones.md`, al final).
   WinUAE de esta revisión (1132 frames): escribir el recorte cuesta
   **+1190 ticks de media (+8,4 % del frame)**; el DMA de los cuatro
   sprites, casi nada (bench 6435 / sin DMA 6443 / vacío 5245 ticks).
-- La lógica con la OAM ampliada (G8b) llega a **49,4 % PAL con DMA**
-  (WinUAE, replay YI1): el objetivo ≤ 40 % está incumplido.
+- La lógica con la OAM ampliada (G8b), tras el paso 1 de L-OAM
+  (`4b713c4`), llega a **43,1 %** del frame en el replay entero de YI1 y
+  a 79,3 % en `stress_back` (WinUAE); sin ella, 29,5 % y 55,0 %. Objetivo
+  ≤ 40 % en YI1: incumplido por ~3 puntos.
 
 ---
 
-## 1. La próxima sesión: el primer Rex de verdad (G4 + G5 mínimos)
+## 1. La próxima sesión: L-OAM y el primer Rex de verdad
 
 **Objetivo:** que el Rex aparezca donde dice la OAM del juego **en cada
 frame**, con la paleta de Mario intacta, comparado contra el oráculo en
-muchos frames y no en uno.
+muchos frames y no en uno; y antes, que la OAM ampliada deje de hundir la
+lógica.
 
 Modelos: los de `SUBAGENTES.md` §1 (el usuario decide cuál; la sesión
 anterior entregó G5a como hecha sin serlo, así que **el coordinador
@@ -59,8 +67,6 @@ reproduce cada puerta antes de aceptarla**).
 |---|---|---|---|
 | **L-OAM** — abaratar la OAM ampliada, **primero** | alto | `player/spr_gfx.c` (+ asm si hace falta), opt-in | **instrucciones paso a paso: `docs/instrucciones-loam.md`**. Paso 1 hecho (`4b713c4`, `finish_oam_write`): `stress_back` con OAM 17,28 % → 14,93 % de fotos perdidas, `level_frame` 83,1 % → 79,3 %; yi1 con OAM 43,1 %. Siguen `rex_gfx` y `finish_oam_write` en asm. Puerta: `level_frame` ≤ 40 % en YI1 con `SPR_OAM` y estrés con OAM no peor que sin ella; lint, regress y `tools/oam68k_gate.sh` en verde |
 | **G5a-bis** — Rex desde la OAM, por frame | alto | rama propia; opt-in `SPR_G5` (`SPR_OAM` + `SPR_BANK`) | **instrucciones paso a paso: `docs/instrucciones-g5a-bis.md`**: fase A (modelo offline en todos los frames: variante compatible con la máscara de Mario por línea y plan de escrituras de color con ventana), fase B (el plan en C, PC = 68000), fase C (bloque después de las cargas de `build_mid`, `scrollsim --g5k`, ≥ 10 capturas WinUAE comparadas píxel a píxel). Ningún color ni posición fija |
-
-
 
 Sin L-OAM, cualquier dibujo de enemigos se monta sobre una lógica que ya
 no deja tiempo al render: G5a-bis puede desarrollarse en paralelo, pero no
@@ -98,8 +104,13 @@ trabajo G4/G6 ≤ 32 768 B; fotos 2376 B (`docs/informe-g3-final.md`).
   "FALLO build PC"; con el `python` de WorkBuddy falta `machine68k`.
 - Antes: `python tools/lint_port.py` y
   `python tools/regress.py --baseline tools/baseline_pc.json --level` en
-  verde; worktree por tarjeta; WinUAE por el candado, cada uno cierra solo
-  su PID.
+  verde; con `SPR_OAM`, también `sh tools/oam68k_gate.sh` (`regress.py`
+  no prueba la OAM ampliada en el 68000); worktree por tarjeta; WinUAE por
+  el candado, cada uno cierra solo su PID.
+- Medidas de fluidez: `tools/stress_ab_build.sh` → `stress_ab_shots.ps1`
+  → `stress_ab_read.sh`, siempre con el control (sin el cambio) en la
+  misma tanda.
+- Reglas para integrar: `docs/instrucciones-olas.md` §1.3 (obligatorias).
 - Al cerrar: la regla de `ROADMAP.md` §7. **Nada sin commitear** en master
   ni en los worktrees.
 
@@ -116,8 +127,9 @@ ejecución de cada ola: `docs/instrucciones-olas.md`; detalle técnico:
 2. **G5 + G9**: todos los enemigos del lote, comparación automática contra
    la OAM. **Los enemigos se ven en la Amiga.**
 3. **Medida de estrés + S5, inmediatamente después de G5**: render completo
-   en la vuelta (s ≈ 2832 y 4580), el Banzai y el tramo con más Rex, con la
-   traza D1 ya integrada; después S5 (repartir el trabajo de `build_mid`
+   en la vuelta (s ≈ 2832 y 4580), el Banzai y el tramo con más Rex, con
+   `tools/stress_ab_*` y la traza D1 ya integrada; sin OAM ampliada el pico
+   es `build_mid` en la vuelta (165 % de un frame en s = 4606); después S5 (repartir el trabajo de `build_mid`
    entre frames). Compuerta D1 en fotos omitidas (`ROADMAP.md` §2).
    Para S5: E09 y E10, `docs/investigacion-ports.md` §17.1.
 4. **C2/C4** (vlink + loader) para liberar las ~135 KB de tablas de CPU que

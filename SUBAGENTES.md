@@ -248,6 +248,7 @@ original del 2026-09-30, ola por ola, está textual en
 | G2 | hecha (diseño acotado) | 64528 B chip / 72716 B tablas; 2593 peticiones + Rex legal exactos; `docs/informe-g2.md`. Sin subagentes ni medida G5a |
 | G3 | hecha (lote acotado) | `3b42a2e` + `525984a`/`58784d9` (CRC por tabla, loader detrás de los datos): SG3F/2, 2593 peticiones, 48 formas, 289 descriptores, 64528 B DMA/72724 B tablas; loader replay/vivo y cero violaciones. `docs/informe-g3-final.md` |
 | G5a (prueba mínima de Rex) | **no cumplida** | `wt/g5a-1006` (`a2da1fd`) pega el Rex de un frame en posición fija: se mueve con la cámara y pisa la paleta de Mario. Fusión revertida (`652b23c`). Sigue G5a-bis en `PROXIMO.md` |
+| L-OAM (abaratar la OAM ampliada) | en curso: paso 1 hecho | `4b713c4` (`finish_oam_write`); `tools/oam68k_gate.sh`; instrucciones y medidas en `docs/instrucciones-loam.md`. Falta `level_frame` ≤ 40 % en YI1 con `SPR_OAM` (hoy 43,1 %) |
 | G8b | hecha (OAM opt-in) | Banzai 391/391, Chuck 599/599, meta 82/82, caparazón 526/526 y piraña 1552/1552 en PC/68000; coste sin DMA y límites en `docs/validacion-g8b.md`; sin activar por defecto ni dibujar enemigos |
 | D1-medida | hecha con `SPR_OAM`, compuerta roja | `d30403a` (fusión `58784d9`): traza v2 opt-in; sin traza 714/4126 y 100/1914 VBL repetidos. Falta sin `SPR_OAM`. `docs/medida-d1-winuae.md` |
 | G4, G5, G6, G7, G9 | pendiente | después de G2/G3 |
