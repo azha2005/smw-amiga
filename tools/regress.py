@@ -254,6 +254,12 @@ def game_oam_checks(r, k, out):
                "%d/%d OAM exactas, orden %s" % (ok, fr, t[0] if t else "sin comprobar"))
 
 
+def d1_checks(r):
+    code, out = sh([PY, "tools/test_d1_trace.py"], timeout=30)
+    r.logs["D1 traza v2"] = out
+    r.note("D1 traza v2", code == 0, "eventos completos, continuidad, overflow y rechazo CSV singular" if code == 0 else out[-600:])
+
+
 def sprgfx_checks(r):
     """G3a: verificar todas las poses de las grabaciones OAM disponibles.
     Los .bin derivados no van en git (R9): su ausencia avisa, no pasa por
@@ -663,6 +669,7 @@ def main():
 
     r = Run()
     sprgfx_checks(r)
+    d1_checks(r)
     ok_pc, ok_68k = (os.path.exists(MV), not a.quick) if a.no_build else build(r, not a.quick)
     pc = pc_checks(r) if ok_pc else {}
     if ok_pc:

@@ -419,6 +419,12 @@ entry:
         move.w  #$83e0,DMACON(a4)           ; MASTER|BPLEN|COPEN|BLTEN|SPREN
         ifd     BENCH
         bsr     gb_init                     ; timer, calibracion
+        ifd     D1TIMER
+        bsr     d1_timer_init
+        endc
+        ifd     D1TRACE
+        bsr     d1_init
+        endc
         endc
         ifnd    REPLAY
         lea     kb_int(pc),a0               ; teclado: nivel 2 (PORTS)
@@ -1320,6 +1326,9 @@ dc_vbl:
         move.w  #$0020,INTREQ(a4)
         move.w  #$0020,INTREQ(a4)
         bsr     dc_vb
+        ifd     D1TRACE
+        bsr     d1_vbl
+        endc
         move.w  INTREQR(a4),d0
 .cop:   btst    #4,d0                       ; COPER
         beq.s   .out
@@ -1479,6 +1488,9 @@ dc_cop:
         lea     dc_st(pc),a2
         add.w   d7,DC_NLOG(a2)
         move.w  d7,-(sp)
+        ifd     D1TRACE
+        bsr     d1_tick_start
+        endc
         bsr     game_step                   ; la logica
         ifd     BENCH
         GBS     3
@@ -1491,7 +1503,13 @@ dc_cop:
 .cap:
         endc
         move.w  (sp)+,d0
+        ifd     D1TRACE
+        bsr     d1_photo_start
+        endc
         bsr     dc_capture                  ; la foto
+        ifd     D1TRACE
+        bsr     d1_tick_end
+        endc
         ifd     BENCH
         GBS     13
         bsr     gb_isr_end
@@ -1816,6 +1834,9 @@ dc_loop:
         bsr     dc_hdr
         lea     dc_st(pc),a2
         move.l  V_BACK(a5),DC_PLIST(a2)     ; publicar (en este orden: la
+        ifd     D1TRACE
+        bsr     d1_publish
+        endc
         move.w  d7,DC_PEND(a2)              ; interrupcion nunca ve la foto
         move.w  #-1,DC_REND(a2)             ; libre)
         addq.w  #1,DC_NPUB(a2)
@@ -1897,6 +1918,18 @@ dc_restart:
         even
 g_sbuf:  ds.l   NSPRB                       ; los buffers de sprites (chip)
 g_data:  dc.l   0                           ; a3: datos del scroll
+        ifd     D1TRACE
+        ifnd    D1TIMER
+        fail    "D1TRACE requiere D1TIMER"
+        endc
+        endc
+        ifd     D1TIMER
+        ifnd    BENCH
+        fail    "D1TIMER requiere BENCH/REPLAY"
+        endc
+        include "d1trace.s"
+        endc
+
 dc_st:   ds.b   DC_SIZE
 dc_busy: dc.b   0                           ; la logica esta corriendo
 dc_ran:  dc.b   0                           ; la COPER llego en este frame
@@ -2285,6 +2318,9 @@ gb_rnd_end:
 gb_show:
         ifd     DECOUPLE
         move.w  #$0030,INTENA(a4)           ; sin las interrupciones (la logica)
+        ifd     D1TRACE
+        bsr     d1_stop
+        endc
         lea     dc_st(pc),a2
         bsr     dc_streak                   ; la racha abierta, al histograma
         endc
