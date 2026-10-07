@@ -47,6 +47,9 @@
 | `informe-g3.md` | 2026-10-05 | G3: formato anterior y banco que no entra; superado para el lote acotado por informe-g3-final |
 | `informe-g3-final.md` | 2026-10-06 | SG3F/2, loader replay/vivo, negativos, memoria y arranque WinUAE verificados |
 | `medida-d1-winuae.md` | 2026-10-06 | D1: traza v2 en WinUAE de `stress_back`/`stress_sprites` con `SPR_OAM`; compuerta roja, coste de la traza |
+| `instrucciones-loam.md` | 2026-10-07 | L-OAM paso a paso: abaratar la OAM ampliada (paso 1 hecho y medido) |
+| `instrucciones-g5a-bis.md` | 2026-10-07 | G5a-bis paso a paso: el Rex desde la OAM por frame, fases A (offline), B (C) y C (copper) |
+| `instrucciones-olas.md` | 2026-10-07 | guía semi-detallada de las olas 3 a 8: orden, puertas, trampas y entorno de la PC |
 | `validacion-z1.md` | 2026-10-05 | Z1: muerte y recarga del nivel |
 | `medida-hud.md` | 2026-10-05 | H1: banda del HUD y cruces con la capa 1 |
 | `informe-a1.md` | 2026-10-06 | BRR exacto, inventario PCM y límites de loops/R8 |

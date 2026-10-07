@@ -57,8 +57,8 @@ reproduce cada puerta antes de aceptarla**).
 
 | tarjeta | nivel | toca | entrega y puerta |
 |---|---|---|---|
-| **L-OAM** — abaratar la OAM ampliada, **primero** | alto | `player/spr_gfx.c` (+ asm si hace falta), opt-in | con `SPR_OAM` el estrés se derrumba: 17,3 % de fotos perdidas en `stress_back` contra 3,5 % sin ella (`docs/medida-d1-winuae.md`, último apartado). Empezar por `finish_oam_write` (25,7 % del peor frame): variables temporales en registros y `$00-$0B` escritos una vez al final con su valor final; después `banzai_gfx`, `rex_gfx`, `spr_tile_asm`. Puerta: `regress.py --level` (cruce de RAM entera PC = 68000) igual, `m68kprof.py --oracle work/oracle_stress_back.bin --sprites` y WinUAE con el mismo A/B: `level_frame` ≤ 40 % en YI1 y fotos perdidas de `stress_*` con `SPR_OAM` no peores que sin ella |
-| **G5a-bis** — Rex desde la OAM, por frame | alto | rama propia; `player/` mínimo, opt-in (`SPR_OAM` + `SPR_BANK`) | en cada frame, POS/CTL/PT del Rex salen de la OAM que calcula el 68000 y la imagen de la **variante G3 con las reservas reales de Mario** (no del banco base de 48 poses). Ningún color fijo ni posición fija en el código. Puerta: (1) comparación automática OAM→imagen en **todos** los frames con Rex de `yi1`, `normal` y `spin_kill`, no en uno; (2) capturas WinUAE de al menos tres frames distintos con cámara distinta, una con Mario y Rex en las mismas líneas: Mario con su paleta; (3) coste A/B contra el mismo build sin Rex (como el de esta revisión) |
+| **L-OAM** — abaratar la OAM ampliada, **primero** | alto | `player/spr_gfx.c` (+ asm si hace falta), opt-in | **instrucciones paso a paso: `docs/instrucciones-loam.md`**. Paso 1 hecho (`4b713c4`, `finish_oam_write`): `stress_back` con OAM 17,28 % → 14,93 % de fotos perdidas, `level_frame` 83,1 % → 79,3 %; yi1 con OAM 43,1 %. Siguen `rex_gfx` y `finish_oam_write` en asm. Puerta: `level_frame` ≤ 40 % en YI1 con `SPR_OAM` y estrés con OAM no peor que sin ella; lint, regress y `tools/oam68k_gate.sh` en verde |
+| **G5a-bis** — Rex desde la OAM, por frame | alto | rama propia; opt-in `SPR_G5` (`SPR_OAM` + `SPR_BANK`) | **instrucciones paso a paso: `docs/instrucciones-g5a-bis.md`**: fase A (modelo offline en todos los frames: variante compatible con la máscara de Mario por línea y plan de escrituras de color con ventana), fase B (el plan en C, PC = 68000), fase C (bloque después de las cargas de `build_mid`, `scrollsim --g5k`, ≥ 10 capturas WinUAE comparadas píxel a píxel). Ningún color ni posición fija |
 
 
 
@@ -107,8 +107,9 @@ trabajo G4/G6 ≤ 32 768 B; fotos 2376 B (`docs/informe-g3-final.md`).
 
 ## 2. Después, en orden
 
-Cada paso con su puerta; nada empieza con el anterior en rojo. Detalle de
-cómo hacer cada cosa: `docs/plan-tecnico.md` §10; tarjetas: `SUBAGENTES.md`.
+Cada paso con su puerta; nada empieza con el anterior en rojo. Guía de
+ejecución de cada ola: `docs/instrucciones-olas.md`; detalle técnico:
+`docs/plan-tecnico.md` §10; tarjetas: `SUBAGENTES.md`.
 
 1. **G4 + G6** (asignador de columnas y `sprcop_verify.py`) sobre el
    contrato G3.
