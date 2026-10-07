@@ -116,6 +116,9 @@ static void finish_oam_write(u8 x, u8 a, u8 ysz)
 #endif
 
 /* RexGfxRt: dos fichas (cuerpo y cabeza; aplastado, dos de 8x8) */
+#ifndef LOGIC68K
+/* El PC/NOASM conserva esta referencia; _rex_gfx en logic68k.s hace
+   exactamente las mismas escrituras con indices y coordenadas locales. */
 void rex_gfx(u8 x)
 {
     u8 y, i, idx, m2v, m3v;
@@ -145,6 +148,7 @@ void rex_gfx(u8 x)
     }
     finish_oam_write(x, 1, 0xFF);
 }
+#endif
 
 /* CODE_01A3DF: fuera de pantalla en vertical (bit 0: esta ficha, bit 1: la
    siguiente) -> X = $80 con el bit 8 puesto (x = $180) y tamaño 8x8.

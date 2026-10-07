@@ -610,6 +610,112 @@ _finish_oam_write_asm:
         endc
 
 ;----------------------------------------------------------------------
+; --- rex_gfx ---
+; entrada: pila vbcc = u8 x; a4 = datos del C
+; salida: pose, OAM y temporales identicos a RexGfxRt (sprite_3-1.s).
+; registros destruidos: d0-d1/a0-a1; conserva d2-d7/a2-a3.
+; ciclos: se mide en work/loam_rexasm_oam_prof.txt (Musashi, sin DMA).
+; Las dos vueltas se desenrollan en el orden 1,0 de la SNES. No cambia
+; la fase de GetDrawInfo ni FinishOAMWrite ni el orden de las escrituras.
+;----------------------------------------------------------------------
+        ifd     SPR_OAM
+REXOAM macro
+        move.w  d4,d0
+        ifne    \1
+        or.b    #1,d0
+        endif
+        move.w  d0,d1                     ; idx = m3 | vuelta, 0..255
+        tst.b   d5
+        bne.s   .dir\@
+        add.b   #$0c,d0                   ; wrap de 8 bits como ADC
+.dir\@:lea     rex_disp_x(pc),a0
+        move.b  (a0,d0.w),d0
+        add.b   d6,d0
+        move.b  d0,(a1,d3.w)              ; OAM X
+        lea     rex_disp_y(pc),a0
+        move.b  (a0,d1.w),d0
+        add.b   d7,d0
+        move.b  d0,1(a1,d3.w)             ; OAM Y
+        lea     rex_tiles(pc),a0
+        move.b  (a0,d1.w),d0
+        move.b  d0,2(a1,d3.w)             ; tile
+        lea     rex_prop(pc),a0
+        move.b  (a0,d5.w),d0
+        or.b    wm_SpriteProp(a2),d0
+        move.b  d0,3(a1,d3.w)             ; atributos
+        moveq   #0,d0
+        cmp.b   #$0a,d4
+        bhs.s   .size\@
+        moveq   #2,d0
+.size\@:move.w d3,d1
+        lsr.w   #2,d1
+        lea     wm_OamSize(a2),a0
+        move.b  d0,(a0,d1.w)
+        addq.b  #4,d3                     ; alto de d3 sigue cero
+        endm
+
+        public  _rex_gfx
+_rex_gfx:
+        movem.l d2-d7/a2-a3,-(sp)
+        moveq   #0,d2
+        move.b  32+7(sp),d2
+        lea     _ram(a4),a2
+        lea     (a2,d2.w),a3
+        tst.b   wm_SpriteDecTbl3(a3)
+        beq.s   .cape
+        move.b  #5,wm_SpriteGfxTbl(a3)
+.cape: tst.b   wm_DisSprCapeContact(a3)
+        beq.s   .draw
+        move.b  #2,wm_SpriteGfxTbl(a3)
+.draw: move.l  d2,-(sp)
+        PICCALL _get_draw_info_asm
+        addq.l  #4,sp
+        tst.l   d0
+        beq     .ret
+        move.l  d2,-(sp)
+        PICCALL _spr_oam_index
+        addq.l  #4,sp
+        moveq   #0,d3
+        move.b  d0,d3                     ; Y OAM
+        move.b  wm_SpriteXLo(a3),d6
+        sub.b   wm_Bg1HOfs(a2),d6
+        move.b  wm_SpriteYLo(a3),d7
+        sub.b   wm_Bg1VOfs(a2),d7
+        moveq   #0,d4
+        move.b  wm_SpriteGfxTbl(a3),d4
+        lsl.b   #1,d4
+        moveq   #0,d5
+        move.b  wm_SpriteDir(a3),d5
+        lea     wm_OamSlot(a2),a1
+        REXOAM  1
+        REXOAM  0
+        move.b  d6,m0(a2)
+        move.b  d7,m1(a2)
+        move.b  d5,m2(a2)
+        move.b  d4,m3(a2)
+        move.l  #$ff,-(sp)
+        move.l  #1,-(sp)
+        move.l  d2,-(sp)
+        bsr     _finish_oam_write_asm
+        lea     12(sp),sp
+.ret:  movem.l (sp)+,d2-d7/a2-a3
+        rts
+; RexTileDispX/Y, RexTiles y RexGfxProp del original sprite_3-1.s.
+; vbcc elimina las const C que quedan sin usuarios al sustituir RexGfxRt.
+rex_disp_x:
+        dc.b    $fc,$00,$fc,$00,$fe,$00,$00,$00
+        dc.b    $00,$00,$00,$08,$04,$00,$04,$00
+        dc.b    $02,$00,$00,$00,$00,$00,$08,$00
+rex_disp_y:
+        dc.b    $f1,$00,$f0,$00,$f8,$00,$00,$00,$00,$00,$08,$08
+rex_tiles:
+        dc.b    $8a,$aa,$8a,$ac,$8a,$aa,$8c,$8c,$a8,$a8,$a2,$b2
+rex_prop:
+        dc.b    $47,$07
+        even
+        endc
+
+;----------------------------------------------------------------------
 ; void rex_main_asm(u8 x) = rex_main de msprite.c (el Rex, sprite $AB):
 ; pose, temporizadores, velocidad, movimiento e interacciones. Las rutinas
 ; de sprite siguen en C (o en este fichero) y el contacto con Mario, que
