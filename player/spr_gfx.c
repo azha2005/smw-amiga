@@ -62,6 +62,12 @@ u8 spr_oam_index(u8 x)
 
 /* FinishOAMWriteRt (A = fichas - 1, Y = tamaño o $FF): la X alta de cada
    ficha (CODE_01B844) y la Y fuera de pantalla a $F0 (CODE_01C9BF) */
+#ifdef LOGIC68K
+/* Solo la Amiga usa el bucle de registros; el C sigue como referencia
+   del PC/NOASM y oam68k_gate cruza todos los bytes de RAM. */
+void finish_oam_write_asm(u8 x, u8 a, u8 ysz);
+#define finish_oam_write finish_oam_write_asm
+#else
 static void finish_oam_write(u8 x, u8 a, u8 ysz)
 {
     /* Los temporales $00-$0B de la ROM viven en variables locales y se
@@ -107,6 +113,7 @@ static void finish_oam_write(u8 x, u8 a, u8 ysz)
     W8(m10, (u8)(ly >> 8));
     W8(m11, ysz);
 }
+#endif
 
 /* RexGfxRt: dos fichas (cuerpo y cabeza; aplastado, dos de 8x8) */
 void rex_gfx(u8 x)

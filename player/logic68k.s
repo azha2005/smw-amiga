@@ -514,6 +514,102 @@ _spr_mario_contact_asm:
         rts
 
 ;----------------------------------------------------------------------
+; --- finish_oam_write_asm ---
+; entrada: pila vbcc = u8 x, u8 fichas-1, u8 tamano; a4 = datos del C
+; salida: OAM y m0-m11 identicos a FinishOAMWriteRt (sprite_1-1.s).
+; registros destruidos: d0-d1/a0-a1; conserva d2-d7/a2-a3.
+; ciclos: se mide en work/loam_finish_oam_prof.txt (Musashi, sin DMA).
+; Coordenadas y scroll viven en registros; las extensiones son solo las
+; del desplazamiento con signo de cada ficha. m4:m5 y m9:m10 reciben la
+; ultima vuelta, como el C; los demas temporales no pisan ni leen OAM.
+;----------------------------------------------------------------------
+        ifd     SPR_OAM
+        public  _finish_oam_write_asm
+_finish_oam_write_asm:
+        movem.l d2-d7/a2-a3,-(sp)
+        lea     _ram(a4),a2
+        moveq   #0,d0
+        move.b  32+7(sp),d0                ; x (indice sin signo)
+        lea     (a2,d0.w),a1
+        moveq   #0,d1
+        move.b  wm_SprOAMIndex(a1),d1      ; Y OAM, siempre 0..255
+        cmp.b   #12,d0
+        bhs.s   .init
+        lea     _spr_oam_first(a4),a0
+        move.b  d1,(a0,d0.w)
+        lea     _spr_oam_n(a4),a0
+        move.b  32+11(sp),d2
+        addq.b  #1,d2
+        move.b  d2,(a0,d0.w)
+.init: move.b  32+11(sp),m8(a2)
+        move.b  32+15(sp),m11(a2)
+        move.b  wm_SpriteXHi(a1),d2
+        move.b  d2,m3(a2)
+        lsl.w   #8,d2
+        move.b  wm_SpriteXLo(a1),d2
+        move.b  d2,m2(a2)                  ; bx
+        move.b  wm_SpriteYHi(a1),d3
+        move.b  d3,m1(a2)
+        lsl.w   #8,d3
+        move.b  wm_SpriteYLo(a1),d3
+        move.b  d3,m0(a2)                  ; by
+        move.b  d2,d4
+        sub.b   wm_Bg1HOfs(a2),d4
+        move.b  d4,m7(a2)                  ; s7
+        move.b  d3,d5
+        sub.b   wm_Bg1VOfs(a2),d5
+        move.b  d5,m6(a2)                  ; s6
+        move.b  wm_Bg1HOfs+1(a2),d6
+        lsl.w   #8,d6
+        move.b  wm_Bg1HOfs(a2),d6
+        move.b  wm_Bg1VOfs+1(a2),d7
+        lsl.w   #8,d7
+        move.b  wm_Bg1VOfs(a2),d7
+        sub.w   #16,d7
+        lea     wm_OamSlot(a2),a3
+.tile: move.w  d1,d0
+        lsr.w   #2,d0
+        lea     wm_OamSize(a2),a0
+        adda.w  d0,a0                     ; i = Y / 4, 0..63
+        tst.b   m11(a2)
+        bmi.s   .keep
+        move.b  m11(a2),(a0)
+        bra.s   .x
+.keep: and.b   #2,(a0)
+.x:    move.b  (a3,d1.w),d0
+        sub.b   d4,d0
+        ext.w   d0
+        add.w   d2,d0
+        move.w  d0,a1                     ; ultima X de ficha, modulo 65536
+        sub.w   d6,d0
+        cmp.w   #$100,d0
+        blo.s   .y
+        or.b    #1,(a0)
+.y:    move.b  1(a3,d1.w),d0
+        sub.b   d5,d0
+        ext.w   d0
+        add.w   d3,d0
+        move.w  d0,-(sp)                  ; conserva ly durante el test
+        sub.w   d7,d0
+        cmp.w   #$100,d0
+        blo.s   .next
+        move.b  #$f0,1(a3,d1.w)
+.next: move.w  (sp)+,d0
+        addq.b  #4,d1                     ; wrap de 8 bits, alto sigue cero
+        subq.b  #1,m8(a2)
+        bpl.s   .tile
+        move.b  d0,m9(a2)
+        lsr.w   #8,d0
+        move.b  d0,m10(a2)
+        move.w  a1,d0
+        move.b  d0,m4(a2)
+        lsr.w   #8,d0
+        move.b  d0,m5(a2)
+        movem.l (sp)+,d2-d7/a2-a3
+        rts
+        endc
+
+;----------------------------------------------------------------------
 ; void rex_main_asm(u8 x) = rex_main de msprite.c (el Rex, sprite $AB):
 ; pose, temporizadores, velocidad, movimiento e interacciones. Las rutinas
 ; de sprite siguen en C (o en este fichero) y el contacto con Mario, que
