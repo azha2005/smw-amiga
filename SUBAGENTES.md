@@ -248,9 +248,10 @@ original del 2026-09-30, ola por ola, está textual en
 | G2 | hecha (diseño acotado) | 64528 B chip / 72716 B tablas; 2593 peticiones + Rex legal exactos; `docs/informe-g2.md`. Sin subagentes ni medida G5a |
 | G3 | hecha (lote acotado) | `3b42a2e` + `525984a`/`58784d9` (CRC por tabla, loader detrás de los datos): SG3F/2, 2593 peticiones, 48 formas, 289 descriptores, 64528 B DMA/72724 B tablas; loader replay/vivo y cero violaciones. `docs/informe-g3-final.md` |
 | G5a (prueba mínima de Rex) | **no cumplida** | `wt/g5a-1006` (`a2da1fd`) pega el Rex de un frame en posición fija: se mueve con la cámara y pisa la paleta de Mario. Fusión revertida (`652b23c`). Sigue G5a-bis en `PROXIMO.md` |
-| L-OAM (abaratar la OAM ampliada) | en curso: paso 1 hecho | `4b713c4` (`finish_oam_write`); `tools/oam68k_gate.sh`; instrucciones y medidas en `docs/instrucciones-loam.md`. Falta `level_frame` ≤ 40 % en YI1 con `SPR_OAM` (hoy 43,1 %) |
+| L-OAM (abaratar la OAM ampliada) | **parcial integrada; detenida, puerta roja** | `e8ec165` + `bbdf201` + `cd5001c`, fusión `cb8ba8f`: ambas rutinas asm, RAM exacta; WinUAE l4 YI1 41,2 % > 40 %, back 295 fotos contra 145, sprites 32 contra 0. Parada §5 respetada; `docs/informe-loam-1007.md` |
+| G5a-bis (Rex desde OAM por frame) | **parcial en rama, detenida fase A** | WIP `8fe712d` en `wt/g5bis-1007`: A2 y variantes exactas, 59318 ventanas vacías + 18 fallos de capacidad. Coordinador reproduce resumen idéntico y revisa PNG; B/C no iniciadas. Herramientas en rama; informe en `docs/informe-g5bis-1007.md` |
 | G8b | hecha (OAM opt-in) | Banzai 391/391, Chuck 599/599, meta 82/82, caparazón 526/526 y piraña 1552/1552 en PC/68000; coste sin DMA y límites en `docs/validacion-g8b.md`; sin activar por defecto ni dibujar enemigos |
-| D1-medida | hecha con `SPR_OAM`, compuerta roja | `d30403a` (fusión `58784d9`): traza v2 opt-in; sin traza 714/4126 y 100/1914 VBL repetidos. Falta sin `SPR_OAM`. `docs/medida-d1-winuae.md` |
+| D1-medida | hecha opt-in, compuerta roja | `d30403a` (fusión `58784d9`): traza v2. Últimas tandas sin traza l4/coord4, con controles: back OAM 295/4126 frente a 145; sprites 32/1914 frente a 0; YI1 OAM 27/6312 frente a 14. `docs/informe-coordinacion-1007.md`; contadores de fotos distintos de VBL repetidos (P107) |
 | G4, G5, G6, G7, G9 | pendiente | después de G2/G3 |
 | C1 | hecha | `tools/memmap.py` |
 | C2, C3, C4, C5 | pendiente | |

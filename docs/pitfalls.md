@@ -947,3 +947,17 @@ colores Rex (`$44D/$66D/$88F`) solo admiten 7 y 15 al exigir una imagen
 exacto. No confundir esa prueba con una refutación de recargas por X.
 Comandos y testigos: `docs/informe-g2.md`, `tools/g2_bank_audit.py`; no cargar
 el prototipo SG2A con el lector SG3F/1.
+
+**P109 — Sustituir una rutina C por asm puede eliminar sus tablas y su símbolo C.**
+Al excluir el cuerpo C de `rex_gfx` con `LOGIC68K`, vbcc deja de emitir
+las constantes `tg2_Rex*` sin usuarios: el asm que las referencia no enlaza.
+Además, `game_build.sh` comprueba que C y asm comparten `SPR_OAM` buscando
+`_rex_gfx` en `work/cc/msprite.code.s`; mover el símbolo únicamente al asm
+deja verdes las puertas RAM/OAM pero rompe el build del juego opt-in.
+L-OAM conserva un puente C público `rex_gfx` hacia `rex_gfx_asm` y las
+tablas de comportamiento del Rex relativas al PC dentro de `ifd SPR_OAM`.
+No se relajó la comprobación del build. El coste del puente se incluye en
+las medidas finales. Reproducir también el juego con `SPR_OAM`, además de
+`oam68k_gate.sh`; los builds por defecto no ejercitan esa interfaz.
+Commits `bbdf201` (fallo del juego) y `cd5001c` (interfaz corregida);
+evidencia en `docs/informe-loam-1007.md`.

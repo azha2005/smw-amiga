@@ -22,7 +22,7 @@
 | documento | qué |
 |---|---|
 | `plan-tecnico.md` | cómo hacer lo que falta: optimización (§9), cada bloque pendiente (§10), más allá de YI1 (§11). Escrito el 2026-09-30; sus números de estado son de esa fecha |
-| `pitfalls.md` | texto completo de las trampas P1-P108 (índice en `AGENTS.md` §8) |
+| `pitfalls.md` | texto completo de las trampas P1-P109 (índice en `AGENTS.md` §8) |
 | `formato-nivel.md` | assets, formato `.lv`, Map16, tileset, paletas, comparación contra la referencia |
 | `formato-sprgfx.md` | formato SG3F de las poses de sprites (G3) |
 | `diseno-9.2.md` | **G2**: diseño del dibujo de sprites desde la OAM, interfaces, presupuesto de memoria (§5). Revisado el 2026-10-06: banco acotado y loader SG3F/2 implementados; presupuesto concreto en informe-g3-final |
@@ -48,6 +48,9 @@
 | `informe-g3-final.md` | 2026-10-06 | SG3F/2, loader replay/vivo, negativos, memoria y arranque WinUAE verificados |
 | `medida-d1-winuae.md` | 2026-10-06 | D1: traza v2 en WinUAE de `stress_back`/`stress_sprites` con `SPR_OAM`; compuerta roja, coste de la traza |
 | `informe-loam-1007.md` | 2026-10-07 | L-OAM: FinishOAMWrite y Rex en asm, puertas RAM/OAM, perfiles y A/B de estrés |
+| `informe-g5bis-1007.md` | 2026-10-07 | G5a-bis fase A parcial: máscaras y variantes exactas, ventanas vacías; B/C detenidas |
+| `informe-coordinacion-1007.md` | 2026-10-07 | revisión independiente, integración parcial de L-OAM y bloqueo temporal de G5a-bis |
+| `instrucciones-revision-1007.md` | 2026-10-07 | revisión propuesta tras las dos paradas: diagnóstico de coste OAM y contrato temporal, antes de nueva implementación |
 | `instrucciones-loam.md` | 2026-10-07 | L-OAM paso a paso: abaratar la OAM ampliada (paso 1 hecho y medido) |
 | `instrucciones-g5a-bis.md` | 2026-10-07 | G5a-bis paso a paso: el Rex desde la OAM por frame, fases A (offline), B (C) y C (copper) |
 | `instrucciones-olas.md` | 2026-10-07 | guía semi-detallada de las olas 3 a 8: orden, puertas, trampas y entorno de la PC |
