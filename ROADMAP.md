@@ -309,15 +309,30 @@ lo que sigue.** Al cerrar, quien coordina hace, en este orden:
    en orden, y lo pendiente del usuario. Si la sesión siguiente no está
    decidida, escribir la recomendación y marcar qué tiene que decidir el
    usuario.
-3. **Actualizar el estado**: §1 de este fichero (las filas que cambiaron,
+3. **Escribir las instrucciones paso a paso** de cada tarjeta de la
+   próxima sesión [usuario, 2026-10-07], en `docs/instrucciones-<tarjeta>.md`
+   (agregarlo a `docs/README.md`), y enlazarlo desde su fila en
+   `PROXIMO.md` §1. Modelo: `docs/instrucciones-loam.md` y
+   `docs/instrucciones-g5a-bis.md`. Cada una dice, en orden: por qué existe
+   la tarjeta (con la medida que la motiva), las reglas que no se
+   negocian, el entorno y cómo comprobar que se parte de verde, los pasos
+   con el **comando exacto y la salida esperada**, las puertas automáticas,
+   las **condiciones de parada** ("si X, parar y avisar") y qué tiene que
+   llevar el informe. Lo que todavía no se sabe se escribe como fase con
+   puerta de medida, no como paso adivinado. Las tarjetas de olas
+   posteriores bastan en semi-detalle (`docs/instrucciones-olas.md`).
+   Antes de escribirlas, probar uno mismo lo que haga falta para que
+   ningún paso sea a ciegas (como el paso 1 de L-OAM). `lint_port.py`
+   (D6) falla si una tarjeta de `PROXIMO.md` §1 no tiene su fichero.
+4. **Actualizar el estado**: §1 de este fichero (las filas que cambiaron,
    con cifras medidas: %, px, frames, ciclos), §2 si cambió algún número del
    frame, §4 (olas y sesiones que faltan, re-estimado) y la tabla de estado
    de `SUBAGENTES.md` §4.
-4. **Lo que quedó viejo se archiva, no se apila**: un plan o un texto que
+5. **Lo que quedó viejo se archiva, no se apila**: un plan o un texto que
    ya no rige se mueve textual a `docs/archivo/` (con una línea que diga
    cuándo y por qué) o se borra si ya está archivado. Nunca una sección
    nueva "próxima sesión" fuera de `PROXIMO.md`.
-5. `tools/lint_port.py` (comprueba también estas reglas de los docs) y
+6. `tools/lint_port.py` (comprueba también estas reglas de los docs) y
    `tools/regress.py` en verde; nada sin commitear (si algo queda a medias,
    commit `WIP:` que diga qué falta verificar).
 

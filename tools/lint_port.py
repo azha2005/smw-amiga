@@ -24,6 +24,9 @@ ERRORES (salen con 1):
   D2   una seccion "proxima sesion" / "empezar por aqui" fuera de PROXIMO.md
   D3   un documento citado como docs/X.md que se movio a docs/archivo/, o
        una fila de docs/README.md que no existe
+  D6   una tarjeta de la proxima sesion (fila "| **" de la "## 1." de
+       PROXIMO.md) sin su `docs/instrucciones-*.md`, o que no existe
+       (ROADMAP.md §7, paso 3)
 AVISOS (no fallan; revisar):
   V3   un registro declarado en la cabecera que la rutina nunca cambia
   P40  (An,Dn.w) en player/*.s: el indice es de 16 bits CON signo. Si el
@@ -74,6 +77,23 @@ def check_docs(errors, warns):
     if not os.path.isfile(prox) or "\n## 1." not in open(prox, encoding="utf-8").read():
         errors.append(("D1", "PROXIMO.md", 0, "falta, o no tiene su '## 1.' (la proxima sesion)"))
     docs = os.path.join(ROOT, "docs")
+    # cada tarjeta de la proxima sesion (filas "| **..." de la "## 1.") con
+    # sus instrucciones paso a paso en un docs/instrucciones-*.md que exista
+    if os.path.isfile(prox):
+        sec = False
+        for i, ln in enumerate(open(prox, encoding="utf-8"), 1):
+            if ln.startswith("## "):
+                sec = ln.startswith("## 1.")
+                continue
+            if not (sec and ln.startswith("| **")):
+                continue
+            refs = re.findall(r"`docs/(instrucciones-[\w.-]+\.md)`", ln)
+            if not refs:
+                errors.append(("D6", "PROXIMO.md", i, "tarjeta sin docs/instrucciones-*.md: %s"
+                               % ln.split("|")[1].strip()[:60]))
+            for n in refs:
+                if not os.path.isfile(os.path.join(docs, n)):
+                    errors.append(("D6", "PROXIMO.md", i, "no existe docs/%s" % n))
     main_md = ["AGENTS.md", "ROADMAP.md", "SUBAGENTES.md", "PROXIMO.md"]
     main_md += ["docs/" + f for f in sorted(os.listdir(docs)) if f.endswith(".md")]
     for rel in main_md:

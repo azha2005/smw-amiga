@@ -24,7 +24,9 @@
 >
 > **Al cerrar una sesión es obligatorio escribir qué sigue** (`ROADMAP.md`
 > §7): archivar el `PROXIMO.md` cumplido en `docs/archivo/sesiones.md`,
-> reescribirlo y actualizar los estados.
+> reescribirlo, **escribir las instrucciones paso a paso de cada tarjeta
+> de la sesión siguiente** (`docs/instrucciones-<tarjeta>.md`) y
+> actualizar los estados.
 
 ---
 

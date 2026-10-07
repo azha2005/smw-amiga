@@ -50,7 +50,10 @@ de que no rompiste nada.
    `grep` en `work/regress.log`.
 4. Hash de commit citado = `git log` real (no uno enmendado).
 5. Al cerrar: nada sin commitear en master ni en los worktrees;
-   `PROXIMO.md` reescrito según `ROADMAP.md` §7.
+   `PROXIMO.md` reescrito según `ROADMAP.md` §7, **con las instrucciones
+   paso a paso de cada tarjeta de la sesión siguiente** (§7 paso 3; lo
+   comprueba `lint_port.py`, D6). Esta guía semi-detallada es el punto de
+   partida para escribirlas, no las reemplaza.
 6. La compuerta D1 se mide con `tools/stress_ab_*` (fotos perdidas,
    racha) **contra un control**: cada medida nueva lleva la fila "sin el
    cambio" en la misma tanda.
