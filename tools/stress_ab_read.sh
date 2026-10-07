@@ -25,5 +25,7 @@ for d in work/${P}_*_*/; do
     printf '%-22s %-16s %6s %-16s %-14s\n' "${d#work/}" "$lost" "$streak" "$lf" "$mean"
     printf '%s\n' "$out" > "$d/read.txt"
 done
+n=$(ls -d work/${P}_*_*/bench.png 2>/dev/null | wc -l)
+[ "$n" -gt 0 ] || { echo "STRESS_AB_READ: FALLA (no hay work/${P}_*/bench.png)"; exit 1; }
 [ "$fails" = 0 ] || { echo "STRESS_AB_READ: FALLA ($fails)"; exit 1; }
 echo "STRESS_AB_READ: OK"

@@ -60,6 +60,17 @@ OAM68K, abcheck y WinUAE con controles como la tarjeta original.
 6. Presupuestar banco ≤ 65536 B chip, tablas ≤ 98304 B slow, trabajo
    ≤ 32768 B y fotos acordadas. Los flujos son inmutables; cambiar el
    contrato o ampliar el banco requiere una auditoría explícita.
+   **Dato de partida (2026-10-07, sonda sobre la fase A sin cambiar su
+   regla; `tools/g2t_probe.py` en la rama `wt/g5bis-1007`, ~30 s):**
+   de las 59 318 ventanas vacías, 51 415 (87 %) son del propio Rex en
+   filas contiguas (índice con dos colores en `y-1` e `y`), 3 342 de
+   Mario hacia el Rex, 3 515 del Rex hacia Mario y 1 046 mixtas. De los
+   2 274 frames con alguna ventana vacía, 1 013 tienen **otra variante
+   compatible del directorio sin ninguna**; los 1 261 restantes
+   necesitan escrituras en el hueco horizontal entre filas, o un banco
+   cuyos mapas no reutilicen un índice con otro color en filas contiguas
+   (restricción nueva en el conversor G3, con su presupuesto). Las tres
+   vías se evalúan como alternativas nuevas, según el punto 4.
 7. Entregar una especificación candidata con tests para el testigo,
    las reservas de Mario y la temporización. Si no se justifica ninguna
    alternativa, informar el bloqueo y detener la revisión.

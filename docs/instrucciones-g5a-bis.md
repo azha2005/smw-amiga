@@ -121,6 +121,16 @@ empieza con POS/CTL provisionales; el canal arranca en DATA).
 
 ### A5. Plan de escrituras de color (lo central)
 
+> **Nota del 2026-10-07 (después de la fase A, `docs/informe-g5bis-1007.md`).**
+> Esta regla es **demasiado estricta**: solo deja escribir un color en
+> líneas donde nadie usa ese índice, y no modela el hueco horizontal entre
+> el último píxel que lo usa en la línea `y-1` y el primero de la línea
+> `y`. Por eso el 87 % de las 59 318 ventanas vacías son del propio Rex
+> (un índice con colores distintos en filas contiguas de la variante
+> elegida). La alternativa se define en la revisión G2T
+> (`docs/instrucciones-revision-1007.md` §2, "Dato de partida"); no
+> retomar B/C con esta regla.
+
 Registros COLOR17..31 = índices DMA 1..15. Al principio del frame valen la
 paleta de Mario (la cabecera ya los escribe). Para cada línea `y`:
 
@@ -312,7 +322,7 @@ Con `tools/stress_ab_build.sh` como modelo, A/B en YI1 y estrés:
 python tools/lint_port.py
 python tools/regress.py --baseline tools/baseline_pc.json --level
 sh tools/oam68k_gate.sh
-for v in "||" "-DREPLAY||" "-DREPLAY -DBENCH||" "-DREPLAY -DBENCH|-DNOOAM -DSPR_OAM"; do
+for v in "||" "-DREPLAY||" "-DREPLAY -DBENCH||" "-DREPLAY -DBENCH||-DNOOAM -DSPR_OAM"; do
   g=$(echo "$v" | cut -d'|' -f1); c=$(echo "$v" | cut -d'|' -f3)
   CDEFS="${c:--DNOOAM}" GDEFS="$g" OUT=work/hash sh tools/game_build.sh > work/hash.log 2>&1
   sha256sum work/hash/game.bin

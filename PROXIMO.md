@@ -53,7 +53,12 @@ habilitan las fases u olas dependientes con estas puertas en rojo.
 | **G2T: contrato temporal de variantes y recargas** | GPT-6.1 Sol high | modelo offline en rama propia, sobre G5a-bis | `docs/instrucciones-revision-1007.md` §2: determinar si variantes con plazos viables o ventanas horizontales permiten color exacto. Propuesta con testigos, slots reales y presupuesto; nuevo contrato decidido antes de B/C |
 
 Para G2T, empezar por el testigo f5811 y separar compatibilidad por fila
-de viabilidad temporal. La regla vigente elige la primera variante
+de viabilidad temporal. Dato de partida (sonda `tools/g2t_probe.py` en
+`wt/g5bis-1007`, `9d865e2`): el 87 % de las 59318 ventanas vacías son del
+propio Rex en filas contiguas, y 1013 de los 2274 frames afectados tienen
+otra variante compatible sin ninguna (`docs/instrucciones-revision-1007.md`
+§2). La regla A5 de `instrucciones-g5a-bis.md` no modelaba el hueco
+horizontal entre filas: era demasiado estricta. La regla vigente elige la primera variante
 compatible; **no cambiarla para esconder la puerta roja**. Evaluar
 alternativas explícitamente, con capacidad real después de `build_mid`,
 reservas de Mario en X/Y y flujos DMA inmutables (P108). Aumentar MOVE
