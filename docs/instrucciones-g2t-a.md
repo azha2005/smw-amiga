@@ -1,4 +1,67 @@
-# G2T-A — contrato candidato y puerta horizontal offline
+# G2T-A — contrato temporal y puerta horizontal offline
+
+**Estado (2026-10-07, noche): contrato FIJADO (§1-bis) y puerta A-T
+verde.** Lo fijó el coordinador con delegación expresa del usuario
+(«hacelo, te doy libertad creativa»), después de medirlo. El candidato
+de abajo (§1, puntos 3-5) **no era físicamente válido**: un sufijo de
+WAIT + 8 MOVE después de x = 255 retrasa el borrado y la primera carga
+de la línea siguiente hasta 112 px (P111). §1-bis lo sustituye; el resto
+del texto queda como registro de la propuesta. Evidencia, comandos y
+cifras: `docs/informe-g2t-a-1007.md`. Lo que sigue (B/C):
+`docs/instrucciones-g2t-bc.md`.
+
+## 1-bis. Contrato fijado (manda sobre §1)
+
+1. **Filas del copper.** La fila R de la Amiga muestra la OAM con
+   y = R − 1 (`mspr.c`: `vs = $2C + y + 1`). Mario, el Rex, las
+   envolventes y el plan usan R; el segmento R lleva el sufijo que
+   prepara la fila R + 1.
+2. **A3-T.** Directorio en su orden, filtro A3 original por fila (también
+   para filas fuera de pantalla en X); se elige la primera variante con
+   plan temporal válido. La elección A3 sin plazo se informa aparte.
+3. **A5-T.** Para cada índice COLOR17-31 y fila: color y envolvente
+   inclusiva [primer x, último x] de **todos** los usos de Mario (desde
+   sus flujos, como `mspr.c`) y del Rex (DMA inmutable), ocluidos
+   incluidos. Una transición va después del último uso del color viejo y
+   antes del primero del nuevo; partida y restauraciones = `R_PAL` de la
+   foto. Un índice con dos colores en la misma fila lo excluye A3.
+4. **C2-T (corregido con medidas).** Sufijo después de la última carga
+   real de `build_mid`, antes del salto: `[WAIT] + NOP* + k MOVE`, como
+   mucho 36 B (9 ranuras).
+   - Posiciones: modelo de `scrollsim` (16 px por MOVE hasta x = 239,
+     8 px después) **salvo 231 → 243** (P110).
+   - **Encadenar** (sin WAIT) solo detrás de una carga: su WAIT ancla la
+     x. Con NOP hasta que el primer MOVE caiga después del último píxel
+     viejo.
+   - **WAIT** solo con el copper libre: x(h) a 48 px o más de la última
+     carga (o sin cargas). Para x ≥ 256, WAIT `$D0` solo si la última
+     carga está en x ≤ 207 o no hay cargas (equivale a primer MOVE en
+     263).
+   - **Fin:** el último MOVE del sufijo cae en x ≤ 351 − 8·nb, con nb los
+     MOVE del borrado de la línea siguiente (7/8/9). Con otro nb no está
+     medido: sin plazo. Es la regla medida en el límite y un paso más
+     allá para cada familia (P111).
+5. **Cruce PAL255.** El segmento 211 (línea 255) **no lleva sufijo**
+   (`K255 = 0`): la barrera FFDF de `scroll.s` no cambia. El punto 5 del
+   candidato no se usa (con k = 8 falla por capacidad, como cualquier
+   otra línea).
+6. **Armado en VBL.** Bloque nuevo tras la cabecera: WAIT (30, 0) +
+   16 MOVE (SPR4-7 PTH/PTL/POS/CTL, PT = DATA + 4·recorte, ATTACH en el
+   impar) + hasta 15 MOVE de colores de partida. Medido en v = 26, 27 y
+   30 con recorte 0/2/3; en v = 16 falla (el DMA de control lo pisa).
+   Canal sin columna visible: inactivo. Reuso a mitad de pantalla = G4.
+7. Datos = foto O5 (Mario ya dibujado, `R_PAL`, cámara); render sin RAM
+   viva. Selección por forma/pose/paleta/cámara, nunca por frame.
+8. Mario (canales 0-3) siempre delante del Rex (4-7); se verifica contra
+   la primera entrada OAM opaca de la SNES (`prioridad_distinta`).
+
+Presupuesto: segmento 220 → 256 B (+16 128 B chip en dos listas) y bloque
+VBL ≤ 128 B por lista (+256 B): **+16 384 B chip, estimado**, sin tocar
+el banco G3 (64 528 B DMA / 72 724 B tablas).
+
+---
+
+*Texto original de la propuesta (registro):*
 
 2026-10-07. **Propuesta de tarjeta**, entregada por G2T. El contrato
 temporal todavía no está aprobado ni implementado. Este documento define

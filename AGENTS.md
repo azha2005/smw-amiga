@@ -372,7 +372,7 @@ En español. Cada rutina de hardware (blitter/copper) lleva arriba:
 Índice, una línea por trampa. **El texto completo (causa, síntoma, arreglo y
 comandos) está en `docs/pitfalls.md`, textual**: leer ahí las del área que se
 toca antes de cambiar nada. Una trampa nueva se agrega allí y aquí con el
-número siguiente (**la próxima es P110**).
+número siguiente (**la próxima es P112**).
 
 - **P1** El layout de paletas de SMW no es un array 8×16. ✅ RESUELTO
 - **P2** El blitter tiene prioridad sobre la CPU y la "roba" ciclos
@@ -485,6 +485,8 @@ número siguiente (**la próxima es P110**).
 - **P107** D1: VBL repetidos, fotos descartadas y ticks tardíos son contadores distintos
 - **P108** G2: los controles DMA solapados son inmutables; Mario fija índices, no solo colores
 - **P109** L-OAM: sustituir C por asm puede eliminar tablas y romper la comprobación del modo OAM
+- **P110** En el codo de 256 px, el MOVE siguiente a uno en x = 231 cae en x = 243 (no 247)
+- **P111** El hueco entre filas admite pocos MOVE: el último cae en x ≤ 351 − 8·nb (borrado siguiente)
 
 ---
 

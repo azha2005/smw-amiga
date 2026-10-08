@@ -961,3 +961,28 @@ las medidas finales. Reproducir también el juego con `SPR_OAM`, además de
 `oam68k_gate.sh`; los builds por defecto no ejercitan esa interfaz.
 Commits `bbdf201` (fallo del juego) y `cd5001c` (interfaz corregida);
 evidencia en `docs/informe-loam-1007.md`.
+
+**P110 — En el codo de 256 px, el MOVE siguiente a uno en x = 231 cae en x = 243.**
+`scrollsim.advance` da 16 px por MOVE hasta x = 239 y 8 px después; la
+sonda G2T-A (`tools/g2t_cal.py build-suite --suite knee`, WinUAE exacto,
+COLOR01 sin sprites delante) mide todos los pasos de $74 a $CE iguales al
+modelo **salvo 231 → 243** (12 px), y de ahí 251, 259... (WAIT $A4: 183
+199 215 231 243 251; WAIT $BC: 231 243 251; WAIT $94 + 4 NOP: 215 231 243
+251). Un MOVE de color planificado en 247 tras otro en 231 pisa 4 píxeles
+del objeto anterior. `g2t_ref.advance` y `g2t_cal.adv` llevan la
+corrección. El scroll actual sigue con el modelo viejo: con el paso medido
+`scrollsim` da 5110 px de capa 1 mal en vez de 5119 (134 → 138 frames con
+fallos); revisar en S5/S6. Evidencia: `docs/informe-g2t-a-1007.md` §4.
+
+**P111 — El hueco entre filas admite pocos MOVE: el último cae en x ≤ 351 − 8·nb.**
+Un sufijo de color después de x = 255 retrasa el borrado y la primera
+carga (x = 7) de la línea siguiente. Medido (suites `cap` y `final`): con
+borrado de nb = 7/8/9 MOVE caben 5/4/3 MOVE tras WAIT $D0 con el copper
+libre o encadenados tras una carga en x = 255; con un WAIT detrás de esa
+carga, dos menos. Regla única, comprobada en el límite y un paso más allá
+para cadenas tras 255/247/239/231, WAIT $D0 y WAIT $C4: el último MOVE del
+sufijo en x ≤ 351 − 8·nb (unidades de `scrollsim`). El sufijo candidato de
+G2T (WAIT + 8 MOVE) movía la carga de x = 7 a x = 47..119. **Para verlo
+hace falta que el borrado escriba el color visible en su último MOVE y una
+carga temprana**: el arnés de G2T comprobaba solo el primer MOVE y daba
+"0 errores de fondo". Evidencia: `docs/informe-g2t-a-1007.md` §2-§5.

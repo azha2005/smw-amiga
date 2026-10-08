@@ -68,7 +68,7 @@ copian acá.
 | 8.1 | Grabaciones | **32 oráculos** con snesorc sin usuario (`tools/snesorc/*.orc`), entre ellos `stress_back`, `stress_sprites`, `stress_vert`, `pipe`, `goal`/`goal_low`/`goal_miss`, `pw_*` (seta, flor, estrella, 1-UP, `$C7`, bloques, medio, monedas de Yoshi) y los de R10. Faltan: luna 3-UP, R7 (contadores del HUD), R8/A0 (audio) | `tools/snesorc/`, `work/oracle_*.txt` |
 | 8.2 | Lógica ≤ 40 % | **hecha para el alcance anterior; L-OAM no cerrada**. Ambas rutinas en asm (`e8ec165`, `bbdf201`, `cd5001c`, fusión `cb8ba8f`), RAM PC=68000 exacta. WinUAE l4: YI1 con `SPR_OAM` **41,2 %** (antes 43,1 %), back 73,9 %; fotos back 295 contra 145 del control, sprites 32 contra 0. Parada explícita tras ambas asm; nueva tarjeta pendiente | `player/logic68k.s`; `docs/informe-loam-1007.md`, `docs/informe-coordinacion-1007.md` |
 | 9.1 | Sprites: lógica | **casi hecha**: Rex, `$83`, `$B9`, `$BD`, `$02`, `$9F`, `$4F`, `$8E`, `$C7`, Chuck `$95`, caparazones, meta `$7B`, power-ups (P6), Mario crecer/encoger/morir/estrella (P8); `game` 0 resincronizaciones. Faltan P7 (bolas de fuego), P9 (monedas de Yoshi, puntos), P10 (reserva) | `player/msprite.c`, `spr_*.c` |
-| 9.2 | Sprites: dibujo | Mario hecho; G0/G1/G3a/G8 y G8b opt-in verificadas. G3 acotada hecha (64528 B DMA, 72724 B tablas, loader replay/vivo). G5a fallida y revertida (`652b23c`). **G5a-bis parcial en rama** `8fe712d`: A2 y variantes exactas; 59318 ventanas vacías + 18 fallos de capacidad, B/C detenidas. Coordinador reproduce el resumen y revisa las PNG. G2T revisión entregada:3404 frames auditados y ocho recargas sintéticas cycle-exact exactas; barrera255 reparada (64 ->0 px). Contrato candidato y nueva A-T pendientes; cobertura global, G4-G7/G9 pendientes. **Los enemigos todavía no se ven en la Amiga** | `docs/informe-g3-final.md`, `docs/informe-g5bis-1007.md`, `docs/informe-coordinacion-1007.md`, `docs/informe-g2t-1007.md` |
+| 9.2 | Sprites: dibujo | Mario hecho; G0/G1/G3a/G8 y G8b opt-in verificadas. G3 acotada hecha (64528 B DMA, 72724 B tablas, loader replay/vivo). G5a fallida y revertida (`652b23c`). **G5a-bis parcial en rama** `8fe712d`: A2 y variantes exactas; 59318 ventanas vacías + 18 fallos de capacidad, B/C detenidas. Coordinador reproduce el resumen y revisa las PNG. G2T revisión entregada. **G2T-A hecha (2026-10-07): contrato fijado con medidas y puerta A-T verde** en 3404 frames (0 sin plazo, 0 errores de color/capa 1/prioridad; 69 293 transiciones; 56 casos exactos + 27 negativos en WinUAE). El candidato era inviable: el hueco entre filas admite 12 − nb MOVE (P111); codo 231→243 (P110). B/C (`docs/instrucciones-g2t-bc.md`), cobertura global y G4-G7/G9 pendientes. **Los enemigos todavía no se ven en la Amiga** | `docs/informe-g3-final.md`, `docs/informe-g5bis-1007.md`, `docs/informe-coordinacion-1007.md`, `docs/informe-g2t-1007.md`, `docs/informe-g2t-a-1007.md` |
 | 6b | Integración | ADF en vivo y replay, O5 por defecto y diagnóstico. Con banco G3 y L-OAM asm, memmap replay/vivo: chip 455728/467256 B, slow 287712/323944 B; 0 violaciones. Gamecheck replay integrado 6313 frames, 0 distintos; Mario 6184/6184. Falta vlink C2, compresión C3 y loader C4 | `player/game.s`; `docs/informe-coordinacion-1007.md` |
 | 10-12 | HUD, audio, pulido | **Z1** hecho (muerte normal y reinicio; `docs/validacion-z1.md`). **H1** medido conservadoramente (`docs/medida-hud.md`; falta la alineación exacta PPU). **A1**: conversor verificado, 20 muestras / 50560 B PCM (`docs/informe-a1.md`); audio reproducido y R8 pendientes. HUD visible, punto medio, meta, game over: pendientes | — |
 | Experimental E11-E14 | Técnicas de juegos de referencia | E11a hecha: 0 cargas PF1 en franjas aptas de 15.755 frames; E11b descartada para `build_mid`. E12 descartada: 0/7 índices sin conflicto en 1.016.785 cámaras. E13 sin caso. E14a hecha; E14 descartada para estrés: 0/202 frames con las 64 filas libres (Banzai solo: 16/331). No cambia el presupuesto ni la compuerta D1 | `docs/experimentos-e11-e14.md` |
@@ -216,27 +216,27 @@ Tarjetas y estados: `SUBAGENTES.md` §4. La sesión L-OAM/G5a-bis del
 L-OAM queda en 41,2 % de lógica YI1 y estrés peor que su control;
 G5a-bis se detiene en A por ventanas de color vacías. Los dos bloqueos
 se reproducen y se detallan en `docs/informe-coordinacion-1007.md`.
-G2T ya entregó una propuesta temporal y calibración sintética; faltan
-la nueva puerta horizontal completa y la revisión de coste OAM. Las olas
-1 y2 siguen cerradas; la3 no habilita implementación del juego ni cambia
-sus umbrales. Evidencia: `docs/informe-g2t-1007.md`.
+G2T-A (2026-10-07, noche) fijó el contrato temporal con medidas y dejó
+la puerta A-T verde (`docs/informe-g2t-a-1007.md`): G5 B/C quedan
+habilitadas con `docs/instrucciones-g2t-bc.md`. Falta la revisión de
+coste OAM (L-OAM sigue en 41,2 %). Las olas 1 y 2 siguen cerradas.
 
 | ola | contenido (lo que falta) | estado | sesiones que faltan |
 |---|---|---|---|
 | 1. Medir y preparar | — | **cerrada** | 0 |
 | 2. 50 Hz (1) | — (S4 descartada, P89) | **cerrada** | 0 |
-| 3. 50 Hz (2) + diseños | G2/G3 acotadas y traza D1 integradas; L-OAM asm parcial (41,2 % YI1, estrés rojo), G5a-bis detenida fase A (ventanas vacías). G2T revisada, nueva A-T completa y tarjeta de coste antes de retomar; A2 y R7. A1/G8b adelantadas | **A-T y revisión OAM pendientes; puertas rojas** | **2-3 estimadas** (modelo/medida + implementación, sin garantizar cierre) |
+| 3. 50 Hz (2) + diseños | G2/G3 acotadas y traza D1 integradas; L-OAM asm parcial (41,2 % YI1, estrés rojo), G5a-bis detenida fase A (ventanas vacías). G2T-A hecha (contrato fijado, A-T verde); faltan G2T-B/C y la revisión de coste OAM; A2 y R7. A1/G8b adelantadas | **B/C habilitadas; L-OAM roja** | **2 estimadas** (B/C + L-OAM, sin garantizar cierre) |
 | 4. Motores y estructura | G4 + G6, G5 + G9, C2 (vlink), S8 (cámara vertical), A0 + A2, P7/P9/P10, T1, I/E sueltas | pendiente | 2-3 |
 | 5. Integraciones y 50 Hz con sprites | S5 (+ S3/S6) con G5 ya hecho, C3/C4/C5 (loader), segundo PF1 + G7 (bobs), H2-H4 (HUD), A3/A4 (música) | pendiente | 2-3 |
 | 6. El juego completo | Z2-Z6 (punto medio, meta, tiempo, fundidos, poste), T2/T3 (tubería), A5-A8 (efectos, comparación), H5, R7 | pendiente | 2 |
 | 7. Segunda ronda de 50 Hz | todo junto contra la compuerta D1 en estrés | pendiente | 1 |
 | 8. Cierre | Z7, Z8, U1-U4, arreglos | pendiente | 1 |
-| | **total que falta** | | **10-13 estimadas**, incluyendo A-T y revisión OAM; 14-18 si hay que serializar |
+| | **total que falta** | | **9-12 estimadas**, con A-T hecha; 13-17 si hay que serializar |
 
-Estimado actualizado tras G2T:10-13 sesiones restantes; la revisión
-entregada deja una puerta offline calibrada nueva antes de implementar
-G5. No garantiza cierre con una sola tarjeta. Proyecto completo~15-18
-sesiones estimadas (14-18 restantes si hay que serializar). El estimado anterior se archiva textual en
+Estimado actualizado tras G2T-A: 9-12 sesiones restantes (una menos: la
+puerta offline calibrada quedó hecha en la misma sesión que fijó el
+contrato). No garantiza que B/C cierren en una sesión. Proyecto completo
+~15-17 sesiones estimadas (13-17 restantes si hay que serializar). El estimado anterior se archiva textual en
 `docs/archivo/sesiones.md`. E11-E14, A1 y G8b son avances previos parciales
 que no cierran las tarjetas de dibujo ni reducen por sí solos la ruta crítica.
 
