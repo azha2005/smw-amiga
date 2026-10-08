@@ -1452,3 +1452,272 @@ controles en la misma tanda, solo PIDs propios. Cierre según ROADMAP §7.
 - U3 opcional: A500 real.
 - Mantener la rama B35 separada de master mientras siga inviable para
   el juego en vivo. No push sin instrucción explícita.
+
+
+---
+
+# Archivo del PROXIMO anterior a B2bis (2026-10-08)
+
+# PRÓXIMO — lo que sigue
+
+> **Este es el único lugar que dice qué se hace a continuación.**
+> Se reescribe al cerrar cada sesión (`ROADMAP.md` §7); el texto anterior
+> está en `docs/archivo/sesiones.md`. Estados: `ROADMAP.md` §1/§4 y
+> `SUBAGENTES.md` §4. Ejecución: `docs/instrucciones-olas.md`.
+
+**Escrito el 2026-10-08**, al cerrar la fase de medida B35-asm en
+**`g2t-b35`** (`a9b44fe`). Sin merge a master ni push.
+
+- B35: `307394a` + `dac4244` + `213ba3c` + `06e777f`. B4/B5 exactas en **3404 frames**,
+  ABI intacta, segmentos exactos en **762 496 filas**. Paso 4c de OAM68K,
+  ocho tests G5EV en regress, negativos y cinco hashes por defecto verdes.
+- **Único intento en C agotado**: media 0,96–1,03 millones, máximo
+  **2 405 022 ciclos sin DMA frente a 8000**. Sigue inviable en vivo.
+  Perfil, comandos y memoria: `docs/informe-g2t-b35-1008.md`.
+- **Primer prototipo asm disperso medido**: transiciones exactas en los
+  3404 frames, ABI/PIC correctos, pero **18 794 ciclos solo en ese núcleo**.
+  No hay ruta medida a 8000 para el plan entero; integración detenida
+  según B35-asm §4.5. No traducir el resto sin un nuevo diseño viable.
+  Trabajo real, costes y reproducción: `docs/informe-g2t-b35-asm-1008.md`.
+- Vivo `SPR_G5` + banco G3: slow libre 191 016 B. Tras reservar G5EV
+  (133 040) y `g5_work` (29 952), quedarían **28 024 B estimados**, antes
+  de caché B2bis, fotos, salidas y pila. Auditar todas las reservas juntas.
+- En master siguen C1 (`7df7ebe`, `ab50698`), revisión L-OAM (`bf950d4`)
+  y B2 (`876d28d`, exacta pero máximo 231 612 ciclos). G2T-A y su
+  contrato siguen verdes. L-OAM/D1 siguen rojas; enemigos aún no visibles
+  mediante el plan B35 en el juego.
+
+## 1. La próxima sesión: B2bis y Cpre independientes del plan en vivo
+
+**Recomendación:** comenzar por B2bis B2b-1/B2b-2 (clave y decoder
+aislados), y Cpre C2a (planes sobre listas reales). Se revisaron todas
+las ramas locales: **no hay entregas B2bis/Cpre para integrar**. Ambas
+pueden avanzar con el C de B35 como control; el plan en vivo sigue
+detenido. Antes de reservar caché: N=16/32 con máscaras no entra junto
+a G5EV y el work actual; sumar fotos, salidas y pila incluso con N=8.
+
+| tarjeta propuesta | modelo | toca | entrega y puerta |
+|---|---|---|---|
+| **G2T-B2bis: envolvente barata de Mario** | según tarjeta | foto, clave MA1, caché/decodificación en slow y frontera B2/B3 | `docs/instrucciones-g2t-b2bis.md`: envolventes exactas; captura de clave ≤ 300 ciclos, acierto ≤ 600, fallo ≤ 12 000; sumar su memoria a la reserva de B35 |
+| **G2T-Cpre: emisor con plan precalculado** | según tarjeta | `g5_emit`, listas del replay bajo `SPR_G5`, verificador y capturas WinUAE | `docs/instrucciones-g2t-cpre.md`: listas en regla y 0/57 344 px en ≥ 12 frames; coste contra control, sin declarar D1 cerrada |
+
+Preflight: lint, regress `--baseline tools/baseline_pc.json --level`,
+OAM68K completo (seis líneas `ok G2T-B5`) y A-T verdes. Repetir hashes
+por defecto antes de cada commit opt-in. WinUAE cycle-exact por candado,
+controles en la misma tanda, solo PIDs propios. Cierre según ROADMAP §7.
+
+B35 queda en investigación de otro algoritmo exacto. La medición no
+demuestra imposibilidad general, pero sí rechaza integrar esta propuesta.
+Reabrir únicamente con presupuesto completo medido hacia 8000 y memoria
+para todas las reservas; no ampliar el objetivo ni cambiar el contrato.
+
+## 2. Después, en orden
+
+1. Revisar e integrar las ramas solo después de repetir sus puertas.
+   B35 sigue como control exacto WIP; integración en vivo únicamente con
+   rendimiento y reservas completos. Completar G2T-C y cerrar G5a-bis
+   como G2T cuando también se cumplan sus puertas visuales.
+2. Ruta de la piraña en asm propuesta por la revisión L-OAM, con tarjeta
+   detallada antes de implementarla. Conservar la puerta de lógica ≤ 40 %;
+   el control de estrés acordado es l4 (295/32 fotos), sin rebajar D1.
+3. G4+G6 y G5+G9 con todos los enemigos del lote G3; luego estrés con G5
+   y S5 contra D1 (fotos omitidas ≤ 0,1 %, racha 1). P110 en el scroll:
+   todavía 5110 px con el paso medido.
+4. C2/C4 para liberar tablas CPU de chip y revisar slow; segundo PF1/G7.
+5. Según dependencias: S8, P7/P9/P10, A0/A2, H2-H4 y T1.
+
+## 3. Pendiente del usuario o de la PC
+
+- U1: jugar `work/live/game.adf` con teclado, KS 1.2, 512 KB chip +
+  512 KB slow; enemigos aún no dibujados, diagnósticos si congela.
+- U2: comparación de capa 2 contra la referencia (`cmp_ref.py`).
+- U3 opcional: A500 real.
+- Mantener la rama B35 separada de master mientras siga inviable para
+  el juego en vivo. No push sin instrucción explícita.
+
+
+## 2026-10-08 — B2bis: cierre de puertas locales y rendimiento pendiente
+
+Se completaron los pendientes del handoff: ec320ab, G5ENV/lint/regress/OAM68K/hashes verdes. WinUAE exacto: 98 fotos perdidas contra 27 del control; D1 no cerrada. Informe en docs/informe-g2t-b2bis-1008.md. PROXIMO cumplido y handoff anterior, textuales:
+
+# PRÓXIMO — lo que sigue
+
+Escrito el 2026-10-08 al guardar el handoff por límite de uso del usuario.
+**B2bis sigue parcial; sin merge a master ni push.**
+
+Worktree activo: `C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`, rama
+`g2t-b2bis`. Commits `8a4a43d` y `a401723`; integración y optimizaciones
+posteriores **sin commit**. Handoff exacto:
+`docs/handoff-g2t-b2bis-1008.md`.
+
+Últimas medidas Musashi: cache hit 558 / miss 11904 ciclos, captura 270;
+3404 envolventes exactas; O5 real 6313 renders, 2288 fotos Rex exactas,
+0 frames > PAL (máximo total 140916). La limpieza final ya se recompiló: game/decode verdes, decoder máximo
+10906. **Lint rojo: 12 errores V3 en dc_capture**, resolver antes de commit.
+Front/project del nuevo soporte C todavía sin repetir. Memoria, casos de borde,
+WinUAE, puerta global y red de seguridad final todavía pendientes.
+No declarar 50 Hz ni enemigos visibles: `g5_plan` no está en el render.
+
+## 1. La próxima sesión: completar las puertas de B2bis
+
+| tarjeta | toca | instrucciones y entrega |
+|---|---|---|
+| **G2T-B2bis cierre** | worktree existente; verificación de cache/foto, memoria y BENCH; gates y documentos | `docs/instrucciones-g2t-b2bis-cierre.md`: retomar sin rehacer pasos verdes, completar todos los pendientes del handoff y red final antes de commit |
+| **G2T-Cpre** | emisor con plan precalculado, después del cierre anterior | `docs/instrucciones-g2t-cpre.md`: listas exactas y prueba visual cycle-exact; aún no iniciado |
+
+Leer primero el handoff y la tarjeta de cierre. La autorización del usuario
+es seguir iterando hasta cumplir requisitos, sin rebajar exactitud ni coste.
+No activar B35 en vivo: el C sigue costando 2405022 ciclos contra 8000.
+
+## 2. Después
+
+Revisar B2bis solo tras repetir sus puertas; completar Cpre/C. Reabrir B35
+con otro algoritmo y presupuesto completo medido, incluyendo memoria.
+L-OAM/D1 y la ruta OAM de piraña siguen pendientes. Conservar los cinco
+hashes por defecto; no tocar `g2t_ref.py`, contrato ni `scroll.s`.
+
+## 3. Pendiente del usuario o la PC
+
+U1: jugar el ADF vivo con teclado/KS1.2/A501. U2: comparación de capa 2.
+U3 opcional: A500 real. No hace falta autorización adicional para seguir
+las pruebas y correcciones de la tarjeta.
+
+
+# Handoff G2T-B2bis — 2026-10-08
+
+Cierre solicitado por el usuario al quedar 7 % de uso. **Trabajo parcial, sin integración ni push.**
+El usuario autorizó seguir iterando hasta cumplir los requisitos; las paradas por número de intentos de la tarjeta no revocan esa autorización. No declarar B2bis cerrada todavía.
+
+## Ubicación y commits
+
+- Worktree: `C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`.
+- Rama: `g2t-b2bis`, creada desde `a52e2ba` de `g2t-b35`. La carpeta principal `port-amiga` y master no se tocaron.
+- `8a4a43d`: B2b-1, clave MA1 real sin colisiones.
+- `a401723`: B2b-2, decoder asm exacto; entonces máximo 11 268 ciclos.
+- **Todo lo posterior está sin commit**, incluidos los documentos de este cierre. No hacer commit sin lint, regress con `--level`, OAM68K completo y hashes verdes.
+- `player/g5plan.c` aparece modificado por finales de línea, pero `git diff -- player/g5plan.c` no muestra cambios de contenido. Evitar un commit de ruido.
+
+## Resultados medidos y límites
+
+B2b-1: 2288 + 661 + 455 frames. Claves por traza 245/155/139, global 465; 0 colisiones. Hay 32 imágenes visibles y una vacía. Muchísimas claves difieren solamente en punteros de tiles no utilizados.
+
+Última prueba de caché **incluyendo el projector real y la mutación a formato disperso**, `work/b2b/cache_packed.log` y `work/b2b/cache/cache_summary.json`:
+
+| N | traza | hit completo | miss (incluye alias) | alias de imagen | sin clave | máximo hit | máximo miss |
+|---|---|---:|---:|---:|---:|---:|---:|
+| 8/16/32 | yi1 | 1878 | 410 | 234 | 63 | 558 | 11904 |
+| 8/16/32 | normal | 477 | 184 | 158 | 0 | 558 | 11904 |
+| 8/16/32 | spin_kill | 279 | 176 | 139 | 0 | 558 | 11904 |
+
+Todas exactas, ABI intacta, canarios de salida/cache/entrada/pila intactos. Estos hashes solo ocupan ocho candidatos en las trazas aunque N sea mayor: N16/32 no aportaron beneficio. **N8** por defecto, 12 452 B incluyendo scratch 2484 + 8 × 1246.
+
+Último O5 completo medido **tras recompilar la limpieza final**: `work/b2b/game_handoff.log`:
+
+- 6313 renders con RAM/OAM/fichas MA1 vivas envenenadas; 2288 fotos con Rex exactas contra `g2t_ref` aplicado a los datos capturados.
+- 63 fotos Rex sin clave.
+- Captura nueva: **270 ciclos máximo**, cota conservadora incluyendo exposición de fuentes y diferencia de MULU por tamaño DC_REC.
+- Render B2bis máximo **46 924 ciclos**, frame 6936.
+- Total CPU O5 máximo **140 916 ciclos**, frame 11301; **0 frames > PAL**. Musashi, sin DMA; margen pequeño. **No es prueba de 50 Hz en WinUAE**.
+- Foto 5219 → frame del oráculo 10364; el replay empieza en 5145.
+
+**Fixture conocido:** 47 SKIP + 1 SYNC (7600) no coinciden con los volcados PC provisionales de B2. `marioverify` captura antes de deshacer SKIP, pero el replay Amiga conserva gráficos previos; SYNC carga física sin recalcular mgfx. Todas las fotos RUN coinciden también con esos volcados; las 2288 coinciden con el modelo del estado real capturado. No cambiar `g2t_ref.py`, replay, scroll ni hashes para ocultarlo. Documentar explícitamente esta limitación; no afirmar igualdad SNES en esos 48 fixtures. El verificador actual separa SKIP/SYNC en el informe.
+
+Al cerrar se recompiló el build replay final (243428 B) y se repitieron **game y decode**, ambos verdes. El decoder final da **10906 ciclos máximo**, 3404 frames exactos, ABI 0; sinteticos y negativa verdes (`work/b2b/decode_handoff.log`). El soporte C recién añadido para formato 4 todavía no pasó front/project de nuevo. Cache completa se probó antes de esa limpieza, con el mismo ASM. La puerta `game` ahora falla si hay un frame > PAL; antes solo informaba el número.
+
+**BLOQUEO descubierto en el cierre: lint rojo.** `work/b2b/lint_handoff.log`: 12 errores V3 en dc_capture (registros y stack). Los marcadores globales `dc_g5copy_start/end` probablemente hacen que asmlint corte el cuerpo y no vea el MOVEM de retorno. Verificar esta causa, corregir etiquetas/aliases manteniendo los símbolos de medición y demostrar la ABI; **no desactivar lint ni cambiar las declaraciones para silenciarlo**. `git diff --check` pasa. No se hizo commit del trabajo posterior.
+
+## Diseño actual
+
+### Decoder y caché (`tools/g5env_asm.py` → `player/g5env.s`)
+
+Regenerar con `python tools/g5env_asm.py`; no editar el ensamblador generado a mano. Los datos matemáticos son código, no assets ROM.
+
+- `_g5env_decode(spr, out)`: ABI vbcc completa, preserva D2–D7/A2–A6, incluido A4. Máximo salida 2484 B.
+- Cabecera: alto.w, formato.w. Formato 1: quince máscaras.w por fila (30 B), todas escritas. Formato 2: presencia.w y quince máscaras.l (62 B), solo significativos los índices presentes. Formato 0: vacío.
+- Mono procesa dos filas por vuelta; alto impar entra por la segunda mitad. Se eliminó el EOR de transparencia innecesario. Prueba de decoder actual debe repetirse: el JSON existente puede ser de un intento anterior; no citarlo como versión final.
+- `_g5env_lookup(cache, key nullable, spr)`: tabla directa, siempre igualdad completa de 40 B para un hit. Primero compara el interior con punteros que suelen cambiar, luego el prefijo. D1=1 hit completo, D1=0 decoder, D1=2 **miss de clave cuya igualdad de imagen se demuestra**. El coste de alias se cuenta entre los misses, no como hit ≤600.
+- Hash: `((key[5] >> 6) ^ (key[21] >> 5) ^ (key[18] >> 6)) & (N-1)`. No determina igualdad, solo candidato.
+- Alias conservador: n≤2, tiles de ambas entradas≤2, prefijo de 18 B igual y punteros 0/1/5/6 iguales byte a byte. Esos tiles 16×16 no utilizan otros punteros. Cualquier otro caso decodifica. La prueba inicial compara algunos largos adicionales: puede rechazar un alias válido, nunca aceptarlo sin comprobar los punteros usados.
+- No hay filtro horizontal en lookup; si se devolvieron límites compactados y luego la caja cruza el borde, **project** vuelve a decodificar el buffer de la foto en scratch antes del recorte. Probar bien este caso sintético: las trazas tienen 0 recortes horizontales.
+
+### Proyección
+
+- `_g5env_project(blk, spr, data)` materializa la representación B2 original en un bloque de 1292 B. Mantiene las funciones originales `g5_mario_mask/span` y sus firmas; `g5_plan` no se cambia. Se abandonó leer máscaras perezosamente desde esas funciones porque repetía demasiado trabajo. Informar esta elección frente al texto de la tarjeta, no fingir que se reimplementaron ambas.
+- Primera proyección completamente dentro de pantalla: empaqueta **formato 4** en el mismo payload máximo de 1204 B. Por fila: presencia.w, (npares−1).w, pares `(offset ENV.w, extremos relativos.w)`. Solo índices utilizados.
+- Construye el pack en **1204 B temporales de pila**, copia con MOVEM y conserva las máscaras originales si el pack no cabe. Las filas densas excepcionales continúan por el camino conservador. Primera proyección más cara, warm mucho más barata.
+- Camino totalmente visible duplicado por el generador: evita AND y tests de flags por celda; camino recortado conserva las máscaras. El bucle warm tiene BRA explícito a `.return`: sin él caería en la copia del bucle rápido (error ya arreglado).
+- Alto/posición salen siempre del sprite de la foto. Recorte antes de hallar extremos. Campos Rex intactos.
+- `player/g5env.c/h`: projector **de control**, no el habitual de producción. Tabla matemática `g5env_bounds[256]`. Soporte recién añadido para formato 4 y recorte desde DATA, pendiente repetir PC/vbcc. Formato 2 raro usa este C en producción; ninguna de las tres trazas entra por ese camino. No afirmar coste ≤12000 para dibujos sintéticos arbitrarios de dos columnas.
+
+### Juego opt-in
+
+- `mspr68k.s`, bajo SPR_G5, expone al retornar A0=n/entradas, A1=punteros, D0=validez. L1 apunta a la ficha real; camino fast/free-buffer apunta a mspr_n y RAM de punteros; oculto/C devuelve flag 0.
+- `DC_REC`: 8 B por defecto, 50 B con SPR_G5. R_G5HAS=8.w, R_G5KEY=10 (40 B). Copia MOVEM alineada; fuente de punteros está impar.
+- Permutación de clave: `natural[:19] + natural[39:40] + natural[19:39]`; mantiene los 40 bytes. `cache_key` reproduce esa permutación.
+- Marcadores `dc_g5copy_start/end` para medir captura mediante trampas Musashi. A0/A1/D0 de mspr_draw se preservan hasta dc_recp, 12 ciclos.
+- `dc_g5render`: después de build_mid, consulta cache y proyecta **solo la foto DC_REND**. Cache y view en slow, al final del binario para evitar P102/distancias PC. No se llama `g5_plan` en vivo.
+- `logicbench_build.sh`: compila `g5plan` + `g5env` bajo SPR_G5; datos de bounds quedan dentro del alcance A4. Cambios auxiliares en `g5plan_work.py` y `oam68k_gate.sh` enlazan g5env.c.
+- `gamecheck.py` y `restart_verify.py`: base del arnés 0x8000 si el binario grande no cabe en 0x10000 antes de DATA=0x48000. No aumenta la memoria simulada ni modifica el binario.
+
+## Herramientas y reproducción
+
+PowerShell nativo funciona. Git Bash:
+
+```
+export PATH="$TEMP/pyshim:/c/msys64/ucrt64/bin:$PATH" VBCC=/c/Users/JC/vbcc PY=python
+```
+
+Invocar un wrapper con `& 'C:/Program Files/Git/bin/bash.exe' work/b2b_gamebuild.sh` desde ESTE worktree. No mezclar escrituras/builds concurrentes: comparten work/cc y logicbench.
+
+Wrappers ignorados disponibles:
+
+- `work/b2b_gamebuild.sh`: build replay SPR_G5 a `work/b2b_r`, log `work/b2b/game_build.log`.
+- `work/b2b_front.sh`: recompila logicbench SPR_G5, copia bin/lst a work/b2b y ejecuta front.
+- `work/b2b_checks.sh`: lint y regress `--baseline tools/baseline_pc.json --level`, logs en work/b2b.
+- `work/b35_memory_hashes.sh`: memoria con banco G3 replay/vivo, cuatro hashes game + logicbench, comparación con work/b35_before/hashes.log. Guarda logs en work/b35_mem_* y work/b35_after.
+
+Comandos verificador:
+
+```
+python tools/g5env_verify.py decode
+python tools/g5env_verify.py cache
+python tools/g5env_verify.py front
+python tools/g5env_verify.py project --bin work/b2b_r/game.bin --lst work/b2b_r/game.lst
+python tools/g5env_verify.py game --bin work/b2b_r/game.bin --lst work/b2b_r/game.lst
+```
+
+`key` genera copia instrumentada del arnés PC en work/b2b/key. Ahora mismo su default bin/lst son work/b35_mem_replay antiguos: para probar la exposición nueva, pasar explícitamente el bin/lst de work/b2b_r.
+
+Fixtures `work/g5gate/cap_{yi1,normal,spin_kill}.bin`, keys `work/b2b/key/key_*.bin`, banco work/g3/bank. Los ignorados ya se copiaron al worktree. **No regenerar/subir ROM ni assets.**
+
+**Pitfall del arnés:** machine68k comparte un núcleo global. No alternar dos Machine vivas en el mismo proceso. En front/project primero predecodificar todas las entradas con EnvCPU, eliminarlo y crear M68k. EnvCPU sí alterna dos bases de código dentro de UNA Machine.
+
+`cache` actualmente monta un fixture pequeño con el asm de producción, tabla matemática, scratch y un `_g5env_bind` inválido intencionado: solo cubre mono. `project_call` controla ABI/canarios/pila y alterna bases. Caso raro ancho doble debe comprobarse con el binario real que contiene el C.
+
+## Pendiente antes de cerrar B2bis
+
+1. Resolver primero los 12 errores de lint; después repetir decode/cache/front/project/game y recompilar lo que cambie. Corregir cualquier rojo; no rebajar umbrales.
+2. Ampliar pruebas de **cache compactada → recorte con huecos**, vertical, SPR2 aislado/no-key y formato denso que no cabe en pack; comparar también con projector C y frontera PC. `decode_env` tiene fallback por píxel para packed recortado, pero eso por sí solo NO prueba que ASM lo hizo: comparar view de `project_call`.
+3. Repetir source de clave real en L1 con `mspr_n` envenenado, free buffer 2 y hidden/C. run_key actual solo comprueba la ficha de dibujo inicial; faltan esos caminos expuestos.
+4. Probar render tardío reteniendo DC_REND, avanzar un dc_cop que obligue a buffer 2, comprobar que foto vieja y DATA no cambiaron, y renderizarla contra referencia anterior. Envenenar RAM ya está probado, pero no sustituye esa prueba.
+5. Añadir marcas BENCH de copia de clave y render (GBS/GBR, crecer gb_t solo bajo SPR_G5). Aún no implementadas.
+6. `tools/g5env_gate.sh` **todavía no existe**. Debe ejecutar pasos de la tarjeta en las tres trazas y fallar con `G5ENV: FALLO`; terminar `G5ENV: OK` solo si todas pasan. Integrar tests significativos en `tools/test_g5env.py` (ya entra en regress).
+7. Gamecheck indicado en tarjeta, build vivo + restart, memmap de **cuatro builds** con/sin banco G3. Auditar reservas conjuntas: G5EV 133040, g5_work 29952, fotos, cache, view, salidas y pila. Último tamaño replay sin banco: 243428 B; memoria final **sin auditar**. No citar números de B35 como actuales. Pila IRQ existente dc_stk=8192, ya forma parte del binario; el pack usa la pila del render, por tanto justificar reserva propia además de IRQ.
+8. **WinUAE cycle-exact y evidencia visual pendientes**. Por candado `C:/Users/JC/Downloads/sma/winuae_lock.ps1`, tools/shot.ps1 -Exact; comparar control en la misma tanda, solo PIDs propios. No declarar D1 cerrada con Musashi.
+9. Lint, regress --level, **OAM68K entero** (B35 PC+68000 en tres trazas incluidos), cinco hashes por defecto antes de cada commit. Última red completa fue antes de a401723, NO cubre integración actual. No está autorizado merge ni push.
+10. Informe final, commits por pasos cerrados, actualizar handoff/PROXIMO/estados. B35 plan sigue inviable (2.405 M vs8000); Cpre todavía sin iniciar. Cumplir B2bis no significa que enemigos ya se dibujen.
+
+Hashes esperados: live c03b569643c7bf5ac62f55cdd2813951a6895a6d4801d1eef241e96cfa422769; replay 9403f71c76bc2df9a92a3cc24d8db1e9e67c47e5e62a558e441c3994d0538109; replay BENCH 2bc486d77af939aedfb183457e33cc41eba172521959bb0192ddbe6f594363bb; replay BENCH SPR_OAM 71071566e75a0c1a9dd5391d8398fc44f69ace2e1a4dd489e936c5f7c8bbfad4; logicbench ec8147ac1989ab7e7714f1db3f3cebbc723730a980aa33158a6a41173e4dc37e.
+
+
+## Vista solicitada por el usuario (2026-10-08)
+
+Se recompiló `work/b2b_r/game.adf` y se abrió para el usuario en WinUAE
+PID 30888 (helper PowerShell 8104). Replay automático, KS1.2, A500 PAL,
+512 KB chip + 512 KB slow, config cycle-exact de `a500.uae` en
+`work/b2b_r/view.uae`. El helper `work/b2b_r/view-open.ps1` se ejecuta
+por `winuae_lock.ps1`, espera el cierre del emulador y entonces libera
+el candado. No cerrar esa ventana del usuario como si fuera una prueba
+propia abandonada. Sin cambios al código ni commit. No se tomó una
+captura ni se midió rendimiento dentro de WinUAE; abrirlo no cierra
+la puerta visual/de rendimiento. Enemigos todavía no dibujados.

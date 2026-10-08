@@ -619,7 +619,7 @@ _g5env_decode:
 ; --- _g5env_lookup ---
 ; entrada: pila vbcc +4 = cache G5ENV_BYTES, +8 = clave 40 B o cero,
 ;          +12 = sprites de la foto. Cache inicialmente a cero.
-; salida: d0 = entrada de mascaras, cero si cabecera invalida; d1 = 1 hit/0 miss.
+; salida: d0 = entrada, cero si invalida; d1 = 1 hit, 0 miss, 2 miss con alias.
 ; registros destruidos: d0/d1/a0/a1; preserva d2-d7/a2-a6.
 ; ciclos: tools/g5env_verify.py cache (incluye el decoder en los fallos).
 ; La tabla directa solo selecciona candidato: se comparan los 40 B siempre.
@@ -798,7 +798,7 @@ _g5env_lookup:
 ; --- _g5env_project ---
 ; entrada: pila vbcc +4 bloque B2, +8 sprites de la foto, +12 mascaras;
 ;          a4 = binstart (tabla g5env_bounds del C, <32 KB, P36).
-; salida: mask/env de Mario materializados; datos del Rex sin tocar.
+; salida: vista Mario B2 o pack propio portable (tag $B2); Rex sin tocar.
 ; registros destruidos: d0/d1/a0/a1; preserva d2-d7/a2-a6.
 ; ciclos: tools/g5env_verify.py project; recorte ANTES de hallar extremos.
 ; La columna doble (camino raro del C) usa g5env_bind como control exacto.
