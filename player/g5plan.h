@@ -64,5 +64,31 @@ typedef uint32_t u32;
    logica (dc_capture), despues de mspr_draw. */
 void g5_capture(u8 *blk, const u16 *spr);
 
+/* G2T-B3 (docs/instrucciones-g2t-b35.md): frontera B2/B3, segmento, plan */
+u16 g5_mario_mask(const u8 *blk, s16 row);
+void g5_mario_span(const u8 *blk, s16 row, u8 idx, u8 *first, u8 *last);
+#define G5_NONE     0x7FFF
+#define G5_T0       (-56)       /* scrollsim.T0 tal como lo ve g2t_ref */
+typedef struct { u8 ok, nb, wrap, pad; s16 last, free; } g5_seg;
+u8 g5_segment(const u8 *list, u16 cl, u16 seg, s16 row, g5_seg *out);
+#define G5_MAXTR    255
+#define G5_SLOTS    9
+typedef struct { u8 idx, pad; u16 val; s16 desde, xult, hasta; } g5_tr;
+typedef struct { u8 tipo, h, nop, k; s16 pos[G5_SLOTS]; } g5_sfx;
+typedef struct {
+    u16 umask[G5_ROWS];
+    u16 ucol[G5_ROWS][16];
+    u8 ufirst[G5_ROWS][16], ulast[G5_ROWS][16];
+    g5_seg segs[G5_ROWS];
+    g5_tr tr[G5_MAXTR];
+    u8 order[G5_MAXTR];
+    u8 ln[G5_ROWS + 1];
+    u8 lid[G5_ROWS + 1][16];
+    g5_sfx sfx[G5_ROWS];
+    u16 colors[16];
+} g5_work;
+u16 g5_plan(u32 frame, const u8 *blk, const u8 *g3tab, const u8 *g3env, const u8 *pals,
+            const u8 *list, u16 cl, u16 seg, g5_work *w, u8 *out);
+
 #endif /* SPR_G5 */
 #endif
