@@ -117,5 +117,22 @@ class G2TRefTests(unittest.TestCase):
         self.assertEqual(plan['pos'], [251, 259])
 
 
+    def test_dump_roundtrip_b1(self):
+        plan = dict(frame=6150, variante=59, vbl_moves=[(3, 0x6a5)],
+                    canales=[dict(canal=4, activo=True, pt=11164, pos=0xcdcd, ctl=0xed01),
+                             dict(canal=5, activo=True, pt=17964, pos=0xcdcd, ctl=0xed81),
+                             dict(canal=6, activo=False), dict(canal=7, activo=False)],
+                    sufijos={168: dict(tipo='cadena', h=None, nop=0, k=2, moves=[(1, 0), (2, 0xfff)]),
+                             172: dict(tipo='wait', h=0xd0, nop=0, k=1, moves=[(5, 0x0fd7)])})
+        blob = T.dump_plans([plan, dict(frame=1, variante=None)])
+        back = T.read_dump(blob)
+        self.assertEqual(len(blob), 6 + 40 + 1 + 3 + 1 + (5 + 6) + (5 + 3) + 6 + 40 + 2)
+        self.assertEqual((back[0]['frame'], back[0]['variante'], back[1]['variante']), (6150, 59, None))
+        self.assertEqual(back[0]['sufijos'][168]['moves'], [[1, 0], [2, 0xfff]])
+        self.assertEqual((back[0]['sufijos'][172]['tipo'], back[0]['sufijos'][172]['h']), ('wait', 0xd0))
+        self.assertEqual(back[0]['canales'][1]['pt'], 17964)
+        self.assertFalse(back[0]['canales'][2]['activo'])
+
+
 if __name__ == '__main__':
     unittest.main()

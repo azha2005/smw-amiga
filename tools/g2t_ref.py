@@ -550,12 +550,77 @@ def plan_frame(recs, ctx, segs):
     result['rex_fuera_pantalla'] = not rexpix
     result.update(variante=n, canales=channels, recorte=clip,
                   transiciones=len(trans), vbl=len(lines.get(-1, [])),
+                  vbl_moves=[(m['indice'], m['valor']) for m in lines.get(-1, [])],
                   sufijos={s: dict(tipo=p['tipo'], h=p.get('h'), k=len(lines[s]), nop=p['nop'], pos=p['pos'],
                                    nb_sig=segs[s + 1]['nb'], ultima_carga=segs[s]['last'],
                                    moves=[(m['indice'], m['valor']) for m in lines[s]])
                            for s, p in plans.items() if s >= 0 and lines[s]})
     ev.update(rex=rexpix, states=states, uses=uses)
     return result, ev
+
+
+TIPO = {'wait': 1, 'cadena': 2}
+
+
+def dump_plans(plans):
+    """Volcado binario B1 (instrucciones-g2t-bc.md §3): big endian, por frame.
+
+    frame u32, variante u16 ($FFFF sin plan), 4 x (activo u8, pad u8, pt u32,
+    pos u16, ctl u16) para SPR4-7, nvbl u8 + (índice u8, valor u16), nseg u8
+    + por segmento (fila u8, tipo u8 1=WAIT 2=cadena, h u8, nop u8, k u8,
+    k x (índice u8, valor u16)). Segmentos por fila; MOVE en orden del plan.
+    """
+    out = bytearray()
+    for p in plans:
+        out += struct.pack('>IH', p['frame'], 0xffff if p['variante'] is None else p['variante'])
+        chans = {c['canal']: c for c in p.get('canales', [])}
+        for ch in range(4, 8):
+            c = chans.get(ch)
+            if c and c.get('activo'):
+                out += struct.pack('>BBIHH', 1, 0, c['pt'], c['pos'], c['ctl'])
+            else:
+                out += struct.pack('>BBIHH', 0, 0, 0, 0, 0)
+        vbl = p.get('vbl_moves', [])
+        out += struct.pack('>B', len(vbl))
+        for i, v in vbl:
+            out += struct.pack('>BH', i, v)
+        segs = sorted(p.get('sufijos', {}).items(), key=lambda kv: int(kv[0]))
+        out += struct.pack('>B', len(segs))
+        for row, x in segs:
+            out += struct.pack('>BBBBB', int(row), TIPO[x['tipo']], x.get('h') or 0, x['nop'], x['k'])
+            for i, v in x['moves']:
+                out += struct.pack('>BH', i, v)
+    return bytes(out)
+
+
+def read_dump(data):
+    """Inverso de dump_plans: lista de dicts con los mismos campos."""
+    plans, o = [], 0
+    names = {v: k for k, v in TIPO.items()}
+    while o < len(data):
+        frame, var = struct.unpack_from('>IH', data, o)
+        o += 6
+        canales = []
+        for ch in range(4, 8):
+            act, _, pt, pos, ctl = struct.unpack_from('>BBIHH', data, o)
+            o += 10
+            canales.append(dict(canal=ch, activo=bool(act), pt=pt, pos=pos, ctl=ctl))
+        n = data[o]
+        o += 1
+        vbl = [struct.unpack_from('>BH', data, o + 3 * j) for j in range(n)]
+        o += 3 * n
+        nseg = data[o]
+        o += 1
+        sufijos = {}
+        for _ in range(nseg):
+            row, tipo, h, nop, k = struct.unpack_from('>BBBBB', data, o)
+            o += 5
+            moves = [struct.unpack_from('>BH', data, o + 3 * j) for j in range(k)]
+            o += 3 * k
+            sufijos[row] = dict(tipo=names[tipo], h=h or None, nop=nop, k=k, moves=[list(m) for m in moves])
+        plans.append(dict(frame=frame, variante=None if var == 0xffff else var, canales=canales,
+                          vbl_moves=[list(m) for m in vbl], sufijos=sufijos))
+    return plans
 
 
 def evidence_png(samples, path):
@@ -694,6 +759,15 @@ def run(args):
         summary['puerta_a_t'] &= ok
         Path(args.out, 'plan_' + name + '.json').write_text(json.dumps(plans, separators=(',', ':')),
                                                            encoding='utf-8')
+        if args.dump:
+            blob = dump_plans(plans)
+            back = read_dump(blob)
+            F.require(len(back) == len(plans) and all(
+                b['frame'] == q['frame'] and b['variante'] == q['variante'] and
+                {int(k): v['moves'] for k, v in b['sufijos'].items()} ==
+                {int(k): [list(m) for m in v['moves']] for k, v in q.get('sufijos', {}).items()}
+                for b, q in zip(back, plans)), 'volcado B1 no reproduce el plan')
+            Path(args.out, 'plan_' + name + '.bin').write_bytes(blob)
         print('%s: frames=%d A2=%d mario_dif=%d %s %s' % (name, stats['frames'], a2['diferencias_a2'],
               mdiff, json.dumps(dict(totals), sort_keys=True), json.dumps(dict(stats), sort_keys=True)),
               flush=True)
@@ -740,6 +814,7 @@ def main():
     ap.add_argument('--bank', default='work/g3/bank')
     ap.add_argument('--out', default='work/g2t_ref')
     ap.add_argument('--frames', type=lambda s: {int(x) for x in s.split(',')}, default=None)
+    ap.add_argument('--dump', action='store_true', help='escribe plan_<traza>.bin (formato B1)')
     args = ap.parse_args()
     args.picks = default_picks()
     return run(args)
