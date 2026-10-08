@@ -1912,6 +1912,11 @@ dc_loop:
         lea     dc_st(pc),a2
         move.w  DC_REND(a2),d7
         bsr     dc_hdr
+        ifd     G5_PRE
+        GETBASE a0
+        add.l   #g5_emit-binstart,a0
+        jsr     (a0)                        ; C2b: consulta y firmas, no emite aun
+        endc
         lea     dc_st(pc),a2
         move.l  V_BACK(a5),DC_PLIST(a2)     ; publicar (en este orden: la
         ifd     D1TRACE
@@ -3333,5 +3338,20 @@ replay: incbin  "work/yi1_replay.bin"       ; en vivo: solo el primer estado
 g5env_cache: ds.b G5ENV_BYTES
 g5env_view:  ds.b 1292                     ; prefijo B2, hasta G5B_REX
         even
+        endc
+        ifd     G5_PRE
+        ifnd    REPLAY
+        fail    "G5_PRE requiere REPLAY"
+        endc
+        ifnd    SPR_G5
+        fail    "G5_PRE requiere SPR_G5"
+        endc
+        ifnd    SPR_BANK
+        fail    "G5_PRE requiere SPR_BANK"
+        endc
+        include "player/g5.s"
+        ifnd    G5_PRE_EXT
+        include "work/g5_pre.i"
+        endc
         endc
 binend:

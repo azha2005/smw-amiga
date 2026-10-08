@@ -31,7 +31,7 @@
 2. Trabajar **un paso por vez**; no se empieza el siguiente con el anterior
    en rojo. Commit `Etapa N.x: <qué>`. Trampa nueva: `Pnn` en
    `docs/pitfalls.md` y en el índice de `AGENTS.md` §8 (la próxima es
-   **P113**).
+   **P115**).
 3. **Al cerrar la sesión: §7** (obligatorio: reescribir `PROXIMO.md`).
 
 **Reglas del proceso (no negociables, vienen de lo que ya costó caro):**
@@ -50,13 +50,15 @@
 
 ## 1. Estado por etapa (al 2026-10-08)
 
-**Entrega B2bis (2026-10-08):** rama g2t-b2bis, `ec320ab`, sin merge/push.
-G5ENV/lint/regress --level/OAM68K/hashes verdes; 3404 frames, 762496 filas,
-258 bordes y 2288 fotos Rex exactos. Cache 558/11904, captura 270;
-O5 Musashi 0 > PAL. WinUAE: 98 fotos perdidas (1,55 %, racha 2) frente
-al control 27; D1 sigue roja. Vista 0/327680 píxeles distintos. Memoria
-vivo G3 con reservas: margen 264 B. B35 fuera del vivo, Cpre sin iniciar.
-Informe: `docs/informe-g2t-b2bis-1008.md`.
+**Entrega B2bis/Cpre (2026-10-08):** rama g2t-b2bis, sin merge/push.
+B2bis d3e431c: G5ENV/lint/regress --level/OAM68K/hashes verdes; 3404 frames,
+762496 filas y 258 bordes exactos. Cache 554/11910, captura 270; O5 Musashi
+0 > PAL. WinUAE baja de 98 a 92 fotos perdidas (1,46 %, racha 2), control
+27; D1 roja. Vista 0/327680 píxeles distintos. Margen slow vivo G3 con
+reservas: 272 B. Cpre C2a exacta en 2288 fotos; sonda C2b sin emitir
+máximo 28680 ciclos contra parada 4000, C3/C4 pendientes. B35 fuera del vivo.
+Informes: `docs/informe-g2t-b2bis-rendimiento-1008.md` y
+`docs/informe-g2t-cpre-1008.md`.
 
 
 Cifras medidas, con su fuente. Lo que no dice emulador es del PC o de
@@ -221,8 +223,9 @@ cambiable en un solo lugar (una tabla).
 
 ## 4. Olas y sesiones (revisado el 2026-10-08)
 
-B2bis tiene sus puertas locales cerradas en rama ec320ab; falta bajar
-el coste real (98 fotos contra 27 del control). Cpre no se inició.
+B2bis tiene puertas locales verdes en d3e431c; coste real 92 fotos
+perdidas contra 27 del control, D1 roja. Cpre C2a exacta; sonda C2b
+detenida en 28680 ciclos contra 4000, C3/C4 pendientes.
 El avance no cierra D1 ni B35; informe y pasos en PROXIMO.
 
 
@@ -241,7 +244,7 @@ pero detenida por coste; primer microbench asm medido (18 794 ciclos solo en tra
 |---|---|---|---|
 | 1. Medir y preparar | — | **cerrada** | 0 |
 | 2. 50 Hz (1) | — (S4 descartada, P89) | **cerrada** | 0 |
-| 3. 50 Hz (2) + diseños | G2/G3 acotadas y traza D1 integradas; L-OAM asm parcial (41,2 % YI1, estrés rojo), G5a-bis detenida fase A (ventanas vacías). G2T-A hecha (contrato fijado, A-T verde); B35 exacta en rama pero inviable (2,41 M ciclos máx.); primer microbench asm entregado y detenido (18 794 ciclos solo en transiciones); faltan nuevo diseño viable, rendimiento de B2bis, Cpre/C y la ruta OAM de piraña; A2 y R7. A1/G8b adelantadas | **B35 parcial por coste; L-OAM roja** | **3 estimadas** (nuevo diseño viable de B35 + B2bis/C + L-OAM; el microbench no reduce la ruta crítica) |
+| 3. 50 Hz (2) + diseños | G2/G3 acotadas y traza D1 integradas; L-OAM asm parcial (41,2 % YI1, estrés rojo), G5a-bis detenida fase A (ventanas vacías). G2T-A hecha (contrato fijado, A-T verde); B35 exacta en rama pero inviable (2,41 M ciclos máx.); primer microbench asm entregado y detenido (18 794 ciclos solo en transiciones); faltan nuevo diseño viable, rendimiento de B2bis, resolver coste Cpre/C y la ruta OAM de piraña; A2 y R7. A1/G8b adelantadas | **B35 parcial por coste; L-OAM roja** | **3 estimadas** (nuevo diseño viable de B35 + B2bis/C + L-OAM; el microbench no reduce la ruta crítica) |
 | 4. Motores y estructura | G4 + G6, G5 + G9, C2 (vlink), S8 (cámara vertical), A0 + A2, P7/P9/P10, T1, I/E sueltas | pendiente | 2-3 |
 | 5. Integraciones y 50 Hz con sprites | S5 (+ S3/S6) con G5 ya hecho, C3/C4/C5 (loader), segundo PF1 + G7 (bobs), H2-H4 (HUD), A3/A4 (música) | pendiente | 2-3 |
 | 6. El juego completo | Z2-Z6 (punto medio, meta, tiempo, fundidos, poste), T2/T3 (tubería), A5-A8 (efectos, comparación), H5, R7 | pendiente | 2 |
@@ -314,10 +317,10 @@ O5 es el modo por defecto (`-DNODECOUPLE` = bucle viejo); si cambia
 
 ## 7. Cierre de sesión (obligatorio)
 
-2026-10-08: retomado el handoff, entrega ec320ab con puertas locales
-verdes y medidas WinUAE. Se archivaron PROXIMO y handoff anteriores,
-se reescribió PROXIMO y se añadieron instrucciones de rendimiento.
-D1 sigue roja y B35/Cpre pendientes; no hay merge ni push.
+2026-10-08: segunda iteración B2bis d3e431c, 92 fotos perdidas frente a
+27 del control; Cpre C2a exacta, C2b parcial detenido por coste. Se
+archivaron PROXIMO/handoff, se reescribieron estados y se añadió tarjeta
+de coste Cpre. D1 roja, C3/C4 y B35 viable pendientes; sin merge/push.
 
 
 **Regla [usuario, 2026-10-05]: ninguna sesión termina sin escribir qué es

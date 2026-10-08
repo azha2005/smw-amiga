@@ -1,11 +1,12 @@
 # G2T-B2bis — reducir el coste real antes de integrar
 
 2026-10-08. Leer el informe B2bis y PROXIMO.md. Las puertas locales están
-verdes; WinUAE pierde 98 fotos frente a 27 del control. D1 sigue roja.
+verdes; la iteración d3e431c baja WinUAE de 98 a 92 fotos frente a 27
+del control. D1 sigue roja. Leer `informe-g2t-b2bis-rendimiento-1008.md`.
 La autorización del usuario es iterar sin rebajar exactitud ni umbrales.
 
 1. Mantener el worktree g2t-b2bis, sin merge ni push. Conservar modelo,
-   contrato, scroll.s, banco y cinco hashes por defecto. Leer P112.
+   contrato, scroll.s, banco y cinco hashes por defecto. Leer P112/P113.
 2. Correr g5env_gate.sh y guardar JSON/logs; no partir de datos stale.
    Perfilizar primero los misses/proyecciones iniciales y el caso sin
    clave. La vista warm ya es compacta; medir cambios en ella por separado.
@@ -16,7 +17,7 @@ La autorización del usuario es iterar sin rebajar exactitud ni umbrales.
 4. Repetir front, game y los 258 bordes reales; agregar un negativo si se
    cambia el formato. Comprobar ambas bases, ABI y canarios del pack/pila.
    La fila densa de 64 B no puede empezar después de ocupación 1136.
-5. Auditar cuatro builds con g5env_memory.py: el vivo G3 solo deja 264 B
+5. Auditar cuatro builds con g5env_memory.py: el vivo G3 solo deja 272 B
    tras reservas. Para cambios grandes, reducir memoria primero; no quitar
    reservas de fotos/salida/pila solo para que pase la suma.
 6. Construir BENCH normal y G5BENCHSCREEN y el control C1 a52e2ba en

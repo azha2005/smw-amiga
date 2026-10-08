@@ -44,6 +44,23 @@ if [ -n "$SPR_BANK" ]; then
     GDEFS="$GDEFS -DSPR_BANK"
     $PY tools/sprgfx_load.py --bank "$SPR_BANK" --include work/sg3_bank.i
 fi
+# Cpre solo existe en el replay con banco y lista G5; nunca en el vivo.
+case " $GDEFS " in
+    *" -DG5_PRE "*)
+        case " $GDEFS " in *" -DREPLAY "*) ;; *) echo "ERROR: G5_PRE requiere REPLAY"; exit 1 ;; esac
+        case " $CDEFS " in *" -DSPR_G5 "*) ;; *) echo "ERROR: G5_PRE requiere SPR_G5"; exit 1 ;; esac
+        [ -n "$SPR_BANK" ] || { echo "ERROR: G5_PRE requiere SPR_BANK"; exit 1; }
+        case " $GDEFS " in *" -DG5_PRE_PROBE "*) ;; *) echo "ERROR: Cpre parcial requiere G5_PRE_PROBE; no hay emisor completo"; exit 1 ;; esac
+        case " $GDEFS " in *" -DG5_EMPTY "*) echo "ERROR: G5_EMPTY pendiente del emisor C3"; exit 1 ;; esac
+        case " $GDEFS " in
+            *" -DG5_PRE_EXT "*) ;;
+            *) [ -n "$G5_PRE_DATA" ] || { echo "ERROR: falta G5_PRE_DATA"; exit 1; }
+               $PY tools/g2t_preplan.py include --table "$G5_PRE_DATA" ;;
+        esac ;;
+    *) case " $GDEFS " in
+        *" -DG5_EMPTY "*|*" -DG5_PRE_EXT "*|*" -DG5_PRE_PROBE "*) echo "ERROR: flags Cpre requieren G5_PRE"; exit 1 ;;
+       esac ;;
+esac
 REPLAY=${REPLAY:-work/yi1_replay.bin}
 ORACLE=${ORACLE:-work/oracle_yi1.bin}
 mkdir -p "$OUT"

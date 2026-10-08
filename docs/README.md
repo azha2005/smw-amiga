@@ -57,12 +57,15 @@
 | `instrucciones-g2t-b2bis.md` | 2026-10-08 | G2T-B2bis: envolvente de Mario por pose con la clave MA1, caché en slow y decodificación exacta en asm en el render (≤ 300 ciclos en la interrupción) |
 | `informe-g2t-b2bis-1008.md` | 2026-10-08 | Entrega ec320ab; gates exactos, WinUAE 98 fotos contra 27, memoria y limitaciones |
 | `instrucciones-g2t-b2bis-rendimiento.md` | 2026-10-08 | Perfilar y reducir coste real/memoria antes de integrar, manteniendo puertas |
-| `handoff-g2t-b2bis-1008.md` | 2026-10-08 | Handoff actualizado: ec320ab, puertas verdes y rendimiento real pendiente; versión anterior archivada |
+| `handoff-g2t-b2bis-1008.md` | 2026-10-08 | B2bis d3e431c, 92 fotos perdidas; Cpre C2a exacta y C2b parcial por coste; versiones anteriores archivadas |
 | `instrucciones-g2t-b2bis-cierre.md` | 2026-10-08 | Procedimiento ejecutado de bordes/fotos, BENCH, memoria, WinUAE y red final de B2bis |
 | `instrucciones-g2t-b35.md` | 2026-10-08 | G2T-B3/B5: `g5_plan` en C con segmentos perezosos y envolventes del Rex precalculadas (`bank.g5env`); PC = 68000 = `g2t_ref.py` byte a byte |
 | `informe-g2t-b35-1008.md` | 2026-10-08 | B35: handoff completado, único intento en C, B4/B5 exactas en 3404 frames, OAM68K/regress/hashes verdes; máximo 2 405 022 ciclos, parada por coste y memoria reservada |
 | `informe-g2t-b35-asm-1008.md` | 2026-10-08 | Primer microbench asm disperso: transiciones exactas en 3404 frames, máximo 18 794 ciclos solo en ese núcleo; fase de medida entregada, integración detenida |
 | `instrucciones-g2t-b35-asm.md` | 2026-10-08 | Viabilidad del planificador disperso/asm tras la parada de B35; misma salida B1, medida por componente y plan completo ≤ 8000 ciclos |
+| `informe-g2t-b2bis-rendimiento-1008.md` | 2026-10-08 | Segunda iteración: warm 5501 ciclos medios, canarios reales, 92 fotos WinUAE; D1 roja |
+| `informe-g2t-cpre-1008.md` | 2026-10-08 | C2a 2288 planes exactos, sonda C2b 28680 ciclos >4000; C3/C4 pendientes |
+| `instrucciones-g2t-cpre-coste.md` | 2026-10-08 | Resolver parada de coste preservando contrato antes del emisor y capturas |
 | `instrucciones-g2t-cpre.md` | 2026-10-08 | G2T-Cpre: emisor `g5_emit` y capturas WinUAE (0/57 344 px) con el plan precalculado en el replay, antes de terminar B |
 | `instrucciones-revision-1007.md` | 2026-10-07 | revisión propuesta tras las dos paradas: diagnóstico de coste OAM y contrato temporal, antes de nueva implementación |
 | `informe-revision-loam-1007.md` | 2026-10-07 | revisión L-OAM: coste de OAM por función en YI1 y estrés (Musashi y WinUAE), por qué el estrés sale peor, y una tarjeta (ruta de la piraña en asm) |

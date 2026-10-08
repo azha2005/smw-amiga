@@ -8,10 +8,11 @@ la Amiga lo que tiene más riesgo físico (el emisor y el copper) mientras
 B se termina. Modelo previsto: Opus, worktree propio. Parte de master
 `876d28d` (o posterior: C1 y el WIP de B2 ya están).
 
-**Estado revisado 2026-10-08:** no hay entrega local Cpre; esta tarjeta
-sigue por implementar. B35-asm no cerró rendimiento: comenzar por C2a
-con el control vacío, sin llamar al planificador C/asm en el juego.
-Esta prueba offline sigue siendo independiente del bloqueo de B35.
+**Estado revisado 2026-10-08:** C2a exacta en 2288 fotos sobre listas
+reales. La sonda C2b de consulta/firmas, sin emitir, llega a 28680 ciclos
+contra la parada de 4000. C3/C4 pendientes: no hay Rex visible ni emisor
+completo. Informe `informe-g2t-cpre-1008.md`; continuación de coste:
+`instrucciones-g2t-cpre-coste.md`. B35 sigue fuera del vivo.
 
 Corre en paralelo con `docs/instrucciones-g2t-b2bis.md` y
 `docs/instrucciones-g2t-b35.md`. Es **la única de las tres que usa

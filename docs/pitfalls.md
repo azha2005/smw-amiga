@@ -1007,3 +1007,15 @@ corrompe ese canario deliberadamente y exige que la consulta lo detecte.
 Las trazas con Rex no bastan para elegir el tamaño de caché: las fotos
 sin Rex también la reemplazan. N=4 pasó las trazas aisladas pero falló
 el presupuesto de cuatro fotos del juego completo.
+
+**P114 — Cpre: el frame de una foto no identifica siempre su fuente gráfica.**
+R_FRAME sigue DC_NLOG. SKIP y SYNC pueden cambiar lógica/cámara sin
+llamar a level_frame y sin renovar los gráficos. En YI1, 49 fotos de
+f7552 a f7600 conservan la pose de f7551; SYNC f7600 tiene cámara 1113
+en vez de 1111. El índice G5PR debe usar el stamp lógico y B1 el frame
+de la fuente gráfica. Comprobar ambos con cámara, píxeles DMA y colores,
+no con un índice de paleta: índices distintos pueden tener colores
+idénticos. No inferir de ello que toda OAM viva de enemigos está probada.
+Además, los MOVE de tres bytes y las firmas fila u8/suma u16 dejan
+valores u16 impares: leer por bytes en 68000. Alinear cada entrada
+G5PR no alinea todos sus campos internos. Tests en test_g2t_preplan.py.

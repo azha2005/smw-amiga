@@ -1721,3 +1721,103 @@ el candado. No cerrar esa ventana del usuario como si fuera una prueba
 propia abandonada. Sin cambios al código ni commit. No se tomó una
 captura ni se midió rendimiento dentro de WinUAE; abrirlo no cierra
 la puerta visual/de rendimiento. Enemigos todavía no dibujados.
+
+
+## 2026-10-08 — segunda iteración B2bis y Cpre parcial
+
+PROXIMO y handoff anteriores, archivados textualmente:
+
+# PRÓXIMO — lo que sigue
+
+2026-10-08. Worktree `C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`, rama
+`g2t-b2bis`. **Sin merge ni push.** Código de B2b3-5 guardado en `ec320ab`;
+clave/decoder en `8a4a43d` y `a401723`.
+
+Se cerraron las puertas locales de B2bis: 3404 frames y 762496 filas
+exactos, 258 casos de borde, captura 270 ciclos, cache 558/11904,
+reinicios y cuatro memmap verdes. G5ENV, lint, regress con --level,
+OAM68K entero y cinco hashes por defecto verdes. Vista WinUAE:
+0/327680 píxeles diferentes del control.
+
+**El rendimiento real sigue pendiente:** WinUAE cycle-exact pierde
+98 fotos (1,55 %, racha 2) contra 27 del control (0,43 %, racha 1).
+La vista compacta bajó de 100 a 98; no alcanza D1. La cota Musashi
+0 > PAL no reemplaza esta medida. Vivo G3 deja solo 264 B tras reservas
+completas: recuperar margen antes de activar B35 o añadir datos.
+Informe: `docs/informe-g2t-b2bis-1008.md`; handoff actualizado:
+`docs/handoff-g2t-b2bis-1008.md`.
+
+## 1. La próxima sesión
+
+| tarjeta | toca | instrucciones y entrega |
+|---|---|---|
+| **G2T-B2bis rendimiento** | perfil frío/cache/vista y memoria; bajar fotos perdidas antes de integrar | `docs/instrucciones-g2t-b2bis-rendimiento.md`: red exacta intacta, control de la misma tanda, no rebajar umbrales ni reservas |
+| **G2T-Cpre** | después, emisor con plan precalculado independiente de B35 | `docs/instrucciones-g2t-cpre.md`: C2a control vacío, listas reales exactas y capturas cycle-exact; sin iniciar |
+
+La autorización del usuario es seguir iterando hasta cumplir requisitos.
+No tocar modelo, contrato, scroll.s ni banco en B2bis; si el rendimiento
+requiere S5/L-OAM, abrir esa tarjeta y leer sus instrucciones primero.
+No activar el plan B35 en vivo: la repetición actual cuesta hasta 2423094
+ciclos contra 8000. Mantener R9: derivados únicamente en work/.
+
+## 2. Después
+
+Revisar la rama tras cerrar rendimiento y memoria; Cpre/C, rediseño viable
+de B35, L-OAM/D1 y OAM de piraña siguen pendientes. Los enemigos todavía
+no se ven. El resto del alcance y las estimaciones siguen en ROADMAP.md.
+
+## 3. Pendiente del usuario o la PC
+
+U1: jugar el ADF vivo con teclado/KS1.2/A501. U2: capa 2 contra referencia.
+U3 opcional: A500 real. No hace falta autorización adicional para repetir
+las puertas ni corregir dentro del alcance de la tarjeta.
+
+
+# Handoff G2T-B2bis — 2026-10-08, actualizado
+
+Worktree `C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`, rama `g2t-b2bis`.
+Commits reales: `8a4a43d` clave; `a401723` decoder; `ec320ab` integración
+cache/frontera/foto y herramientas. Sin merge ni push.
+
+Las puertas locales están verdes. Todos los pendientes del handoff viejo
+se ejecutaron, incluidos bordes, L1/free-buffer/raros C, foto retenida,
+BENCH, cuatro memmap, reinicios, WinUAE y red completa. El informe con
+números, límites, formatos y hashes es `informe-g2t-b2bis-1008.md`.
+El texto anterior está archivado en `archivo/sesiones.md`.
+
+**Pendiente real:** WinUAE pierde 98 fotos (1,55 %, racha 2), control 27.
+Antes de vista compacta eran 100. No declarar D1 cerrada ni integrar como
+50 Hz cumplidos. Vivo G3 deja 264 B tras G5EV/work/fotos/salida/pila:
+revisar memoria antes de añadir código. B35 no se ejecuta en vivo; Cpre
+no se inició. El usuario autorizó continuar iterando sin rebajar puertas.
+
+## Retomar
+
+1. Leer PROXIMO y `instrucciones-g2t-b2bis-rendimiento.md`.
+2. Git Bash: PATH="$TEMP/pyshim:/c/msys64/ucrt64/bin:$PATH",
+   VBCC=/c/Users/JC/vbcc, PY=python. `sh tools/g5env_gate.sh`.
+3. Perfilar primero el miss/proyecto frío; conservar el formato warm
+   portable con copia propia. No dejar punteros a cache mutable en vista.
+4. Regenerar ASM con tools/g5env_asm.py. Repetir los 258 sintéticos,
+   callbacks reales del juego y los controles ABI/canarios. Leer P112.
+5. Para evidencia: work/b2b_shotbuild.sh y work/b2b_shots.ps1; el control
+   sale de a52e2ba con el mismo C. BENCH 190 s, visual STOPF=1800 95 s;
+   copias de shot.ps1 y candado. `python tools/g5env_shot.py`.
+6. Red antes de commit: lint, regress baseline_pc --level, OAM68K, G5ENV,
+   hashes. work/b2b_final.sh lo reproduce secuencialmente; no ejecutar
+   builds concurrentes porque comparten work/cc y logicbench.
+
+Logs/JSON final: work/b2b/{gate_final,lint_final,regress_final,oam_final,
+hashes_final,shot_final}.log, memory_summary.json, shot_summary.json;
+cache/decode/game/edges tienen su JSON. Vista control arriba/B2bis abajo:
+work/b2b/view_control_ab.png, 0 píxeles distintos, inspeccionada.
+No hay WinUAE de prueba pendiente; no cerrar procesos ajenos.
+
+47 SKIP + 1 SYNC difieren del fixture PC provisional por la captura
+antes del rollback/gráficos congelados. Todas las fotos son exactas contra
+el modelo del estado capturado. No modificar g2t_ref ni replay para
+ocultar esta limitación. Decodificación de imágenes arbitrarias de dos
+columnas exacta, sin promesa de 12000 ciclos para esos dibujos raros.
+
+
+Entrega: d3e431c baja B2bis de 98 a 92 fotos perdidas; control 27, D1 roja. Cache 554/11910, captura 270, margen vivo G3 reservado 272 B. Cpre C2a exacta en 2288 fotos; sonda C2b sin emitir, máximo 28680 ciclos contra parada 4000. C3/C4 no ejecutadas. Informes de rendimiento y Cpre del 1008; sin merge/push.
