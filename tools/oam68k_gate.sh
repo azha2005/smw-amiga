@@ -13,6 +13,8 @@
 #   4b. G2T-B2 (-DSPR_G5): el bloque de la foto (g5_capture) en el PC
 #      contra g2t_ref.mario_amiga y en el 68000 contra el PC, con ciclos
 #      (tools/g5plan_verify.py; logs en work/g5gate/)
+#   4c. G2T-B4/B5: segmentos del PC = referencia y plan PC = 68000 =
+#      g2t_ref en las tres trazas (logs en work/g2tb35/)
 #   5. vuelve a armar el logicbench POR DEFECTO (lo usa regress.py)
 #
 #   sh tools/oam68k_gate.sh        # sale con 0 solo si TODO pasa
@@ -109,6 +111,48 @@ if [ "$fails" = 0 ]; then
         done
     else
         fail "build SPR_G5 (ver $G5G/logicbench_build.log, $G5G/gcc.log)"
+    fi
+fi
+
+# 4c. Plan del Rex: regenerar los insumos desde el banco y el modelo.
+# No aceptar derivados viejos como una comprobacion hecha del codigo actual.
+B35G=work/g2tb35
+mkdir -p "$B35G"
+if [ "$fails" = 0 ]; then
+    if $PY tools/g5bank_env.py --bank work/g3/bank --out work/g3/bank.g5env \
+         --trace work/oam_yi1.trace=work/oracle_yi1_oam.bin \
+         --trace work/oam_normal.trace=work/oracle_normal_oam.bin \
+         --trace work/oam_spin_kill.trace=work/oracle_spin_kill_oam.bin > "$B35G/env.log" 2>&1 &&
+       $PY tools/g2t_ref.py --dump --bank work/g3/bank --out work/g2t_ref \
+         --trace work/oam_yi1.trace=work/oracle_yi1_oam.bin \
+         --trace work/oam_normal.trace=work/oracle_normal_oam.bin \
+         --trace work/oam_spin_kill.trace=work/oracle_spin_kill_oam.bin > "$B35G/ref.log" 2>&1 &&
+       $PY tools/g2t_segdump.py --out "$B35G" \
+         --trace work/oam_yi1.trace=work/oracle_yi1_oam.bin \
+         --trace work/oam_normal.trace=work/oracle_normal_oam.bin \
+         --trace work/oam_spin_kill.trace=work/oracle_spin_kill_oam.bin > "$B35G/segdump.log" 2>&1 &&
+       $CC -O2 -DNOOAM -DSPR_OAM -DSPR_G5 -Iplayer -o "$B35G/g5plan_test" \
+         tools/g5plan_test.c player/g5plan.c > "$B35G/gcc.log" 2>&1; then
+        for name in yi1 normal spin_kill; do
+            if "$B35G/g5plan_test" "$G5G/cap_$name.bin" "$B35G/segw_$name.bin" \
+                    "$B35G/segs_$name.bin" work/g3/bank.idx work/g3/bank.g5env \
+                    work/cc/mario_pal.bin "$B35G/plan_$name.bin" > "$B35G/${name}_pc.log" 2>&1 &&
+               cmp "$B35G/plan_$name.bin" "work/g2t_ref/plan_$name.bin" >> "$B35G/${name}_pc.log" 2>&1; then
+                ok "G2T-B5 PC $name: $(tail -n 1 "$B35G/${name}_pc.log"); plan identico a g2t_ref"
+            else
+                fail "G2T-B5 PC $name (ver $B35G/${name}_pc.log)"
+            fi
+            if $PY tools/g5plan_verify.py plan --name "$name" --cap "$G5G/cap_$name.bin" \
+                    --segw "$B35G/segw_$name.bin" --ref "work/g2t_ref/plan_$name.bin" \
+                    --bin "$G5G/logicbench.bin" --lst "$G5G/logicbench.lst" \
+                    > "$B35G/${name}_68000.log" 2>&1; then
+                ok "G2T-B5 68000 $name: $(grep '^g5_plan ' "$B35G/${name}_68000.log")"
+            else
+                fail "G2T-B5 68000 $name (ver $B35G/${name}_68000.log)"
+            fi
+        done
+    else
+        fail "insumos del plan G2T (ver $B35G/env.log, ref.log, segdump.log, gcc.log)"
     fi
 fi
 

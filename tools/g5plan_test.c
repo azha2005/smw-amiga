@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 #include "g5plan.h"
 
 /* lo que g5_capture lee del juego (aqui no se llama) */
@@ -48,13 +49,15 @@ int main(int argc, char **argv)
     long ncap, nsw, nss, nt, ne, np, o, so = 0, ss = 0;
     u8 *cap, *sw, *sg, *tab, *env, *pal, *list, out[2048];
     static g5_work w;
-    long frames = 0, segbad = 0, segrows = 0;
+    long frames = 0, segbad = 0, segrows = 0, frontierbad = 0, frontierpairs = 0;
     FILE *fo;
 
     if (argc != 8) {
         fprintf(stderr, "uso: g5plan_test cap segw segs bank.idx bank.g5env mario_pal.bin plan.bin\n");
         return 2;
     }
+    printf("g5_work: %lu B; nsegs offset %lu\n", (unsigned long)sizeof(w),
+           (unsigned long)offsetof(g5_work, nsegs));
     cap = load(argv[1], &ncap);
     sw = load(argv[2], &nsw);
     sg = load(argv[3], &nss);
@@ -63,6 +66,7 @@ int main(int argc, char **argv)
     pal = load(argv[6], &np);
     if (ncap % CAP_REC) { fprintf(stderr, "%s: no es multiplo de %d\n", argv[1], CAP_REC); return 2; }
     list = calloc(CL + SEG * G5_ROWS + 4, 1);
+    memset(&w, 0xA5, sizeof(w));       /* no depender de tablas borradas */
     fo = fopen(argv[7], "wb");
     if (!fo) { perror(argv[7]); return 2; }
     for (o = 0; o < ncap; o += CAP_REC) {
@@ -84,7 +88,22 @@ int main(int argc, char **argv)
         }
         for (r = 0; r < G5_ROWS; r++, ss += 4) {    /* B3-2 */
             g5_seg s;
+            s16 mrow = (s16)(blk[G5B_MROW] << 8 | blk[G5B_MROW + 1]);
+            s16 j = (s16)(r - mrow);
+            u16 mask = j < 0 || j >= G5_WIN ? 0 :
+                (u16)((blk[G5B_MASK + 2 * j] << 8 | blk[G5B_MASK + 2 * j + 1]) & 0xfffe);
+            u8 i;
             s16 last = (s16)(sg[ss + 1] << 8 | sg[ss + 2]);
+            frontierbad += g5_mario_mask(blk, r) != mask;
+            for (i = 1; i < 16; i++) {
+                if (mask & (u16)(1 << i)) {
+                    u8 a, b;
+                    const u8 *want = blk + G5B_ENV + 30 * j + 2 * (i - 1);
+                    g5_mario_span(blk, r, i, &a, &b);
+                    frontierbad += a != want[0] || b != want[1];
+                    frontierpairs++;
+                }
+            }
             g5_segment(list, CL, SEG, r, &s);
             segrows++;
             if (!s.ok || s.nb != sg[ss] || s.last != last || s.wrap != sg[ss + 3]) {
@@ -99,7 +118,12 @@ int main(int argc, char **argv)
         frames++;
     }
     fclose(fo);
+    if (!frames || so != nsw || ss != nss) {
+        fprintf(stderr, "captura vacia o registros de segmentos sobrantes\n");
+        return 1;
+    }
+    printf("frontera B2/B3: %ld filas, %ld pares; diferencias %ld\n", segrows, frontierpairs, frontierbad);
     printf("g5plan_test: %ld frames; segmentos distintos %ld de %ld filas; plan -> %s\n",
            frames, segbad, segrows, argv[7]);
-    return segbad ? 1 : 0;
+    return segbad || frontierbad ? 1 : 0;
 }

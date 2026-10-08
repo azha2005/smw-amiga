@@ -270,7 +270,7 @@ def d1_checks(r):
 
 def g2t_checks(r):
     """G2T: contratos sintéticos; no confundirlos con la puerta real G5."""
-    for tool in ('test_g5ref.py', 'test_g2t.py', 'test_g2t_ref.py'):
+    for tool in ('test_g5ref.py', 'test_g2t.py', 'test_g2t_ref.py', 'test_g5bank_env.py'):
         code, out = sh([PY, 'tools/' + tool], timeout=30)
         r.logs['G2T ' + tool] = out
         r.note('G2T ' + tool, code == 0,

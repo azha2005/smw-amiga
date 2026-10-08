@@ -73,8 +73,11 @@ typedef struct { u8 ok, nb, wrap, pad; s16 last, free; } g5_seg;
 u8 g5_segment(const u8 *list, u16 cl, u16 seg, s16 row, g5_seg *out);
 #define G5_MAXTR    255
 #define G5_SLOTS    9
+#define G5_USEDROWS (G5_WIN + 32) /* union de Mario y una pose Rex */
+#define G5_ROWWORDS ((G5_ROWS + 15) / 16)
 typedef struct { u8 idx, pad; u16 val; s16 desde, xult, hasta; } g5_tr;
 typedef struct { u8 tipo, h, nop, k; s16 pos[G5_SLOTS]; } g5_sfx;
+typedef struct { u16 mask; u8 first[16], last[16]; } g5_muse;
 typedef struct {
     u16 umask[G5_ROWS];
     u16 ucol[G5_ROWS][16];
@@ -86,6 +89,13 @@ typedef struct {
     u8 lid[G5_ROWS + 1][16];
     g5_sfx sfx[G5_ROWS];
     u16 colors[16];
+    /* Solo se limpian los mapas de bits; las tablas se inicializan al
+       primer uso. El area puede contener bytes de cualquier foto previa. */
+    u16 usebits[G5_ROWWORDS], segbits[G5_ROWWORDS], linebits[G5_ROWWORDS];
+    u8 urows[G5_USEDROWS], nrows, mrows[G5_WIN], nmrows;
+    g5_muse mario[G5_WIN];
+    u8 lrows[G5_ROWS], nlrows;
+    u16 nsegs;                /* segmentos decodificados en esta llamada */
 } g5_work;
 u16 g5_plan(u32 frame, const u8 *blk, const u8 *g3tab, const u8 *g3env, const u8 *pals,
             const u8 *list, u16 cl, u16 seg, g5_work *w, u8 *out);

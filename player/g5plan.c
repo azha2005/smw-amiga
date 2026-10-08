@@ -248,9 +248,11 @@ u8 g5_segment(const u8 *list, u16 cl, u16 seg, s16 row, g5_seg *out)
 static const g5_seg *g5_seg_of(g5_work *w, const u8 *list, u16 cl, u16 seg, s16 row)
 {
     g5_seg *s = &w->segs[row];
-    if (!s->pad) {
+    u16 bit = (u16)(1 << (row & 15));
+    if (!(w->segbits[row >> 4] & bit)) {
         g5_segment(list, cl, seg, row, s);
-        s->pad = 1;
+        w->segbits[row >> 4] |= bit;
+        w->nsegs++;
     }
     return s;
 }
@@ -330,6 +332,12 @@ static s16 g5_req(const g5_tr *t, s16 s)
 /* un uso (fila, indice): como uses_of.add, ya recortado */
 static void g5_use(g5_work *w, s16 rr, u8 i, u16 color, u8 first, u8 last)
 {
+    u16 bit = (u16)(1 << (rr & 15));
+    if (!(w->usebits[rr >> 4] & bit)) {
+        w->usebits[rr >> 4] |= bit;
+        w->umask[rr] = 0;
+        w->urows[w->nrows++] = (u8)rr;
+    }
     if (!(w->umask[rr] & (u16)(1 << i))) {
         w->umask[rr] |= (u16)(1 << i);
         w->ucol[rr][i] = color;
@@ -362,22 +370,26 @@ static void g5_bits(u32 m, u8 *lo, u8 *hi)
 
 /* un intento con la variante n (g2t_ref.plan_frame, attempt): 1 = sin
    transiciones perdidas */
-static u8 g5_attempt(g5_work *w, const u8 *blk, const u8 *g3tab, const u8 *g3env, u16 n,
+static u8 g5_attempt(g5_work *w, const u8 *g3tab, const u8 *g3env, u16 n,
                      s16 x0, s16 r0, const u8 *list, u16 cl, u16 seg, u8 *ntr)
 {
     const u8 *d = G5D(g3tab, n), *pe, *pal;
     u16 hgt = B16(d + 6), wid = B16(d + 4), r, i, m, e, cnt;
     s16 rr, s, lo;
     u8 np, a, b, nt = 0, jj, kk;
+    u8 rows[G5_USEDROWS], ma, rx, nr;
 
-    for (r = 0; r < G5_ROWS; r++) {     /* Mario */
-        u16 mm = g5_mario_mask(blk, (s16)r);
-        w->umask[r] = 0;
+    for (r = 0; r < G5_ROWWORDS; r++) {
+        w->usebits[r] = 0;
+        w->linebits[r] = 0;
+    }
+    w->nrows = w->nlrows = 0;
+    w->ln[0] = 0;
+    for (r = 0; r < w->nmrows; r++) {   /* Mario ya calculado una vez */
+        const g5_muse *mr = &w->mario[r];
         for (i = 1; i < 16; i++)
-            if (mm & (u16)(1 << i)) {
-                g5_mario_span(blk, (s16)r, (u8)i, &a, &b);
-                g5_use(w, (s16)r, (u8)i, w->colors[i], a, b);
-            }
+            if (mr->mask & (u16)(1 << i))
+                g5_use(w, w->mrows[r], (u8)i, w->colors[i], mr->first[i], mr->last[i]);
     }
     pe = g3env + B32(g3env + 16 + 4 * n);   /* Rex: bank.g5env */
     np = pe[0];
@@ -404,10 +416,21 @@ static u8 g5_attempt(g5_work *w, const u8 *blk, const u8 *g3tab, const u8 *g3env
                    (u8)(x0 + a), (u8)(x0 + b));
         }
     }
-    for (i = 1; i < 16; i++) {          /* transitions */
+    /* urows tiene dos tramos ordenados: Mario y las filas nuevas del Rex.
+       Mezclarlos cuesta <= 72 filas, sin recorrer la pantalla vacia. */
+    ma = nr = 0;
+    rx = w->nmrows;
+    while (ma < w->nmrows || rx < w->nrows) {
+        if (rx == w->nrows || (ma < w->nmrows && w->urows[ma] < w->urows[rx]))
+            rows[nr++] = w->urows[ma++];
+        else
+            rows[nr++] = w->urows[rx++];
+    }
+    for (i = 1; i < 16; i++) {          /* transitions: solo filas con usos */
         u16 value = w->colors[i];
         s16 prev = -1, pl = G5_NONE;
-        for (r = 0; r < G5_ROWS; r++) {
+        for (e = 0; e < nr; e++) {
+            r = rows[e];
             if (!(w->umask[r] & (u16)(1 << i)))
                 continue;
             if (w->ucol[r][i] != value) {
@@ -440,8 +463,6 @@ static u8 g5_attempt(g5_work *w, const u8 *blk, const u8 *g3tab, const u8 *g3env
         }
         w->order[kk] = jj;
     }
-    for (r = 0; r <= G5_ROWS; r++)
-        w->ln[r] = 0;
     for (jj = 0; jj < nt; jj++) {
         const g5_tr *t = &w->tr[w->order[jj]];
         u8 done = 0;
@@ -455,17 +476,30 @@ static u8 g5_attempt(g5_work *w, const u8 *blk, const u8 *g3tab, const u8 *g3env
                 }
                 continue;
             }
-            if (s + 1 < G5_ROWS && w->ln[s + 1] < G5_SLOTS) {
+            if (s + 1 < G5_ROWS) {
+                u16 bit = (u16)(1 << ((s + 1) & 15));
+                u8 k = (w->linebits[(s + 1) >> 4] & bit) ? w->ln[s + 1] : 0;
                 s16 need = g5_req(t, s);
                 g5_sfx p;
-                for (m = 0; m < w->ln[s + 1]; m++) {
+                if (k >= G5_SLOTS)
+                    continue;
+                for (m = 0; m < k; m++) {
                     s16 q = g5_req(&w->tr[w->lid[s + 1][m]], s);
                     if (q > need)
                         need = q;
                 }
                 if (g5_schedule(g5_seg_of(w, list, cl, seg, s), g5_seg_of(w, list, cl, seg, (s16)(s + 1)),
-                                (u8)(w->ln[s + 1] + 1), need, s, &p)) {
-                    w->lid[s + 1][w->ln[s + 1]++] = w->order[jj];
+                                (u8)(k + 1), need, s, &p)) {
+                    if (!k) {
+                        /* filas de salida en orden, sin limpiar 224 entradas */
+                        for (m = w->nlrows; m && w->lrows[m - 1] > s; m--)
+                            w->lrows[m] = w->lrows[m - 1];
+                        w->lrows[m] = (u8)s;
+                        w->nlrows++;
+                        w->linebits[(s + 1) >> 4] |= bit;
+                    }
+                    w->lid[s + 1][k] = w->order[jj];
+                    w->ln[s + 1] = (u8)(k + 1);
                     w->sfx[s] = p;
                     done = 1;
                     break;
@@ -520,17 +554,20 @@ static const u8 *g5_shape(const u8 *g3tab, const u8 *rx, s16 sx, s16 sy, u16 *nv
 }
 
 /* filtro A3 (g2t_ref.a3_compatible) con las filas de bank.g5env */
-static u8 g5_a3(const g5_work *w, const u8 *blk, const u8 *g3tab, const u8 *g3env, u16 n, s16 r0)
+static u8 g5_a3(const g5_work *w, const u8 *g3tab, const u8 *g3env, u16 n, s16 r0)
 {
     const u8 *pe = g3env + B32(g3env + 16 + 4 * n), *pal;
-    u16 hgt = B16(G5D(g3tab, n) + 6), r, e, cnt;
+    u16 hgt = B16(G5D(g3tab, n) + 6), r, e, cnt, j = 0;
     u8 np = pe[0];
 
     pal = pe + 2;
     pe = pal + 4 * np;
     for (r = 0; r < hgt; r++) {
         s16 rr = (s16)(r0 + (s16)r);
-        u16 mm = (rr >= 0 && rr < G5_ROWS) ? g5_mario_mask(blk, rr) : 0;
+        u16 mm;
+        while (j < w->nmrows && w->mrows[j] < rr)
+            j++;
+        mm = j < w->nmrows && w->mrows[j] == rr ? w->mario[j].mask : 0;
         cnt = *pe++;
         for (e = 0; e < cnt; e++, pe += 4) {
             const u8 *p = pal + 4 * pe[0];
@@ -552,8 +589,27 @@ u16 g5_plan(u32 frame, const u8 *blk, const u8 *g3tab, const u8 *g3env, const u8
 
     for (i = 0; i < 16; i++)
         w->colors[i] = B16(pals + 32 * (blk[G5B_PAL] & 7) + 2 * i);
-    for (r = 0; r < G5_ROWS; r++)
-        w->segs[r].pad = 0;
+    w->nsegs = 0;
+    for (r = 0; r < G5_ROWWORDS; r++)
+        w->segbits[r] = 0;
+    w->nmrows = 0;
+    /* La frontera B2/B3 sigue siendo el unico lector de las envolventes. */
+    for (r = 0; r < G5_WIN; r++) {
+        s16 rr = (s16)((s16)B16(blk + G5B_MROW) + r);
+        u16 mm;
+        g5_muse *mr;
+        if (rr < 0 || rr >= G5_ROWS)
+            continue;
+        mm = g5_mario_mask(blk, rr);
+        if (!mm)
+            continue;
+        w->mrows[w->nmrows] = (u8)rr;
+        mr = &w->mario[w->nmrows++];
+        mr->mask = mm;
+        for (i = 1; i < 16; i++)
+            if (mm & (u16)(1 << i))
+                g5_mario_span(blk, rr, (u8)i, &mr->first[i], &mr->last[i]);
+    }
     /* el Rex de menor sy + origen_y (primera variante de su forma), luego ranura */
     for (c = 0; c < nr; c++, rx += G5R_SIZE) {
         s16 csx = (s16)(B16(rx + G5R_X) - camx), csy = (s16)(B16(rx + G5R_Y) - camy), key;
@@ -577,9 +633,9 @@ u16 g5_plan(u32 frame, const u8 *blk, const u8 *g3tab, const u8 *g3env, const u8
         d = G5D(g3tab, n);
         x0 = (s16)(sx + (s16)B16(d));
         r0 = (s16)(sy + (s16)B16(d + 2) + 1);
-        if (!g5_a3(w, blk, g3tab, g3env, n, r0))
+        if (!g5_a3(w, g3tab, g3env, n, r0))
             continue;
-        if (g5_attempt(w, blk, g3tab, g3env, n, x0, r0, list, cl, seg, &ntr)) {
+        if (g5_attempt(w, g3tab, g3env, n, x0, r0, list, cl, seg, &ntr)) {
             var = n;
             break;
         }
@@ -628,7 +684,8 @@ u16 g5_plan(u32 frame, const u8 *blk, const u8 *g3tab, const u8 *g3env, const u8
     }
     cnt = o++;
     *cnt = 0;
-    for (r = 0; r < G5_ROWS; r++) {     /* sufijos, por fila */
+    for (j = 0; j < w->nlrows; j++) {   /* sufijos, solo filas escritas */
+        r = w->lrows[j];
         u8 *ids = w->lid[r + 1], k = w->ln[r + 1], a, b;
         const g5_sfx *p = &w->sfx[r];
         if (!k)

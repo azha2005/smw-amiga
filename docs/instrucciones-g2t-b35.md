@@ -104,7 +104,7 @@ void g5_segment(const u8 *list, u16 cl, u16 seg, s16 row, u8 *nb, s16 *last, u8 
 ```
 
 con la misma semántica que `g2t_ref.segments` (leerla entera, líneas
-146-184: T empieza en `S.T0 + max(0, 16·(nb − 9))` con `T0 = −120` a
+146-184: T empieza en `S.T0 + max(0, 16·(nb − 9))` con `T0 = −56` a
 256 px; un WAIT deja `T = max(advance(T, 2), xh(h))`; un MOVE cae en T y
 `T = advance(T)`; el NOP `$01FE` en las dos primeras palabras sustituye a
 un WAIT del cruce; `$FFDF` marca el cruce). Que la salida sea idéntica es

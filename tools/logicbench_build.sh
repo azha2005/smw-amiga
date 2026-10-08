@@ -50,7 +50,7 @@ for f in mario mcoll manim mgfx mcam msprite mspr $SPRS $G5 gen/smwrom00; do
     b=$(basename $f)
     src=player/$f.c
     if [ -n "$PROF" ]; then
-        sed -E 's/^static ((const )?(void|u8|int|unsigned|u16) \*?[a-z_0-9]+\()/\1/' player/$f.c > $CC/$b.c
+        sed -E 's/^static ((const )?(void|u8|s8|int|unsigned|u16|s16|u32|s32|g5_seg) \*?[a-z_0-9]+\()/\1/' player/$f.c > $CC/$b.c
         src=$CC/$b.c
     fi
     "$VBCC/bin/vbccm68k$X" -quiet -c99 -cpu=68000 -O=991 $EXTRA $CDEFS -sc -sd -const-in-data \

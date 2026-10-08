@@ -219,10 +219,18 @@ def run_plan(args):
     m.cpu.write(TAB, tab)
     m.cpu.write(ENV, env)
     m.cpu.write(PALS, Path(args.pals).read_bytes())
+    # g5_work no contiene punteros ni largos: todos sus campos se alinean
+    # a dos bytes en gcc y vbcc. g5plan_test informa estos dos valores.
+    work_size, nsegs_offset = 29952, 29950
+    if WORK + work_size > PALS:
+        raise ValueError('g5_work pisa la paleta del arnes')
+    m.cpu.write(WORK, b'\xa5' * work_size)
     want = Path(args.ref).read_bytes()
     segw = Path(args.segw).read_bytes()
     so = wo = n = bad = abi_bad = 0
     cycles = []
+    segments = []
+    segment_cycles = []
     for c in read_cap(args.cap):
         frame, = struct.unpack_from('>I', segw, so)
         if frame != c['frame']:
@@ -246,6 +254,24 @@ def run_plan(args):
             if bad <= 5:
                 print('  frame %d: plan del 68000 distinto del de referencia' % c['frame'])
         cycles.append((cyc, c['frame']))
+        ns, = struct.unpack('>H', m.cpu.read(WORK + nsegs_offset, 2))
+        if ns > G5_ROWS:
+            raise ValueError('contador de segmentos fuera de g5_work (layout distinto?)')
+        segments.append((ns, c['frame']))
+        # Medir las mismas filas que el plan pidio, sin cargarle al coste
+        # de g5_plan las llamadas de diagnostico. segbits empieza en +28194.
+        bits = struct.unpack('>14H', m.cpu.read(WORK + 28194, 28))
+        visited = [r for r in range(G5_ROWS) if bits[r >> 4] >> (r & 15) & 1]
+        if len(visited) != ns:
+            raise ValueError('segbits y nsegs distintos')
+        for r in visited:
+            sc, _, sa = m.call('_g5_segment', LIST, CL, SEG, r, OUT + 2048)
+            abi_bad += sa
+            segment_cycles.append((sc, c['frame'], r))
+    if not n:
+        raise ValueError('B5: captura vacia')
+    if so != len(segw):
+        raise ValueError('B5: registros de segw sin captura')
     if wo != len(want):
         bad += 1
         print('  el plan del 68000 mide %d B y la referencia %d B' % (wo, len(want)))
@@ -254,6 +280,13 @@ def run_plan(args):
     print('g5_plan 68000 %s: %d frames, planes distintos %d, ABI distinta %d; ciclos (sin DMA) media %.0f, '
           'mediana %d, p99 %d, max %d (frame %d)' % (args.name, n, bad, abi_bad, sum(c for c, _ in cycles) / n,
                                                      cycles[n // 2][0], cycles[(99 * n) // 100][0], mx[0], mx[1]))
+    print('g5_segment %s: decodificaciones/frame media %.2f, max %d (frame %d); '
+          'g5_work %d B' % (args.name, sum(x for x, _ in segments) / n,
+                            *max(segments), work_size))
+    if segment_cycles:
+        print('g5_segment ciclos %s: %d llamadas, media %.0f, max %d (frame %d fila %d), sin DMA' %
+              (args.name, len(segment_cycles), sum(x for x, _, _ in segment_cycles) / len(segment_cycles),
+               *max(segment_cycles)))
     ok = not bad and not abi_bad
     print('PUERTA G2T-B5 %s: %s' % (args.name, 'OK' if ok else 'FALLA'))
     if mx[0] > args.plan_max:
