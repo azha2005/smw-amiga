@@ -6,6 +6,14 @@ B2 de `docs/instrucciones-g2t-bc.md` §3 (B2 sigue valiendo como puerta de
 `876d28d` (o posterior), donde ya están C1 (`7df7ebe`, `ab50698`) y el
 WIP de B2 (`876d28d`, «PARADA por ciclos»).
 
+**Dato adicional medido el 2026-10-08:** B35-asm se detuvo en su
+microbench; conservar B35 C como control, sin activar el plan en vivo.
+Vivo con banco G3 deja 191 016 B de slow libre; G5EV + work del C dejan
+28 024 B estimados. La opción (a), solo datos + clave, cuesta al menos
+20 160/40 320/80 640 B para N=8/16/32. N=16/32 no cabe junto a esas
+reservas; antes de B2b-3 elegir N con fotos, salida, metadatos y pila
+incluidos. Fuente: `docs/informe-g2t-b35-asm-1008.md` §4.
+
 Corre en paralelo con `docs/instrucciones-g2t-b35.md` (el plan en C) y
 `docs/instrucciones-g2t-cpre.md` (el copper con un plan precalculado). La
 §3 dice qué toca cada una para no pisarse.

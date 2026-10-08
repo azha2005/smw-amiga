@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 import struct
 import subprocess
+import sys
 
 from sprgfx_final import derived_path
 
@@ -184,12 +185,21 @@ def bench(a):
     derived_path(a.out)
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    vbcc = Path(a.vbcc)
+    if a.vbcc:
+        vbcc = Path(a.vbcc)
+        assembler = vbcc / 'bin/vasmm68k_mot.exe'
+        if not assembler.exists():
+            assembler = vbcc / 'bin/vasmm68k_mot'
+    else:
+        from regress import vasm
+        assembler = vasm()
+        if not assembler:
+            raise ValueError('no encuentro vasm: VBCC=... o --vbcc <directorio>')
     binpath, lst = out / 'trans.bin', out / 'trans.lst'
-    subprocess.run([str(vbcc / 'bin/vasmm68k_mot.exe'), '-quiet', '-Fbin', '-m68000', '-no-opt',
+    subprocess.run([str(assembler), '-quiet', '-Fbin', '-m68000', '-no-opt',
                     '-DSPR_G5', '-DG5_TRANS_BENCH', '-L', str(lst), '-o', str(binpath),
                     'player/g5trans68k.s'], check=True)
-    subprocess.run(['python', 'tools/piccheck.py', '--lst', str(lst)], check=True)
+    subprocess.run([sys.executable, 'tools/piccheck.py', '--lst', str(lst)], check=True)
     from m68kverify import symbols
     b = Bench(binpath.read_bytes(), symbols(lst)['_g5_trans_sparse'])
     synthetic(b)
@@ -234,7 +244,7 @@ def main():
     b = sub.add_parser('bench')
     b.add_argument('--cases', default='work/b35asm/work')
     b.add_argument('--out', default='work/b35asm/bench')
-    b.add_argument('--vbcc', default='C:/Users/JC/vbcc')
+    b.add_argument('--vbcc', help='directorio de vbcc; por defecto el mismo descubrimiento que regress')
     b.add_argument('--synthetic-only', action='store_true')
     a = ap.parse_args()
     collect(a) if a.command == 'collect' else bench(a)

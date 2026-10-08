@@ -6,6 +6,12 @@ B4/B5 exactas en 3404 frames, pero máximo **2 405 022 ciclos sin DMA**
 frente al objetivo de **8000**. Informe: `docs/informe-g2t-b35-1008.md`.
 No se habilita la integración en vivo con ese coste.
 
+**Estado 2026-10-08:** fase de medida entregada en `a9b44fe`.
+El núcleo disperso produce transiciones exactas en 3404 frames, pero
+cuesta hasta 18 794 ciclos por sí solo. Integración detenida según §4.5;
+informe `docs/informe-g2t-b35-asm-1008.md`. Estos pasos quedan como
+reproducción de la propuesta medida; el trabajo vigente es `PROXIMO.md`.
+
 ## 0. Objetivo y alcance
 
 Medir una representación dispersa y el núcleo asm del planificador,

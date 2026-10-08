@@ -48,7 +48,7 @@
 
 ---
 
-## 1. Estado por etapa (al 2026-10-07)
+## 1. Estado por etapa (al 2026-10-08)
 
 Cifras medidas, con su fuente. Lo que no dice emulador es del PC o de
 Musashi. Los números de regresión completos están en
@@ -68,7 +68,7 @@ copian acá.
 | 8.1 | Grabaciones | **32 oráculos** con snesorc sin usuario (`tools/snesorc/*.orc`), entre ellos `stress_back`, `stress_sprites`, `stress_vert`, `pipe`, `goal`/`goal_low`/`goal_miss`, `pw_*` (seta, flor, estrella, 1-UP, `$C7`, bloques, medio, monedas de Yoshi) y los de R10. Faltan: luna 3-UP, R7 (contadores del HUD), R8/A0 (audio) | `tools/snesorc/`, `work/oracle_*.txt` |
 | 8.2 | Lógica ≤ 40 % | **hecha para el alcance anterior; L-OAM no cerrada**. Ambas rutinas en asm (`e8ec165`, `bbdf201`, `cd5001c`, fusión `cb8ba8f`), RAM PC=68000 exacta. WinUAE l4: YI1 con `SPR_OAM` **41,2 %** (antes 43,1 %), back 73,9 %; fotos back 295 contra 145 del control, sprites 32 contra 0. Parada explícita tras ambas asm; nueva tarjeta pendiente | `player/logic68k.s`; `docs/informe-loam-1007.md`, `docs/informe-coordinacion-1007.md` |
 | 9.1 | Sprites: lógica | **casi hecha**: Rex, `$83`, `$B9`, `$BD`, `$02`, `$9F`, `$4F`, `$8E`, `$C7`, Chuck `$95`, caparazones, meta `$7B`, power-ups (P6), Mario crecer/encoger/morir/estrella (P8); `game` 0 resincronizaciones. Faltan P7 (bolas de fuego), P9 (monedas de Yoshi, puntos), P10 (reserva) | `player/msprite.c`, `spr_*.c` |
-| 9.2 | Sprites: dibujo | Mario hecho; G0/G1/G3a/G8 y G8b opt-in verificadas. G3 acotada hecha (64528 B DMA, 72724 B tablas, loader replay/vivo). G5a fallida y revertida (`652b23c`). **G5a-bis parcial en rama** `8fe712d`: A2 y variantes exactas; 59318 ventanas vacías + 18 fallos de capacidad, B/C detenidas. Coordinador reproduce el resumen y revisa las PNG. G2T revisión entregada. **G2T-A hecha (2026-10-07): contrato fijado con medidas y puerta A-T verde** en 3404 frames (0 sin plazo, 0 errores de color/capa 1/prioridad; 69 293 transiciones; 56 casos exactos + 27 negativos en WinUAE). El candidato era inviable: el hueco entre filas admite 12 − nb MOVE (P111); codo 231→243 (P110). **B35 parcial en rama `g2t-b35` (2026-10-08, `213ba3c`/`06e777f`)**: B4/B5 exactas en 3404 frames, ABI intacta, paso 4c/regress/hashes verdes; único intento en C agotado, máximo 2 405 022 ciclos sin DMA frente a 8000. No integrada; informe `docs/informe-g2t-b35-1008.md`. B2bis, viabilidad B35-asm, C y cobertura global/G4-G7/G9 pendientes. **Los enemigos todavía no se ven en la Amiga** | `docs/informe-g3-final.md`, `docs/informe-g5bis-1007.md`, `docs/informe-coordinacion-1007.md`, `docs/informe-g2t-1007.md`, `docs/informe-g2t-a-1007.md` |
+| 9.2 | Sprites: dibujo | Mario hecho; G0/G1/G3a/G8 y G8b opt-in verificadas. G3 acotada hecha (64528 B DMA, 72724 B tablas, loader replay/vivo). G5a fallida y revertida (`652b23c`). **G5a-bis parcial en rama** `8fe712d`: A2 y variantes exactas; 59318 ventanas vacías + 18 fallos de capacidad, B/C detenidas. Coordinador reproduce el resumen y revisa las PNG. G2T revisión entregada. **G2T-A hecha (2026-10-07): contrato fijado con medidas y puerta A-T verde** en 3404 frames (0 sin plazo, 0 errores de color/capa 1/prioridad; 69 293 transiciones; 56 casos exactos + 27 negativos en WinUAE). El candidato era inviable: el hueco entre filas admite 12 − nb MOVE (P111); codo 231→243 (P110). **B35 parcial en rama `g2t-b35` (2026-10-08, `213ba3c`/`06e777f`)**: B4/B5 exactas en 3404 frames, ABI intacta, paso 4c/regress/hashes verdes; único intento en C agotado, máximo 2 405 022 ciclos sin DMA frente a 8000. No integrada; informe `docs/informe-g2t-b35-1008.md`. Primer microbench B35-asm entregado (`a9b44fe`): transiciones exactas en 3404 frames, máximo 18 794 ciclos solo en ese núcleo; no hay ruta medida al presupuesto, integración detenida (`docs/informe-g2t-b35-asm-1008.md`). B2bis, C y un nuevo diseño viable del plan, más cobertura global/G4-G7/G9, pendientes. **Los enemigos todavía no se ven en la Amiga** | `docs/informe-g3-final.md`, `docs/informe-g5bis-1007.md`, `docs/informe-coordinacion-1007.md`, `docs/informe-g2t-1007.md`, `docs/informe-g2t-a-1007.md` |
 | 6b | Integración | ADF en vivo y replay, O5 por defecto y diagnóstico. Con banco G3 y L-OAM asm, memmap replay/vivo: chip 455728/467256 B, slow 287712/323944 B; 0 violaciones. Gamecheck replay integrado 6313 frames, 0 distintos; Mario 6184/6184. Falta vlink C2, compresión C3 y loader C4 | `player/game.s`; `docs/informe-coordinacion-1007.md` |
 | 10-12 | HUD, audio, pulido | **Z1** hecho (muerte normal y reinicio; `docs/validacion-z1.md`). **H1** medido conservadoramente (`docs/medida-hud.md`; falta la alineación exacta PPU). **A1**: conversor verificado, 20 muestras / 50560 B PCM (`docs/informe-a1.md`); audio reproducido y R8 pendientes. HUD visible, punto medio, meta, game over: pendientes | — |
 | Experimental E11-E14 | Técnicas de juegos de referencia | E11a hecha: 0 cargas PF1 en franjas aptas de 15.755 frames; E11b descartada para `build_mid`. E12 descartada: 0/7 índices sin conflicto en 1.016.785 cámaras. E13 sin caso. E14a hecha; E14 descartada para estrés: 0/202 frames con las 64 filas libres (Banzai solo: 16/331). No cambia el presupuesto ni la compuerta D1 | `docs/experimentos-e11-e14.md` |
@@ -90,6 +90,7 @@ no entra es la **imagen** de ese VBL. Medidas WinUAE al 2026-10-05; la fila G8b 
 | Mario en sprites de hardware (`mspr_draw`) | máx. 7 750 ciclos, media 4 169 (Musashi, tras MA1) | ≤ 3 % de media | `baseline_pc.json` |
 | dibujo de los sprites del nivel (G5) | juego sin hacer; G2T mide solo sufijo sintético: ocho recargas exactas y cruce255 con barrera única,0 px. Sin coste integrado medido | ≤ 8 % (asignación, DMA y copper) | `docs/diseno-9.2.md`, `docs/informe-g2t-1007.md` |
 | plan temporal del Rex (B35, rama) | 2 405 022 ciclos máx., 0 planes distintos/ABI en 3404 frames; Musashi sin DMA, no coste integrado | ≤ 8000 ciclos máx. para el plan | `docs/informe-g2t-b35-1008.md` |
+| microbench transiciones B35-asm (rama) | 18 794 ciclos máx. solo en ese núcleo con entrada ya preparada; 3404 estructuras intermedias exactas, ABI/PIC correctos; sin DMA | ≤ 8000 para el plan entero; integración detenida | `docs/informe-g2t-b35-asm-1008.md` |
 | bobs en PF1 (Banzai, excedentes) | 22,7-33,8 % (Banzai + 4 Rex, `bench2.s` W3) | caso raro | `docs/decisiones-medidas.md` |
 | HUD | sin hacer (H1 midió la banda) | ≤ 2 % | `docs/medida-hud.md` |
 | audio | sin hacer | ≤ 3 % (D5) | — |
@@ -220,13 +221,13 @@ se reproducen y se detallan en `docs/informe-coordinacion-1007.md`.
 G2T-A (2026-10-07, noche) fijó el contrato temporal con medidas y dejó
 la puerta A-T verde (`docs/informe-g2t-a-1007.md`): G5 B/C quedan
 habilitadas con `docs/instrucciones-g2t-bc.md`. La revisión de coste OAM ya se entregó. B35 queda exacta en rama,
-pero detenida por coste; faltan su viabilidad, B2bis y C. L-OAM sigue en 41,2 %. Las olas 1 y 2 siguen cerradas.
+pero detenida por coste; primer microbench asm medido (18 794 ciclos solo en transiciones), sin ruta viable al plan completo. Faltan un nuevo diseño, B2bis y C. L-OAM sigue en 41,2 %. Las olas 1 y 2 siguen cerradas.
 
 | ola | contenido (lo que falta) | estado | sesiones que faltan |
 |---|---|---|---|
 | 1. Medir y preparar | — | **cerrada** | 0 |
 | 2. 50 Hz (1) | — (S4 descartada, P89) | **cerrada** | 0 |
-| 3. 50 Hz (2) + diseños | G2/G3 acotadas y traza D1 integradas; L-OAM asm parcial (41,2 % YI1, estrés rojo), G5a-bis detenida fase A (ventanas vacías). G2T-A hecha (contrato fijado, A-T verde); B35 exacta en rama pero inviable (2,41 M ciclos máx.); faltan su viabilidad asm, B2bis, Cpre/C y la ruta OAM de piraña; A2 y R7. A1/G8b adelantadas | **B35 parcial por coste; L-OAM roja** | **3 estimadas** (viabilidad B35 + B2bis/C + L-OAM, sin garantizar cierre) |
+| 3. 50 Hz (2) + diseños | G2/G3 acotadas y traza D1 integradas; L-OAM asm parcial (41,2 % YI1, estrés rojo), G5a-bis detenida fase A (ventanas vacías). G2T-A hecha (contrato fijado, A-T verde); B35 exacta en rama pero inviable (2,41 M ciclos máx.); primer microbench asm entregado y detenido (18 794 ciclos solo en transiciones); faltan nuevo diseño viable, B2bis, Cpre/C y la ruta OAM de piraña; A2 y R7. A1/G8b adelantadas | **B35 parcial por coste; L-OAM roja** | **3 estimadas** (nuevo diseño viable de B35 + B2bis/C + L-OAM; el microbench no reduce la ruta crítica) |
 | 4. Motores y estructura | G4 + G6, G5 + G9, C2 (vlink), S8 (cámara vertical), A0 + A2, P7/P9/P10, T1, I/E sueltas | pendiente | 2-3 |
 | 5. Integraciones y 50 Hz con sprites | S5 (+ S3/S6) con G5 ya hecho, C3/C4/C5 (loader), segundo PF1 + G7 (bobs), H2-H4 (HUD), A3/A4 (música) | pendiente | 2-3 |
 | 6. El juego completo | Z2-Z6 (punto medio, meta, tiempo, fundidos, poste), T2/T3 (tubería), A5-A8 (efectos, comparación), H5, R7 | pendiente | 2 |
@@ -234,9 +235,10 @@ pero detenida por coste; faltan su viabilidad, B2bis y C. L-OAM sigue en 41,2 %.
 | 8. Cierre | Z7, Z8, U1-U4, arreglos | pendiente | 1 |
 | | **total que falta** | | **10-13 estimadas**, con B35 exacta pero inviable; 14-18 si hay que serializar |
 
-Estimado actualizado tras la continuación B35 (2026-10-08): 10-13
-sesiones restantes; se suma una fase de viabilidad por su máximo de
-2 405 022 ciclos frente a 8000. B4/B5 exactas no garantizan cerrar B/C.
+Estimado revisado tras el microbench B35-asm (2026-10-08): se conservan **10-13**
+sesiones restantes, 14-18 serializadas, con incertidumbre: la fase de medida se
+entregó, pero 18 794 ciclos solo en transiciones no habilitan integración ni
+reducen la ruta crítica. Hace falta otro diseño medido. B4/B5 exactas no cierran B/C.
 Proyecto completo ~16-18 sesiones estimadas (14-18 restantes si hay que serializar). El estimado anterior se archiva textual en
 `docs/archivo/sesiones.md`. E11-E14, A1 y G8b son avances previos parciales
 que no cierran las tarjetas de dibujo ni reducen por sí solos la ruta crítica.
