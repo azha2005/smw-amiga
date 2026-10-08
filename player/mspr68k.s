@@ -76,6 +76,12 @@ mspr_draw:
         bne.s   .go
         cmpm.b  (a0)+,(a1)+
         bne.s   .go
+        ifd     SPR_G5
+        ; Exponer la clave exacta de ESTA ficha sin volver a normalizar OAM.
+        lea     46(a5),a0
+        lea     3(a5),a1
+        moveq   #1,d0
+        endc
         rts                                 ; nada ha cambiado
 .go:    lea     _mario_oam(a4),a0
         lea     _mario_osz(a4),a1
@@ -376,13 +382,24 @@ mrow    set     mrow+1
         lea     16(a1),a1
         lea     _mario_osz(a4),a0
         move.l  (a0)+,(a1)+
-.rts:   rts
+.rts:
+        ifd     SPR_G5
+        ; Tambien vale para el buffer suelto: no hubo cache, pero mspr_n
+        ; guarda la pose normalizada de esta llamada. Los punteros son CPU.
+        lea     mspr_n(pc),a0
+        lea     _ram+$0D85(a4),a1
+        moveq   #1,d0
+        endc
+        rts
 
 .none:  bsr.s   mspr_inval
         clr.l   (a2)                        ; Mario no se ve
         clr.l   MSPR_WORDS*2(a2)
         clr.l   MSPR_WORDS*4(a2)
         clr.l   MSPR_WORDS*6(a2)
+        ifd     SPR_G5
+        moveq   #0,d0                       ; sin clave: Mario oculto
+        endc
         rts
 
 .slowp: movem.l (sp)+,d5/d7/a6
@@ -396,6 +413,9 @@ mrow    set     mrow+1
         add.l   #_mario_sprite-binstart,a0
         jsr     (a0)
         lea     12(sp),sp
+        ifd     SPR_G5
+        moveq   #0,d0                       ; sin clave: camino general del C
+        endc
         rts
 
 ; mspr_inval: los buffers van a quedar escritos por otro camino: las dos

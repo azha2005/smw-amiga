@@ -986,3 +986,14 @@ G2T (WAIT + 8 MOVE) movía la carga de x = 7 a x = 47..119. **Para verlo
 hace falta que el borrado escriba el color visible en su último MOVE y una
 carga temprana**: el arnés de G2T comprobaba solo el primer MOVE y daba
 "0 errores de fondo". Evidencia: `docs/informe-g2t-a-1007.md` §2-§5.
+
+**P112 — B2bis: el recorte de un pack exige DATA y cuidar sus límites.**
+Los límites primero/último pierden los huecos de una tinta. Al cruzar un
+borde horizontal, el formato 4 se vuelve a decodificar desde el sprite de
+la foto. El decoder destruye a1: recuperar el puntero de salida tras la
+llamada, o se escriben máscaras fuera de la vista sin romper la ABI.
+Además, 1204 B de entrada son 4 B de cabecera + 1200 de payload: una
+fila de hasta 64 B solo puede empezar con ocupación ≤1136. El límite
+1140 permitía un desborde de 4 B. Las tres trazas no recorren el recorte
+horizontal ni ese límite de densidad; `tools/g5env_edges.py` los fuerza
+con píxeles sintéticos y compara PC/68000/frontera, con canarios.

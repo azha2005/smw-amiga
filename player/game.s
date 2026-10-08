@@ -150,6 +150,10 @@ cdata1:
         include "work/cc/smwram.i"
         include "player/logic68k.s"
         include "player/mspr68k.s"
+        ifd     SPR_G5
+G5ENV_PROJECT equ 1
+        include "player/g5env.s"
+        endc
         even
 build_end:                                  ; fin de lo que firma g_build
 
@@ -353,7 +357,7 @@ entry:
                                             ; (0, 0 de MEMF_CLEAR). Empezar la
                                             ; cadena con 0, 0 no es valido en
                                             ; todos los chipsets (Coppershade,
-                                            ; "Sprite Programming"; §14.2)
+                                            ; "Sprite Programming"; Ãƒâ€šÃ‚Â§14.2)
         ifd     DIAG
         move.l  #DG_SIZE,d0                 ; las pantallas del diagnostico
         move.l  #MEMF_CHIP|MEMF_CLEAR,d1
@@ -509,7 +513,7 @@ gframe:
 
         ifnd    REPLAY
         ifnd    DECOUPLE
-; --- live_restart_hw --- carga en el bucle anterior, sin ISR de lógica
+; --- live_restart_hw --- carga en el bucle anterior, sin ISR de lÃƒÆ’Ã‚Â³gica
 ; entrada:  a3/a4/a5 = datos/CUSTOM/vars; salida: ambas listas del nivel nuevo
 ; registros destruidos: d0-d7/a0-a2
 ; ciclos:   carga, fuera del presupuesto por frame de juego
@@ -742,7 +746,7 @@ g_sts:  dc.l    0                           ; siguiente estado
 ; En vivo (6b.3): teclado y joystick -> $15-$18 -> level_frame. Lo que el
 ; port no tiene (animaciones de Mario, tuberias, meta...) congela el frame
 ; en el modo diagnostico (P58). El dano, crecer y morir los hace el C (P8,
-; manim.c): muerte normal recarga el nivel; game over/time up queda en diagnóstico.
+; manim.c): muerte normal recarga el nivel; game over/time up queda en diagnÃƒÆ’Ã‚Â³stico.
 ;----------------------------------------------------------------------
 
 ; live_init: guarda los datos del C (con ram[]) y el mapa como estan al
@@ -821,7 +825,7 @@ game_step:
         move.l  g_frame(pc),d1
         cmp.l   #Z1STOP,d1
         bne.s   .zs
-        moveq   #-1,d0                      ; captura reproducible, solo arnés Z1
+        moveq   #-1,d0                      ; captura reproducible, solo arnÃƒÆ’Ã‚Â©s Z1
 .zs:
         endc
         tst.b   d0
@@ -866,7 +870,7 @@ live_logic:
         rts
 
 ; --- live_death_restart --- restaurar nivel conservando estado persistente
-; entrada:  g_save = copia inicial; muerte normal ya descontó una vida
+; entrada:  g_save = copia inicial; muerte normal ya descontÃƒÆ’Ã‚Â³ una vida
 ; salida:   nivel inicial, vidas/monedas/reserva/puntos conservados
 ; registros destruidos: d0-d1/a0-a1
 ; ciclos:   medidos por tools/restart_verify.py (sin DMA)
@@ -905,7 +909,7 @@ live_death_restart:
         move.l  d2,$0dbe(a2)
         move.b  #$1e,$0dc0(a2)              ; green star coins se reinicia en ROM
         move.b  d3,$0dc2(a2)
-        clr.b   $19(a2)                    ; la muerte deja Mario pequeño
+        clr.b   $19(a2)                    ; la muerte deja Mario pequeÃƒÆ’Ã‚Â±o
         move.l  sp,a0
         lea     $1f2f(a2),a1
         bsr     .flags
@@ -917,7 +921,7 @@ live_death_restart:
         movem.l d0-d7/a0-a6,-(sp)
         GETBASE a4
         move.l  a4,a0
-        add.l   #_mario_E2BD-binstart,a0     ; OAM/paleta de entrada, sin tick de física
+        add.l   #_mario_E2BD-binstart,a0     ; OAM/paleta de entrada, sin tick de fÃƒÆ’Ã‚Â­sica
         jsr     (a0)
         movem.l (sp)+,d0-d7/a0-a6
         movem.l (sp)+,d2-d3/a2
@@ -1188,7 +1192,7 @@ callframe:
 ; paleta (mario_pal -> COLOR17-31) en la cabecera de la lista.
 ; La cabecera solo la toca esta rutina (build_copper la arma una vez), asi
 ; que cada lista guarda lo que ya tiene (g_lpal, como las banderas de
-; "sucio" de Knightmare, docs/investigacion-ports.md §14.7): los punteros
+; "sucio" de Knightmare, docs/investigacion-ports.md Ãƒâ€šÃ‚Â§14.7): los punteros
 ; no cambian nunca (la primera vez, con g_lpal = $FF) y la paleta solo se
 ; escribe si cambio. Ahorra ~950 ciclos por frame.
 ; registros destruidos: d0-d1/a0-a1
@@ -1272,7 +1276,7 @@ g_lpal: dc.b    $ff,$ff                     ; paleta de Mario en la lista A, B
         ifd     DECOUPLE
 ;----------------------------------------------------------------------
 ; O5: la logica a 50 Hz fija y el render desacoplado (esquema Robocod,
-; docs/investigacion-ports.md §2.1; tarjeta O5).
+; docs/investigacion-ports.md Ãƒâ€šÃ‚Â§2.1; tarjeta O5).
 ;
 ; Dos interrupciones de nivel 3 (dc_vbl):
 ;   VERTB (linea 0, dc_vb): si el render publico una lista, COP1LC = esa
@@ -1281,7 +1285,7 @@ g_lpal: dc.b    $ff,$ff                     ; paleta de Mario en la lista A, B
 ;   COPER (linea 272: una cola en cada lista, dc_puttail; dc_cop): la
 ;      logica, game_step (entrada + level_frame), una vez por frame y en el
 ;      mismo punto que el bucle de antes (desde la $110: las lineas sin DMA
-;      de planos, docs/plan-tecnico.md §9.6), y la foto (dc_capture): s = Bg1HOfs
+;      de planos, docs/plan-tecnico.md Ãƒâ€šÃ‚Â§9.6), y la foto (dc_capture): s = Bg1HOfs
 ;      dentro del nivel, mspr_draw en un buffer de sprites que no se ve ni
 ;      se esta dibujando (3 buffers) y la paleta de Mario. Es todo lo que
 ;      el render lee del estado del juego. Corre con el nivel bajado a 0:
@@ -1307,7 +1311,13 @@ R_PAL       equ 2                           ; .b paleta de Mario (0..7)
 R_RS        equ 3                           ; .b frame de resincronizacion (BENCH)
 R_FRAME     equ 4                           ; .w frame logico (DC_NLOG)
 R_ISR       equ 6                           ; .w ticks de la interrupcion (BENCH)
+        ifd     SPR_G5
+R_G5HAS     equ 8                           ; .w clave MA1 valida
+R_G5KEY     equ 10                          ; 40 B de pose, permutados y alineados
+DC_REC      equ 50
+        else
 DC_REC      equ 8
+        endc
 ; estado (dc_st), palabras; -1 = ninguna
 DC_FRONT    equ 0                           ; foto de la lista que se ve
 DC_PEND     equ 2                           ; publicada, se ve desde el VBL
@@ -1485,7 +1495,7 @@ dc_cop:
         bsr     dc_act
         ifnd    REPLAY
         tst.w   d7
-        beq     .x                         ; carga: no lógica ni fotos parciales
+        beq     .x                         ; carga: no lÃƒÆ’Ã‚Â³gica ni fotos parciales
         endc
         ifd     DIAG
         move.w  g_dst(pc),d0
@@ -1619,11 +1629,40 @@ dc_capture:
         ifd     BENCH
         GBS     5
         endc
+        ifd     SPR_G5
+        ; mspr_draw expone n/entradas y punteros de la imagen de este buffer.
+        ; Preservarlos hasta tener la direccion de la foto (dc_recp usa a0).
+        move.l  a0,a3
+        move.l  a1,a5
+        move.w  d0,d7
+        endc
         move.w  (sp)+,d6
         lea     dc_st(pc),a2
         move.w  d6,d0                       ; la foto
         bsr     dc_recp
         move.l  a0,a1
+        ifd     SPR_G5
+        ifd     BENCH
+        GBS     14
+        endc
+dc_g5copy_start equ *
+        move.w  d7,R_G5HAS(a1)
+        beq.s   .g5copied
+        ; n+entradas: 18 B. Punteros: primer/ultimo byte antes del interior
+        ; de 20 B, para que TODOS los MOVEM caigan en direcciones pares.
+        lea     R_G5KEY+20(a1),a6
+        move.b  (a5)+,R_G5KEY+18(a1)
+        move.b  20(a5),R_G5KEY+19(a1)
+        movem.l (a5),d0-d4
+        movem.l d0-d4,(a6)
+        movem.w (a3),d0-d5/d7/a0/a6
+        movem.w d0-d5/d7/a0/a6,R_G5KEY(a1)
+.g5copied:
+dc_g5copy_end equ *
+        ifd     BENCH
+        GBS     15
+        endc
+        endc
         move.l  g_data(pc),a3
         bsr     cam_s
         move.w  d0,R_S(a1)
@@ -1803,7 +1842,7 @@ dc_loop:
         bpl.s   .nr
         move.w  DC_NEW(a2),d0
         cmp.w   DC_FRONT(a2),d0
-        bne.s   .nr                         ; mostrar último frame de muerte
+        bne.s   .nr                         ; mostrar ÃƒÆ’Ã‚Âºltimo frame de muerte
         bsr     dc_restart
         bra     dc_loop
 .nr:
@@ -1861,6 +1900,15 @@ dc_loop:
         ifd     BENCH
         GBR     9
         endc
+        ifd     SPR_G5
+        ifd     BENCH
+        GBR     16
+        endc
+        bsr     dc_g5render                 ; solo la foto tomada por este render
+        ifd     BENCH
+        GBR     17
+        endc
+        endc
         lea     dc_st(pc),a2
         move.w  DC_REND(a2),d7
         bsr     dc_hdr
@@ -1887,8 +1935,8 @@ dc_loop:
 
         ifnd    REPLAY
 ; --- dc_restart --- carga del demo tras la muerte (overworld fuera de alcance)
-; entrada:  bucle principal, última foto visible, ninguna publicación pendiente
-; salida:   PF1/listas/fotos/cámara del nivel nuevo; lógica en próxima COPER
+; entrada:  bucle principal, ÃƒÆ’Ã‚Âºltima foto visible, ninguna publicaciÃƒÆ’Ã‚Â³n pendiente
+; salida:   PF1/listas/fotos/cÃƒÆ’Ã‚Â¡mara del nivel nuevo; lÃƒÆ’Ã‚Â³gica en prÃƒÆ’Ã‚Â³xima COPER
 ; registros destruidos: d0-d7/a0-a2
 ; ciclos:   medidos por tools/restart_verify.py; es carga, no frame de juego
 dc_restart:
@@ -1918,7 +1966,7 @@ dc_restart:
         move.l  V_COP(a5),COP1LC(a4)
         move.w  #0,COPJMP1(a4)
         move.w  #$0030,INTREQ(a4)           ; no ejecutar COPER vieja acumulada
-        move.w  #$0030,INTREQ(a4)           ; doble ACK, patrón de la ISR
+        move.w  #$0030,INTREQ(a4)           ; doble ACK, patrÃƒÆ’Ã‚Â³n de la ISR
         move.w  #$81a0,DMACON(a4)
         lea     g_restart(pc),a0
         clr.w   (a0)
@@ -1935,7 +1983,7 @@ dc_restart:
         move.b  CIAB_TALO,d1
         not.l   d1                         ; ticks CIA (10 ciclos CPU PAL)
         lea     g_frame(pc),a0
-        move.l  d1,(a0)                    ; arnés: FRAME del diagnóstico = ticks
+        move.l  d1,(a0)                    ; arnÃƒÆ’Ã‚Â©s: FRAME del diagnÃƒÆ’Ã‚Â³stico = ticks
         moveq   #-1,d0
         bsr     diag_trigger
         lea     g_dst(pc),a0
@@ -1966,6 +2014,50 @@ dc_st:   ds.b   DC_SIZE
 dc_busy: dc.b   0                           ; la logica esta corriendo
 dc_ran:  dc.b   0                           ; la COPER llego en este frame
         even
+        ifd     SPR_G5
+; --- dc_g5render --- preparar la frontera Mario antes del futuro g5_plan
+; entrada: DC_REND = foto tomada; a4 = CUSTOM
+; salida: g5env_view materializada en coordenadas de pantalla
+; registros destruidos: d0/d1/a0/a1; preserva d2-d7/a2-a6
+; ciclos: tools/g5env_verify.py game; no lee RAM viva (P97)
+dc_g5render:
+        movem.l d2/a2/a4,-(sp)
+        lea     dc_st(pc),a0
+        move.w  DC_REND(a0),d2
+        move.w  d2,d0
+        bsr     dc_recp
+        move.l  a0,a2
+        moveq   #0,d1
+        move.w  R_G5HAS(a2),d0
+        beq.s   .no_key
+        lea     R_G5KEY(a2),a0
+        move.l  a0,d1
+.no_key:
+        lea     g_sbuf(pc),a0
+        lsl.w   #2,d2
+        move.l  (a0,d2.w),d2                ; buffer de la foto, nunca el de logica
+        move.l  d2,-(sp)
+        move.l  d1,-(sp)
+        GETBASE a0
+        add.l   #g5env_cache-binstart,a0
+        move.l  a0,-(sp)
+        GETBASE a0
+        add.l   #_g5env_lookup-binstart,a0
+        jsr     (a0)
+        lea     12(sp),sp
+        move.l  d0,-(sp)
+        move.l  d2,-(sp)
+        GETBASE a0
+        add.l   #g5env_view-binstart,a0
+        move.l  a0,-(sp)
+        GETBASE a4
+        move.l  a4,a0
+        add.l   #_g5env_project-binstart,a0
+        jsr     (a0)
+        lea     12(sp),sp
+        movem.l (sp)+,d2/a2/a4
+        rts
+        endc
 dc_rec:  ds.b   DC_REC*NSPRB
         even
 dc_stk:  ds.b   8192                        ; pila de la interrupcion
@@ -1996,7 +2088,11 @@ dc_stktop:
 ; gb_scroll_frame es una COPIA del cuerpo de scroll_frame (scroll.s) con
 ; sellos: si scroll_frame cambia, esto tiene que cambiar igual.
 ;----------------------------------------------------------------------
+        ifd     SPR_G5
+GB_NP       equ 9                          ; + copia clave y envolvente
+        else
 GB_NP       equ 7
+        endc
         ifd     DECOUPLE
 GB_ROWS     equ 21                          ; + las filas 19-20 de O5
         else
@@ -2252,12 +2348,24 @@ gb_isr_end:
         moveq   #2,d0
         bsr     gb_upd2
         lea     gb_t(pc),a0
+        ifd     SPR_G5
+        GBD     14,15                      ; copia de la clave a la foto
+        move.w  d2,d3
+        bsr     gb_sub
+        moveq   #7,d0
+        bsr     gb_upd2
+        lea     gb_t(pc),a0
+        endc
         GBD     0,13                        ; la interrupcion: sellos 3, 4, 5,
         moveq   #4,d3                       ; 13 (+ 1 y 2 con level_frame)
         move.w  gb_lfd(pc),d0
         beq.s   .n4
         addq.w  #2,d3
-.n4:    mulu    d2,d3
+.n4:
+        ifd     SPR_G5
+        addq.w  #2,d3                       ; sellos 14 y 15
+        endc
+        mulu    d2,d3
         bsr     gb_sub
         move.w  d1,R_ISR(a2)
         lea     gb_isrmax(pc),a1
@@ -2316,11 +2424,23 @@ gb_rnd_end:
         moveq   #5,d0
         bsr     gb_upd2
         lea     gb_t(pc),a0
+        ifd     SPR_G5
+        GBD     16,17                      ; cache y proyeccion de la foto
+        move.w  d2,d3
+        bsr     gb_sub
+        moveq   #8,d0
+        bsr     gb_upd2
+        lea     gb_t(pc),a0
+        endc
         tst.b   R_RS(a2)
         bne.s   .x                          ; resincronizacion: sin total
         GBD     6,11                        ; el render: sellos 7-11
         move.w  d2,d3
+        ifd     SPR_G5
+        mulu    #7,d3                       ; tambien sellos 16 y 17
+        else
         mulu    #5,d3
+        endc
         bsr     gb_sub
         add.w   R_ISR(a2),d1                ; + la logica de la misma foto
         moveq   #6,d0
@@ -2371,13 +2491,28 @@ gb_show:
 .z:     move.w  d0,(a2)+
         move.w  gb_over(pc),(a2)+
         lea     gb_res(pc),a0
-        moveq   #GB_NP-1,d7
+        moveq   #6,d7                       ; formato publico: las siete partes
 .p:     move.w  (a0)+,(a2)+                 ; max
         move.w  (a0)+,(a2)+                 ; frame
         move.w  (a0)+,(a2)+                 ; s
         clr.w   (a2)+
         dbf     d7,.p
         move.l  #$5aa5a55a,(a2)+
+        ifd     SPR_G5
+        ifd     G5BENCHSCREEN
+        ; Pantalla alternativa: partes 0/1 = clave/render, mismo formato.
+        ; El BENCH normal conserva las siete partes y contadores de O5.
+        lea     gb_out+4*4(pc),a2
+        lea     gb_res+7*6(pc),a0
+        move.w  (a0)+,(a2)+
+        move.w  (a0)+,(a2)+
+        move.w  (a0)+,(a2)
+        lea     gb_out+6*4(pc),a2
+        move.w  (a0)+,(a2)+
+        move.w  (a0)+,(a2)+
+        move.w  (a0)+,(a2)
+        endc
+        endc
         ifd     DECOUPLE
         ; O5: las palabras bajas libres de f5..f17 y las filas 19-20
         lea     gb_out(pc),a2
@@ -2442,7 +2577,12 @@ gb_show:
         bra.s   .forever
 
         even
-gb_t:    ds.w   14
+gb_t:
+        ifd     SPR_G5
+        ds.w   18
+        else
+        ds.w   14
+        endc
 gb_res:  ds.w   3*GB_NP
 gb_out:  ds.l   GB_ROWS
 gb_sum:  dc.l   0
@@ -3185,5 +3325,13 @@ replay: incbin  "work/yi1_replay.bin"       ; en vivo: solo el primer estado
         include "work/sg3_bank.i"
         include "player/sprbank.s"
         cnop    0,4
+        endc
+        ifd     SPR_G5
+; Datos de CPU, dentro del binario que el loader copia a slow RAM.
+; Al final para no alejar referencias (pc) de las rutinas del juego (P102).
+        cnop    0,4
+g5env_cache: ds.b G5ENV_BYTES
+g5env_view:  ds.b 1292                     ; prefijo B2, hasta G5B_REX
+        even
         endc
 binend:

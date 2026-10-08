@@ -61,6 +61,14 @@ PARTS = (("entrada", "entrada (game_step sin level_frame)"),
 RESYNC_OPS = (V.REP_SYNC, V.REP_RUNSYNC, V.REP_LEVEL)
 
 
+def code_base(size):
+    """Reubicar el binario PIC grande, sin pisar los datos ni ampliar RAM."""
+    for base in (V.BASE, 0x8000):
+        if base + size <= DATA:
+            return base
+    raise ValueError('el binario de %d B no cabe antes de DATA = 0x%X' % (size, DATA))
+
+
 def layout(syms):
     """(lista A, lista B, sprites de Mario) en la memoria del emulador. Con
     SPR_G5 (SEG 256: CL_SIZE 57 688 B) las listas ya no caben en 0xE000."""
@@ -192,9 +200,7 @@ def main():
     a = ap.parse_args()
 
     code = open(a.bin, "rb").read()
-    if V.BASE + len(code) > DATA:               # el binario pisaria los datos del scroll
-        sys.exit("gamecheck: %s llega a 0x%X, pasa DATA = 0x%X: mover DATA/BUF1/COP*"
-                 % (a.bin, V.BASE + len(code), DATA))
+    B = code_base(len(code))
     syms = V.symbols(a.lst)
     if a.data is None:
         a.data = os.path.join(V.WORK, "yi1_s_g5.dat" if "CL_VBL" in syms else "yi1_s.dat")
@@ -202,7 +208,6 @@ def main():
               "_map16_lo", "_map16_hi", "_spr_level", "_level_sprites", "g_left"):
         if s not in syms:
             sys.exit("falta el simbolo %s en %s (armar con -DREPLAY)" % (s, a.lst))
-    B = V.BASE
     cpu = V.MusashiCPU() if a.engine == "musashi" else V.UnicornCPU(False)
     cpu.write(B, code)
     # lo que hace entry con a4 = binstart

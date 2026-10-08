@@ -22,7 +22,7 @@ def main():
     c.mem.w16(V.RET, 0xA000 | tid)
     c.mem.w8(0xBFE001, 0xFF)
     c.mem.w16(0xDFF016, 0xFFFF)
-    B = V.BASE
+    B = G.code_base(len(code))
     c.write(B, code)
     R = c.M.Register
 

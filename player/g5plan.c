@@ -152,6 +152,10 @@ u16 g5_mario_mask(const u8 *blk, s16 row)
     s16 j = (s16)(row - (s16)B16(blk + G5B_MROW));
     if (j < 0 || j >= G5_WIN)
         return 0;
+    if (blk[10] == 0xB2) {
+        u16 off = B16(blk + G5B_MASK + 2 * j);
+        return off == 0xFFFF ? 0 : (u16)(B16(blk + G5B_ENV + off) & 0xFFFE);
+    }
     return (u16)(B16(blk + G5B_MASK + 2 * j) & 0xFFFE);
 }
 
@@ -159,6 +163,15 @@ void g5_mario_span(const u8 *blk, s16 row, u8 idx, u8 *first, u8 *last)
 {
     s16 j = (s16)(row - (s16)B16(blk + G5B_MROW));
     const u8 *e = blk + G5B_ENV + 30 * j + 2 * (idx - 1);
+    if (blk[10] == 0xB2) {
+        u16 off = B16(blk + G5B_MASK + 2 * j), loc = 2 * (idx - 1);
+        e = blk + G5B_ENV + off + 4;
+        while (B16(e) != loc)
+            e += 4;
+        *first = (u8)(e[2] + blk[11]);
+        *last = (u8)(e[3] + blk[11]);
+        return;
+    }
     *first = e[0];
     *last = e[1];
 }

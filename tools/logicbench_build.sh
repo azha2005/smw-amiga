@@ -44,7 +44,7 @@ case " $CDEFS " in
     *" -DSPR_G5"*)
         case " $CDEFS " in *" -DNOOAM"*) ;; *) echo "ERROR: SPR_G5 requiere -DNOOAM -DSPR_OAM en CDEFS"; exit 1 ;; esac
         case " $CDEFS " in *" -DSPR_OAM"*) ;; *) echo "ERROR: SPR_G5 requiere -DNOOAM -DSPR_OAM en CDEFS"; exit 1 ;; esac
-        G5=g5plan ;;
+        G5='g5plan g5env' ;;
 esac
 for f in mario mcoll manim mgfx mcam msprite mspr $SPRS $G5 gen/smwrom00; do
     b=$(basename $f)
@@ -96,7 +96,8 @@ done
 # rutinas (anexado a msprite.code.s alejaba llamadas a mas de 32 KB, P102).
 if [ -n "$G5" ]; then
     cat $CC/g5plan.data.s >> $CC/msprite.data.s
-    cat $CC/g5plan.code.s $CC/mario.code.s > $CC/mario.code.tmp && mv $CC/mario.code.tmp $CC/mario.code.s
+    cat $CC/g5env.data.s >> $CC/msprite.data.s
+    cat $CC/g5env.code.s $CC/g5plan.code.s $CC/mario.code.s > $CC/mario.code.tmp && mv $CC/mario.code.tmp $CC/mario.code.s
 fi
 # El binario se carga en cualquier direccion: el codigo del C solo puede
 # llegar a sus datos por (a4) y a su codigo por (pc)/bsr. vbcc puede emitir

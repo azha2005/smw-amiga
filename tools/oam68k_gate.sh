@@ -90,7 +90,7 @@ mkdir -p "$G5G"
 if [ "$fails" = 0 ]; then
     if CDEFS='-DNOOAM -DSPR_OAM -DSPR_G5' sh tools/logicbench_build.sh > "$G5G/logicbench_build.log" 2>&1 &&
        cp work/logicbench.bin work/logicbench.lst "$G5G/" &&
-       $CC -O2 -DNOOAM -DSPR_OAM -DSPR_G5 -Iplayer -o "$G5G/marioverify_g5" tools/marioverify.c $SRC             player/g5plan.c player/spr_*.c player/gen/smwrom00.c > "$G5G/gcc.log" 2>&1; then
+       $CC -O2 -DNOOAM -DSPR_OAM -DSPR_G5 -Iplayer -o "$G5G/marioverify_g5" tools/marioverify.c $SRC             player/g5plan.c player/g5env.c player/spr_*.c player/gen/smwrom00.c > "$G5G/gcc.log" 2>&1; then
         ok "logicbench y marioverify SPR_G5 ($(wc -c < "$G5G/logicbench.bin") B)"
         for name in yi1 normal spin_kill; do
             if [ ! -f "work/oam_$name.trace" ] || [ ! -f "work/oracle_${name}_oam.bin" ]; then
@@ -132,7 +132,7 @@ if [ "$fails" = 0 ]; then
          --trace work/oam_normal.trace=work/oracle_normal_oam.bin \
          --trace work/oam_spin_kill.trace=work/oracle_spin_kill_oam.bin > "$B35G/segdump.log" 2>&1 &&
        $CC -O2 -DNOOAM -DSPR_OAM -DSPR_G5 -Iplayer -o "$B35G/g5plan_test" \
-         tools/g5plan_test.c player/g5plan.c > "$B35G/gcc.log" 2>&1; then
+         tools/g5plan_test.c player/g5plan.c player/g5env.c > "$B35G/gcc.log" 2>&1; then
         for name in yi1 normal spin_kill; do
             if "$B35G/g5plan_test" "$G5G/cap_$name.bin" "$B35G/segw_$name.bin" \
                     "$B35G/segs_$name.bin" work/g3/bank.idx work/g3/bank.g5env \

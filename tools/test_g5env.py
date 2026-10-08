@@ -5,9 +5,20 @@ import struct
 from pathlib import Path
 from g5env_verify import key_of, image
 from g5env_asm import generate
+from g5env_edges import sprite, expected
+from g5env_verify import decode_env
 
 
 class KeyTests(unittest.TestCase):
+    def test_clipping_keeps_gap_at_edge(self):
+        grid = [[1, 0, 0, 0, 0, 0, 0, 1] + [0]*8]
+        raw = struct.pack('>HH', 1, 1) + struct.pack('>15H', 0x8100, *([0]*14))
+        want = {(0, 1): (6, 6)}
+        self.assertEqual(expected(grid, -1, 0), want)
+        self.assertEqual(decode_env(raw, sprite(grid, -1, 0)), want)
+        self.assertEqual(expected(grid, 255, 0), {(0, 1): (255, 255)})
+        self.assertEqual(expected(grid, -1, -1), {})
+
     def test_assembly_matches_generator(self):
         self.assertEqual(Path('player/g5env.s').read_text(encoding='utf-8'), generate())
 

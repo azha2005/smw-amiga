@@ -53,7 +53,7 @@ def collect(a):
     copy.write_text(src, encoding='utf-8')
     exe = out / 'g5plan_work.exe'
     subprocess.run(['gcc', '-O2', '-DNOOAM', '-DSPR_OAM', '-DSPR_G5', '-Iplayer', '-Itools',
-                    '-o', str(exe), 'tools/g5plan_work.c', str(copy)], check=True)
+                    '-o', str(exe), 'tools/g5plan_work.c', str(copy), 'player/g5env.c'], check=True)
     for name in ('yi1', 'normal', 'spin_kill'):
         plan = out / ('plan_' + name + '.bin')
         subprocess.run([str(exe), 'work/g5gate/cap_' + name + '.bin',
