@@ -10,6 +10,9 @@
 #   2. marioverify y la biblioteca del PC con -DNOOAM -DSPR_OAM
 #   3. por cada oraculo: traza OAM del PC y sprite_oam_verify del 68000
 #   4. cruce de la RAM entera PC = 68000 (m68kverify --cross)
+#   4b. G2T-B2 (-DSPR_G5): el bloque de la foto (g5_capture) en el PC
+#      contra g2t_ref.mario_amiga y en el 68000 contra el PC, con ciclos
+#      (tools/g5plan_verify.py; logs en work/g5gate/)
 #   5. vuelve a armar el logicbench POR DEFECTO (lo usa regress.py)
 #
 #   sh tools/oam68k_gate.sh        # sale con 0 solo si TODO pasa
@@ -76,6 +79,36 @@ if [ "$fails" = 0 ]; then
         ok "cruce RAM PC = 68000: $(grep -i 'diferen\|cruce' "$G/cross.log" | tail -n 1)"
     else
         fail "cruce RAM PC = 68000 (ver $G/cross.log)"
+    fi
+fi
+
+# 4b. G2T-B2: g5_capture (SPR_G5), PC = g2t_ref y 68000 = PC
+G5G=work/g5gate
+mkdir -p "$G5G"
+if [ "$fails" = 0 ]; then
+    if CDEFS='-DNOOAM -DSPR_OAM -DSPR_G5' sh tools/logicbench_build.sh > "$G5G/logicbench_build.log" 2>&1 &&
+       cp work/logicbench.bin work/logicbench.lst "$G5G/" &&
+       $CC -O2 -DNOOAM -DSPR_OAM -DSPR_G5 -Iplayer -o "$G5G/marioverify_g5" tools/marioverify.c $SRC             player/g5plan.c player/spr_*.c player/gen/smwrom00.c > "$G5G/gcc.log" 2>&1; then
+        ok "logicbench y marioverify SPR_G5 ($(wc -c < "$G5G/logicbench.bin") B)"
+        for name in yi1 normal spin_kill; do
+            if [ ! -f "work/oam_$name.trace" ] || [ ! -f "work/oracle_${name}_oam.bin" ]; then
+                fail "G2T-B2 $name: falta work/oam_$name.trace o work/oracle_${name}_oam.bin"
+                continue
+            fi
+            GAME_G2T_CAP="$G5G/cap_$name.bin" "$G5G/marioverify_g5" "work/oracle_$name.bin" game                 > "$G5G/${name}_pc.log" 2>&1
+            if $PY tools/g5plan_verify.py env --name "$name" --cap "$G5G/cap_$name.bin"                     --trace "work/oam_$name.trace=work/oracle_${name}_oam.bin" > "$G5G/${name}_env.log" 2>&1; then
+                ok "G2T-B2 envolventes $name: $(grep '^B2 ' "$G5G/${name}_env.log")"
+            else
+                fail "G2T-B2 envolventes $name: $(tail -n 2 "$G5G/${name}_env.log" | head -n 1) (ver $G5G/${name}_env.log)"
+            fi
+            if $PY tools/g5plan_verify.py m68k --name "$name" --cap "$G5G/cap_$name.bin"                     --bin "$G5G/logicbench.bin" --lst "$G5G/logicbench.lst" > "$G5G/${name}_68000.log" 2>&1; then
+                ok "G2T-B2 68000 $name: $(grep '^g5_capture' "$G5G/${name}_68000.log")"
+            else
+                fail "G2T-B2 68000 $name: $(tail -n 1 "$G5G/${name}_68000.log") (ver $G5G/${name}_68000.log)"
+            fi
+        done
+    else
+        fail "build SPR_G5 (ver $G5G/logicbench_build.log, $G5G/gcc.log)"
     fi
 fi
 

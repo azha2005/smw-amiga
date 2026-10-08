@@ -35,6 +35,9 @@
 #include "gen/smwtab.h"
 #include "smwmac.h"
 #include "msprite.h"                /* SPR_OAM y spr_oam_first/n (player/spr_gfx.c, G8) */
+#ifdef SPR_G5
+#include "g5plan.h"                 /* G2T fase B: bloque de la foto y plan del Rex */
+#endif
 
 #define REC 584             /* 8 de cabecera + 256 + 320 */
 
@@ -954,6 +957,60 @@ static void oam_report(void)
 #endif
 }
 
+#ifdef SPR_G5
+/* G2T-B2 (docs/instrucciones-g2t-bc.md §3): en cada frame con un Rex de
+   fichas visibles (la OAM ampliada de este frame), Mario en sprites como
+   en la foto O5 (mario_sprite, lo mismo que mspr_draw) y el bloque de la
+   foto (g5_capture), justo despues de la fase de sprites: el estado de las
+   trazas SOT1. GAME_G2T_CAP=fichero vuelca por frame, big endian: frame
+   u32, mario_pal u8, 0, spr_oam_first[12], spr_oam_n[12], ram[$2000], el
+   buffer (4 x MSPR_WORDS palabras) y el bloque (G5_BLK bytes): las
+   entradas de g5_capture y su salida (tools/g5plan_verify.py). */
+#if MSPR_WORDS != G5_SPRW
+#error "G5_SPRW distinto de MSPR_WORDS"
+#endif
+static FILE *g2t_cap;
+static u16 g2t_spr[4 * MSPR_WORDS];
+static u8 g2t_blk[G5_BLK];
+static long g2t_frames;
+
+static int g2t_has_rex(void)
+{
+    int k, t;
+    for (k = 0; k < 12; k++) {
+        int first = 64 + (spr_oam_first[k] >> 2);
+        if (!spr_oam_n[k] || ram[wm_SpriteNum + k] != 0xAB) continue;
+        for (t = 0; t < spr_oam_n[k] && first + t < 128; t++)
+            if (ram[0x201 + 4 * (first + t)] != 0xF0) return 1;
+    }
+    return 0;
+}
+
+static void g2t_frame(long i)
+{
+    unsigned char b[4 * MSPR_WORDS * 2], h[6];
+    unsigned f = frame_of(i);
+    int k;
+    if (!g2t_has_rex()) return;
+    mario_sprite(g2t_spr, 0x2C, 0xA0);
+    g5_capture(g2t_blk, g2t_spr);
+    g2t_frames++;
+    if (!g2t_cap) return;
+    h[0] = (u8)(f >> 24); h[1] = (u8)(f >> 16); h[2] = (u8)(f >> 8); h[3] = (u8)f;
+    h[4] = mario_pal; h[5] = 0;
+    fwrite(h, 1, 6, g2t_cap);
+    fwrite(spr_oam_first, 1, 12, g2t_cap);
+    fwrite(spr_oam_n, 1, 12, g2t_cap);
+    fwrite(ram, 1, 0x2000, g2t_cap);
+    for (k = 0; k < 4 * MSPR_WORDS; k++) {
+        b[2 * k] = (u8)(g2t_spr[k] >> 8);
+        b[2 * k + 1] = (u8)g2t_spr[k];
+    }
+    fwrite(b, 1, sizeof b, g2t_cap);
+    fwrite(g2t_blk, 1, G5_BLK, g2t_cap);
+}
+#endif
+
 static int run_game(const char *sprpath, const char *mappath)
 {
     static u8 spr[1024], map0[0x8000], map[0x8000], snap[0x2000];
@@ -982,6 +1039,19 @@ static int run_game(const char *sprpath, const char *mappath)
         if (!oam_trace) { perror(getenv("GAME_OAM_TRACE")); return 2; }
         fwrite("SOT1", 1, 4, oam_trace);
         trace_u32((unsigned)mlen);
+    }
+#endif
+#ifdef SPR_G5
+    {
+        const char *gp = getenv("GAME_G2T_GFX") ? getenv("GAME_G2T_GFX") : "work/cc/gfx32.bin";
+        FILE *g = fopen(gp, "rb");
+        if (!g || fread(g32, 1, sizeof g32, g) != sizeof g32) { perror(gp); return 2; }
+        fclose(g);
+        gfx32 = g32;
+        if (getenv("GAME_G2T_CAP")) {
+            g2t_cap = fopen(getenv("GAME_G2T_CAP"), "wb");
+            if (!g2t_cap) { perror(getenv("GAME_G2T_CAP")); return 2; }
+        }
     }
 #endif
     spr_level = spr;
@@ -1156,6 +1226,9 @@ static int run_game(const char *sprpath, const char *mappath)
                 (void)ev;
             }
         }
+#ifdef SPR_G5
+        g2t_frame(i);                           /* G2T-B: la foto, tras la fase de sprites */
+#endif
         if (skip && !hurt) {                    /* lo congelo otra cosa, antes que a los */
             memcpy(ram, snap, sizeof snap);     /* sprites: se deshace su parte del frame */
             synced = 0;
@@ -1280,6 +1353,14 @@ static int run_game(const char *sprpath, const char *mappath)
     if (astart)
         printf("       arranques de animacion portada: %ld (del oraculo, no del port: %ld)\n", astart, astart_inj);
     oam_report();
+#ifdef SPR_G5
+    printf("       g2t: %ld frames con Rex (bloque de la foto)\n", g2t_frames);
+    if (g2t_cap) {
+        int err = ferror(g2t_cap);
+        if (fclose(g2t_cap) || err) return 2;
+        g2t_cap = NULL;
+    }
+#endif
 #ifdef SPR_OAM
     if (oam_trace) {
         int err = ferror(oam_trace);

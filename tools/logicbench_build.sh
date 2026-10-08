@@ -37,7 +37,16 @@ fi
 mkdir -p $CC
 # los sprites nuevos van solos en player/spr_*.c y entran por glob (I1)
 SPRS=$(cd player && ls spr_*.c 2>/dev/null | sed 's/\.c$//')
-for f in mario mcoll manim mgfx mcam msprite mspr $SPRS gen/smwrom00; do
+# G2T fase B (opt-in): player/g5plan.c solo con -DSPR_G5, que exige NOOAM +
+# SPR_OAM; sin el no se compila y los builds por defecto no cambian.
+G5=
+case " $CDEFS " in
+    *" -DSPR_G5"*)
+        case " $CDEFS " in *" -DNOOAM"*) ;; *) echo "ERROR: SPR_G5 requiere -DNOOAM -DSPR_OAM en CDEFS"; exit 1 ;; esac
+        case " $CDEFS " in *" -DSPR_OAM"*) ;; *) echo "ERROR: SPR_G5 requiere -DNOOAM -DSPR_OAM en CDEFS"; exit 1 ;; esac
+        G5=g5plan ;;
+esac
+for f in mario mcoll manim mgfx mcam msprite mspr $SPRS $G5 gen/smwrom00; do
     b=$(basename $f)
     src=player/$f.c
     if [ -n "$PROF" ]; then
@@ -70,7 +79,7 @@ esac
 # Los spr_*.c se anexan a msprite.data.s / msprite.code.s: los arneses
 # (game.s, logicbench.s) incluyen por nombre y asi no hay que tocarlos al
 # agregar un sprite. Los datos siguen yendo antes que todo el codigo (P36).
-for b in $SPRS; do
+for b in $SPRS $G5; do
     cat $CC/$b.data.s >> $CC/msprite.data.s
     cat $CC/$b.code.s >> $CC/msprite.code.s
     if [ -n "$SPR_PIC" ] && [ "$b" = spr_rex ]; then
