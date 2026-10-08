@@ -275,6 +275,11 @@ def g2t_checks(r):
         r.logs['G2T ' + tool] = out
         r.note('G2T ' + tool, code == 0,
                'ventanas/reservas/orden/capacidad, sin ROM' if code == 0 else out[-800:])
+    code, out = sh([PY, 'tools/g5plan_work.py', 'bench', '--synthetic-only',
+                    '--out', 'work/g5trans_test'], timeout=30)
+    r.logs['G2T B35 transiciones asm'] = out
+    r.note('G2T B35 transiciones asm', code == 0,
+           'sinteticos/desborde/negativo/ABI/dos bases, sin ROM' if code == 0 else out[-800:])
 
 
 def sprgfx_checks(r):

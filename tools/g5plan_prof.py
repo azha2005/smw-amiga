@@ -27,7 +27,7 @@ def profile(m, args):
     cpu.cpu.w_reg(M.Register.A7, sp)
     cpu.write(sp, struct.pack('>%dI' % (len(args) + 1), V.RET, *args))
     cpu.cpu.w_pc(m.sym('_g5_plan'))
-    total, segments, pending = 0, [], None
+    total, segments, pending, emit_start = 0, [], None, None
     while cpu.cpu.r_pc() != V.RET:
         pc = cpu.cpu.r_pc()
         if pending and pc == pending[0]:
@@ -35,6 +35,10 @@ def profile(m, args):
             pending = None
         if pc == m.sym('_g5_segment'):
             pending = (cpu.mem.r32(cpu.cpu.r_reg(M.Register.A7)), total)
+        if emit_start is None and pc == m.sym('_g5_put16'):
+            # Primera palabra del frame: el resto hasta RTS es el tramo de
+            # produccion B1. Excluye el preambulo de esta primera llamada.
+            emit_start = total
         i = bisect.bisect_right(starts, pc) - 1
         if i < 0 or pc < starts[0]:
             raise ValueError('PC fuera del planificador: %06X' % pc)
@@ -46,7 +50,8 @@ def profile(m, args):
         total += cycles
         if total > 10_000_000:
             raise ValueError('g5_plan no regreso en 10M ciclos')
-    return dict(total=total, functions=dict(counts), calls=dict(calls), segment_cycles=segments)
+    return dict(total=total, functions=dict(counts), calls=dict(calls), segment_cycles=segments,
+                serialization_tail_cycles=total - emit_start if emit_start is not None else None)
 
 
 def main():
@@ -98,6 +103,8 @@ def main():
         sc = p['segment_cycles']
         print('  g5_segment inclusivo: %d llamadas, media %.0f, max %d ciclos' %
               (len(sc), sum(sc) / len(sc) if sc else 0, max(sc, default=0)), flush=True)
+        print('  tramo B1 desde primera g5_put16 hasta RTS: %s ciclos (sin su preambulo)' %
+              p['serialization_tail_cycles'], flush=True)
     if set(result) != set(a.frame):
         raise ValueError('frames no encontrados: %s' % sorted(set(a.frame) - set(result)))
     Path(a.out).write_text(json.dumps(result, indent=2), encoding='utf-8')
