@@ -594,12 +594,10 @@ u16 g5_plan(u32 frame, const u8 *blk, const u8 *g3tab, const u8 *g3env, const u8
         w->segbits[r] = 0;
     w->nmrows = 0;
     /* La frontera B2/B3 sigue siendo el unico lector de las envolventes. */
-    for (r = 0; r < G5_WIN; r++) {
-        s16 rr = (s16)((s16)B16(blk + G5B_MROW) + r);
+    for (r = 0; r < G5_ROWS; r++) {
+        s16 rr = (s16)r;
         u16 mm;
         g5_muse *mr;
-        if (rr < 0 || rr >= G5_ROWS)
-            continue;
         mm = g5_mario_mask(blk, rr);
         if (!mm)
             continue;
