@@ -112,7 +112,9 @@ HEADER = '''; B2bis: generado por tools/g5env_asm.py, sin datos de la ROM.
         ifnd G5ENV_N
 G5ENV_N equ 8
         endif
-G5ENV_ENTRY equ 1246
+; La primera palabra de la clave es n=1..4; cero marca entrada vacia.
+; No hace falta una palabra de validez separada.
+G5ENV_ENTRY equ 1244
 G5ENV_BYTES equ 2484+G5ENV_N*G5ENV_ENTRY
         public _g5env_decode
 _g5env_decode:
@@ -276,12 +278,9 @@ _g5env_project:
         move.l  8(sp),a0
         movem.l d2-d7/a2-a6,-(sp)
         move.l  56(sp),a2
-        lea     12(a1),a6
-        moveq   #0,d0
-'''
-    text += '        move.l  d0,(a6)+\n' * 20
-    text += '''        move.w  (a2),d2
+        move.w  (a2),d2
         bne.s   .visible
+        bsr.w   .clear_mask
         clr.w   8(a1)
         bra.w   .return
 .visible:
@@ -315,9 +314,9 @@ _g5env_project:
 .hs:
         subi.w  #160,d5
         cmpi.w  #-16,d5
-        ble.w   .return
+        ble.w   .blank
         cmpi.w  #256,d5
-        bge.w   .return
+        bge.w   .blank
         moveq   #-1,d3                     ; no convertir si hay recorte
         tst.w   d5
         bmi.s   .recrop
@@ -346,6 +345,7 @@ _g5env_project:
         addq.l  #8,sp
         move.l  48(sp),a1                   ; decoder destruye a1: recuperar salida
 .raw:
+        bsr.w   .clear_mask
         move.w  #$ffff,d6
         tst.w   d5
         bpl.s   .right
@@ -444,28 +444,8 @@ _g5env_project:
         move.w  #4,2(a2)
         move.l  sp,a0
         lea     4(a2),a1
-        move.l  a5,d0
-        sub.l   a0,d0
-        move.w  d0,d2
-        lsr.w   #5,d2
-        subq.w  #1,d2
-        bmi.s   .pack_tail
-.copy_pack:
-        movem.l (a0)+,d0-d1/d3-d7
-        movem.l d0-d1/d3-d7,(a1)
-        lea     28(a1),a1
-        move.l  (a0)+,(a1)+
-        dbf     d2,.copy_pack
-.pack_tail:
-        move.l  a5,d0
-        sub.l   a0,d0
-        lsr.w   #1,d0
-        subq.w  #1,d0
-        bmi.s   .pack_done
-.copy_tail:
-        move.w  (a0)+,(a1)+
-        dbf     d0,.copy_tail
-.pack_done:
+        move.l  a5,a6
+        bsr.w   .copy_payload
         bra.w   .mono_return
 .skip_row:
         lea     30(a0),a0
@@ -487,11 +467,32 @@ _g5env_project:
         lea     92(a1),a1
         moveq   #0,d1
         moveq   #-1,d4
-        rept    20
-        move.l  d4,(a6)+
-        endr
-        lea     -80(a6),a6
+        move.l  d4,d0
+        move.l  d4,d3
+        move.l  d4,d5
+        move.l  d4,d6
+        move.l  d4,a3
+        move.l  d4,a4
+        move.l  d4,a5
+        movem.l d0/d3-d6/a3-a5,(a6)
+        movem.l d0/d3-d6/a3-a5,32(a6)
+        movem.l d0/d3-d5,64(a6)
         subq.w  #1,d2
+        tst.w   d7
+        bmi.s   .warm_row
+        move.w  d7,d0
+        add.w   d2,d0
+        cmpi.w  #224,d0
+        bhs.s   .warm_row
+.warm_inside:
+        move.w  d1,(a6)+                   ; todas las filas visibles
+        move.w  2(a0),d3
+        addq.w  #2,d3
+        lsl.w   #2,d3
+        adda.w  d3,a0
+        add.w   d3,d1
+        dbf     d2,.warm_inside
+        bra.s   .warm_payload
 .warm_row:
         move.w  2(a0),d3
         cmpi.w  #224,d7
@@ -506,9 +507,14 @@ _g5env_project:
         addq.l  #2,a6
         addq.w  #1,d7
         dbf     d2,.warm_row
+.warm_payload:
         move.l  a0,a6                      ; fin del payload, sobrevive al MOVEM
         lea     4(a2),a0
-        move.w  d1,d2
+        bsr.w   .copy_payload
+        bra.w   .return
+.copy_payload:
+        move.l  a6,d2
+        sub.l   a0,d2
         lsr.w   #5,d2
         subq.w  #1,d2
         bmi.s   .warm_tail
@@ -523,11 +529,23 @@ _g5env_project:
         sub.l   a0,d0
         lsr.w   #1,d0
         subq.w  #1,d0
-        bmi.w   .return
+        bmi.s   .copy_return
 .warm_words:
         move.w  (a0)+,(a1)+
         dbf     d0,.warm_words
+.copy_return:
+        rts
+.blank:
+        bsr.w   .clear_mask
         bra.w   .return
+.clear_mask:
+        lea     12(a1),a6
+        moveq   #0,d0
+        moveq   #19,d1
+.clear_next:
+        move.l  d0,(a6)+
+        dbf     d1,.clear_next
+        rts
 .return:
         movem.l (sp)+,d2-d7/a2-a6
         rts
@@ -539,6 +557,15 @@ _g5env_project:
     # Sin recorte se omite el AND por celda y el test de pack.
     import re
     fast = body.replace('        and.w   d6,d0\n', '')
+    # d3=0 solo entra cuando la caja entera esta en pantalla. Un overflow
+    # salta al camino conservador: estos tests no hacen falta por fila.
+    fast = fast.replace('        cmpi.w  #224,d7\n        bhs.w   .skip_row                  ; negativo tambien queda fuera\n', '')
+    fast = fast.replace('        tst.w   d3\n        bne.s   .no_pack_row\n', '')
+    # Sin recorte, el byte alto original evita el shift de 22 ciclos.
+    fast = fast.replace('        lsr.w   #8,d0\n',
+                        '        moveq   #0,d0\n        move.b  -2(a0),d0\n')
+    fast = fast.replace('        move.w  d0,d1\n        lsr.w   #8,d1\n',
+                        '        moveq   #0,d1\n        move.b  -2(a0),d1\n')
     fast = re.sub(r'        tst.w   d3\n        bne.s   \.translated(\d+)\n', '', fast)
     for label in re.findall(r'^\.(\w+):', fast, re.M):
         fast = re.sub(r'\.' + label + r'\b', '.fast_' + label, fast)
@@ -589,13 +616,13 @@ _g5env_lookup:
         tst.w   (a2)
         beq.w   .miss
         lea     16(a0),a0
-        lea     18(a2),a1
+        lea     16(a2),a1
 '''
     for i in range(6):
         text += '        cmpm.l  (a0)+,(a1)+\n        bne.s   %s\n' % ('.reject' if i in (0,3) else '.miss')
     text += '''        move.l  a1,d0
         move.l  12(sp),a0
-        lea     2(a2),a1
+        move.l  a2,a1
 '''
     text += '        cmpm.l  (a0)+,(a1)+\n        bne.s   .miss\n' * 4
     text += '''        moveq   #1,d1
@@ -617,21 +644,29 @@ _g5env_lookup:
         bhi.w   .cold
         cmpi.b  #2,8(a0)
         bhi.w   .cold
-        lea     2(a2),a1
+        move.l  a2,a1
 '''
     text += '        cmpm.l  (a0)+,(a1)+\n        bne.w   .cold\n' * 4
     text += '''        cmpm.w  (a0)+,(a1)+
         bne.w   .cold
         move.l  12(sp),a0
-        lea     2(a2),a1
+        move.l  a2,a1
 '''
-    for off in (22, 32, 20, 30, 18, 21, 29, 31):
+    # Mismos ocho bytes usados; dos grupos alineados evitan seis CMP.B.
+    for off, mask in ((20, 0xffffff00), (28, 0x00ffffff)):
+        text += f'''        move.l  {off}(a0),d0
+        move.l  {off}(a1),d1
+        eor.l   d1,d0
+        andi.l  #${mask:08x},d0
+        bne.w   .cold
+'''
+    for off in (18, 32):
         text += f'''        move.b  {off}(a0),d0
         cmp.b   {off}(a1),d0
         bne.w   .cold
 '''
     text += '''        move.l  12(sp),a0
-        lea     2(a2),a1
+        move.l  a2,a1
 '''
     text += '        move.l  (a0)+,(a1)+\n' * 10
     text += '''        move.l  a1,d0
@@ -640,17 +675,16 @@ _g5env_lookup:
         rts
 .cold:
         move.l  12(sp),a0
-        lea     2(a2),a1
+        move.l  a2,a1
 '''
     text += '        move.l  (a0)+,(a1)+\n' * 10
-    text += '''        move.w  #1,(a2)
-        move.l  a1,-(sp)
+    text += '''        move.l  a1,-(sp)
         move.l  20(sp),-(sp)               ; buffer de la foto
         bsr.w   _g5env_decode
         addq.l  #8,sp
         cmpi.w  #$ffff,d0
         beq.s   .bad
-        lea     42(a2),a0
+        lea     40(a2),a0
         move.l  a0,d0
         moveq   #0,d1
         move.l  (sp)+,a2

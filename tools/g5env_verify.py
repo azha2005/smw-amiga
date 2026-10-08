@@ -392,7 +392,9 @@ class EnvCPU:
 
     def reset_cache(self, n):
         self.n, self.cache = n, 0x70000
-        self.cache_size = 2484 + n * 1326
+        if n != self.syms['G5ENV_N']:
+            raise ValueError('cache del arnes distinta del binario')
+        self.cache_size = 2484 + n * self.syms['G5ENV_ENTRY']
         self.cpu.write(self.cache - 4, b'HEAD' + bytes(self.cache_size) + b'TAIL')
 
     def lookup(self, key, spr):
@@ -547,7 +549,9 @@ def run_cache(a):
     out.mkdir(parents=True, exist_ok=True)
     from regress import vasm
     results = {}
-    for n in (8, 16, 32):
+    for n in a.sizes:
+        if n not in (1, 2, 4, 8, 16, 32):
+            raise ValueError('N debe ser potencia de dos entre 1 y 32')
         bp, lp = out / ('env%d.bin' % n), out / ('env%d.lst' % n)
         subprocess.run([vasm(), '-quiet', '-Fbin', '-m68000', '-no-opt', '-DSPR_G5', '-DG5ENV_N=%d' % n,
                         '-L', str(lp), '-o', str(bp), 'player/g5env.s'], check=True)
@@ -558,6 +562,7 @@ def run_cache(a):
             m.reset_cache(n)
             kd = Path('work/b2b/key/key_' + name + '.bin').read_bytes()
             hits, misses, aliases, projections, nokey, clipped = [], [], [], [], 0, 0
+            profile = collections.defaultdict(list)
             for i, c in enumerate(read_cap('work/g5gate/cap_' + name + '.bin')):
                 if struct.unpack_from('>I', kd, 24 * i)[0] != c['frame']:
                     raise ValueError('clave/foto desalineadas')
@@ -568,7 +573,11 @@ def run_cache(a):
                 if hit == 2:
                     aliases.append((cycles, c['frame']))
                 (hits if hit == 1 else misses).append((cycles, c['frame']))
+                fmt = struct.unpack_from('>H', data, 2)[0]
+                kind = ('no_key' if key is None else
+                        'alias' if hit == 2 else 'hit' if hit == 1 else 'decode')
                 pcost, view, packed = project_call(m, m.last_ptr, c['spr'])
+                profile['%s_fmt%d' % (kind, fmt)].append((pcost, cycles, c['frame']))
                 if block_env(view) != block_env(c['blk']):
                     raise ValueError('cache proyectada distinta N%d %s %d' % (n, name, c['frame']))
                 projections.append((pcost, c['frame']))
@@ -580,7 +589,12 @@ def run_cache(a):
             traces[name] = dict(hit=len(hits), miss=len(misses), no_key=nokey,
                                 aliases=len(aliases), clipped=clipped, project_max=max(projections)[0],
                                 hit_max=max(hits)[0], miss_max=max(misses)[0],
-                                worst_miss=max(misses)[1], mean=sum(x for x, _ in hits + misses) / (len(hits) + len(misses)))
+                                worst_miss=max(misses)[1], mean=sum(x for x, _ in hits + misses) / (len(hits) + len(misses)),
+                                profile={kind: dict(count=len(xs),
+                                    project_mean=sum(x[0] for x in xs)/len(xs),
+                                    lookup_mean=sum(x[1] for x in xs)/len(xs),
+                                    project_max=max(xs)[0], worst_frame=max(xs)[2])
+                                    for kind, xs in profile.items()})
             print('B2b-3 N%d %s: hit %d, miss %d (sin clave %d); ABI 0, diferencias 0; max hit %d miss %d (frame %d)' %
                   (n, name, len(hits), len(misses), nokey, max(hits)[0], *max(misses)), flush=True)
         results[n] = traces
@@ -744,6 +758,7 @@ def run_game(a):
     fr.call(addr('dc_init'), G.FAKE)
     dc = addr('dc_st')
     copy_costs, render_costs, totals, count, no_key = [], [], [], 0, 0
+    profile = []
     frozen_fixture = collections.defaultdict(list)
 
     def tick():
@@ -797,6 +812,8 @@ def run_game(a):
         cpu.write(addr('mspr_kA'), b'\xa5' * 128)
         parts = fr.call(addr('dc_g5render'), G.FAKE, regions={addr('_g5env_lookup'): 'lookup', addr('_g5env_project'): 'project'})
         render = sum(parts.values())
+        photo_key = (cpu.read(rec+s['R_G5KEY'], 40).hex()
+                     if mem.r16(rec+s['R_G5HAS']) else None)
         cpu.write(addr('_ram'), ram)
         cpu.write(addr('_mario_oam'), oam)
         cpu.write(addr('_mario_osz'), osz)
@@ -837,6 +854,9 @@ def run_game(a):
         mem.w32(fr.vars + s['V_BACK'], other)
         total = logical + sum(costs) + render
         totals.append((total, f))
+        profile.append(dict(frame=f, key=photo_key, lookup=parts.get('lookup', 0),
+                            project=parts.get('project', 0), render=render,
+                            base=total-render, total=total))
     if count != len(caps):
         raise ValueError('faltan fotos con Rex: %d/%d' % (count, len(caps)))
     # Escenario separado del replay medido: el render retiene una foto
@@ -884,6 +904,7 @@ def run_game(a):
                    total_max=max(totals)[0], worst_total=max(totals)[1],
                    over_pal=sum(c > G.PAL_FRAME for c, _ in totals), skip_fixture=frozen_fixture)
     (out / 'game_summary.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
+    (out / 'game_profile.json').write_text(json.dumps(profile, indent=2), encoding='utf-8')
     print('B2b-5 mapeo: primer frame %d + R_FRAME; foto 5219 -> 10364 comprobada' % first)
     print('B2b-5 juego: %d fotos Rex exactas, sin clave %d; %d renders con RAM/OAM/fichas vivas envenenadas' %
           (count, no_key, nframes))
@@ -909,6 +930,7 @@ def main():
     d.add_argument('--out', default='work/b2b/decode')
     c = sub.add_parser('cache')
     c.add_argument('--out', default='work/b2b/cache')
+    c.add_argument('--sizes', nargs='+', type=int, default=[4, 8, 16, 32])
     f = sub.add_parser('front')
     f.add_argument('--out', default='work/b2b/front')
     f.add_argument('--bin', default='work/b2b/logicbench.bin')

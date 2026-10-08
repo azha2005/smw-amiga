@@ -372,7 +372,7 @@ En español. Cada rutina de hardware (blitter/copper) lleva arriba:
 Índice, una línea por trampa. **El texto completo (causa, síntoma, arreglo y
 comandos) está en `docs/pitfalls.md`, textual**: leer ahí las del área que se
 toca antes de cambiar nada. Una trampa nueva se agrega allí y aquí con el
-número siguiente (**la próxima es P113**).
+número siguiente (**la próxima es P114**).
 
 - **P1** El layout de paletas de SMW no es un array 8×16. ✅ RESUELTO
 - **P2** El blitter tiene prioridad sobre la CPU y la "roba" ciclos
@@ -488,6 +488,7 @@ número siguiente (**la próxima es P113**).
 - **P110** En el codo de 256 px, el MOVE siguiente a uno en x = 231 cae en x = 243 (no 247)
 - **P111** El hueco entre filas admite pocos MOVE: el último cae en x ≤ 351 − 8·nb (borrado siguiente)
 - **P112** B2bis: recortar un pack exige DATA; el decoder destruye a1 y el payload no incluye su cabecera
+- **P113** Canarios al límite real del binario y caché evaluada con todas las fotos del juego
 
 ---
 

@@ -73,6 +73,22 @@ def main():
         packed[name] = data
     # Misma imagen con puntero no usado distinto: miss de clave, no hit.
     key = bytearray(struct.pack('>HhBBhBB', 2, 0, 0, 0x20, 16, 2, 0x20).ljust(40, b'\0'))
+    # El decoder llena hasta el ultimo byte de la ultima entrada. El
+    # canario debe estar en el limite real, no en una reserva mayor stale.
+    lastkey = bytearray(cache_key(bytes(key)))
+    lastkey[5], lastkey[21] = 0xc0, 0x80
+    dec.reset_cache(8)
+    _, _, hit = dec.lookup(bytes(lastkey), sprite(dense))
+    if hit or dec.last_ptr + 1204 != dec.cache + dec.cache_size:
+        raise ValueError('fixture no llega al limite real de la cache')
+    dec.cpu.write(dec.cache + dec.cache_size, b'FAIL')
+    try:
+        dec.lookup(bytes(lastkey), sprite(dense))
+    except ValueError as err:
+        if 'fuera de cache' not in str(err):
+            raise
+    else:
+        raise ValueError('canario alterado de cache no detectado')
     dec.reset_cache(8)
     spr = sprite(holes)
     _, _, hit = dec.lookup(cache_key(bytes(key)), spr)

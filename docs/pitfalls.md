@@ -997,3 +997,13 @@ fila de hasta 64 B solo puede empezar con ocupación ≤1136. El límite
 1140 permitía un desborde de 4 B. Las tres trazas no recorren el recorte
 horizontal ni ese límite de densidad; `tools/g5env_edges.py` los fuerza
 con píxeles sintéticos y compara PC/68000/frontera, con canarios.
+
+**P113 — Un canario fuera del tamaño real no prueba el límite del buffer.**
+El arnés B2bis aún reservaba 1326 B por entrada tras reducir el binario
+a 1246 B. Con N=8, su canario quedaba 640 B demasiado lejos. Usar el
+tamaño del listado ensamblado (G5ENV_ENTRY), comprobar N y forzar una
+escritura hasta el final de la última entrada. `g5env_edges.py` también
+corrompe ese canario deliberadamente y exige que la consulta lo detecte.
+Las trazas con Rex no bastan para elegir el tamaño de caché: las fotos
+sin Rex también la reemplazan. N=4 pasó las trazas aisladas pero falló
+el presupuesto de cuatro fotos del juego completo.

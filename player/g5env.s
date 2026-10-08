@@ -13,7 +13,9 @@
         ifnd G5ENV_N
 G5ENV_N equ 8
         endif
-G5ENV_ENTRY equ 1246
+; La primera palabra de la clave es n=1..4; cero marca entrada vacia.
+; No hace falta una palabra de validez separada.
+G5ENV_ENTRY equ 1244
 G5ENV_BYTES equ 2484+G5ENV_N*G5ENV_ENTRY
         public _g5env_decode
 _g5env_decode:
@@ -651,7 +653,7 @@ _g5env_lookup:
         tst.w   (a2)
         beq.w   .miss
         lea     16(a0),a0
-        lea     18(a2),a1
+        lea     16(a2),a1
         cmpm.l  (a0)+,(a1)+
         bne.s   .reject
         cmpm.l  (a0)+,(a1)+
@@ -666,7 +668,7 @@ _g5env_lookup:
         bne.s   .miss
         move.l  a1,d0
         move.l  12(sp),a0
-        lea     2(a2),a1
+        move.l  a2,a1
         cmpm.l  (a0)+,(a1)+
         bne.s   .miss
         cmpm.l  (a0)+,(a1)+
@@ -694,7 +696,7 @@ _g5env_lookup:
         bhi.w   .cold
         cmpi.b  #2,8(a0)
         bhi.w   .cold
-        lea     2(a2),a1
+        move.l  a2,a1
         cmpm.l  (a0)+,(a1)+
         bne.w   .cold
         cmpm.l  (a0)+,(a1)+
@@ -706,33 +708,25 @@ _g5env_lookup:
         cmpm.w  (a0)+,(a1)+
         bne.w   .cold
         move.l  12(sp),a0
-        lea     2(a2),a1
-        move.b  22(a0),d0
-        cmp.b   22(a1),d0
+        move.l  a2,a1
+        move.l  20(a0),d0
+        move.l  20(a1),d1
+        eor.l   d1,d0
+        andi.l  #$ffffff00,d0
         bne.w   .cold
-        move.b  32(a0),d0
-        cmp.b   32(a1),d0
-        bne.w   .cold
-        move.b  20(a0),d0
-        cmp.b   20(a1),d0
-        bne.w   .cold
-        move.b  30(a0),d0
-        cmp.b   30(a1),d0
+        move.l  28(a0),d0
+        move.l  28(a1),d1
+        eor.l   d1,d0
+        andi.l  #$00ffffff,d0
         bne.w   .cold
         move.b  18(a0),d0
         cmp.b   18(a1),d0
         bne.w   .cold
-        move.b  21(a0),d0
-        cmp.b   21(a1),d0
-        bne.w   .cold
-        move.b  29(a0),d0
-        cmp.b   29(a1),d0
-        bne.w   .cold
-        move.b  31(a0),d0
-        cmp.b   31(a1),d0
+        move.b  32(a0),d0
+        cmp.b   32(a1),d0
         bne.w   .cold
         move.l  12(sp),a0
-        lea     2(a2),a1
+        move.l  a2,a1
         move.l  (a0)+,(a1)+
         move.l  (a0)+,(a1)+
         move.l  (a0)+,(a1)+
@@ -749,7 +743,7 @@ _g5env_lookup:
         rts
 .cold:
         move.l  12(sp),a0
-        lea     2(a2),a1
+        move.l  a2,a1
         move.l  (a0)+,(a1)+
         move.l  (a0)+,(a1)+
         move.l  (a0)+,(a1)+
@@ -760,14 +754,13 @@ _g5env_lookup:
         move.l  (a0)+,(a1)+
         move.l  (a0)+,(a1)+
         move.l  (a0)+,(a1)+
-        move.w  #1,(a2)
         move.l  a1,-(sp)
         move.l  20(sp),-(sp)               ; buffer de la foto
         bsr.w   _g5env_decode
         addq.l  #8,sp
         cmpi.w  #$ffff,d0
         beq.s   .bad
-        lea     42(a2),a0
+        lea     40(a2),a0
         move.l  a0,d0
         moveq   #0,d1
         move.l  (sp)+,a2
@@ -809,30 +802,9 @@ _g5env_project:
         move.l  8(sp),a0
         movem.l d2-d7/a2-a6,-(sp)
         move.l  56(sp),a2
-        lea     12(a1),a6
-        moveq   #0,d0
-        move.l  d0,(a6)+
-        move.l  d0,(a6)+
-        move.l  d0,(a6)+
-        move.l  d0,(a6)+
-        move.l  d0,(a6)+
-        move.l  d0,(a6)+
-        move.l  d0,(a6)+
-        move.l  d0,(a6)+
-        move.l  d0,(a6)+
-        move.l  d0,(a6)+
-        move.l  d0,(a6)+
-        move.l  d0,(a6)+
-        move.l  d0,(a6)+
-        move.l  d0,(a6)+
-        move.l  d0,(a6)+
-        move.l  d0,(a6)+
-        move.l  d0,(a6)+
-        move.l  d0,(a6)+
-        move.l  d0,(a6)+
-        move.l  d0,(a6)+
         move.w  (a2),d2
         bne.s   .visible
+        bsr.w   .clear_mask
         clr.w   8(a1)
         bra.w   .return
 .visible:
@@ -866,9 +838,9 @@ _g5env_project:
 .hs:
         subi.w  #160,d5
         cmpi.w  #-16,d5
-        ble.w   .return
+        ble.w   .blank
         cmpi.w  #256,d5
-        bge.w   .return
+        bge.w   .blank
         moveq   #-1,d3                     ; no convertir si hay recorte
         tst.w   d5
         bmi.s   .recrop
@@ -897,6 +869,7 @@ _g5env_project:
         addq.l  #8,sp
         move.l  48(sp),a1                   ; decoder destruye a1: recuperar salida
 .raw:
+        bsr.w   .clear_mask
         move.w  #$ffff,d6
         tst.w   d5
         bpl.s   .right
@@ -1506,28 +1479,8 @@ _g5env_project:
         move.w  #4,2(a2)
         move.l  sp,a0
         lea     4(a2),a1
-        move.l  a5,d0
-        sub.l   a0,d0
-        move.w  d0,d2
-        lsr.w   #5,d2
-        subq.w  #1,d2
-        bmi.s   .pack_tail
-.copy_pack:
-        movem.l (a0)+,d0-d1/d3-d7
-        movem.l d0-d1/d3-d7,(a1)
-        lea     28(a1),a1
-        move.l  (a0)+,(a1)+
-        dbf     d2,.copy_pack
-.pack_tail:
-        move.l  a5,d0
-        sub.l   a0,d0
-        lsr.w   #1,d0
-        subq.w  #1,d0
-        bmi.s   .pack_done
-.copy_tail:
-        move.w  (a0)+,(a1)+
-        dbf     d0,.copy_tail
-.pack_done:
+        move.l  a5,a6
+        bsr.w   .copy_payload
         bra.w   .mono_return
 .skip_row:
         lea     30(a0),a0
@@ -1549,11 +1502,32 @@ _g5env_project:
         lea     92(a1),a1
         moveq   #0,d1
         moveq   #-1,d4
-        rept    20
-        move.l  d4,(a6)+
-        endr
-        lea     -80(a6),a6
+        move.l  d4,d0
+        move.l  d4,d3
+        move.l  d4,d5
+        move.l  d4,d6
+        move.l  d4,a3
+        move.l  d4,a4
+        move.l  d4,a5
+        movem.l d0/d3-d6/a3-a5,(a6)
+        movem.l d0/d3-d6/a3-a5,32(a6)
+        movem.l d0/d3-d5,64(a6)
         subq.w  #1,d2
+        tst.w   d7
+        bmi.s   .warm_row
+        move.w  d7,d0
+        add.w   d2,d0
+        cmpi.w  #224,d0
+        bhs.s   .warm_row
+.warm_inside:
+        move.w  d1,(a6)+                   ; todas las filas visibles
+        move.w  2(a0),d3
+        addq.w  #2,d3
+        lsl.w   #2,d3
+        adda.w  d3,a0
+        add.w   d3,d1
+        dbf     d2,.warm_inside
+        bra.s   .warm_payload
 .warm_row:
         move.w  2(a0),d3
         cmpi.w  #224,d7
@@ -1568,9 +1542,14 @@ _g5env_project:
         addq.l  #2,a6
         addq.w  #1,d7
         dbf     d2,.warm_row
+.warm_payload:
         move.l  a0,a6                      ; fin del payload, sobrevive al MOVEM
         lea     4(a2),a0
-        move.w  d1,d2
+        bsr.w   .copy_payload
+        bra.w   .return
+.copy_payload:
+        move.l  a6,d2
+        sub.l   a0,d2
         lsr.w   #5,d2
         subq.w  #1,d2
         bmi.s   .warm_tail
@@ -1585,17 +1564,25 @@ _g5env_project:
         sub.l   a0,d0
         lsr.w   #1,d0
         subq.w  #1,d0
-        bmi.w   .return
+        bmi.s   .copy_return
 .warm_words:
         move.w  (a0)+,(a1)+
         dbf     d0,.warm_words
+.copy_return:
+        rts
+.blank:
+        bsr.w   .clear_mask
         bra.w   .return
+.clear_mask:
+        lea     12(a1),a6
+        moveq   #0,d0
+        moveq   #19,d1
+.clear_next:
+        move.l  d0,(a6)+
+        dbf     d1,.clear_next
+        rts
 .fast_row:
-        cmpi.w  #224,d7
-        bhs.w   .skip_row                  ; negativo tambien queda fuera
         moveq   #0,d4
-        tst.w   d3
-        bne.s   .fast_no_pack_row
         move.l  a5,d0
         sub.l   sp,d0
         cmpi.w  #1136,d0                   ; payload <=1200, incluso fila de 64 B
@@ -1610,7 +1597,8 @@ _g5env_project:
         beq.s   .fast_done1
         tst.b   d0
         bne.s   .fast_low1
-        lsr.w   #8,d0
+        moveq   #0,d0
+        move.b  -2(a0),d0
         add.w   d0,d0
         move.w  (a3,d0.w),d1
         bra.s   .fast_store1
@@ -1622,8 +1610,8 @@ _g5env_project:
         addi.w  #$0808,d1
         bra.s   .fast_store1
 .fast_both1:
-        move.w  d0,d1
-        lsr.w   #8,d1
+        moveq   #0,d1
+        move.b  -2(a0),d1
         add.w   d1,d1
         move.w  (a3,d1.w),d1
         andi.w  #255,d0
@@ -1643,7 +1631,8 @@ _g5env_project:
         beq.s   .fast_done2
         tst.b   d0
         bne.s   .fast_low2
-        lsr.w   #8,d0
+        moveq   #0,d0
+        move.b  -2(a0),d0
         add.w   d0,d0
         move.w  (a3,d0.w),d1
         bra.s   .fast_store2
@@ -1655,8 +1644,8 @@ _g5env_project:
         addi.w  #$0808,d1
         bra.s   .fast_store2
 .fast_both2:
-        move.w  d0,d1
-        lsr.w   #8,d1
+        moveq   #0,d1
+        move.b  -2(a0),d1
         add.w   d1,d1
         move.w  (a3,d1.w),d1
         andi.w  #255,d0
@@ -1676,7 +1665,8 @@ _g5env_project:
         beq.s   .fast_done3
         tst.b   d0
         bne.s   .fast_low3
-        lsr.w   #8,d0
+        moveq   #0,d0
+        move.b  -2(a0),d0
         add.w   d0,d0
         move.w  (a3,d0.w),d1
         bra.s   .fast_store3
@@ -1688,8 +1678,8 @@ _g5env_project:
         addi.w  #$0808,d1
         bra.s   .fast_store3
 .fast_both3:
-        move.w  d0,d1
-        lsr.w   #8,d1
+        moveq   #0,d1
+        move.b  -2(a0),d1
         add.w   d1,d1
         move.w  (a3,d1.w),d1
         andi.w  #255,d0
@@ -1709,7 +1699,8 @@ _g5env_project:
         beq.s   .fast_done4
         tst.b   d0
         bne.s   .fast_low4
-        lsr.w   #8,d0
+        moveq   #0,d0
+        move.b  -2(a0),d0
         add.w   d0,d0
         move.w  (a3,d0.w),d1
         bra.s   .fast_store4
@@ -1721,8 +1712,8 @@ _g5env_project:
         addi.w  #$0808,d1
         bra.s   .fast_store4
 .fast_both4:
-        move.w  d0,d1
-        lsr.w   #8,d1
+        moveq   #0,d1
+        move.b  -2(a0),d1
         add.w   d1,d1
         move.w  (a3,d1.w),d1
         andi.w  #255,d0
@@ -1742,7 +1733,8 @@ _g5env_project:
         beq.s   .fast_done5
         tst.b   d0
         bne.s   .fast_low5
-        lsr.w   #8,d0
+        moveq   #0,d0
+        move.b  -2(a0),d0
         add.w   d0,d0
         move.w  (a3,d0.w),d1
         bra.s   .fast_store5
@@ -1754,8 +1746,8 @@ _g5env_project:
         addi.w  #$0808,d1
         bra.s   .fast_store5
 .fast_both5:
-        move.w  d0,d1
-        lsr.w   #8,d1
+        moveq   #0,d1
+        move.b  -2(a0),d1
         add.w   d1,d1
         move.w  (a3,d1.w),d1
         andi.w  #255,d0
@@ -1775,7 +1767,8 @@ _g5env_project:
         beq.s   .fast_done6
         tst.b   d0
         bne.s   .fast_low6
-        lsr.w   #8,d0
+        moveq   #0,d0
+        move.b  -2(a0),d0
         add.w   d0,d0
         move.w  (a3,d0.w),d1
         bra.s   .fast_store6
@@ -1787,8 +1780,8 @@ _g5env_project:
         addi.w  #$0808,d1
         bra.s   .fast_store6
 .fast_both6:
-        move.w  d0,d1
-        lsr.w   #8,d1
+        moveq   #0,d1
+        move.b  -2(a0),d1
         add.w   d1,d1
         move.w  (a3,d1.w),d1
         andi.w  #255,d0
@@ -1808,7 +1801,8 @@ _g5env_project:
         beq.s   .fast_done7
         tst.b   d0
         bne.s   .fast_low7
-        lsr.w   #8,d0
+        moveq   #0,d0
+        move.b  -2(a0),d0
         add.w   d0,d0
         move.w  (a3,d0.w),d1
         bra.s   .fast_store7
@@ -1820,8 +1814,8 @@ _g5env_project:
         addi.w  #$0808,d1
         bra.s   .fast_store7
 .fast_both7:
-        move.w  d0,d1
-        lsr.w   #8,d1
+        moveq   #0,d1
+        move.b  -2(a0),d1
         add.w   d1,d1
         move.w  (a3,d1.w),d1
         andi.w  #255,d0
@@ -1841,7 +1835,8 @@ _g5env_project:
         beq.s   .fast_done8
         tst.b   d0
         bne.s   .fast_low8
-        lsr.w   #8,d0
+        moveq   #0,d0
+        move.b  -2(a0),d0
         add.w   d0,d0
         move.w  (a3,d0.w),d1
         bra.s   .fast_store8
@@ -1853,8 +1848,8 @@ _g5env_project:
         addi.w  #$0808,d1
         bra.s   .fast_store8
 .fast_both8:
-        move.w  d0,d1
-        lsr.w   #8,d1
+        moveq   #0,d1
+        move.b  -2(a0),d1
         add.w   d1,d1
         move.w  (a3,d1.w),d1
         andi.w  #255,d0
@@ -1874,7 +1869,8 @@ _g5env_project:
         beq.s   .fast_done9
         tst.b   d0
         bne.s   .fast_low9
-        lsr.w   #8,d0
+        moveq   #0,d0
+        move.b  -2(a0),d0
         add.w   d0,d0
         move.w  (a3,d0.w),d1
         bra.s   .fast_store9
@@ -1886,8 +1882,8 @@ _g5env_project:
         addi.w  #$0808,d1
         bra.s   .fast_store9
 .fast_both9:
-        move.w  d0,d1
-        lsr.w   #8,d1
+        moveq   #0,d1
+        move.b  -2(a0),d1
         add.w   d1,d1
         move.w  (a3,d1.w),d1
         andi.w  #255,d0
@@ -1907,7 +1903,8 @@ _g5env_project:
         beq.s   .fast_done10
         tst.b   d0
         bne.s   .fast_low10
-        lsr.w   #8,d0
+        moveq   #0,d0
+        move.b  -2(a0),d0
         add.w   d0,d0
         move.w  (a3,d0.w),d1
         bra.s   .fast_store10
@@ -1919,8 +1916,8 @@ _g5env_project:
         addi.w  #$0808,d1
         bra.s   .fast_store10
 .fast_both10:
-        move.w  d0,d1
-        lsr.w   #8,d1
+        moveq   #0,d1
+        move.b  -2(a0),d1
         add.w   d1,d1
         move.w  (a3,d1.w),d1
         andi.w  #255,d0
@@ -1940,7 +1937,8 @@ _g5env_project:
         beq.s   .fast_done11
         tst.b   d0
         bne.s   .fast_low11
-        lsr.w   #8,d0
+        moveq   #0,d0
+        move.b  -2(a0),d0
         add.w   d0,d0
         move.w  (a3,d0.w),d1
         bra.s   .fast_store11
@@ -1952,8 +1950,8 @@ _g5env_project:
         addi.w  #$0808,d1
         bra.s   .fast_store11
 .fast_both11:
-        move.w  d0,d1
-        lsr.w   #8,d1
+        moveq   #0,d1
+        move.b  -2(a0),d1
         add.w   d1,d1
         move.w  (a3,d1.w),d1
         andi.w  #255,d0
@@ -1973,7 +1971,8 @@ _g5env_project:
         beq.s   .fast_done12
         tst.b   d0
         bne.s   .fast_low12
-        lsr.w   #8,d0
+        moveq   #0,d0
+        move.b  -2(a0),d0
         add.w   d0,d0
         move.w  (a3,d0.w),d1
         bra.s   .fast_store12
@@ -1985,8 +1984,8 @@ _g5env_project:
         addi.w  #$0808,d1
         bra.s   .fast_store12
 .fast_both12:
-        move.w  d0,d1
-        lsr.w   #8,d1
+        moveq   #0,d1
+        move.b  -2(a0),d1
         add.w   d1,d1
         move.w  (a3,d1.w),d1
         andi.w  #255,d0
@@ -2006,7 +2005,8 @@ _g5env_project:
         beq.s   .fast_done13
         tst.b   d0
         bne.s   .fast_low13
-        lsr.w   #8,d0
+        moveq   #0,d0
+        move.b  -2(a0),d0
         add.w   d0,d0
         move.w  (a3,d0.w),d1
         bra.s   .fast_store13
@@ -2018,8 +2018,8 @@ _g5env_project:
         addi.w  #$0808,d1
         bra.s   .fast_store13
 .fast_both13:
-        move.w  d0,d1
-        lsr.w   #8,d1
+        moveq   #0,d1
+        move.b  -2(a0),d1
         add.w   d1,d1
         move.w  (a3,d1.w),d1
         andi.w  #255,d0
@@ -2039,7 +2039,8 @@ _g5env_project:
         beq.s   .fast_done14
         tst.b   d0
         bne.s   .fast_low14
-        lsr.w   #8,d0
+        moveq   #0,d0
+        move.b  -2(a0),d0
         add.w   d0,d0
         move.w  (a3,d0.w),d1
         bra.s   .fast_store14
@@ -2051,8 +2052,8 @@ _g5env_project:
         addi.w  #$0808,d1
         bra.s   .fast_store14
 .fast_both14:
-        move.w  d0,d1
-        lsr.w   #8,d1
+        moveq   #0,d1
+        move.b  -2(a0),d1
         add.w   d1,d1
         move.w  (a3,d1.w),d1
         andi.w  #255,d0
@@ -2072,7 +2073,8 @@ _g5env_project:
         beq.s   .fast_done15
         tst.b   d0
         bne.s   .fast_low15
-        lsr.w   #8,d0
+        moveq   #0,d0
+        move.b  -2(a0),d0
         add.w   d0,d0
         move.w  (a3,d0.w),d1
         bra.s   .fast_store15
@@ -2084,8 +2086,8 @@ _g5env_project:
         addi.w  #$0808,d1
         bra.s   .fast_store15
 .fast_both15:
-        move.w  d0,d1
-        lsr.w   #8,d1
+        moveq   #0,d1
+        move.b  -2(a0),d1
         add.w   d1,d1
         move.w  (a3,d1.w),d1
         andi.w  #255,d0
