@@ -21,6 +21,8 @@ Solo mira la capa 1 (registros $182-$18E) en los pixeles donde se ve.
 
   python3 tools/scrollsim.py                    # todo el nivel, SPEED=4
   python3 tools/scrollsim.py --from 1780 --to 1840 --png work/sim.png
+  python3 tools/scrollsim.py -D SPRITES            # la cabecera del juego (CL_LINES 216)
+  python3 tools/scrollsim.py --g5 [--ret]          # SPR_G5: SEG 256 + bloque VBL (C1)
 """
 import argparse, hashlib, os, struct, sys
 
@@ -94,6 +96,27 @@ def run_list(mem, base):
     return out
 
 
+def check_vbl(mem, base):
+    """SPR_G5: el bloque de armado detras de la cabecera (128 B): WAIT (30,0),
+    16 MOVE SPR4-7 PTH/PTL/POS/CTL (POS/CTL = 0; PT = 0 aca: lo escribe game.s)
+    y 15 ranuras NOP. Devuelve los errores."""
+    a = base + CL_LINES - 128
+    w = [mem.r16(a + 2 * i) for i in range(64)]
+    err = []
+    if (w[0], w[1]) != (0x1E01, 0xFFFE):
+        err.append("WAIT %04X %04X" % (w[0], w[1]))
+    regs = []
+    for n in range(4, 8):
+        regs += [0x120 + 4 * n, 0x122 + 4 * n, 0x140 + 8 * n, 0x142 + 8 * n]
+    for i, r in enumerate(regs):
+        if (w[2 + 2 * i], w[3 + 2 * i]) != (r, 0):
+            err.append("MOVE %d: %04X %04X (esperado %04X 0000)" % (i, w[2 + 2 * i], w[3 + 2 * i], r))
+    for i in range(34, 64, 2):
+        if (w[i], w[i + 1]) != (0x01FE, 0):
+            err.append("ranura %d: %04X %04X" % ((i - 34) // 2, w[i], w[i + 1]))
+    return err
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", default=os.path.join(HERE, "..", "player", "scroll.s"))
@@ -104,12 +127,19 @@ def main():
     ap.add_argument("-D", action="append", default=[])
     ap.add_argument("--png", help="imagen (esperado / simulado / fallos) del peor frame")
     ap.add_argument("--top", type=int, default=10)
-    ap.add_argument("--data", default=os.path.join(P.WORK, "yi1_s.dat"))
+    ap.add_argument("--data", default=None,
+                    help="yi1_s.dat (con SPR_G5: yi1_s_g5.dat, mkscroll.py --g5)")
+    ap.add_argument("--g5", action="store_true",
+                    help="scroll.s con -DSPRITES -DSPR_G5 (G2T C1: SEG 256, bloque VBL)")
     ap.add_argument("--ret", action="store_true",
                     help="ida (--from -> --to) y vuelta (-> --from): la imagen simulada de la "
                          "capa 1 tiene que ser IDENTICA en cada s (6.2, P50)")
     a = ap.parse_args()
-    global W, T0
+    if a.g5:
+        a.D = ["SPRITES", "SPR_G5"] + [d for d in a.D if d not in ("SPRITES", "SPR_G5")]
+    if a.data is None:
+        a.data = os.path.join(P.WORK, "yi1_s_g5.dat" if "SPR_G5" in a.D else "yi1_s.dat")
+    global W, T0, CL_LINES, SEG
     W = a.vis
     T0 = -56 - (320 - W)            # el borrado termina a la misma h: antes de x = 0
     a.x1 = min(a.x1, 5120 - W)
@@ -123,9 +153,15 @@ def main():
                 "VIS=%d" % W]
     code, lst = P.assemble(a.src, defs + a.D)
     syms, local = P.listing(lst)
+    CL_LINES, SEG = syms["CL_LINES"], syms["SEG"]       # 92/216 y 220; con SPR_G5: 344 y 256
     V = {n: v for n, v in syms.items() if n.startswith("V_")}
     sc = P.Scroll(code, syms, local, open(a.data, "rb").read(), V)
     sc.init()
+    if "SPR_G5" in a.D:
+        for nm, ba in (("A", P.COPA), ("B", P.COPB)):
+            e = check_vbl(sc.mem, ba)
+            print("bloque VBL lista %s (%d B tras la cabecera, CL_LINES %d, SEG %d): %s"
+                  % (nm, 128, CL_LINES, SEG, "OK" if not e else "; ".join(e)))
     res, prev, worst = [], None, None
     back, fwd_img, same, diff, back_tot = False, {}, 0, [], 0
     while True:

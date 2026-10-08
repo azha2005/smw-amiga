@@ -1240,6 +1240,16 @@ mario_draw:
         move.w  d2,4(a0)
         addq.l  #8,a0
         dbf     d1,.q
+        ifd     SPR_G5
+        lea     CL_VBL+4+2(a2),a0           ; el bloque de armado: PTH/PTL
+        moveq   #4-1,d1                     ; de SPR4-7 (d2 = el nulo)
+.q5:    swap    d2
+        move.w  d2,(a0)
+        swap    d2
+        move.w  d2,4(a0)
+        lea     16(a0),a0
+        dbf     d1,.q5
+        endc
 .pal:   move.b  d0,(a3)
         lsl.w   #5,d0
         move.l  a4,a1
@@ -1704,10 +1714,14 @@ dc_init:
         move.l  (sp)+,d7
         rts
 
-; --- dc_null --- SPR4-7 de la lista V_BACK al sprite nulo
-; registros destruidos: d1-d2/a0
+; --- dc_null --- SPR4-7 de la lista V_BACK al sprite nulo (con SPR_G5,
+; tambien en el bloque de armado CL_VBL)
+; registros destruidos: d1-d2/a0 (con SPR_G5, a1)
 dc_null:
         move.l  V_BACK(a5),a0
+        ifd     SPR_G5
+        move.l  a0,a1
+        endc
         lea     CL_SPR+4*8+2(a0),a0
         move.l  g_null(pc),d2
         moveq   #4-1,d1
@@ -1717,6 +1731,16 @@ dc_null:
         move.w  d2,4(a0)
         addq.l  #8,a0
         dbf     d1,.q
+        ifd     SPR_G5
+        lea     CL_VBL+4+2(a1),a0           ; y el bloque de armado de la
+        moveq   #4-1,d1                     ; linea 30 (G2T C1): PTH/PTL
+.q5:    swap    d2                          ; de SPR4-7 al nulo; POS/CTL = 0
+        move.w  d2,(a0)
+        swap    d2
+        move.w  d2,4(a0)
+        lea     16(a0),a0
+        dbf     d1,.q5
+        endc
         rts
 
 ; --- dc_hdr --- en la cabecera de V_BACK: los punteros SPR0-3 al buffer

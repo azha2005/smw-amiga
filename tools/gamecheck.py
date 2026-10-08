@@ -61,6 +61,18 @@ PARTS = (("entrada", "entrada (game_step sin level_frame)"),
 RESYNC_OPS = (V.REP_SYNC, V.REP_RUNSYNC, V.REP_LEVEL)
 
 
+def layout(syms):
+    """(lista A, lista B, sprites de Mario) en la memoria del emulador. Con
+    SPR_G5 (SEG 256: CL_SIZE 57 688 B) las listas ya no caben en 0xE000."""
+    cl = syms.get("CL_SIZE", 0)
+    if COPA + cl <= COPB:
+        return COPA, COPB, SPRS
+    copb = (COPA + cl + 0xFF) & ~0xFF
+    sprs = (copb + cl + 0xFFF) & ~0xFFF
+    assert sprs + 3 * syms.get("SPRBUF", 0x2A0) + 16 <= FAKE
+    return COPA, copb, sprs
+
+
 class Frames:
     """el frame del juego en Musashi, por partes (ver la cabecera)"""
 
@@ -86,12 +98,13 @@ class Frames:
         B, syms, mem = self.B, self.syms, self.mem
         w32 = mem.w32
         mspr = syms["SPRBUF"]
+        copa, copb, sprs = layout(syms)
         w32(self.vars + self.v("V_BUF1"), BUF1)
-        w32(self.vars + self.v("V_COP"), COPA)
-        w32(self.vars + self.v("V_COP2"), COPB)
-        w32(B + syms["g_spra"], SPRS)
-        w32(B + syms["g_sprb"], SPRS + mspr)
-        w32(B + syms["g_null"], SPRS + 2 * mspr)
+        w32(self.vars + self.v("V_COP"), copa)
+        w32(self.vars + self.v("V_COP2"), copb)
+        w32(B + syms["g_spra"], sprs)
+        w32(B + syms["g_sprb"], sprs + mspr)
+        w32(B + syms["g_null"], sprs + 2 * mspr)
         w32(B + syms["_gfx32"], B + syms["gfx32"])
         self.call(B + syms["cam_to_s"], FAKE)
         self.call(B + syms["scroll_init"], FAKE)
@@ -171,8 +184,9 @@ def main():
     ap.add_argument("--cams", default="", help="frames (del oraculo) de los que dar la camara")
     ap.add_argument("--no-scroll", action="store_true",
                     help="con musashi: sin scroll_frame ni cam_to_s/mario_draw (solo game_step)")
-    ap.add_argument("--data", default=os.path.join(V.WORK, "yi1_s.dat"),
-                    help="datos del scroll (musashi)")
+    ap.add_argument("--data", default=None,
+                    help="datos del scroll (musashi); por defecto work/yi1_s.dat, o "
+                         "yi1_s_g5.dat si el listado es de un build SPR_G5")
     ap.add_argument("--spr", action="store_true",
                     help="despues de cada frame, _mario_sprite (vbcc) contra la referencia")
     a = ap.parse_args()
@@ -182,6 +196,8 @@ def main():
         sys.exit("gamecheck: %s llega a 0x%X, pasa DATA = 0x%X: mover DATA/BUF1/COP*"
                  % (a.bin, V.BASE + len(code), DATA))
     syms = V.symbols(a.lst)
+    if a.data is None:
+        a.data = os.path.join(V.WORK, "yi1_s_g5.dat" if "CL_VBL" in syms else "yi1_s.dat")
     for s in ("replay_init", "game_step", "replay", "_ram", "map16", "spr_lv",
               "_map16_lo", "_map16_hi", "_spr_level", "_level_sprites", "g_left"):
         if s not in syms:

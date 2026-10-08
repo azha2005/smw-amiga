@@ -68,8 +68,22 @@ CL_PTR      equ 44              ; BPL1PTH; BPLnPTH en CL_PTR + (n-1)*8
 ; lista de cada frame (Mario se ve junto con el fondo de su frame)
 CL_SPR      equ 92              ; SPR0PTH; SPRnPTH en CL_SPR + n*8
 CL_COL17    equ CL_SPR+64       ; COLOR17; COLORk en CL_COL17 + (k-17)*4
-CL_LINES    equ CL_COL17+60
+        ifd     SPR_G5
+; -DSPR_G5 (G2T, fase C1; docs/instrucciones-g2t-a.md 1-bis punto 6): detras
+; de la cabecera un bloque de armado en la linea 30, antes del borrado de la
+; linea 0 ($2B): WAIT (30,0), 16 MOVE (por cada sprite 4-7: PTH, PTL, POS,
+; CTL; PT al sprite nulo, POS/CTL = 0: canal inactivo) y 15 ranuras para los
+; colores de partida del Rex (de momento NOP: $01FE). 4 + 64 + 60 = 128 B.
+CL_VBL      equ CL_COL17+60
+CL_VBLSZ    equ 128
+CL_LINES    equ CL_VBL+CL_VBLSZ
         else
+CL_LINES    equ CL_COL17+60
+        endc
+        else
+        ifd     SPR_G5
+        fail    "-DSPR_G5 requiere -DSPRITES"
+        endc
 CL_LINES    equ 92
         endc
 ; un segmento por linea: 2 WAIT + 7 + 7 MOVE (borrado), hasta MIDMAX
@@ -81,8 +95,15 @@ DFM     equ 1               ; build_mid, diferir (SX paso 2): vu se adelanta
 DFS     equ 2               ; (L & DFM) << (5 - DFS) px = 0 u 8 (Musashi:
                             ; el mejor pico de 1/2, 1/1, 1/3, 3/2, 3/3,
                             ; 3/4, 7/3, 7/4, 15/4 y sin adelanto)
+        ifd     SPR_G5
+SEG         equ 256             ; (tools/mkscroll.py --g5: SEG). +36 B por
+                                ; segmento para el sufijo del Rex (<= 9
+                                ; ranuras): sin usar mientras no haya g5_emit;
+                                ; el salto sigue detras de las cargas
+        else
 SEG         equ 64+MIDMAX*12+12 ; 220 (tools/mkscroll.py: SEG). Una carga
                                 ; ocupa hasta 12 bytes: 2 rellenos + MOVE
+        endc
 CL_SIZE     equ CL_LINES+SEG*LINES+4
 ; WAIT + MOVE: en que x de pantalla cambia el color (P42, medido en WinUAE
 ; con copcal.s -DPATTERN y COPCAL_FINE=1, h de a 2):
@@ -1554,6 +1575,28 @@ build_copper:                               ; a0 = lista
         clr.w   (a0)+
         addq.w  #2,d0
         dbf     d1,.c17
+        ifd     SPR_G5
+        move.l  #$1e01fffe,(a0)+            ; WAIT (30,0): bloque de armado
+        move.w  #$0130,d0                   ; SPR4PTH (+4 por sprite)
+        move.w  #$0160,d2                   ; SPR4POS (+8 por sprite)
+        moveq   #4-1,d1
+.v5:    move.w  d0,(a0)+                    ; PTH (el puntero lo escribe game.s)
+        clr.w   (a0)+
+        addq.w  #2,d0
+        move.w  d0,(a0)+                    ; PTL
+        clr.w   (a0)+
+        addq.w  #2,d0
+        move.w  d2,(a0)+                    ; POS = 0
+        clr.w   (a0)+
+        addq.w  #2,d2
+        move.w  d2,(a0)+                    ; CTL = 0
+        clr.w   (a0)+
+        addq.w  #6,d2
+        dbf     d1,.v5
+        moveq   #15-1,d1                    ; 15 ranuras de color: NOP
+.v5n:   move.l  #$01fe0000,(a0)+
+        dbf     d1,.v5n
+        endc
         endc
         ; lineas
         move.l  a3,a1

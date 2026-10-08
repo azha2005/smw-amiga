@@ -65,6 +65,7 @@ Formato (big-endian):
        (linea * 32); al final, $FFFF
 
     python3 tools/mkscroll.py
+    python3 tools/mkscroll.py --g5     # SPR_G5 (G2T C1): SEG = 256 -> work/yi1_s_g5.dat
 """
 import os
 import struct
@@ -80,6 +81,7 @@ WORK = os.path.join(HERE, "..", "work")
 Y0, LINES = 192, 224
 LASTXMAX = 316              # LASTX de scroll.s a 320 px (a 256: 255); MSK con el mayor
 SEG = 220                   # bytes por linea en la lista del copper (scroll.s: SEG)
+SEG_G5 = 256                # con -DSPR_G5: 36 B mas por segmento para el sufijo del Rex
 NGRP, GSZ = LINES // 16, 8  # LNS por grupos de 16 lineas (scroll.s: NGRP, GSZ)
 TARDE = 4                   # clase + TARDE: carga "tarde" en MLD (scroll.s: build_mid, .td)
 
@@ -126,6 +128,10 @@ L2W = 848
 
 
 def main():
+    global SEG
+    g5 = "--g5" in sys.argv[1:]
+    if g5:
+        SEG = SEG_G5
     d = render_d.load(os.path.join(WORK, "yi1_d.dat"))
     W, cols = d["W"], d["cols"]
     ini = np.zeros((LINES, 7), np.int32)
@@ -226,9 +232,10 @@ def main():
     out = bytearray(head + b"\0\0" + struct.pack(">10I", *offs, 0))
     for o, s in zip(offs, secs):
         out += bytes(o - len(out)) + s
-    open(os.path.join(WORK, "yi1_s.dat"), "wb").write(out)
-    print("yi1_s.dat: %d bytes, %d bloques, %d cambios de color (capa 1, borrado)"
-          % (len(out), d["nblk"], len(chg)))
+    name = "yi1_s_g5.dat" if g5 else "yi1_s.dat"
+    open(os.path.join(WORK, name), "wb").write(out)
+    print("%s: %d bytes, %d bloques, %d cambios de color (capa 1, borrado)"
+          % (name, len(out), d["nblk"], len(chg)))
 
 
 if __name__ == "__main__":

@@ -9,8 +9,9 @@ import gamecheck as G
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--node', action='store_true', help='verificar también build -DNODECOUPLE')
+    ap.add_argument('--dir', help='carpeta del build en vivo (por defecto work/live; SPR_G5: work/g5v)')
     args = ap.parse_args()
-    path = 'work/z1-old' if args.node else 'work/live'
+    path = args.dir or ('work/z1-old' if args.node else 'work/live')
     code = open(path + '/game.bin', 'rb').read()
     s = V.symbols(path + '/game.lst')
     c = V.MusashiCPU()
@@ -86,14 +87,16 @@ def main():
     c.mem.w8(ram + 0xDC0, 8)
     c.write(addr('map16') + 100, bytes([0, 0]))
     # Las dos listas/fotos contienen datos viejos antes de la transacción.
-    fr = G.Frames(c, B, s, open('work/yi1_s.dat', 'rb').read())
-    for n, val in [('V_BUF1', G.BUF1), ('V_COP', G.COPA), ('V_COP2', G.COPB)]:
+    copa, copb, sprs = G.layout(s)
+    ydat = 'work/yi1_s_g5.dat' if 'CL_VBL' in s else 'work/yi1_s.dat'
+    fr = G.Frames(c, B, s, open(ydat, 'rb').read())
+    for n, val in [('V_BUF1', G.BUF1), ('V_COP', copa), ('V_COP2', copb)]:
         c.mem.w32(addr('vars') + s[n], val)
     c.mem.w16(G.FAKE + s['INTENAR'], 0x4030)
     if args.node:
-        w32('g_spra', G.SPRS)
-        w32('g_sprb', G.SPRS + s['SPRBUF'])
-        w32('g_null', G.SPRS + 2 * s['SPRBUF'])
+        w32('g_spra', sprs)
+        w32('g_sprb', sprs + s['SPRBUF'])
+        w32('g_null', sprs + 2 * s['SPRBUF'])
         call('cam_to_s', True)
         call('scroll_init', True)
         oldframe = c.mem.r32(addr('g_frame'))
@@ -110,8 +113,8 @@ def main():
         print('Z1 NODECOUPLE Musashi/user: muerte219, fin410, RAM/mapa/carga OK; %d ciclos sin DMA' % cycles)
         return
     for i in range(3):
-        c.mem.w32(addr('g_sbuf') + 4 * i, G.SPRS + i * s['SPRBUF'])
-    w32('g_null', G.SPRS + 3 * s['SPRBUF'])
+        c.mem.w32(addr('g_sbuf') + 4 * i, sprs + i * s['SPRBUF'])
+    w32('g_null', sprs + 3 * s['SPRBUF'])
     w32('g_data', G.DATA)
     call('cam_to_s', True)
     call('scroll_init', True)
@@ -138,10 +141,22 @@ def main():
     front = c.mem.r16(addr('dc_st') + s['DC_FRONT'])
     buffer = c.mem.r32(addr('g_sbuf') + front * 4)
     assert any(c.read(buffer + 4, s['SPRBUF'] - 4)), 'Mario reaparece sin gráfico'
-    for cop in [G.COPA, G.COPB]:
+    for cop in [copa, copb]:
         spr0 = cop + s['CL_SPR']
         pointer = c.mem.r16(spr0 + 2) << 16 | c.mem.r16(spr0 + 6)
         assert pointer == buffer, 'lista apunta a foto vieja'
+        if 'CL_VBL' in s:       # SPR_G5 (G2T C1): el bloque de armado de la linea 30
+            blk = cop + s['CL_VBL']
+            assert (c.mem.r16(blk), c.mem.r16(blk + 2)) == (0x1E01, 0xFFFE), 'WAIT (30,0)'
+            nulo = c.mem.r32(addr('g_null'))
+            for n in range(4):
+                a = blk + 4 + 16 * n
+                got = [(c.mem.r16(a + 4 * i), c.mem.r16(a + 4 * i + 2)) for i in range(4)]
+                want = [(0x130 + 4 * n, nulo >> 16), (0x132 + 4 * n, nulo & 0xFFFF),
+                        (0x160 + 8 * n, 0), (0x162 + 8 * n, 0)]
+                assert got == want, ('bloque VBL sprite', 4 + n, got, want)
+            for i in range(15):
+                assert (c.mem.r16(blk + 68 + 4 * i), c.mem.r16(blk + 70 + 4 * i)) == (0x1FE, 0)
     # Próxima COPER: exactamente un tick, no un tick pendiente de antes.
     call('dc_cop', True)
     assert c.mem.r32(addr('g_frame')) == oldframe + 1

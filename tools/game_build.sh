@@ -28,6 +28,16 @@ case " $CDEFS " in
         case " $GDEFS " in *" -DSPR_OAM"*) echo "ERROR: SPR_OAM en GDEFS requiere el mismo flag en CDEFS"; exit 1 ;; esac ;;
     *) GDEFS="$GDEFS -DSPR_OAM"; SPR_MODE=1 ;;
 esac
+# SPR_G5 (G2T, fase C1): el segmento de la lista del copper de 256 B y el
+# bloque de armado de la linea 30; necesita su propio yi1_s_g5.dat
+# (mkscroll.py --g5: los desplazamientos de CHG usan SEG = 256).
+YDAT=work/yi1_s.dat
+case " $CDEFS " in
+    *" -DSPR_G5"*)
+        [ "$SPR_MODE" = 1 ] || { echo "ERROR: SPR_G5 requiere SPR_OAM (CDEFS='-DNOOAM -DSPR_OAM -DSPR_G5')"; exit 1; }
+        GDEFS="$GDEFS -DSPR_G5"; YDAT=work/yi1_s_g5.dat ;;
+    *) case " $GDEFS " in *" -DSPR_G5"*) echo "ERROR: SPR_G5 en GDEFS requiere el mismo flag en CDEFS"; exit 1 ;; esac ;;
+esac
 OUT=${OUT:-work}
 if [ -n "$SPR_BANK" ]; then
     [ "$SPR_MODE" = 1 ] || { echo "ERROR: SPR_BANK requiere SPR_OAM"; exit 1; }
@@ -43,6 +53,7 @@ if grep -q '^_rex_gfx' work/cc/msprite.code.s; then CC_SPR=1; else CC_SPR=0; fi
 [ "$CC_SPR" = "$SPR_MODE" ] || { echo "ERROR: C y asm tienen distinto SPR_OAM; recompilar sin NOCC"; exit 1; }
 [ -f work/cc/spr.lv ] || cp ../smw-src-master/project/mw_e10/levels/data/world_1/1/spr.lv work/cc/spr.lv
 [ -f work/yi1_s.dat ] || $PY tools/mkscroll.py
+[ "$YDAT" = work/yi1_s.dat ] || [ -f "$YDAT" ] || $PY tools/mkscroll.py --g5
 [ -f work/cc/gfx32f.bin ] && [ -f work/cc/mario_pal.bin ] || $PY tools/mkmario.py
 REPLAY_KEY=$($PY - "$ORACLE" work/logicbench.bin <<'PY'
 import hashlib
@@ -77,7 +88,7 @@ fi
 "$VBCC/bin/vasmm68k_mot$X" -quiet -Fbin -m68000 $GDEFS -I player -I . -L "$OUT/game.lst" \
     -o "$OUT/game.bin" "$HARNESS"
 $PY tools/piccheck.py --lst "$OUT/game.lst"
-$PY tools/mkadf.py --boot work/boot.bin --stage2 "$OUT/game.bin" --data work/yi1_s.dat \
+$PY tools/mkadf.py --boot work/boot.bin --stage2 "$OUT/game.bin" --data "$YDAT" \
     --out "$OUT/game.adf"
 if [ -n "$SPR_BANK" ]; then
     $PY tools/sprgfx_load.py --bank "$SPR_BANK" --adf "$OUT/game.adf"
