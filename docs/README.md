@@ -56,6 +56,8 @@
 | `instrucciones-g2t-bc.md` | 2026-10-07 | G2T-B/C: plan del Rex en C/68000 idéntico a `g2t_ref.py` y emisión en el copper del juego, con puertas y paradas |
 | `instrucciones-g2t-b2bis.md` | 2026-10-08 | G2T-B2bis: envolvente de Mario por pose con la clave MA1, caché en slow y decodificación exacta en asm en el render (≤ 300 ciclos en la interrupción) |
 | `instrucciones-g2t-b35.md` | 2026-10-08 | G2T-B3/B5: `g5_plan` en C con segmentos perezosos y envolventes del Rex precalculadas (`bank.g5env`); PC = 68000 = `g2t_ref.py` byte a byte |
+| `informe-g2t-b35-1008.md` | 2026-10-08 | B35: handoff completado, único intento en C, B4/B5 exactas en 3404 frames, OAM68K/regress/hashes verdes; máximo 2 405 022 ciclos, parada por coste y memoria reservada |
+| `instrucciones-g2t-b35-asm.md` | 2026-10-08 | Viabilidad del planificador disperso/asm tras la parada de B35; misma salida B1, medida por componente y plan completo ≤ 8000 ciclos |
 | `instrucciones-g2t-cpre.md` | 2026-10-08 | G2T-Cpre: emisor `g5_emit` y capturas WinUAE (0/57 344 px) con el plan precalculado en el replay, antes de terminar B |
 | `instrucciones-revision-1007.md` | 2026-10-07 | revisión propuesta tras las dos paradas: diagnóstico de coste OAM y contrato temporal, antes de nueva implementación |
 | `informe-revision-loam-1007.md` | 2026-10-07 | revisión L-OAM: coste de OAM por función en YI1 y estrés (Musashi y WinUAE), por qué el estrés sale peor, y una tarjeta (ruta de la piraña en asm) |
