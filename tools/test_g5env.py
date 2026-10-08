@@ -2,10 +2,15 @@
 """Contrato sintetico B2bis: clave de pose y bytes significativos del sprite."""
 import unittest
 import struct
+from pathlib import Path
 from g5env_verify import key_of, image
+from g5env_asm import generate
 
 
 class KeyTests(unittest.TestCase):
+    def test_assembly_matches_generator(self):
+        self.assertEqual(Path('player/g5env.s').read_text(encoding='utf-8'), generate())
+
     def inputs(self):
         return bytearray([10, 50, 0, 0, 10, 66, 2, 0] + [0, 0xf0, 0, 0] * 2), bytes([2] * 4), bytes(8192)
 
