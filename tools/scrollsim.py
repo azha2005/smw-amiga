@@ -157,9 +157,11 @@ def main():
     V = {n: v for n, v in syms.items() if n.startswith("V_")}
     sc = P.Scroll(code, syms, local, open(a.data, "rb").read(), V)
     sc.init()
+    vbl_bad = False
     if "SPR_G5" in a.D:
         for nm, ba in (("A", P.COPA), ("B", P.COPB)):
             e = check_vbl(sc.mem, ba)
+            vbl_bad |= bool(e)
             print("bloque VBL lista %s (%d B tras la cabecera, CL_LINES %d, SEG %d): %s"
                   % (nm, 128, CL_LINES, SEG, "OK" if not e else "; ".join(e)))
     res, prev, worst = [], None, None
@@ -224,6 +226,8 @@ def main():
         img[bad] = (255, 0, 255)
         Image.fromarray(img).resize((W * 2, LINES * 2), 0).save(a.png)
         print("-> %s (s = %d: capa 1 en gris, fallos en magenta)" % (a.png, s))
+    if vbl_bad:
+        sys.exit("ERROR: bloque VBL de SPR_G5 mal (ver arriba)")
 
 
 if __name__ == "__main__":
