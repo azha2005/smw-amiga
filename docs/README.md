@@ -54,6 +54,9 @@
 | `instrucciones-g2t-a.md` | 2026-10-07 | **contrato G2T-A fijado** (§1-bis, corregido con medidas) y propuesta original como registro |
 | `informe-g2t-a-1007.md` | 2026-10-07 | G2T-A: capacidad del hueco entre filas (P111), codo 231→243 (P110), 83 casos cycle-exact, puerta A-T verde en 3404 frames |
 | `instrucciones-g2t-bc.md` | 2026-10-07 | G2T-B/C: plan del Rex en C/68000 idéntico a `g2t_ref.py` y emisión en el copper del juego, con puertas y paradas |
+| `instrucciones-g2t-b2bis.md` | 2026-10-08 | G2T-B2bis: envolvente de Mario por pose con la clave MA1, caché en slow y decodificación exacta en asm en el render (≤ 300 ciclos en la interrupción) |
+| `instrucciones-g2t-b35.md` | 2026-10-08 | G2T-B3/B5: `g5_plan` en C con segmentos perezosos y envolventes del Rex precalculadas (`bank.g5env`); PC = 68000 = `g2t_ref.py` byte a byte |
+| `instrucciones-g2t-cpre.md` | 2026-10-08 | G2T-Cpre: emisor `g5_emit` y capturas WinUAE (0/57 344 px) con el plan precalculado en el replay, antes de terminar B |
 | `instrucciones-revision-1007.md` | 2026-10-07 | revisión propuesta tras las dos paradas: diagnóstico de coste OAM y contrato temporal, antes de nueva implementación |
 | `informe-revision-loam-1007.md` | 2026-10-07 | revisión L-OAM: coste de OAM por función en YI1 y estrés (Musashi y WinUAE), por qué el estrés sale peor, y una tarjeta (ruta de la piraña en asm) |
 | `instrucciones-loam.md` | 2026-10-07 | L-OAM paso a paso: abaratar la OAM ampliada (paso 1 hecho y medido) |

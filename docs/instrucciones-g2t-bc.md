@@ -1,5 +1,14 @@
 # G2T-B/C — el plan del Rex en C/68000 y en el copper del juego
 
+> **Actualización 2026-10-08.** C1 hecha (`7df7ebe`, `ab50698`). B2 se
+> detuvo por ciclos (`876d28d`: exacta, 231 612 ciclos contra 3000). Lo
+> que sigue se ejecuta con tres instrucciones más detalladas, que mandan
+> sobre este fichero donde difieren: `instrucciones-g2t-b2bis.md`
+> (envolvente de Mario por pose, con caché, en el render),
+> `instrucciones-g2t-b35.md` (B3-B5: el plan en C, PC = 68000 =
+> `g2t_ref.py`) e `instrucciones-g2t-cpre.md` (C2-C4 con el plan
+> precalculado en el replay). C5 completa va después de B.
+
 2026-10-07. Instrucciones paso a paso para la sesión siguiente. Parte del
 contrato **fijado** en `docs/instrucciones-g2t-a.md` §1-bis y de la puerta
 A-T verde (`docs/informe-g2t-a-1007.md`). Sustituye a las fases B y C de

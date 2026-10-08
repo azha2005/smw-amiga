@@ -7,6 +7,17 @@
 
 **Escrito el 2026-10-07 (noche)**, al cerrar G2T-A.
 
+> **Actualización 2026-10-08 (ola en curso, antes del cierre).**
+> Integrado en master: C1 (`7df7ebe`, `ab50698`), la revisión L-OAM
+> (`bf950d4`, `docs/informe-revision-loam-1007.md`) y el WIP de B2
+> (`876d28d`: envolvente exacta, pero 231 612 ciclos contra 3000).
+> Siguiente: tres tarjetas en paralelo, con instrucciones detalladas:
+> `docs/instrucciones-g2t-b2bis.md`, `docs/instrucciones-g2t-b35.md` y
+> `docs/instrucciones-g2t-cpre.md` (la única con WinUAE). Después, la
+> ruta de la piraña en asm (tarjeta propuesta por la revisión L-OAM; la
+> puerta de estrés de L-OAM se redefine como «no peor que la medida
+> `l4`», 295/32 fotos omitidas, salvo otra decisión del usuario).
+
 - **G2T-A hecha, contrato fijado** (delegación del usuario):
   `docs/instrucciones-g2t-a.md` §1-bis, informe
   `docs/informe-g2t-a-1007.md`, código `70a0c0d`. El candidato de G2T era
