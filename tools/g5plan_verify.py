@@ -20,6 +20,7 @@ import argparse
 import collections
 import struct
 import sys
+from pathlib import Path
 
 # --- constantes de player/g5plan.h (el volcado las comprueba por tamaño) ---
 G5_ROWS, G5_WIN, G5_MAXREX, G5_MAXT = 224, 40, 12, 16
@@ -203,6 +204,66 @@ def run_m68k(args):
     return 0 if ok else 1
 
 
+def run_plan(args):
+    """B5: g5_plan del logicbench SPR_G5 en Musashi = el plan del PC (B4)."""
+    m = M68k(args.bin, args.lst)
+    if '_g5_plan' not in m.syms:
+        raise ValueError('falta _g5_plan en el logicbench')
+    TAB, ENV, LIST, WORK, PALS, OUT = 0x60000, 0x74000, 0x96000, 0xA4000, 0xAC000, 0xAD000
+    top = m.V.BASE + Path(args.bin).stat().st_size
+    if top > TAB:
+        raise ValueError('el logicbench (%X) pisa las tablas en %X' % (top, TAB))
+    tab, env = Path(args.bank + '.idx').read_bytes(), Path(args.bank + '.g5env').read_bytes()
+    if TAB + len(tab) > ENV or ENV + len(env) > LIST:
+        raise ValueError('tablas mas grandes que el mapa del arnes')
+    m.cpu.write(TAB, tab)
+    m.cpu.write(ENV, env)
+    m.cpu.write(PALS, Path(args.pals).read_bytes())
+    want = Path(args.ref).read_bytes()
+    segw = Path(args.segw).read_bytes()
+    so = wo = n = bad = abi_bad = 0
+    cycles = []
+    for c in read_cap(args.cap):
+        frame, = struct.unpack_from('>I', segw, so)
+        if frame != c['frame']:
+            raise ValueError('segw desalineado en el frame %d' % c['frame'])
+        so += 4
+        lst = bytearray(CL + SEG * 224 + 4)
+        for r in range(224):
+            k = segw[so]
+            lst[CL + SEG * r:CL + SEG * r + 4 * k] = segw[so + 1:so + 1 + 4 * k]
+            so += 1 + 4 * k
+        m.cpu.write(LIST, bytes(lst))
+        m.cpu.write(m.BLK, c['blk'])
+        cyc, size, abi = m.call('_g5_plan', c['frame'], m.BLK, TAB, ENV, PALS, LIST, CL, SEG, WORK, OUT)
+        got = m.cpu.read(OUT, size & 0xFFFF)
+        ref = want[wo:wo + len(got)]
+        wo += len(got)
+        n += 1
+        abi_bad += abi
+        if got != ref:
+            bad += 1
+            if bad <= 5:
+                print('  frame %d: plan del 68000 distinto del de referencia' % c['frame'])
+        cycles.append((cyc, c['frame']))
+    if wo != len(want):
+        bad += 1
+        print('  el plan del 68000 mide %d B y la referencia %d B' % (wo, len(want)))
+    cycles.sort()
+    mx = cycles[-1]
+    print('g5_plan 68000 %s: %d frames, planes distintos %d, ABI distinta %d; ciclos (sin DMA) media %.0f, '
+          'mediana %d, p99 %d, max %d (frame %d)' % (args.name, n, bad, abi_bad, sum(c for c, _ in cycles) / n,
+                                                     cycles[n // 2][0], cycles[(99 * n) // 100][0], mx[0], mx[1]))
+    ok = not bad and not abi_bad
+    print('PUERTA G2T-B5 %s: %s' % (args.name, 'OK' if ok else 'FALLA'))
+    if mx[0] > args.plan_max:
+        print('AVISO B5: g5_plan max %d > %d ciclos (instrucciones-g2t-b35.md §6)' % (mx[0], args.plan_max))
+    return 0 if ok else 1
+
+
+CL, SEG = 216, 220
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest='cmd', required=True)
@@ -216,7 +277,19 @@ def main():
     k.add_argument('--lst', default='work/g5gate/logicbench.lst')
     k.add_argument('--cap-max', type=int, default=3000)
     k.add_argument('--name')
+    q = sub.add_parser('plan', help='B5: g5_plan en el 68000 (Musashi) = el plan de referencia')
+    q.add_argument('--cap', required=True)
+    q.add_argument('--segw', required=True, help='work/g2tb35/segw_<traza>.bin (g2t_segdump.py)')
+    q.add_argument('--ref', required=True, help='work/g2t_ref/plan_<traza>.bin')
+    q.add_argument('--bank', default='work/g3/bank', help='bank.idx y bank.g5env')
+    q.add_argument('--pals', default='work/cc/mario_pal.bin')
+    q.add_argument('--bin', default='work/g5gate/logicbench.bin')
+    q.add_argument('--lst', default='work/g5gate/logicbench.lst')
+    q.add_argument('--plan-max', type=int, default=8000)
+    q.add_argument('--name', default='')
     a = ap.parse_args()
+    if a.cmd == 'plan':
+        return run_plan(a)
     return run_env(a) if a.cmd == 'env' else run_m68k(a)
 
 

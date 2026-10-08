@@ -79,7 +79,7 @@ esac
 # Los spr_*.c se anexan a msprite.data.s / msprite.code.s: los arneses
 # (game.s, logicbench.s) incluyen por nombre y asi no hay que tocarlos al
 # agregar un sprite. Los datos siguen yendo antes que todo el codigo (P36).
-for b in $SPRS $G5; do
+for b in $SPRS; do
     cat $CC/$b.data.s >> $CC/msprite.data.s
     cat $CC/$b.code.s >> $CC/msprite.code.s
     if [ -n "$SPR_PIC" ] && [ "$b" = spr_rex ]; then
@@ -91,6 +91,13 @@ for b in $SPRS $G5; do
             '        PICJUMP _mario_hurt' >> "$CC/msprite.code.s"
     fi
 done
+# g5plan (SPR_G5): sus datos detras de los del C (P36) y su codigo DELANTE
+# de todo el codigo del C. No llama a nadie: asi no separa a las demas
+# rutinas (anexado a msprite.code.s alejaba llamadas a mas de 32 KB, P102).
+if [ -n "$G5" ]; then
+    cat $CC/g5plan.data.s >> $CC/msprite.data.s
+    cat $CC/g5plan.code.s $CC/mario.code.s > $CC/mario.code.tmp && mv $CC/mario.code.tmp $CC/mario.code.s
+fi
 # El binario se carga en cualquier direccion: el codigo del C solo puede
 # llegar a sus datos por (a4) y a su codigo por (pc)/bsr. vbcc puede emitir
 # una referencia ABSOLUTA sin avisar (paso con rom00 - $C000 en smwmac.h:
