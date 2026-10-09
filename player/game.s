@@ -350,6 +350,14 @@ entry:
         jsr     _LVOFreeMem(a6)
 .stay:
         endc
+        ifd     LOADTIME
+        ifd     BM_FIXED
+        fail    "LOADTIME mide el boot trackdisk; BM_FIXED tiene su propio BMLOAD"
+        endc
+        lea     lt_sig+8(pc),a0             ; d7/d6 de boot.s -DLOADTIME
+        move.l  d7,(a0)+                    ; (ya en la copia que queda)
+        move.l  d6,(a0)
+        endc
         bsr     build_sign                  ; antes de que corra nada
         lea     CUSTOM,a4
         lea     vars(pc),a5
@@ -404,6 +412,11 @@ entry:
         move.w  #TD_MOTOR,IO_COMMAND(a1)
         clr.l   IO_LENGTH(a1)
         jsr     _LVODoIO(a6)
+        ifd     LOADTIME
+        bsr     lt_tod                      ; datos leidos (= bm_motoroff)
+        lea     lt_sig+16(pc),a0
+        move.l  d0,(a0)
+        endc
 
         endc
 
@@ -3693,6 +3706,23 @@ gfail:  lea     CUSTOM,a4
 
 old_base:
         dc.l    0                           ; lo pone entry (a0 de boot.s)
+        ifd     LOADTIME
+; --- lt_tod --- TOD de CIA-A (VBL PAL), solo lectura, como bb_tod
+; entrada: ninguna; salida: d0 = TOD de 24 bits
+; registros destruidos: d0; ciclos: carga, no frame
+lt_tod:
+        moveq   #0,d0
+        move.b  $bfea01,d0
+        lsl.l   #8,d0
+        move.b  $bfe901,d0
+        lsl.l   #8,d0
+        move.b  $bfe801,d0
+        rts
+; BM1 paso 4 (control trackdisk): TOD al entrar al boot, stage2 leido y
+; datos leidos con el motor apagado. Lo lee tools/load_probe.py.
+lt_sig: dc.b    "TDLOAD!!"
+        dc.l    0,0,0
+        endc
 gfxname: dc.b   "graphics.library",0
         even
 vars:   ds.b    V_SIZE

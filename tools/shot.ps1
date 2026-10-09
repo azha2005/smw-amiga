@@ -54,9 +54,9 @@ Log "ADF : $Adf"
 Log "ROM : $Rom"
 Log "OUT : $Out"
 
-if (-not (Test-Path $Adf))    { Log "FALLO: no existe $Adf"; exit 2 }
-if (-not (Test-Path $Rom))    { Log "FALLO: no existe $Rom"; exit 2 }
-if (-not (Test-Path $WinUAE)) { Log "FALLO: no existe $WinUAE"; exit 2 }
+if (-not (Test-Path -LiteralPath $Adf))    { Log "FALLO: no existe $Adf"; exit 2 }
+if (-not (Test-Path -LiteralPath $Rom))    { Log "FALLO: no existe $Rom"; exit 2 }
+if (-not (Test-Path -LiteralPath $WinUAE)) { Log "FALLO: no existe $WinUAE"; exit 2 }
 
 # --- config: A500 PAL, OCS, 512K chip + 512K slow (A501), KS 1.2 ---------
 $cfg = Join-Path $work 'shot.uae'

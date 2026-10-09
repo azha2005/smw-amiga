@@ -45,6 +45,10 @@ bb_stage2len:
         dc.l    0
 
 bb_code:
+        ifd     LOADTIME
+        bsr     bb_tod                      ; inicio de la carga (BM1 paso 4)
+        move.l  d0,d7                       ; d7 = TOD inicial (Exec lo preserva)
+        endc
         move.l  4.w,a6                      ; ExecBase
         lea     CUSTOM,a4
         move.w  #COL_ALIVE,COLOR00(a4)
@@ -70,6 +74,10 @@ bb_code:
         jsr     _LVODoIO(a6)
         tst.l   d0
         bne.s   .fail
+        ifd     LOADTIME
+        bsr     bb_tod                      ; stage2 leido (mismo punto que BM1)
+        move.l  d0,d6                       ; d6 = TOD fin de stage2
+        endc
 
         ; --- apagar el motor -----------------------------------------
         move.l  a5,a1
@@ -87,3 +95,18 @@ bb_code:
         move.w  #COL_FAIL,COLOR00(a4)
 .stop:
         bra.s   .stop
+
+        ifd     LOADTIME
+; --- bb_tod --- TOD de CIA-A (VBL PAL, 50 Hz), solo lectura: no lo
+; reinicia ni lo detiene. Leer el byte alto congela el latch hasta el bajo.
+; entrada: ninguna; salida: d0 = TOD de 24 bits
+; registros destruidos: d0; ciclos: carga, no frame
+bb_tod:
+        moveq   #0,d0
+        move.b  $bfea01,d0
+        lsl.l   #8,d0
+        move.b  $bfe901,d0
+        lsl.l   #8,d0
+        move.b  $bfe801,d0
+        rts
+        endc

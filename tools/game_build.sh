@@ -118,7 +118,13 @@ fi
 "$VBCC/bin/vasmm68k_mot$X" -quiet -Fbin -m68000 $GDEFS -I player -I . -L "$OUT/game.lst" \
     -o "$OUT/game.bin" "$HARNESS"
 $PY tools/piccheck.py --lst "$OUT/game.lst"
-$PY tools/mkadf.py --boot work/boot.bin --stage2 "$OUT/game.bin" --data "$YDAT" \
+BOOT=work/boot.bin
+case " $GDEFS " in
+    *" -DLOADTIME "*)   # control de tiempo de BM1: el boot tambien marca TOD
+        BOOT="$OUT/boot_lt.bin"
+        "$VBCC/bin/vasmm68k_mot$X" -quiet -Fbin -m68000 -no-opt -DLOADTIME -I player -o "$BOOT" player/boot.s ;;
+esac
+$PY tools/mkadf.py --boot "$BOOT" --stage2 "$OUT/game.bin" --data "$YDAT" \
     --out "$OUT/game.adf"
 if [ -n "$SPR_BANK" ]; then
     $PY tools/sprgfx_load.py --bank "$SPR_BANK" --adf "$OUT/game.adf"
