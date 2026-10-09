@@ -150,7 +150,9 @@ GV_MC       equ GV_IG+16*IGSZ               ; 4 entradas de la cache de Mario
 GV_PK       equ GV_MC+4*MCSZ                ; 64 B: clave del plan (g5l_pckey)
 GV_PCNX     equ GV_PK+64                    ; .w entrada que se reemplaza (x PCSZ)
 GV_PC       equ GV_PCNX+2                   ; PC_N entradas de la cache del plan
-GV_SIZE     equ GV_PC+PC_N*PCSZ
+GV_RKS      equ GV_PC+PC_N*PCSZ             ; 46 B: ultimo parche, compartido
+GV_RSBUF    equ GV_RKS+46                   ; .l lista que conserva ese parche
+GV_SIZE     equ GV_RSBUF+4
 ; entrada de la cache de Mario
 MC_KEY      equ 0                           ; 52 B: .w n, 4 x 6 B, 24 B punteros, 2
 MC_XREL     equ 52                          ; .w borde derecho - bx
@@ -443,6 +445,7 @@ g5l_init:
         move.b  #G5L_VBLN,GV_PNVB(a6)
         clr.l   GV_RKA(a6)                  ; los buferes sin parche
         clr.l   GV_RKB(a6)
+        clr.l   GV_RKS(a6)                  ; cache compartida sin fuente
         clr.l   GV_WNONE(a6)
         move.l  #-1,GV_WNONE+4(a6)
         lea     GV_WZ(a6),a0
@@ -2292,6 +2295,58 @@ g5l_patch:
 .ks:    move.l  (a4)+,(a0)+
         move.l  (a4)+,(a0)+
         dbf     d1,.ks
+        ; La ultima lista parcheada es una fuente inmutable hasta el
+        ; siguiente fallo. Copiar solo las mitades usadas evita repetir
+        ; los XOR cuando el mismo parche pasa de A a B o C.
+        lea     GV_RKS(a6),a0
+        move.l  a0,a1
+        move.l  GV_VAR(a6),d0
+        cmp.l   (a1)+,d0
+        bne.s   .sharedmiss
+        move.w  GV_NREM(a6),d1
+        cmp.w   (a1)+,d1
+        bne.s   .sharedmiss
+        lea     GV_REM(a6),a4
+        subq.w  #1,d1
+.sharedkey:
+        cmpm.l  (a4)+,(a1)+
+        bne.s   .sharedmiss
+        cmpm.l  (a4)+,(a1)+
+        bne.s   .sharedmiss
+        dbf     d1,.sharedkey
+        move.l  GV_RSBUF(a6),a0
+        move.l  GV_RBUF(a6),a1
+        move.w  d6,d5
+        add.w   d5,d5
+        subq.w  #1,d5
+        moveq   #0,d3
+.sharedcopy:
+        btst    d3,d2
+        beq.s   .sharednext
+        move.l  a0,a2
+        move.l  a1,a4
+        move.w  d7,d1
+        addq.w  #1,d1
+.sharedlong:
+        move.l  (a2)+,(a4)+
+        dbf     d1,.sharedlong
+.sharednext:
+        lea     G5L_RSTR(a0),a0
+        lea     G5L_RSTR(a1),a1
+        eor.w   #1,d3
+        dbf     d5,.sharedcopy
+        rts
+.sharedmiss:
+        move.l  GV_VAR(a6),(a0)+
+        move.w  GV_NREM(a6),d1
+        move.w  d1,(a0)+
+        lea     GV_REM(a6),a4
+        subq.w  #1,d1
+.sharedstore:
+        move.l  (a4)+,(a0)+
+        move.l  (a4)+,(a0)+
+        dbf     d1,.sharedstore
+        move.l  GV_RBUF(a6),GV_RSBUF(a6)
         move.l  GV_RBUF(a6),a1              ; copiar esos flujos de la limpia
         lea     12(a3),a2                   ; offsets (columna, mitad)
         move.w  d6,d5

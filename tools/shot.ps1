@@ -110,8 +110,11 @@ public static class A5Shot {
     [StructLayout(LayoutKind.Sequential)]
     public struct RECT { public int L, T, R, B; }
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+    [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int command);
     [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
     [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+    [DllImport("user32.dll")] public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
 }
 "@
 }
@@ -119,6 +122,9 @@ public static class A5Shot {
 
 function Save-Shot {
     param($Process, [string]$Path)
+    # PowerShell puede tener ya fijada la DPI del proceso. La del hilo
+    # evita rectangulos virtualizados en monitores con escala de 125%.
+    [A5Shot]::SetThreadDpiAwarenessContext([IntPtr](-4)) | Out-Null
     $h = [IntPtr]::Zero
     for ($i = 0; $i -lt 30; $i++) {
         $Process.Refresh()
@@ -134,6 +140,7 @@ function Save-Shot {
     for ($i = 0; $i -lt 20; $i++) {
         $Process.Refresh()
         $h = $Process.MainWindowHandle
+        if ([A5Shot]::IsIconic($h)) { [A5Shot]::ShowWindow($h, 9) | Out-Null }
         [A5Shot]::GetWindowRect($h, [ref]$r) | Out-Null
         if (($r.R - $r.L) -ge 640 -and ($r.B - $r.T) -ge 512) { break }
         Start-Sleep -Milliseconds 1000

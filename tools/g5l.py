@@ -1175,10 +1175,18 @@ class GameRun:
         self.fr = fr = G.Frames(cpu, B, s, Path('work/yi1_s_g5.dat').read_bytes())
         self.first, self.n = mem.r16(addr('replay') + 6), mem.r16(addr('replay') + 4)
         cpu.call(addr('game_step'), B)
+        self.cops = (G.COPA, G.COPB)
+        if 'V_COP3' in s:
+            self.cops += (0x140000,)
+            mem.w32(fr.vars + s['V_COP3'], self.cops[2])
+            # Estado solo de CPU para build_mid de la tercera lista.
+            mem.w32(fr.vars + s['V_LTC'], 0x160000 + 4 + s['GSZ'] * s['NGRP'])
         fr.init_scroll()
         _, _, sprs = G.layout(s)
         for i in range(3):
             mem.w32(addr('g_sbuf') + 4 * i, sprs + i * s['SPRBUF'])
+        if 'V_COP3' in s:
+            mem.w32(addr('g_sbuf') + 12, sprs + 3 * s['SPRBUF'] + 16)
         mem.w32(addr('g_null'), sprs + 3 * s['SPRBUF'])
         cpu.write(sprs + 3 * s['SPRBUF'], bytes(16))
         mem.w32(addr('g_data'), G.DATA)
@@ -1220,7 +1228,8 @@ def run_game(a):
         back = mem.r32(fr.vars + s['V_BACK'])
         size = s['CL_SIZE']
         snap = bytearray(cpu.read(back, size))
-        recs = gv + (s['GV_RECA'] if back == mem.r32(fr.vars + s['V_COP']) else s['GV_RECB'])
+        list_index = gr.cops.index(back)
+        recs = gv + s[('GV_RECA', 'GV_RECB', 'GV_RECC')[list_index]]
         ml = MemList(snap, back, s, nb)
         for j in range(mem.r16(recs)):
             J, w0, w1, sg = struct.unpack('>IIIH', cpu.read(recs + 2 + 16 * j, 14))
@@ -1229,7 +1238,7 @@ def run_game(a):
         ph = read_photo(mem, rec, s)
         colors = struct.unpack_from('>16H', pals, 32 * ph['pal'])
         p = plan_frame(ph, tab, colors, ml, st)
-        rbuf = gr.RBUF + (0 if back == mem.r32(fr.vars + s['V_COP']) else 4 * RSTRIDE)
+        rbuf = gr.RBUF + list_index * 4 * RSTRIDE
         expected_list(ml, p, s, gr.DMA, gr.null, gr.cdma, rbuf)
         poison = {R.D2: 0x12345602, R.D3: 0x12345603, R.D4: 0x12345604, R.D5: 0x12345605,
                   R.D6: 0x12345606, R.D7: 0x12345607, R.A2: 0x00012342, R.A6: 0x00012346}
@@ -1296,7 +1305,9 @@ def run_game(a):
         mem.w32(dc + s['DC_PLIST'], back)
         mem.w16(dc + s['DC_FRONT'], photo)
         mem.w16(dc + s['DC_REND'], 0xFFFF)
-        other = mem.r32(fr.vars + (s['V_COP2'] if back == mem.r32(fr.vars + s['V_COP']) else s['V_COP']))
+        if 'DC_FLIST' in s:
+            mem.w32(dc + s['DC_FLIST'], back)
+        other = gr.cops[(list_index + 1) % len(gr.cops)]
         mem.w32(fr.vars + s['V_BACK'], other)
         if k % 500 == 0:
             print('k=%d %s' % (k, json.dumps(dict(st), sort_keys=True)), flush=True)
