@@ -22,6 +22,11 @@ param(
     [string]$WinUAE = 'C:\Program Files\WinUAE\winuae64.exe',
     [string]$Rom    = 'C:\Users\JC\Downloads\amivideo\kick12.rom',
     [ValidateSet(0,2)][int]$SlowMem = 2,
+    # Teclas reales del host a la ventana de WinUAE (SendInput por scancode;
+    # llegan a la Amiga por el teclado emulado, no por PADTEST).  Formato:
+    # "seg:down|up|tap:TECLA;..." con TECLA en RIGHT LEFT UP DOWN Z X A S
+    # RETURN SPACE.  Los segundos cuentan desde el lanzamiento.  Exige -Every.
+    [string]$Keys = '',
     # Sin -Exact el emulador va lo mas rapido posible (blits instantaneos): la
     # IMAGEN es correcta pero cualquier medida de tiempo es falsa.  Con -Exact
     # se usa la temporizacion de a500.uae (cycle-exact): es la unica config
@@ -163,15 +168,101 @@ function Save-Shot {
 }
 
 Log "lanzando WinUAE..."
-$proc = Start-Process -FilePath $WinUAE -ArgumentList @('-f', "`"$cfg`"") -PassThru
+$uaeArgs = @('-f', "`"$cfg`"")
+# RawInput no ve bien las teclas de SendInput: con -Keys el teclado va por
+# DirectInput/mensajes de Windows.
+if ($Keys -ne '') { $uaeArgs += '-norawinput_keyboard' }
+$proc = Start-Process -FilePath $WinUAE -ArgumentList $uaeArgs -PassThru
 Log "pid $($proc.Id)"
+
+if ($Keys -ne '' -and -not ('A5Keys' -as [type])) {
+    Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public static class A5Keys {
+    [StructLayout(LayoutKind.Sequential)]
+    public struct KEYBDINPUT { public ushort wVk, wScan; public uint dwFlags, time; public IntPtr extra; }
+    [StructLayout(LayoutKind.Explicit, Size = 40)]
+    public struct INPUT { [FieldOffset(0)] public uint type; [FieldOffset(8)] public KEYBDINPUT ki; }
+    [DllImport("user32.dll", SetLastError = true)] public static extern uint SendInput(uint n, INPUT[] i, int size);
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
+    public static uint Key(ushort scan, bool ext, bool up) {
+        INPUT[] a = new INPUT[1];
+        a[0].type = 1;
+        a[0].ki.wScan = scan;
+        a[0].ki.dwFlags = 8u | (ext ? 1u : 0u) | (up ? 2u : 0u);   // SCANCODE
+        return SendInput(1, a, Marshal.SizeOf(typeof(INPUT)));
+    }
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, IntPtr pid);
+    [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
+    [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint a, uint b, bool attach);
+    [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr h);
+    [DllImport("user32.dll")] public static extern void SwitchToThisWindow(IntPtr h, bool alt);
+    [DllImport("user32.dll")] public static extern IntPtr SetFocus(IntPtr h);
+    public static bool Front(IntPtr h) {
+        if (GetForegroundWindow() == h) return true;
+        // Windows solo deja cambiar el foco al hilo que tiene la entrada:
+        // se engancha la cola de entrada del hilo en primer plano.
+        uint me = GetCurrentThreadId();
+        uint fg = GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero);
+        uint tg = GetWindowThreadProcessId(h, IntPtr.Zero);
+        AttachThreadInput(me, fg, true);
+        AttachThreadInput(me, tg, true);
+        keybd_event(0x12, 0, 0, UIntPtr.Zero);       // ALT: permite el foco
+        keybd_event(0x12, 0, 2, UIntPtr.Zero);
+        BringWindowToTop(h);
+        SetForegroundWindow(h);
+        SwitchToThisWindow(h, true);
+        SetFocus(h);
+        AttachThreadInput(me, tg, false);
+        AttachThreadInput(me, fg, false);
+        return GetForegroundWindow() == h;
+    }
+}
+"@
+}
+$scan = @{ RIGHT = @(0x4D, $true); LEFT = @(0x4B, $true); UP = @(0x48, $true);
+           DOWN = @(0x50, $true); Z = @(0x2C, $false); X = @(0x2D, $false);
+           A = @(0x1E, $false); S = @(0x1F, $false); RETURN = @(0x1C, $false);
+           SPACE = @(0x39, $false) }
+$events = @()
+foreach ($e in ($Keys -split ';' | Where-Object { $_ -ne '' })) {
+    $p = $e.Split(':')
+    $k = $p[2].ToUpper()
+    if (-not $scan.ContainsKey($k)) { Log "FALLO: tecla desconocida $k"; exit 2 }
+    if ($p[1] -eq 'tap') {
+        $events += [pscustomobject]@{ T = [double]$p[0]; Up = $false; K = $k }
+        $events += [pscustomobject]@{ T = [double]$p[0] + 0.15; Up = $true; K = $k }
+    } else {
+        $events += [pscustomobject]@{ T = [double]$p[0]; Up = ($p[1] -eq 'up'); K = $k }
+    }
+}
+$events = @($events | Sort-Object T)
 
 if ($Every -gt 0) {
     $base = [System.IO.Path]::ChangeExtension($Out, $null).TrimEnd('.')
     $t0 = Get-Date
+    $ei = 0
     for ($t = $Every; $t -le $Wait; $t += $Every) {
+        while ($ei -lt $events.Count -and $events[$ei].T -le $t) {
+            $ev = $events[$ei]
+            $left = $ev.T - ((Get-Date) - $t0).TotalSeconds
+            if ($left -gt 0) { Start-Sleep -Milliseconds ([int]($left * 1000)) }
+            $proc.Refresh()
+            $fg = [A5Keys]::Front($proc.MainWindowHandle)
+            $s = $scan[$ev.K]
+            $n = [A5Keys]::Key([uint16]$s[0], [bool]$s[1], [bool]$ev.Up)
+            Log ('tecla {0:f2}s {1} {2} (foco={3}, enviados={4})' -f ((Get-Date) - $t0).TotalSeconds, $ev.K, $(if ($ev.Up) {'up'} else {'down'}), $fg, $n)
+            $ei++
+        }
         $left = $t - ((Get-Date) - $t0).TotalSeconds
         if ($left -gt 0) { Start-Sleep -Milliseconds ([int]($left * 1000)) }
+        if ($events.Count -gt 0) {
+            $proc.Refresh()
+            Log ('foco {0}s = {1}' -f $t, [A5Keys]::Front($proc.MainWindowHandle))
+        }
         Save-Shot $proc ('{0}_{1:d3}s.png' -f $base, $t) | Out-Null
     }
 } else {
