@@ -1165,7 +1165,8 @@ class GameRun:
         self.DMA = 0x100000
         self.dma = Path(bank + '.dma').read_bytes()
         cpu.write(self.DMA, self.dma)
-        mem.w32(addr('sg3_dma'), self.DMA)
+        if 'sg3_dma' in s:                       # (G5L-R ya no carga el banco)
+            mem.w32(addr('sg3_dma'), self.DMA)
         self.cdma = addr('g5l_cdma_src')         # (en el juego: una copia en chip)
         mem.w32(addr('g5l_cdma'), self.cdma)
         self.RBUF = 0x120000                      # búfer de las bandas (en el juego, chip)

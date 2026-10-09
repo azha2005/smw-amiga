@@ -224,7 +224,16 @@ V_CBLK  equ 78                  ; su siguiente paso (0..13 bloques, 14 copia)
 V_BSKIP equ 80                  ; BENCH: frames que todavia no se cuentan
 V_MSC   equ V_MAXC+52           ; BENCH: s del peor frame con columna (82)
 V_MSN   equ V_MAXN+52           ; ... y sin columna (90)
+        ifd     CUSHION
+V_COP3  equ 92                  ; .l lista del copper C (game.s -DCUSHION)
+V_LSC   equ 96                  ; s con la que se escribio la C
+V_LTC   equ 98                  ; .l linetab_c (AllocMem, P74; gst_c y EPO
+                                ; delante, como en linetab_a/b)
+V_SIZE  equ 102
+LTC_SIZE equ 4+GSZ*NGRP+32*LINES
+        else
 V_SIZE  equ 92
+        endc
 
 CIAB_TALO   equ $bfd400
 CIAB_TAHI   equ $bfd500
@@ -406,6 +415,10 @@ scroll_init:
         bsr     build_copper
         move.l  V_COP2(a5),a0
         bsr     build_copper
+        ifd     CUSHION
+        move.l  V_COP3(a5),a0
+        bsr     build_copper
+        endc
         bsr     init_lines
         move.w  #-1,V_CCOL(a5)
         move.l  a3,a0
@@ -421,6 +434,11 @@ scroll_init:
         move.l  V_COP(a5),V_BACK(a5)
         bsr     set_pointers
         bsr     build_mid
+        ifd     CUSHION
+        move.l  V_COP3(a5),V_BACK(a5)
+        bsr     set_pointers
+        bsr     build_mid
+        endc
         move.l  V_COP2(a5),V_BACK(a5)
         bsr     set_pointers
         bsr     build_mid
@@ -590,6 +608,11 @@ set_pointers:
 ;----------------------------------------------------------------------
 apply_colors:
         move.l  a2,-(sp)
+        ifd     CUSHION
+        move.l  a3,-(sp)
+        move.l  V_COP3(a5),a3
+        lea     CL_LINES(a3),a3
+        endc
         move.l  V_CHG(a5),a0
         move.l  V_COP(a5),a1
         lea     CL_LINES(a1),a1
@@ -602,6 +625,9 @@ apply_colors:
         move.w  2(a0),d1                    ; de 32 767 desde la linea 149
         move.w  4(a0),(a1,d1.l)
         move.w  4(a0),(a2,d1.l)
+        ifd     CUSHION
+        move.w  4(a0),(a3,d1.l)
+        endc
         addq.l  #8,a0
         bra.s   .f
 .b:     cmp.w   -8(a0),d0                   ; el anterior tiene x > s: la
@@ -611,8 +637,14 @@ apply_colors:
         move.w  2(a0),d1
         move.w  6(a0),(a1,d1.l)
         move.w  6(a0),(a2,d1.l)
+        ifd     CUSHION
+        move.w  6(a0),(a3,d1.l)
+        endc
         bra.s   .b
 .done:  move.l  a0,V_CHG(a5)
+        ifd     CUSHION
+        move.l  (sp)+,a3
+        endc
         move.l  (sp)+,a2
         rts
 
@@ -634,6 +666,17 @@ init_lines:
         lea     linetab_b(pc),a0
         move.l  V_COP2(a5),d4
         bsr     .tab
+        ifd     CUSHION
+        move.l  V_LTC(a5),a0
+        move.l  V_COP3(a5),d4
+        bsr     .tab
+        move.w  #$8000,V_LSC(a5)
+        move.l  V_LTC(a5),a0
+        lea     -GSZ*NGRP(a0),a0            ; gst_c
+        moveq   #GSZ*NGRP/2-1,d0
+.gc:    clr.w   (a0)+
+        dbf     d0,.gc
+        endc
         move.w  #$8000,V_LSA(a5)
         move.w  #$8000,V_LSB(a5)
         lea     gst_a(pc),a0                ; grupos: sin agregado, frios
@@ -762,6 +805,11 @@ build_mid:
         cmp.l   V_COP(a5),a0
         beq.s   .la
         lea     V_LSB(a5),a1
+        ifd     CUSHION
+        cmp.l   V_COP2(a5),a0
+        beq.s   .la
+        lea     V_LSC(a5),a1
+        endc
 .la:    move.w  V_S(a5),d0
         move.w  (a1),d1
         cmp.w   d1,d0                       ; la camara no se movio desde la
@@ -788,8 +836,14 @@ build_mid:
         add.l   d1,a6                       ; LNS[s >> 4]
 .all:   lea     linetab_b(pc),a4
         cmp.l   V_COP(a5),a0
-        bne.s   .ta
+        bne.s   .tb
         lea     linetab_a(pc),a4
+.tb:
+        ifd     CUSHION
+        cmp.l   V_COP3(a5),a0
+        bne.s   .ta
+        move.l  V_LTC(a5),a4
+        endc
 .ta:    move.l  a4,a5                       ; OJO: a5 prestado (vars)
         lea     htab(pc),a2
         sub.w   d6,a2                       ; a2 = htab - s
@@ -1097,8 +1151,14 @@ celltab: ds.w   2*(LASTX+1)
 bm_left:
         lea     linetab_b(pc),a4
         cmp.l   V_COP(a5),a0
-        bne.s   .ta
+        bne.s   .tb
         lea     linetab_a(pc),a4
+.tb:
+        ifd     CUSHION
+        cmp.l   V_COP3(a5),a0
+        bne.s   .ta
+        move.l  V_LTC(a5),a4
+        endc
 .ta:    move.l  a4,a5                       ; OJO: a5 prestado (vars)
         cmp.w   EPO+2(a5),d1                ; la anterior no fue a la
         beq.s   .same                       ; izquierda: otra epoca

@@ -40,7 +40,11 @@ G5L_VBLN    equ 15
 G5L_NONE    equ $8000                       ; "sin carga" en last
 G5L_WRAP    equ 255-$2c                     ; el segmento que cruza la 255
 G5L_RSTR    equ 136                         ; un flujo del bufer: POS/CTL, 32 filas, fin
+        ifd     CUSHION
+G5L_RBUF_SIZE equ 3*4*G5L_RSTR              ; tres listas x 4 flujos (chip)
+        else
 G5L_RBUF_SIZE equ 2*4*G5L_RSTR              ; dos listas x 4 flujos (chip)
+        endc
 G5L_NREM    equ 5                           ; bandas reasignadas
 ; entrada del pool
 P_S         equ 0                           ; .w segmento
@@ -62,7 +66,12 @@ GV_VBL      equ GV_TRB+5*8*G5L_MAXTR        ; 15 x (.w registro, .w color)
 GV_POOL     equ GV_VBL+4*G5L_VBLN
 GV_RECA     equ GV_POOL+PSZ*G5L_NPOOL       ; .w n + n x (.l J, .l w0, .l w1, .w s)
 GV_RECB     equ GV_RECA+2+16*G5L_NPOOL
+        ifd     CUSHION
+GV_RECC     equ GV_RECB+2+16*G5L_NPOOL      ; la C (game.s -DCUSHION)
+GV_KEY      equ GV_RECC+2+16*G5L_NPOOL      ; clave del Rex: 4 B por ficha
+        else
 GV_KEY      equ GV_RECB+2+16*G5L_NPOOL      ; clave del Rex: 4 B por ficha
+        endc
 GV_ENT      equ GV_KEY+4*G5L_MAXT           ; 4 x (.w ex, .w ey, .b tile, .b attr, .w nt)
 GV_MISS     equ GV_ENT+32                   ; .l transiciones para el pase 2
 GV_BP       equ GV_MISS+4*G5L_MAXTR         ; 5 .l: fin de cada cubeta
@@ -100,6 +109,7 @@ GV_BX       equ GV_MCUR+4                   ; .w
 GV_NULLA    equ GV_BX+2                     ; .b lista A con el bloque VBL nulo
 GV_NULLB    equ GV_NULLA+1                  ; .b lista B
 GV_WSTAMP   equ GV_NULLB+1                  ; .b sello de este frame (g5l_wcache)
+GV_NULLC    equ GV_WSTAMP+1                 ; .b lista C (-DCUSHION)
 GV_MORD     equ GV_WSTAMP+2                 ; 4 B: orden LRU de la cache
 GV_KBUF     equ GV_MORD+4                   ; 52 B: clave de la pose de Mario
 GV_BITS     equ GV_KBUF+52                  ; 256 x (.b bit mas alto, .b mas bajo)
@@ -122,7 +132,13 @@ GV_PNVA     equ GV_SA+2                     ; .b colores de partida en la lista 
 GV_PNVB     equ GV_PNVA+1                   ; .b en la B
 GV_RKA      equ GV_PNVB+1                   ; clave del bufer de la lista A: .l variante,
 GV_RKB      equ GV_RKA+46                   ; .w bandas, GV_REM (g5l_patch); la B
+        ifd     CUSHION
+GV_RKC      equ GV_RKB+46                   ; la C
+GV_PNVC     equ GV_RKC+46                   ; .b colores de partida en la C
+GV_VMAP     equ GV_PNVC+2                   ; .w mapa de la variante x 6 (g5l_plan .ord)
+        else
 GV_VMAP     equ GV_RKB+46                   ; .w mapa de la variante x 6 (g5l_plan .ord)
+        endc
 GV_NEED     equ GV_VMAP+2                   ; 8 .w: choques de cada variante (-1: sin
                                             ; calcular, $7FFF: probada)
 GV_FM       equ GV_NEED+16                  ; .w variante x 4 del camino rapido
@@ -313,6 +329,12 @@ g5l_init:
         dbf     d1,.l
         clr.w   GV_RECA(a6)
         clr.w   GV_RECB(a6)
+        ifd     CUSHION
+        clr.w   GV_RECC(a6)
+        clr.b   GV_NULLC(a6)
+        move.b  #G5L_VBLN,GV_PNVC(a6)
+        clr.l   GV_RKC(a6)
+        endc
         clr.w   GV_NP(a6)
         lea     GV_SEGIX(a6),a1
         moveq   #LINES/4-1,d1
@@ -456,6 +478,12 @@ g5l_render:
         beq.s   .ra
         lea     GV_RECB(a6),a3
         add.l   #4*G5L_RSTR,d0              ; el de la B
+        ifd     CUSHION
+        cmp.l   V_COP2(a5),a2
+        beq.s   .ra
+        lea     GV_RECC(a6),a3
+        add.l   #4*G5L_RSTR,d0              ; el de la C
+        endc
 .ra:    move.l  a3,GV_REC(a6)
         move.l  d0,GV_RBUF(a6)
         addq.b  #1,GV_WSTAMP(a6)            ; recorridos de este frame
@@ -2042,6 +2070,12 @@ g5l_patch:
         cmp.l   g5l_rbuf(pc),d0
         beq.s   .ka
         lea     GV_RKB(a6),a0
+        ifd     CUSHION
+        sub.l   g5l_rbuf(pc),d0
+        cmp.l   #4*G5L_RSTR,d0
+        beq.s   .ka
+        lea     GV_RKC(a6),a0
+        endc
 .ka:    move.l  a0,a1
         move.l  GV_VAR(a6),d0
         cmp.l   (a1)+,d0
@@ -2711,11 +2745,8 @@ g5l_emit:
         add.w   d3,d0
         add.w   d3,d0
         move.l  12(a3,d0.w),d0
-        bclr    #31,d0                      ; variante limpia: su banco
-        beq.s   .bk
-        add.l   g5l_cdma(pc),d0
-        bra.s   .bk2
-.bk:    add.l   sg3_dma(pc),d0
+        bclr    #31,d0                      ; (G5L-R: solo variantes limpias,
+        add.l   g5l_cdma(pc),d0             ; sin el banco G3)
 .bk2:   addq.l  #4,d0
         moveq   #0,d4
         move.w  d6,d4
@@ -2753,6 +2784,12 @@ g5l_emit:
         cmp.l   GV_REC(a6),a1
         beq.s   .pa
         addq.l  #1,a0
+        ifd     CUSHION
+        lea     GV_RECB(a6),a1
+        cmp.l   GV_REC(a6),a1
+        beq.s   .pa
+        lea     GV_PNVC(a6),a0
+        endc
 .pa:    moveq   #0,d2
         move.b  (a0),d2
         move.b  d1,(a0)
@@ -2921,6 +2958,12 @@ g5l_vblnull:
         cmp.l   GV_REC(a6),a2
         beq.s   .pa
         addq.l  #1,a0
+        ifd     CUSHION
+        lea     GV_RECB(a6),a2
+        cmp.l   GV_REC(a6),a2
+        beq.s   .pa
+        lea     GV_PNVC(a6),a0
+        endc
 .pa:    clr.b   (a0)
 .x:     rts
 
@@ -2933,6 +2976,12 @@ g5l_nullflag:
         cmp.l   GV_REC(a6),a1
         beq.s   .a
         addq.l  #1,a0
+        ifd     CUSHION
+        lea     GV_RECB(a6),a1
+        cmp.l   GV_REC(a6),a1
+        beq.s   .a
+        lea     GV_NULLC(a6),a0
+        endc
 .a:     move.l  (sp)+,a1
         rts
 

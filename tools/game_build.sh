@@ -46,7 +46,10 @@ case " $GDEFS " in
         case " $CDEFS " in *" -DSPR_G5"*) echo "ERROR: G5L no usa el C de SPR_G5"; exit 1 ;; esac
         [ -n "$SPR_BANK" ] || { echo "ERROR: G5L requiere SPR_BANK"; exit 1; }
         YDAT=work/yi1_s_g5.dat
-        $PY tools/g5l.py mk --bank "$SPR_BANK" ;;
+        $PY tools/g5l.py mk --bank "$SPR_BANK"
+        # G5L-R solo dibuja variantes limpias (g5l_cdma): el banco G3 hace
+        # falta para la tabla (arriba), no en el juego (65 KB de chip menos)
+        SPR_BANK= ;;
 esac
 OUT=${OUT:-work}
 if [ -n "$SPR_BANK" ]; then

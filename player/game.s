@@ -70,8 +70,8 @@ DECOUPLE    equ 1
         ifd     SPR_G5
         fail    "G5L reemplaza a SPR_G5 (B2bis): no usar los dos"
         endc
-        ifnd    SPR_BANK
-        fail    "G5L requiere SPR_BANK (el banco DMA del Rex)"
+        ifd     SPR_BANK
+        fail    "G5L dibuja sin el banco G3 (sus variantes limpias, g5l_cdma)"
         endc
         ifnd    SPR_OAM
         fail    "G5L requiere SPR_OAM (la OAM de los enemigos)"
@@ -80,6 +80,17 @@ DECOUPLE    equ 1
         fail    "G5L requiere O5 (DECOUPLE)"
         endc
 SPR_G5      equ 1                           ; solo el layout de la lista
+        endc
+        ifd     CUSHION
+        ifnd    DECOUPLE
+        fail    "CUSHION requiere O5 (DECOUPLE)"
+        endc
+        ifnd    REPLAY
+        fail    "CUSHION (prueba) solo en el replay"
+        endc
+        ifd     HZ25
+        fail    "CUSHION y HZ25 no van juntos"
+        endc
         endc
 
 ; una sola seccion (como logicbench.s: vasm -Fbin)
@@ -90,6 +101,18 @@ SPR_G5      equ 1                           ; solo el layout de la lista
 GETBASE macro
 .b\@:   lea     .b\@(pc),\1
         sub.l   #.b\@-binstart,\1
+        endm
+
+; FBSR rutina: bsr lejano por a0 (la rutina tiene que destruir a0). Con
+; -DBENCH -DCUSHION, dc_loop queda a mas de 32 KB de scroll.s (P102)
+FBSR    macro
+        ifd     CUSHION
+.f\@:   lea     .f\@(pc),a0
+        add.l   #\1-.f\@,a0
+        jsr     (a0)
+        else
+        bsr     \1
+        endc
         endm
 
         ifd     BENCH
@@ -349,6 +372,21 @@ entry:
         tst.l   d0
         beq     gfail
         move.l  d0,V_COP2(a5)
+        ifd     CUSHION
+        move.l  #CL_SIZE+CL_TAIL,d0         ; la tercera (el colchon)
+        move.l  #MEMF_CHIP|MEMF_CLEAR,d1
+        jsr     _LVOAllocMem(a6)
+        tst.l   d0
+        beq     gfail
+        move.l  d0,V_COP3(a5)
+        move.l  #LTC_SIZE,d0                ; su estado en build_mid (CPU)
+        move.l  #MEMF_CLEAR,d1
+        jsr     _LVOAllocMem(a6)
+        tst.l   d0
+        beq     gfail
+        add.l   #4+GSZ*NGRP,d0
+        move.l  d0,V_LTC(a5)
+        endc
         ifd     G5L
         move.l  #G5L_CDMA_SIZE+G5L_RBUF_SIZE,d0 ; flujos de las variantes limpias
         move.l  #MEMF_CHIP,d1               ; del Rex (g5l.py) y el bufer de las
@@ -368,7 +406,7 @@ entry:
         dbf     d1,.g5c
         endc
         ifd     DECOUPLE
-        move.l  #3*SPRBUF+16,d0             ; Mario (3 fotos) + nulo
+        move.l  #NSPRB*SPRBUF+16,d0         ; Mario (una por foto) + nulo
         else
         move.l  #2*SPRBUF+12,d0             ; Mario (una por lista) + nulo
         endc
@@ -384,6 +422,10 @@ entry:
         move.l  d1,4(a0)
         add.l   #SPRBUF+16,d1
         move.l  d1,8(a0)
+        ifd     CUSHION
+        add.l   #SPRBUF,d1
+        move.l  d1,12(a0)
+        endc
         endc
         lea     g_spra(pc),a0
         move.l  d0,(a0)+                    ; g_spra
@@ -1343,7 +1385,11 @@ g_lpal: dc.b    $ff,$ff                     ; paleta de Mario en la lista A, B
 ; registros guardados; el C se llama como siempre (callframe: a4 =
 ; binstart).
 ;----------------------------------------------------------------------
+        ifd     CUSHION
+NSPRB       equ 4                           ; + la publicada que espera
+        else
 NSPRB       equ 3                           ; buffers de sprites (fotos)
+        endc
 ; una foto por buffer (dc_rec + DC_REC * i)
 R_S         equ 0                           ; .w s
 R_PAL       equ 2                           ; .b paleta de Mario (0..7)
@@ -1385,7 +1431,12 @@ DC_REP      equ 36                          ; VBL sin imagen nueva
 DC_LATE     equ 38                          ; frames en que la logica no empezo
                                             ; en su COPER (no llego, o la del
                                             ; frame anterior seguia)
+        ifd     CUSHION
+DC_FLIST    equ 40                          ; .l la lista que se ve
+DC_SIZE     equ 44
+        else
 DC_SIZE     equ 40
+        endc
 
 ; --- dc_vbl --- interrupcion de nivel 3: VERTB (linea 0) y COPER (la cola
 ; de la lista, linea 272). Las dos guardan todos los registros.
@@ -1465,8 +1516,24 @@ dc_vb:
         endc
         lea     dc_st(pc),a2
         bsr     dc_act
+        ifd     HZ25
+        lea     dc_tick(pc),a0              ; muestra de 25 Hz: la imagen
+        not.b   (a0)                        ; solo cambia en VBL alternos
+        bne.s   .nosw
+        endc
         move.w  DC_PEND(a2),d0
         bmi.s   .nosw
+        ifd     CUSHION
+        tst.w   d7                          ; colchon: la foto se ve 2 frames
+        beq.s   .cok                        ; logicos despues de hecha (sin
+        bsr     dc_recp                     ; logica: ya)
+        move.w  DC_NLOG(a2),d1
+        sub.w   R_FRAME(a0),d1
+        cmp.w   #2,d1
+        blt.s   .nosw
+        move.w  DC_PEND(a2),d0
+.cok:   move.l  DC_PLIST(a2),DC_FLIST(a2)
+        endc
         move.l  DC_PLIST(a2),COP1LC(a4)
         move.w  d0,COPJMP1(a4)
         move.w  d0,DC_FRONT(a2)
@@ -1626,6 +1693,10 @@ dc_capture:
 .ps:    moveq   #0,d6
 .w:     cmp.w   d5,d6
         beq.s   .wn
+        ifd     CUSHION
+        cmp.w   DC_FRONT(a2),d6             ; (la publicada espera: la que
+        beq.s   .wn                         ; se ve sigue)
+        endc
         cmp.w   DC_REND(a2),d6
         bne.s   .wok
 .wn:    addq.w  #1,d6
@@ -1790,6 +1861,10 @@ dc_init:
         move.w  d0,DC_REND(a2)
         move.w  d0,DC_NEW(a2)
         move.w  d0,DC_LBUF(a2)
+        ifd     CUSHION
+        lea     dc_lbuf3(pc),a0
+        move.l  d0,(a0)
+        endc
         moveq   #0,d0                       ; no cuenta
         bsr     dc_capture
         move.w  d0,DC_FRONT(a2)             ; la que se ve al tomar la maquina
@@ -1801,6 +1876,14 @@ dc_init:
         move.l  V_COP2(a5),V_BACK(a5)
         bsr     dc_hdr
         bsr     dc_null
+        ifd     CUSHION
+        move.l  V_COP3(a5),V_BACK(a5)
+        bsr     dc_hdr
+        bsr     dc_null
+        move.l  V_COP3(a5),a0
+        bsr     dc_puttail
+        move.l  V_COP(a5),DC_FLIST(a2)      ; la que se ve al tomar la maquina
+        endc
         move.l  (sp)+,V_BACK(a5)
         move.l  V_COP(a5),a0                ; las colas: la COPER a las 272
         bsr     dc_puttail
@@ -1856,7 +1939,14 @@ dc_hdr:
         cmp.l   V_COP(a5),a1
         beq.s   .a
         moveq   #1,d1
+        ifd     CUSHION
+        cmp.l   V_COP2(a5),a1
+        beq.s   .a
+        moveq   #2,d1                       ; (C)
+.a:     lea     dc_lbuf3(pc),a0
+        else
 .a:     lea     dc_st+DC_LBUF(pc),a0
+        endc
         cmp.b   (a0,d1.w),d7                ; P40 ok (0..1)
         beq.s   .pal
         move.b  d7,(a0,d1.w)                ; P40 ok
@@ -1877,7 +1967,11 @@ dc_hdr:
         bsr     dc_recp
         moveq   #0,d0
         move.b  R_PAL(a0),d0
+        ifd     CUSHION
+        lea     g_lpal3(pc),a0
+        else
         lea     g_lpal(pc),a0
+        endc
         cmp.b   (a0,d1.w),d0                ; P40 ok (0..1)
         beq.s   .x
         move.b  d0,(a0,d1.w)                ; P40 ok
@@ -1935,12 +2029,21 @@ dc_loop:
         bra.s   dc_loop
 .nd:
         endc
+        ifd     CUSHION
+        move.w  DC_NEW(a2),d0               ; colchon: la tercera lista esta
+        bmi.s   dc_loop                     ; libre aunque la publicada espere
+        cmp.w   DC_FRONT(a2),d0
+        beq.s   dc_loop                     ; ninguna foto nueva
+        cmp.w   DC_PEND(a2),d0
+        beq.s   dc_loop                     ; ya dibujada, esperando el VBL
+        else
         tst.w   DC_PEND(a2)
         bpl.s   dc_loop                     ; lo publicado todavia no se ve
         move.w  DC_NEW(a2),d0
         bmi.s   dc_loop
         cmp.w   DC_FRONT(a2),d0
         beq.s   dc_loop                     ; ninguna foto nueva
+        endc
         move.w  DC_NEW(a2),DC_REND(a2)      ; tomarla (una instruccion)
         ifd     BENCH
         GBR     6
@@ -1948,12 +2051,12 @@ dc_loop:
         move.w  DC_REND(a2),d0
         bsr     dc_recp
         move.w  R_S(a0),V_S(a5)
-        bsr     columns
+        FBSR    columns
         ifd     BENCH
         GBR     7
         endc
-        bsr     apply_colors
-        bsr     set_pointers
+        FBSR    apply_colors
+        FBSR    set_pointers
         ifd     BENCH
         GBR     8
         endc
@@ -1993,6 +2096,10 @@ dc_loop:
         jsr     (a0)                        ; C2b: consulta y firmas, no emite aun
         endc
         lea     dc_st(pc),a2
+        ifd     CUSHION
+.pw:    tst.w   DC_PEND(a2)                 ; el hueco: la publicada antes ya
+        bpl.s   .pw                         ; se ve
+        endc
         move.l  V_BACK(a5),DC_PLIST(a2)     ; publicar (en este orden: la
         ifd     D1TRACE
         bsr     d1_publish
@@ -2000,10 +2107,26 @@ dc_loop:
         move.w  d7,DC_PEND(a2)              ; interrupcion nunca ve la foto
         move.w  #-1,DC_REND(a2)             ; libre)
         addq.w  #1,DC_NPUB(a2)
+        ifd     CUSHION
+        move.l  V_BACK(a5),d1               ; la siguiente: ni la publicada ni
+        move.l  DC_FLIST(a2),d2             ; la que se ve
+        move.l  V_COP(a5),d0
+        cmp.l   d1,d0
+        beq.s   .c1
+        cmp.l   d2,d0
+        bne.s   .sw
+.c1:    move.l  V_COP2(a5),d0
+        cmp.l   d1,d0
+        beq.s   .c2
+        cmp.l   d2,d0
+        bne.s   .sw
+.c2:    move.l  V_COP3(a5),d0
+        else
         move.l  V_COP(a5),d0                ; la otra lista, para la siguiente
         cmp.l   V_BACK(a5),d0
         bne.s   .sw
         move.l  V_COP2(a5),d0
+        endc
 .sw:    move.l  d0,V_BACK(a5)
         ifd     BENCH
         GBR     10
@@ -2091,6 +2214,13 @@ g_data:  dc.l   0                           ; a3: datos del scroll
         endc
 
 dc_st:   ds.b   DC_SIZE
+        ifd     HZ25
+dc_tick: dc.w   0                           ; VBL par / impar (-DHZ25)
+        endc
+        ifd     CUSHION
+dc_lbuf3: dc.b  $ff,$ff,$ff,0               ; DC_LBUF de las listas A, B, C
+g_lpal3: dc.b   $ff,$ff,$ff,0               ; g_lpal de las listas A, B, C
+        endc
 dc_busy: dc.b   0                           ; la logica esta corriendo
 dc_ran:  dc.b   0                           ; la COPER llego en este frame
         even
@@ -2278,10 +2408,10 @@ gb_begin:
 ; scroll_frame con sellos (copia: ver arriba)
 gb_scroll_frame:
         GBS     6
-        bsr     columns
+        FBSR    columns
         GBS     7
-        bsr     apply_colors
-        bsr     set_pointers
+        FBSR    apply_colors
+        FBSR    set_pointers
         GBS     8
         ifnd    NOMID
         bsr     build_mid
