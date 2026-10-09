@@ -262,7 +262,7 @@ Lo esencial:
 | C (cuando haga falta) | vbcc `+kick13` (sin libc; ver §7) |
 | Python | `C:/Users/JC/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe` (Pillow, **sin numpy**) |
 | Emulador | WinUAE `C:\Program Files\WinUAE\winuae64.exe` |
-| Kickstart | **1.2**, `C:\Users\JC\Downloads\amivideo\kick12.rom` |
+| Kickstart | **1.2**, `C:\Users\JC\Downloads\amivideo\kick12.rom`; **1.3** (desde 2026-10-09), `C:\Users\JC\Desktop\Escritorio 26\Escritorio 25\jueguitos p amiga\Kickstart v1.3 r34.005 (1987-12)(Commodore)(A500-A1000-A2000-CDTV)[!].rom` (`shot.ps1 -Rom`, P118) |
 
 **Arranque:** sin AmigaDOS ni hunks (`HUNK_RELOC32SHORT` da "error 121" en KS
 1.x). `player/boot.s` es un bootblock propio que lee el stage 2 en crudo con
@@ -372,7 +372,7 @@ En español. Cada rutina de hardware (blitter/copper) lleva arriba:
 Índice, una línea por trampa. **El texto completo (causa, síntoma, arreglo y
 comandos) está en `docs/pitfalls.md`, textual**: leer ahí las del área que se
 toca antes de cambiar nada. Una trampa nueva se agrega allí y aquí con el
-número siguiente (**la próxima es P117**).
+número siguiente (**la próxima es P120**).
 
 - **P1** El layout de paletas de SMW no es un array 8×16. ✅ RESUELTO
 - **P2** El blitter tiene prioridad sobre la CPU y la "roba" ciclos
@@ -492,6 +492,9 @@ número siguiente (**la próxima es P117**).
 - **P114** Cpre: stamp lógico y fuente gráfica divergen en SKIP/SYNC; firmas B1 impares
 - **P115** Con el colchón, un VBL repetido siempre se paga con una foto salteada (tirón del Rex)
 - **P116** La clave de la caché de Mario solo debe tener los punteros GFX32 que leen sus fichas
+- **P117** Teclado real en WinUAE: RawInput ignora `SendInput`; el Koopa deslizante mata al empezar (fiel)
+- **P118** PowerShell: `Test-Path` toma los corchetes como comodín (`-LiteralPath`)
+- **P119** `restart_verify.py` no vale sobre un build con `Z1STOP`
 
 ---
 
@@ -511,7 +514,7 @@ número siguiente (**la próxima es P117**).
 | **D10** | Ancho de pantalla | **256 px**, como la SNES (el scroll de hoy muestra 320) | **cerrado** (usuario, 2026-09-26): encuadre y aparición de enemigos 1:1, vuelve el sprite 7, 20 % menos de DMA |
 | **D11** | HUD | **superpuesto (overlay)** con el copper sobre PF1 | **cerrado** (usuario, 2026-09-26), "si se puede": ver `ROADMAP.md` Etapa 10 |
 | **D12** | Power-ups | **todos los de Yoshi's Island 1**: seta, flor + bolas de fuego, estrella, 1-UP, luna 3-UP, champiñón invisible (no hay pluma en el nivel) | **cerrado** (usuario, 2026-09-26) |
-| **D13** | Carga y memoria | loader propio con `trackdisk`; lo que lee el chipset a chip RAM y el código y los datos de CPU a `$C00000`, todo en **direcciones fijas enlazadas en absoluto** (vlink) | **cerrado** (usuario, 2026-09-26); esquema en `ROADMAP.md` §3 |
+| **D13** | Carga y memoria | loader propio con `trackdisk`; lo que lee el chipset a chip RAM y el código y los datos de CPU a `$C00000`, todo en **direcciones fijas enlazadas en absoluto** (vlink) | **cerrado** (usuario, 2026-09-26); esquema en `ROADMAP.md` §3. **2026-10-09**: el vivo arranca por defecto con BM1 (MFM propio, sin `trackdisk`, mapa fijo), KS 1.2 y 1.3; **sin A501 no carga** (rojo estable, decisión del usuario). Replay y BENCH siguen con `trackdisk` |
 | **D14** | Controles | **teclado primero** (flechas, Z = B, X = A, A = Y, S = X, Return = Start, Shift der. = Select), joystick como alternativa | **cerrado** (usuario, 2026-09-26) |
 | **D15** | Velocidad (ROM NTSC en una Amiga PAL) | **se acepta el 83 %**, como la SNES PAL | **cerrado** (usuario, 2026-09-30), `docs/plan-tecnico.md` §10.12 |
 | **D16** | Zona de la tubería (`obj-1.lv`, 2 pantallas) | **entra en el alcance** | **cerrado** (usuario, 2026-09-30), `docs/plan-tecnico.md` §10.10 |

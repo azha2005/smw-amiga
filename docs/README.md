@@ -74,8 +74,10 @@
 | `instrucciones-bm1.md` | 2026-10-09 | Medir Exec, supervisor, MFM propio y arenas fijas, con KS 1.2/1.3 |
 | `informe-bm1-1009.md` | 2026-10-09 | Exec retiene 23016 B, MFM/fijo KS 1.2 opt-in recupera 18920 B; KS 1.3 pendiente |
 | `informe-bm1-limites-1009.md` | 2026-10-09 | Tope de sincronías MFM corruptas: 84 casos, boot 988 B; Z1 final |
-| `instrucciones-g5l-r-cierre.md` | 2026-10-09 | Cerrar teclado/RETURN y hacer G5L+CUSHION defecto solo con puertas verdes |
-| `instrucciones-bm1-cierre.md` | 2026-10-09 | Cerrar KS1.3, alcance sin A501 y tiempo trackdisk comparable |
+| `instrucciones-g5l-r-cierre.md` | 2026-10-09 | Procedimiento ejecutado: teclado/RETURN y G5L+CUSHION por defecto |
+| `instrucciones-bm1-cierre.md` | 2026-10-09 | Procedimiento ejecutado: KS 1.3, sin A501 y tiempo trackdisk comparable |
+| `informe-cierre-v-bm1-1009.md` | 2026-10-09 | V y BM1 cerradas: teclado real, defectos nuevos (BM1 en el vivo), KS 1.3, 31,96 s contra 33,02 s |
+| `instrucciones-g5l-r-t2.md` | 2026-10-09 | Medir por frame qué causa los 25 saltos de VBTRACE antes de otro candidato |
 | `instrucciones-g2t-cpre.md` | 2026-10-08 | G2T-Cpre: emisor `g5_emit` y capturas WinUAE (0/57 344 px) con el plan precalculado en el replay, antes de terminar B |
 | `instrucciones-revision-1007.md` | 2026-10-07 | revisión propuesta tras las dos paradas: diagnóstico de coste OAM y contrato temporal, antes de nueva implementación |
 | `informe-revision-loam-1007.md` | 2026-10-07 | revisión L-OAM: coste de OAM por función en YI1 y estrés (Musashi y WinUAE), por qué el estrés sale peor, y una tarjeta (ruta de la piraña en asm) |

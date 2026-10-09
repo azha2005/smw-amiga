@@ -1040,3 +1040,25 @@ caminando), y la caché de 4 poses fallaba en cada foto: `g5l_mfill`
 ninguna ficha de las entradas lee (misma regla que `g5l_gtile`: `$7F` el
 par 10, `t < $20` con `(t & 15) < 10` el `(t & 15) / 2`, +5 abajo).
 `g5l_mfill` sigue leyendo los punteros reales de la foto.
+
+**P117 — Teclado real en WinUAE: RawInput ignora `SendInput`, y el Koopa deslizante mata al empezar.**
+`shot.ps1 -Keys` manda scancodes con `SendInput` tras tomar el foco con
+`AttachThreadInput` (sin eso `SetForegroundWindow` falla desde un proceso
+de fondo). Con el teclado por RawInput (lo normal en WinUAE) las teclas
+llegan a Windows pero **no a la Amiga**; hay que lanzar WinUAE con
+`-norawinput_keyboard` (el script lo agrega con `-Keys`). Al probar: el
+Koopa sin caparazón `$BD` baja la colina y mata a Mario quieto (220
+frames) o andando a la derecha desde el inicio (x $21). Es fiel: snesorc
+muere igual. Para no confundirlo con un fallo de entrada, leer la
+página 2 del diagnóstico con `diag_read.py --repro`.
+
+**P118 — PowerShell: `Test-Path` toma los corchetes como comodín.**
+La ROM `Kickstart v1.3 r34.005 (...)[!].rom` "no existe" para `Test-Path`
+sin `-LiteralPath`. `shot.ps1` comprueba ADF, ROM y WinUAE con
+`-LiteralPath` desde el 2026-10-09.
+
+**P119 — `restart_verify.py` no vale sobre un build con `Z1STOP`.**
+La prueba de latencia de `dc_vb` falla con y sin BM1 (`work/g5l/z1n`):
+`Z1STOP` es solo para la captura reproducible. El reinicio se verifica
+con `restart_verify.py` sobre el vivo sin el flag (`regress.py --g5l
+--bm1`) y la captura Z1 con `diag_read.py` (frame 411, X 0010 Y 0160).

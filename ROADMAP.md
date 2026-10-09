@@ -50,6 +50,16 @@
 
 ## 1. Estado por etapa (al 2026-10-09)
 
+**Cierre V/BM1 (2026-10-09 noche, rama g2t-b2bis, sin integrar):**
+G5L-R-V y BM1 cerradas (`docs/informe-cierre-v-bm1-1009.md`). Teclado
+real en WinUAE KS 1.2/1.3 (`shot.ps1 -Keys`, P117), historial reproducido
+por la PC; el usuario jugó el vivo. Defectos `53e6453`: G5L+CUSHION+
+SPR_OAM, vivo con boot BM1 (sin A501 no carga); `PROFILE=legacy` = los
+cinco MD5 del informe T. BM1 KS 1.3: datos/píxeles exactos, Z1, rojo sin
+A501; carga 31,96 s contra 33,02 s de trackdisk (WinUAE, TOD de CIA-A,
+`-DLOADTIME`). Memmap por defecto: replay chip 483808/slow 401224 B, vivo
+499432/454072 B. BENCH del defecto: 66 fotos, racha 1. D1 roja.
+
 **Avance T/V/BM1 (2026-10-09, rama g2t-b2bis, sin integrar):**
 T detenida tras dos candidatos: 66 fotos BENCH, racha 1 (base 67; control
 con colchón 9); máscara especializada 65/racha 2 retirada. VBTRACE sin
@@ -235,6 +245,10 @@ cambiable en un solo lugar (una tabla).
 
 ## 4. Olas y sesiones (revisado el 2026-10-09)
 
+2026-10-09 (noche): V y BM1 cerradas en una sesión; queda T2 (medida de
+los tirones, 1 sesión estimada) antes de otro candidato. Total restante
+estimado sin cambios: **10-13**.
+
 2026-10-09: T llegó a su parada (dos candidatos, 66/65 BENCH; segundo
 retirado por racha2). V ya funciona opt-in: falta teclado real y defecto.
 BM1 MFM/fijo KS1.2 entregado WIP: falta KS1.3 y control de carga comparable.
@@ -336,6 +350,10 @@ O5 es el modo por defecto (`-DNODECOUPLE` = bucle viejo); si cambia
 ---
 
 ## 7. Cierre de sesión (obligatorio)
+
+2026-10-09 (noche): cierre V/BM1 (`1cab075`, `143c9ea`, `53e6453`),
+defectos nuevos, P117-P119, 9 worktrees borrados. Archivado PROXIMO;
+nueva tarjeta G5L-R-T2 (`docs/instrucciones-g5l-r-t2.md`).
 
 2026-10-09: G5L-R (`9c84534`, `c90e961`, `052dac2`), colchón aceptado por
 el usuario, tirones diagnosticados (P115/P116), 67 fotos. Archivado
