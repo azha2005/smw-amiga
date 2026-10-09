@@ -28,7 +28,7 @@ for sc in back sprites yi1; do
         [ "$v" = nooam ] && c='-DNOOAM'
         [ "$v" = g3 ] && b=$BANK
         out=work/${P}_${sc}_$v
-        if env SPR_BANK="$b" CDEFS="$c" GDEFS='-DREPLAY -DBENCH' ORACLE="$oracle" REPLAY="$replay" \
+        if env PROFILE=legacy SPR_BANK="$b" CDEFS="$c" GDEFS='-DREPLAY -DBENCH' ORACLE="$oracle" REPLAY="$replay" \
                OUT="$out" sh tools/game_build.sh > "$out.log" 2>&1 \
            && ! grep -q 'ERROR PIC' "$out.log"; then
             echo "ok     $out/game.adf"

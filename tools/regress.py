@@ -496,7 +496,7 @@ def game_checks(r):
         r.note("game (Musashi)", False, "no encuentro vbcc (VBCC=...): sin game.bin")
         return
     out_dir = "work/rg_game"
-    env = dict(os.environ, VBCC=v, NOCC="1", OUT=out_dir)
+    env = dict(os.environ, VBCC=v, NOCC="1", OUT=out_dir, PROFILE="legacy")   # control historico, sin G5L
     code, out = sh(["sh", "tools/game_build.sh"], env=env, timeout=1800)
     r.logs["game_build"] = out
     if code:
