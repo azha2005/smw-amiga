@@ -85,9 +85,6 @@ SPR_G5      equ 1                           ; solo el layout de la lista
         ifnd    DECOUPLE
         fail    "CUSHION requiere O5 (DECOUPLE)"
         endc
-        ifnd    REPLAY
-        fail    "CUSHION (prueba) solo en el replay"
-        endc
         ifd     HZ25
         fail    "CUSHION y HZ25 no van juntos"
         endc
@@ -1245,7 +1242,13 @@ loadstate:
         dbf     d2,.k2b
         dbf     d1,.k2
         move.b  #$07,$1931(a2)              ; wm_LvHeadTileset (no se graba)
+        ifd     CUSHION
+        GETBASE a1                          ; el vivo crece mas alla de 32 KB
+        add.l   #spr_lv-binstart,a1
+        move.b  (a1),d0
+        else
         move.b  spr_lv(pc),d0               ; wm_SpriteMemory
+        endc
         and.b   #$3f,d0
         move.b  d0,$1692(a2)
         move.b  #$ff,$1430(a2)              ; Lowest/HighestSolidSprTile
@@ -2214,11 +2217,27 @@ dc_restart:
         bsr     bwait
         move.w  #$01a0,DMACON(a4)           ; parar lectores de listas/PF/sprites
         move.w  #0,COLOR00(a4)
+        ifd     CUSHION
+        move.w  g_restart(pc),d0
+        cmp.w   #2,d0
+        bne.s   .death
+        bsr     live_restart                ; salir del diagnostico: juego nuevo
+        bra.s   .loaded
+.death:
+        endc
         bsr     live_death_restart
+        ifd     CUSHION
+.loaded:
+        endc
         bsr     cam_to_s
         bsr     scroll_init                 ; reconstruir ambas listas y ventana
+        ifd     CUSHION
+        lea     g_lpal3(pc),a0
+        move.l  #$ffffff00,(a0)              ; invalidar las tres paletas
+        else
         lea     g_lpal(pc),a0
         move.w  #$ffff,(a0)                 ; invalidar paletas de las dos listas
+        endc
         bsr     dc_init                     ; fotos/punteros/colas nuevos
         bsr     bwait
         move.l  V_COP(a5),COP1LC(a4)
@@ -3133,10 +3152,14 @@ m16_at:
 ; la franja en la lista que se ve y las dos pantallas dibujadas
 diag_enter:
         movem.l d2-d7/a2-a6,-(sp)
+        ifd     CUSHION
+        move.l  dc_st+DC_FLIST(pc),d0        ; la visible, no adivinar entre tres
+        else
         move.l  V_COP(a5),d0                ; la lista que se ve desde el
         cmp.l   V_BACK(a5),d0               ; frame siguiente: la que no es
         bne.s   .l                          ; V_BACK
         move.l  V_COP2(a5),d0
+        endc
 .l:     lea     g_dlist(pc),a0
         move.l  d0,(a0)
         bsr     diag_render
@@ -3213,7 +3236,13 @@ diag_exit:
         endc
         lea     g_diag(pc),a0
         clr.w   (a0)
+        ifd     CUSHION
+        lea     g_restart(pc),a0            ; reconstruir en el bucle, no en IRQ
+        move.w  #2,(a0)
+        rts
+        else
         bra     live_restart
+        endc
         endc
 
 ; --- diag_frame --- un frame congelado: teclas y tiempo

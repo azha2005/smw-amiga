@@ -14,6 +14,9 @@ def main():
     path = args.dir or ('work/z1-old' if args.node else 'work/live')
     code = open(path + '/game.bin', 'rb').read()
     s = V.symbols(path + '/game.lst')
+    cushion = 'V_COP3' in s
+    if cushion:
+        G.DATA, G.BUF1, G.COPA, G.COPB, G.SPRS, G.FAKE = 0x70000, 0xB0000, 0xC0000, 0xD0000, 0xE0000, 0xF0000
     c = V.MusashiCPU()
     # read_input usa también CIA-A: memoria completa para sus direcciones.
     c.m = c.M.Machine(c.M.CPUType.M68000, 16384)
@@ -50,7 +53,7 @@ def main():
     c.write(addr('_level_sprites'), bytes([1]))
     call('live_defaults')
     # live_init toma esta copia antes de live_start y después de los punteros.
-    save = 0xD0000
+    save = 0x1B0000 if cushion else 0xD0000
     initial = c.read(addr('cdata0'), s['cdata1'] - s['cdata0'])
     map0 = c.read(addr('map16'), 2 * s['MAPHALF'])
     c.write(save, initial + map0)
@@ -92,6 +95,14 @@ def main():
     fr = G.Frames(c, B, s, open(ydat, 'rb').read())
     for n, val in [('V_BUF1', G.BUF1), ('V_COP', copa), ('V_COP2', copb)]:
         c.mem.w32(addr('vars') + s[n], val)
+    cops = [copa, copb]
+    if cushion:
+        cops.append(0x140000)
+        c.mem.w32(addr('vars') + s['V_COP3'], cops[2])
+        c.mem.w32(addr('vars') + s['V_LTC'], 0x160000 + 4 + s['GSZ'] * s['NGRP'])
+    if 'g5l_cdma' in s:
+        w32('g5l_cdma', addr('g5l_cdma_src'))
+        w32('g5l_rbuf', 0x120000)
     c.mem.w16(G.FAKE + s['INTENAR'], 0x4030)
     if args.node:
         w32('g_spra', sprs)
@@ -114,6 +125,8 @@ def main():
         return
     for i in range(3):
         c.mem.w32(addr('g_sbuf') + 4 * i, sprs + i * s['SPRBUF'])
+    if cushion:
+        c.mem.w32(addr('g_sbuf') + 12, sprs + 3 * s['SPRBUF'] + 16)
     w32('g_null', sprs + 3 * s['SPRBUF'])
     w32('g_data', G.DATA)
     call('cam_to_s', True)
@@ -141,7 +154,7 @@ def main():
     front = c.mem.r16(addr('dc_st') + s['DC_FRONT'])
     buffer = c.mem.r32(addr('g_sbuf') + front * 4)
     assert any(c.read(buffer + 4, s['SPRBUF'] - 4)), 'Mario reaparece sin gráfico'
-    for cop in [copa, copb]:
+    for cop in cops:
         spr0 = cop + s['CL_SPR']
         pointer = c.mem.r16(spr0 + 2) << 16 | c.mem.r16(spr0 + 6)
         assert pointer == buffer, 'lista apunta a foto vieja'
@@ -193,6 +206,42 @@ def main():
         call('live_logic')
         assert c.cpu.r_reg(R.D0) == s['MOT_MUERTE'], (mode, mid, c.cpu.r_reg(R.D0), c.mem.r8(ram + 0x13), c.mem.r8(ram + 0x1496))
         assert c.mem.r16(addr('g_restart')) == 0
+    if cushion:
+        # La franja va en la lista visible incluso cuando esta es C.
+        w32('g_dmem', 0x180000)
+        dc = addr('dc_st')
+        for cop in cops:
+            c.mem.w32(dc + s['DC_FLIST'], cop)
+            call('diag_enter', True)
+            assert c.mem.r32(addr('g_dlist')) == cop
+            assert c.mem.r16(cop + 6) == s['DIWE_DIAG']
+            call('diag_exit', True)
+            assert c.mem.r16(addr('g_restart')) == 2
+            assert c.mem.r16(cop + 6) == s['DIWE']
+            call('dc_restart', True)
+            assert c.mem.r8(ram + 0xDBE) == 4, 'diagnostico no inicio juego nuevo'
+            assert c.mem.r32(dc + s['DC_FLIST']) == copa
+            assert c.mem.r16(addr('g_restart')) == 0
+            for rebuilt in cops:
+                assert c.mem.r16(rebuilt + 6) == s['DIWE']
+        # Latencia logica real de dc_vb: publicar una foto de entrada y
+        # comprobar que no se ve antes de dos ticks nuevos.
+        c.mem.w16(dc + s['DC_NLOG'], 100)
+        c.cpu.w_reg(R.D0, 1)
+        c.cpu.w_reg(R.A4, G.FAKE)
+        c.cpu.w_reg(R.A5, addr('vars'))
+        c.call(addr('dc_capture'), G.FAKE)
+        photo = c.mem.r16(dc + s['DC_NEW'])
+        previous = c.mem.r16(dc + s['DC_FRONT'])
+        c.mem.w16(dc + s['DC_PEND'], photo)
+        c.mem.w32(dc + s['DC_PLIST'], copb)
+        for delta in (0, 1, 2):
+            c.mem.w16(dc + s['DC_NLOG'], 100 + delta)
+            c.mem.w8(addr('dc_ran'), 1)
+            call('dc_vb', True)
+            assert c.mem.r16(dc + s['DC_FRONT']) == (photo if delta == 2 else previous)
+        assert c.mem.r32(dc + s['DC_FLIST']) == copb
+        print('CUSHION vivo: tres listas, diagnostico/retorno OK; entrada->foto visible: 2 ticks logicos (40 ms PAL)')
     print('Z1 Musashi: muerte %d, fin %d; vidas %d; RAM/mapa/fotos/O5 OK' % (death, finish, lives))
     print('Carga completa: %d ciclos sin DMA (%.2f frames PAL); carga no ejecuta lógica' %
           (cycles, cycles / V.PAL_FRAME))
