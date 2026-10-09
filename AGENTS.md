@@ -372,7 +372,7 @@ En español. Cada rutina de hardware (blitter/copper) lleva arriba:
 Índice, una línea por trampa. **El texto completo (causa, síntoma, arreglo y
 comandos) está en `docs/pitfalls.md`, textual**: leer ahí las del área que se
 toca antes de cambiar nada. Una trampa nueva se agrega allí y aquí con el
-número siguiente (**la próxima es P115**).
+número siguiente (**la próxima es P117**).
 
 - **P1** El layout de paletas de SMW no es un array 8×16. ✅ RESUELTO
 - **P2** El blitter tiene prioridad sobre la CPU y la "roba" ciclos
@@ -490,6 +490,8 @@ número siguiente (**la próxima es P115**).
 - **P112** B2bis: recortar un pack exige DATA; el decoder destruye a1 y el payload no incluye su cabecera
 - **P113** Canarios al límite real del binario y caché evaluada con todas las fotos del juego
 - **P114** Cpre: stamp lógico y fuente gráfica divergen en SKIP/SYNC; firmas B1 impares
+- **P115** Con el colchón, un VBL repetido siempre se paga con una foto salteada (tirón del Rex)
+- **P116** La clave de la caché de Mario solo debe tener los punteros GFX32 que leen sus fichas
 
 ---
 
@@ -497,7 +499,7 @@ número siguiente (**la próxima es P115**).
 
 | ID | Decisión | Opciones | Estado |
 |---|---|---|---|
-| D1 | Compromiso de scroll/color/frecuencia | **1 px (`BPLCON1`) / 5 planos, 31 colores / 50 Hz** | **cerrado** con la etapa 4: scroll + 5 bobs = 48-68 % del frame. **Confirmado por el usuario el 2026-09-30: 50 Hz, haciendo todo lo posible**; 25 Hz solo si agotada la optimización no entra (ROADMAP §3). **Desde el 2026-10-05 la compuerta se mide en fotos omitidas** (objetivo 0; mínimo ≤ 0,1 %, racha 1, ≤ 1 cada 250 frames; ROADMAP §2) |
+| D1 | Compromiso de scroll/color/frecuencia | **1 px (`BPLCON1`) / 5 planos, 31 colores / 50 Hz** | **cerrado** con la etapa 4: scroll + 5 bobs = 48-68 % del frame. **Confirmado por el usuario el 2026-09-30: 50 Hz, haciendo todo lo posible**; 25 Hz solo si agotada la optimización no entra (ROADMAP §3). **Desde el 2026-10-05 la compuerta se mide en fotos omitidas** (objetivo 0; mínimo ≤ 0,1 %, racha 1, ≤ 1 cada 250 frames; ROADMAP §2). **2026-10-09 [usuario]: se acepta el colchón de tercera lista** (+20 ms de latencia) en vez de 25 Hz |
 | D2 | Nivel objetivo | **Yoshi's Island 1** (`world_1/1/`) | cerrado |
 | **D3** | Enemigos del demo | Los que tiene el nivel de verdad (`spr.lv`, ver abajo). **Goomba y Koopa Troopa NO aparecen en Yoshi's Island 1** | **corregido** — mínimo: Rex + Banzai Bill + Jumping Piranha |
 | D4 | Lenguaje principal | C para lógica + asm para hardware | cerrado |

@@ -1,47 +1,43 @@
 # PRÓXIMO — lo que sigue
 
-2026-10-08. Worktree `C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`, rama
-`g2t-b2bis`. **Sin merge ni push.** B2bis: `ec320ab`, optimización y
-canarios reales `d3e431c`; esta sesión deja además Cpre parcial en WIP.
+2026-10-09. Rama `master` (integrada desde `g2t-b2bis` por fast-forward,
+**sin push**). Worktree de trabajo: `C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`.
 
-**B2bis rendimiento mejoró pero no cerró D1:** WinUAE cycle-exact baja
-de 98 a 92 fotos perdidas (1,46 %, racha 2), control 27 (0,43 %, racha 1).
-Las puertas exactas siguen verdes: 3404 frames, 762496 filas, 258 bordes;
-lookup 554/11910, captura 270. Vivo G3 con reservas deja 272 B.
-Informe: `docs/informe-g2t-b2bis-rendimiento-1008.md`.
-
-**Cpre C2a exacta, C2b detenida por coste:** 2288 planes sobre 6313 fotos
-reales, cinco contadores cero. Consulta y firmas sin emitir: máximo
-28680 ciclos frente a la parada de 4000; ABI/listas intactas y firma
-negativa detectada. No hay emisor completo, C3/C4 ni Rex visible.
-Informe: `docs/informe-g2t-cpre-1008.md`. Handoff actualizado:
-`docs/handoff-g2t-b2bis-1008.md`. B35 sigue fuera del vivo.
+**Los enemigos se ven.** G5L-R dibuja al Rex por los sprites 4-7 (opt-in
+`-DG5L`); con el colchón de tercera lista (`-DCUSHION`, solo replay) el
+replay de YI1 pierde **67 fotos** en WinUAE cycle-exact (1,06 %, racha 1;
+control sin enemigos 27). El usuario aceptó el colchón (+20 ms) el
+2026-10-09 y pidió revisar los tirones del Rex: son pares repetir/saltear
+(P115), no errores del render. Informe: `docs/informe-g5l-r-1009.md`.
 
 ## 1. La próxima sesión
 
 | tarjeta | toca | instrucciones y entrega |
 |---|---|---|
-| **G2T-B2bis rendimiento** | continuar perfil y memoria hasta una mejora que cumpla D1 global; el control tampoco la cumple | `docs/instrucciones-g2t-b2bis-rendimiento.md`: mismos umbrales, reservas, control de la tanda y red exacta |
-| **G2T-Cpre coste** | resolver la parada C2b antes del emisor completo y C3/C4 | `docs/instrucciones-g2t-cpre-coste.md`: repetir sonda, medir componentes, conservar firmas; decisión de presupuesto pendiente del usuario |
+| **G5L-R-T tirones** | bajar las fotos perdidas por el Rex (67 → hacia 27): patch compartido, camino rápido fallido, sweep con Mario en movimiento | `docs/instrucciones-g5l-r-tirones.md`: G5L GAME OK, WinUAE, vbtrace, parada si dos candidatos no bajan de ~55 |
+| **G5L-R-V vivo** | el colchón fuera del replay (reinicio, diagnóstico, carga) y `-DG5L -DCUSHION` por defecto al final | `docs/instrucciones-g5l-r-vivo.md`: ADF jugable, Z1, memmap, latencia medida, hashes nuevos en commit propio |
 
-El usuario pidió B2bis y después Cpre; se trabajó en ese orden. Continuar
-sin rebajar exactitud. No tocar modelo, contrato, scroll.s o banco dentro
-de estas tarjetas. Si hace falta S5/L-OAM, abrir y leer su tarjeta antes
-de tocar otra área. No activar B35: máximo 2423094 ciclos frente a 8000.
-R9: derivados exclusivamente en work/. No compilar en paralelo.
+Recomendado: primero T (lo que pidió el usuario), después V. No compilar
+en paralelo; una sola WinUAE midiendo. R9: derivados solo en work/.
 
 ## 2. Después
 
-Con presupuesto Cpre resuelto: emisor completo, C3 sobre ambas listas,
-12 capturas C4 exactas, C5/C6. Sigue pendiente D1 global, recuperar
-memoria y rediseñar B35; después revisión/integración de rama y OAM de
-piraña. Los enemigos todavía no se ven. Alcance restante en ROADMAP.md.
+Los otros enemigos de YI1 con el mismo mecanismo (Banzai Bill por bob en
+PF1, piraña, Chuck), cobertura de dos Rex a la vez, D1 global (el control
+tampoco la cumple: build_mid/S5), HUD, audio. B2bis/Cpre/B35 quedan como
+estaban (`docs/informe-g2t-b2bis-rendimiento-1008.md`,
+`docs/informe-g2t-cpre-1008.md`): G5L-R los reemplaza como ruta de dibujo;
+no se retoman salvo decisión del usuario. Alcance en ROADMAP.md.
 
 ## 3. Pendiente del usuario o la PC
 
-Consulta enviada: conservar el límite Cpre de 4000 y rediseñar, o
-permitir mayor coste solo para la prueba offline. Sin respuesta sigue
-vigente 4000; no se interpreta el silencio como aprobación.
+Decisiones tomadas por el agente con libertad creativa, para revisar:
+4 mapas limpios (`CLEAN_PERMS`), quitar el banco G3 del juego con G5L
+(65 KB de chip), caché del plan de 4 entradas, y dejar B2bis/Cpre/B35
+aparcadas en favor de G5L-R. Consulta Cpre de presupuesto (4000) sigue
+sin respuesta y queda sin efecto mientras Cpre esté aparcada.
+Worktrees viejos: todos integrados o equivalentes en master salvo
+`tools/g2t_probe.py` (`wt/g5bis-1007`, sonda de un enfoque superado);
+borrarlos es decisión del usuario.
 U1: jugar ADF vivo con teclado/KS1.2/A501. U2: capa 2 contra referencia.
-U3 opcional: A500 real. Las puertas y correcciones autorizadas continúan
-sin pedir permiso de nuevo.
+U3 opcional: A500 real.

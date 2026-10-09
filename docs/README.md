@@ -66,6 +66,9 @@
 | `informe-g2t-b2bis-rendimiento-1008.md` | 2026-10-08 | Segunda iteración: warm 5501 ciclos medios, canarios reales, 92 fotos WinUAE; D1 roja |
 | `informe-g2t-cpre-1008.md` | 2026-10-08 | C2a 2288 planes exactos, sonda C2b 28680 ciclos >4000; C3/C4 pendientes |
 | `instrucciones-g2t-cpre-coste.md` | 2026-10-08 | Resolver parada de coste preservando contrato antes del emisor y capturas |
+| `informe-g5l-r-1009.md` | 2026-10-09 | G5L-R: Rex por sprites 4-7, colchón aceptado, tirones = pares repetir/saltear; 67 fotos (control 27) |
+| `instrucciones-g5l-r-tirones.md` | 2026-10-09 | Bajar los tirones del Rex que quedan, con vbtrace y G5L GAME |
+| `instrucciones-g5l-r-vivo.md` | 2026-10-09 | El colchón y G5L-R en el juego en vivo; defecto al final |
 | `instrucciones-g2t-cpre.md` | 2026-10-08 | G2T-Cpre: emisor `g5_emit` y capturas WinUAE (0/57 344 px) con el plan precalculado en el replay, antes de terminar B |
 | `instrucciones-revision-1007.md` | 2026-10-07 | revisión propuesta tras las dos paradas: diagnóstico de coste OAM y contrato temporal, antes de nueva implementación |
 | `informe-revision-loam-1007.md` | 2026-10-07 | revisión L-OAM: coste de OAM por función en YI1 y estrés (Musashi y WinUAE), por qué el estrés sale peor, y una tarjeta (ruta de la piraña en asm) |

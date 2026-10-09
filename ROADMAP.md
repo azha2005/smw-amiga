@@ -31,7 +31,7 @@
 2. Trabajar **un paso por vez**; no se empieza el siguiente con el anterior
    en rojo. Commit `Etapa N.x: <qué>`. Trampa nueva: `Pnn` en
    `docs/pitfalls.md` y en el índice de `AGENTS.md` §8 (la próxima es
-   **P115**).
+   **P117**).
 3. **Al cerrar la sesión: §7** (obligatorio: reescribir `PROXIMO.md`).
 
 **Reglas del proceso (no negociables, vienen de lo que ya costó caro):**
@@ -48,7 +48,13 @@
 
 ---
 
-## 1. Estado por etapa (al 2026-10-08)
+## 1. Estado por etapa (al 2026-10-09)
+
+**Entrega G5L-R (2026-10-09, integrada a master sin push):** los Rex se
+ven por los sprites 4-7 (`-DG5L`); colchón de tercera lista
+(`-DCUSHION`, solo replay) **aceptado por el usuario**: WinUAE 67 fotos
+perdidas (1,06 %, racha 1) contra 27 del control; G5L GAME OK en 6313
+fotos. Tirones restantes y vivo pendientes. `docs/informe-g5l-r-1009.md`.
 
 **Entrega B2bis/Cpre (2026-10-08):** rama g2t-b2bis, sin merge/push.
 B2bis d3e431c: G5ENV/lint/regress --level/OAM68K/hashes verdes; 3404 frames,
@@ -79,7 +85,7 @@ copian acá.
 | 8.1 | Grabaciones | **32 oráculos** con snesorc sin usuario (`tools/snesorc/*.orc`), entre ellos `stress_back`, `stress_sprites`, `stress_vert`, `pipe`, `goal`/`goal_low`/`goal_miss`, `pw_*` (seta, flor, estrella, 1-UP, `$C7`, bloques, medio, monedas de Yoshi) y los de R10. Faltan: luna 3-UP, R7 (contadores del HUD), R8/A0 (audio) | `tools/snesorc/`, `work/oracle_*.txt` |
 | 8.2 | Lógica ≤ 40 % | **hecha para el alcance anterior; L-OAM no cerrada**. Ambas rutinas en asm (`e8ec165`, `bbdf201`, `cd5001c`, fusión `cb8ba8f`), RAM PC=68000 exacta. WinUAE l4: YI1 con `SPR_OAM` **41,2 %** (antes 43,1 %), back 73,9 %; fotos back 295 contra 145 del control, sprites 32 contra 0. Parada explícita tras ambas asm; nueva tarjeta pendiente | `player/logic68k.s`; `docs/informe-loam-1007.md`, `docs/informe-coordinacion-1007.md` |
 | 9.1 | Sprites: lógica | **casi hecha**: Rex, `$83`, `$B9`, `$BD`, `$02`, `$9F`, `$4F`, `$8E`, `$C7`, Chuck `$95`, caparazones, meta `$7B`, power-ups (P6), Mario crecer/encoger/morir/estrella (P8); `game` 0 resincronizaciones. Faltan P7 (bolas de fuego), P9 (monedas de Yoshi, puntos), P10 (reserva) | `player/msprite.c`, `spr_*.c` |
-| 9.2 | Sprites: dibujo | Mario hecho; G0/G1/G3a/G8 y G8b opt-in verificadas. G3 acotada hecha (64528 B DMA, 72724 B tablas, loader replay/vivo). G5a fallida y revertida (`652b23c`). **G5a-bis parcial en rama** `8fe712d`: A2 y variantes exactas; 59318 ventanas vacías + 18 fallos de capacidad, B/C detenidas. Coordinador reproduce el resumen y revisa las PNG. G2T revisión entregada. **G2T-A hecha (2026-10-07): contrato fijado con medidas y puerta A-T verde** en 3404 frames (0 sin plazo, 0 errores de color/capa 1/prioridad; 69 293 transiciones; 56 casos exactos + 27 negativos en WinUAE). El candidato era inviable: el hueco entre filas admite 12 − nb MOVE (P111); codo 231→243 (P110). **B35 parcial en rama `g2t-b35` (2026-10-08, `213ba3c`/`06e777f`)**: B4/B5 exactas en 3404 frames, ABI intacta, paso 4c/regress/hashes verdes; único intento en C agotado, máximo 2 405 022 ciclos sin DMA frente a 8000. No integrada; informe `docs/informe-g2t-b35-1008.md`. Primer microbench B35-asm entregado (`a9b44fe`): transiciones exactas en 3404 frames, máximo 18 794 ciclos solo en ese núcleo; no hay ruta medida al presupuesto, integración detenida (`docs/informe-g2t-b35-asm-1008.md`). El rendimiento de B2bis, C y un nuevo diseño viable del plan, más cobertura global/G4-G7/G9, pendientes. **Los enemigos todavía no se ven en la Amiga** | `docs/informe-g3-final.md`, `docs/informe-g5bis-1007.md`, `docs/informe-coordinacion-1007.md`, `docs/informe-g2t-1007.md`, `docs/informe-g2t-a-1007.md` |
+| 9.2 | Sprites: dibujo | Mario hecho; G0/G1/G3a/G8 y G8b opt-in verificadas. G3 acotada hecha (64528 B DMA, 72724 B tablas, loader replay/vivo). G5a fallida y revertida (`652b23c`). **G5a-bis parcial en rama** `8fe712d`: A2 y variantes exactas; 59318 ventanas vacías + 18 fallos de capacidad, B/C detenidas. Coordinador reproduce el resumen y revisa las PNG. G2T revisión entregada. **G2T-A hecha (2026-10-07): contrato fijado con medidas y puerta A-T verde** en 3404 frames (0 sin plazo, 0 errores de color/capa 1/prioridad; 69 293 transiciones; 56 casos exactos + 27 negativos en WinUAE). El candidato era inviable: el hueco entre filas admite 12 − nb MOVE (P111); codo 231→243 (P110). **B35 parcial en rama `g2t-b35` (2026-10-08, `213ba3c`/`06e777f`)**: B4/B5 exactas en 3404 frames, ABI intacta, paso 4c/regress/hashes verdes; único intento en C agotado, máximo 2 405 022 ciclos sin DMA frente a 8000. No integrada; informe `docs/informe-g2t-b35-1008.md`. Primer microbench B35-asm entregado (`a9b44fe`): transiciones exactas en 3404 frames, máximo 18 794 ciclos solo en ese núcleo; no hay ruta medida al presupuesto, integración detenida (`docs/informe-g2t-b35-asm-1008.md`). El rendimiento de B2bis, C y un nuevo diseño viable del plan, más cobertura global/G4-G7/G9, pendientes. **G5L-R (2026-10-09, `052dac2`): el Rex se ve en la Amiga** por sprites 4-7 con 4 mapas limpios, caché del plan y colchón; 67 fotos perdidas (WinUAE, replay) contra 27 del control; solo replay, opt-in. B2bis/Cpre/B35 aparcadas |  `docs/informe-g3-final.md`, `docs/informe-g5bis-1007.md`, `docs/informe-coordinacion-1007.md`, `docs/informe-g2t-1007.md`, `docs/informe-g2t-a-1007.md` |
 | 6b | Integración | ADF en vivo y replay, O5 por defecto y diagnóstico. Con banco G3 y L-OAM asm, memmap replay/vivo: chip 455728/467256 B, slow 287712/323944 B; 0 violaciones. Gamecheck replay integrado 6313 frames, 0 distintos; Mario 6184/6184. Falta vlink C2, compresión C3 y loader C4 | `player/game.s`; `docs/informe-coordinacion-1007.md` |
 | 10-12 | HUD, audio, pulido | **Z1** hecho (muerte normal y reinicio; `docs/validacion-z1.md`). **H1** medido conservadoramente (`docs/medida-hud.md`; falta la alineación exacta PPU). **A1**: conversor verificado, 20 muestras / 50560 B PCM (`docs/informe-a1.md`); audio reproducido y R8 pendientes. HUD visible, punto medio, meta, game over: pendientes | — |
 | Experimental E11-E14 | Técnicas de juegos de referencia | E11a hecha: 0 cargas PF1 en franjas aptas de 15.755 frames; E11b descartada para `build_mid`. E12 descartada: 0/7 índices sin conflicto en 1.016.785 cámaras. E13 sin caso. E14a hecha; E14 descartada para estrés: 0/202 frames con las 64 filas libres (Banzai solo: 16/331). No cambia el presupuesto ni la compuerta D1 | `docs/experimentos-e11-e14.md` |
@@ -106,6 +112,7 @@ no entra es la **imagen** de ese VBL. Medidas WinUAE al 2026-10-05; la fila G8b 
 | HUD | sin hacer (H1 midió la banda) | ≤ 2 % | `docs/medida-hud.md` |
 | audio | sin hacer | ≤ 3 % (D5) | — |
 | estrés D1 (`stress_back`/`stress_sprites`, con `SPR_OAM`) | WinUAE l4 sin traza, L-OAM asm: 295/4126 (7,15 %, racha 6) y 32/1914 (1,67 %, racha 2); antes del asm 616/4126 y 56/1914 | **roja**; controles de la misma tanda: 145/4126 (3,51 %, racha 3) y 0/1914 | `docs/informe-loam-1007.md`; segunda tanda `docs/informe-coordinacion-1007.md` |
+| G5L-R + colchón (Rex por sprites 4-7, opt-in, replay) | **67 de 6312 = 1,06 %**, racha 1, contra 27 del control de la misma tanda (WinUAE, `052dac2`); peor foto con Rex en Musashi 93 k ciclos | acercarse al control | `docs/informe-g5l-r-1009.md` |
 | **fotos omitidas** | **14 de 6312 = 0,22 %**, racha máx. 1 (WinUAE, replay YI1, sin G5/HUD/audio) | ver la compuerta | `docs/medida-oam-o5.md` |
 
 **Lectura:** el problema es de **picos**, no de media. El coste de
@@ -153,7 +160,7 @@ mide como dice §2.
 
 | ID | Decisión | Qué se hace | Consecuencias | Etapa |
 |---|---|---|---|---|
-| D1 | 50 Hz o no | **cerrada (usuario, 2026-09-30): 50 Hz, haciendo todo lo posible**; "si no se puede, no se puede" | la optimización (`docs/plan-tecnico.md` §9, §10.1-10.3) va antes que todo lo que suma coste. Compuerta medida en **fotos omitidas** desde el 2026-10-05 (§2): objetivo 0; mínimo ≤ 0,1 %, racha 1, ≤ 1 cada 250 frames. Si agotadas las ideas no se llega, se le presentan al usuario los números y el plan B (dibujo a 25 Hz) | todas |
+| D1 | 50 Hz o no | **cerrada (usuario, 2026-09-30): 50 Hz, haciendo todo lo posible**; "si no se puede, no se puede" | la optimización (`docs/plan-tecnico.md` §9, §10.1-10.3) va antes que todo lo que suma coste. Compuerta medida en **fotos omitidas** desde el 2026-10-05 (§2): objetivo 0; mínimo ≤ 0,1 %, racha 1, ≤ 1 cada 250 frames. Si agotadas las ideas no se llega, se le presentan al usuario los números y el plan B (dibujo a 25 Hz). **2026-10-09 [usuario]:** vista la muestra a 25 Hz ("es bastante duro perder tanta fluidez"), **se acepta el colchón de tercera lista** (latencia fija de 2 frames, +20 ms) y sigue 50 Hz; los tirones del Rex se revisan (G5L-R-T) | todas |
 | **D15** | Velocidad: el ROM (U) es NTSC y la Amiga va a 50 Hz | **cerrada (usuario, 2026-09-30): se acepta** el 83 % de velocidad, como la SNES PAL (`docs/plan-tecnico.md` §10.12) | nada que hacer; la música mantiene el tempo (tick por CIA) | — |
 | **D16** | ¿La zona de la tubería (`obj-1.lv`) entra en el alcance? | **cerrada (usuario, 2026-09-30): entra** (`docs/plan-tecnico.md` §10.10) | conversión de una segunda zona, tuberías y transición | 12 |
 | **D5** | Música | **secuenciador propio** que lee las secuencias N-SPC de SMW convertidas offline a un formato compacto de eventos (no MOD) | Conserva glissandos, vibrato, envolventes (ADSR aproximado por tick) y el tempo del SPC700 (tick por timer de CIA). **Sin mezcla por CPU**: cada voz va directa a un canal de Paula, 3 de música + 1 de efectos, con prioridad por tema; el eco se omite. Límites: ≤ 64 KB de muestras en chip RAM y **≤ 3 % de CPU** medido. **Verificación** (como sonic2mod de reassembler): contra el registro de escrituras al DSP de `snesorc` en la partida del oráculo, nota por nota, con un informe por tema en `docs/audio/` (SUBAGENTES A0, A3, A6, A8) | 11 |
@@ -221,7 +228,14 @@ cambiable en un solo lugar (una tabla).
 
 ---
 
-## 4. Olas y sesiones (revisado el 2026-10-08)
+## 4. Olas y sesiones (revisado el 2026-10-09)
+
+2026-10-09: G5L-R dibuja al Rex con 67 fotos perdidas (control 27) y el
+colchón aceptado; reemplaza a B2bis/Cpre/B35 como ruta de dibujo de la
+ola 3. Quedan G5L-R-T (tirones) y G5L-R-V (vivo, defecto): **1-2
+sesiones** para cerrar el Rex; el resto de la ola 3 (L-OAM, A2, R7) sin
+cambios. Total restante estimado se mantiene en **10-13** (el diseño
+viable que faltaba existe, pero los otros enemigos y D1 global siguen).
 
 B2bis tiene puertas locales verdes en d3e431c; coste real 92 fotos
 perdidas contra 27 del control, D1 roja. Cpre C2a exacta; sonda C2b
@@ -316,6 +330,10 @@ O5 es el modo por defecto (`-DNODECOUPLE` = bucle viejo); si cambia
 ---
 
 ## 7. Cierre de sesión (obligatorio)
+
+2026-10-09: G5L-R (`9c84534`, `c90e961`, `052dac2`), colchón aceptado por
+el usuario, tirones diagnosticados (P115/P116), 67 fotos. Archivado
+PROXIMO, instrucciones G5L-R-T y G5L-R-V, rama integrada a master sin push.
 
 2026-10-08: segunda iteración B2bis d3e431c, 92 fotos perdidas frente a
 27 del control; Cpre C2a exacta, C2b parcial detenido por coste. Se

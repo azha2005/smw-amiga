@@ -1019,3 +1019,24 @@ idénticos. No inferir de ello que toda OAM viva de enemigos está probada.
 Además, los MOVE de tres bytes y las firmas fila u8/suma u16 dejan
 valores u16 impares: leer por bytes en 68000. Alinear cada entrada
 G5PR no alinea todos sus campos internos. Tests en test_g2t_preplan.py.
+
+**P115 — Con el colchón, un VBL repetido siempre se paga con una foto salteada.**
+`-DCUSHION` fija la latencia en 2 frames lógicos. Si un render llega más
+de un frame tarde, el VBL repite la imagen y la latencia pasa a 3; con 4
+buffers de foto (vista, publicada, en render, captura) no se sostiene y
+la siguiente captura pisa una foto sin tomar. Resultado: repetición y,
+~3 frames después, salto. Con la cámara quieta solo se mueve el Rex, y el
+usuario lo ve como "salta pasos" mientras "el resto no se ralentiza". No
+es un error del render: `-DVBTRACE` + `tools/vbtrace.py` dan la sucesión
+real de imágenes VBL por VBL (en la sesión coincidió con Musashi foto por
+foto, hstart = x0 + 160). Lo que baja los tirones es bajar el coste de
+los tramos tarde (rachas de ~8 fotos sobre el presupuesto).
+
+**P116 — La clave de la caché de Mario solo debe tener los punteros que sus fichas leen.**
+`GV_KBUF` copiaba los 24 B de punteros GFX32 ($0D85-$0D9A). Uno que
+Mario no muestra avanza una ficha por foto en algunos estados (daño,
+caminando), y la caché de 4 poses fallaba en cada foto: `g5l_mfill`
+(13,4 k ciclos) en casi todas. Ahora la clave pone a cero los pares que
+ninguna ficha de las entradas lee (misma regla que `g5l_gtile`: `$7F` el
+par 10, `t < $20` con `(t & 15) < 10` el `(t & 15) / 2`, +5 abajo).
+`g5l_mfill` sigue leyendo los punteros reales de la foto.
