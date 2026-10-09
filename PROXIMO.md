@@ -17,6 +17,37 @@ Commits de código: `5461b8a`, `a728ddc`, `a41da43`, `c30ff27`. Informes:
 `docs/informe-bm1-1009.md`, `docs/informe-bm1-limites-1009.md`. Lint, regress `--level --g5l --bm1`, OAM68K
 y cinco MD5 normales verdes. **Los defectos siguen iguales**.
 
+## 0. Sesión interrumpida 2026-10-09 (tarde) — retomar desde aquí
+
+El usuario pidió la PC; quedó a medias. **Decisiones del usuario:**
+KS 1.3 = `C:\Users\JC\Desktop\Escritorio 26\Escritorio 25\jueguitos p amiga\Kickstart v1.3 r34.005 (1987-12)(Commodore)(A500-A1000-A2000-CDTV)[!].rom`;
+**sin A501 el juego no carga** (el rojo estable del boot fijo es la
+política; se cierra la exclusión). El usuario jugó el vivo: "anda y se
+mueve" (U1 a mano). Worktrees redundantes borrados (9, ya en master);
+quedan los que tienen commits fuera de master: agent-ab11…, agent-af1f…,
+wt-g5bis-1007, wt-review-1007.
+
+Hecho: partida verde (lint, regress `--level --g5l --bm1`), builds
+`work/g5l/liveclose` (188/190 verdes) y `work/bm1/compare` (MFM y
+memmap verdes). `tools/shot.ps1 -Keys "seg:down|up|tap:TECLA;..."`
+manda scancodes con SendInput; **hace falta `-norawinput_keyboard`**
+(lo agrega solo) o WinUAE no las ve.
+
+**Abierto con teclas inyectadas** (`work/g5l/liveclose/d_*.png`, no
+reproducido a mano por el usuario): mantener RIGHT mata a Mario al
+instante (diag: motivo 11 muerte, frame 07EE, X0010 Y0336, $71=09, PIE
+FFFF, HIST 0002); reaparece, camina y vuelve a morir. Sin teclas no
+muere. Sospecha: artefacto de la inyección (el ALT que `Front()` manda
+cada segundo, o el scancode extendido) — **leer la página 2 con
+`diag_read.py --shot d_105s.png --bin work/g5l/liveclose/game.bin
+--repro`** para ver los bits que vio el juego antes de tocar código.
+Espacio → página 2 y RETURN → juego de nuevo funcionaron (d_111s+);
+d_117s salió negra (sin explicar).
+
+Faltan: esa lectura, KS 1.3 (BM1 pasos 1-3), control trackdisk (paso
+4), defectos G5L+CUSHION y BM_FIXED (ahora sin bloqueo A501), MD5,
+informes y cierre §7.
+
 ## 1. La próxima sesión
 
 | tarjeta | toca | instrucciones y entrega |
