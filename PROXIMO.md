@@ -15,9 +15,10 @@ control sin enemigos 27). El usuario aceptó el colchón (+20 ms) el
 | tarjeta | toca | instrucciones y entrega |
 |---|---|---|
 | **G5L-R-T tirones** | bajar las fotos perdidas por el Rex (67 → hacia 27): patch compartido, camino rápido fallido, sweep con Mario en movimiento | `docs/instrucciones-g5l-r-tirones.md`: G5L GAME OK, WinUAE, vbtrace, parada si dos candidatos no bajan de ~55 |
+| **BM1 bare metal** | sin el SO también al arrancar: medir la chip que retiene, supervisor, trackloader MFM propio, mapa fijo (pedido del usuario 2026-10-09) | `docs/instrucciones-bm1.md`: fase 1 medida con parada si < 16 KB; KS 1.2/1.3; después de T, antes de V si falta chip |
 | **G5L-R-V vivo** | el colchón fuera del replay (reinicio, diagnóstico, carga) y `-DG5L -DCUSHION` por defecto al final | `docs/instrucciones-g5l-r-vivo.md`: ADF jugable, Z1, memmap, latencia medida, hashes nuevos en commit propio |
 
-Recomendado: primero T (lo que pidió el usuario), después V. No compilar
+Recomendado: primero T (lo que pidió el usuario), después V; BM1 entre las dos si la chip aprieta, si no al final. No compilar
 en paralelo; una sola WinUAE midiendo. R9: derivados solo en work/.
 
 ## 2. Después

@@ -236,6 +236,8 @@ ola 3. Quedan G5L-R-T (tirones) y G5L-R-V (vivo, defecto): **1-2
 sesiones** para cerrar el Rex; el resto de la ola 3 (L-OAM, A2, R7) sin
 cambios. Total restante estimado se mantiene en **10-13** (el diseño
 viable que faltaba existe, pero los otros enemigos y D1 global siguen).
+BM1 (bare metal al arrancar, pedido del usuario): 1 sesión **estimada**,
+sin cambio de ruta crítica salvo que la chip recuperada habilite ola 5.
 
 B2bis tiene puertas locales verdes en d3e431c; coste real 92 fotos
 perdidas contra 27 del control, D1 roja. Cpre C2a exacta; sonda C2b

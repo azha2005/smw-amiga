@@ -68,6 +68,7 @@
 | `instrucciones-g2t-cpre-coste.md` | 2026-10-08 | Resolver parada de coste preservando contrato antes del emisor y capturas |
 | `informe-g5l-r-1009.md` | 2026-10-09 | G5L-R: Rex por sprites 4-7, colchón aceptado, tirones = pares repetir/saltear; 67 fotos (control 27) |
 | `instrucciones-g5l-r-tirones.md` | 2026-10-09 | Bajar los tirones del Rex que quedan, con vbtrace y G5L GAME |
+| `instrucciones-bm1.md` | 2026-10-09 | Bare metal: chip del SO medida, supervisor, trackloader MFM, mapa fijo |
 | `instrucciones-g5l-r-vivo.md` | 2026-10-09 | El colchón y G5L-R en el juego en vivo; defecto al final |
 | `instrucciones-g2t-cpre.md` | 2026-10-08 | G2T-Cpre: emisor `g5_emit` y capturas WinUAE (0/57 344 px) con el plan precalculado en el replay, antes de terminar B |
 | `instrucciones-revision-1007.md` | 2026-10-07 | revisión propuesta tras las dos paradas: diagnóstico de coste OAM y contrato temporal, antes de nueva implementación |
