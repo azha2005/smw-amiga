@@ -77,7 +77,7 @@ def align(n, a):
 # --------------------------------------------------------------------------
 # el listado de vasm
 # --------------------------------------------------------------------------
-CODE_RX = re.compile(r"^(\d\d):([0-9A-F]{8}) ([0-9A-F ]*?)\s*\t\s*(\d+): ?(.*)$")
+CODE_RX = re.compile(r"^(\d\d):([0-9A-F]{8}) ([0-9A-F ]*?)\s*\t\s*(\d+)(?:M|:) ?(.*)$")
 SYM_RX = re.compile(r"^(\S+)\s+(E:|\d\d:)([0-9A-F]{8})")
 
 
@@ -202,7 +202,9 @@ def find_allocs(L):
     out = []
     code = L.code
     for i, (addr, lab, ins, ops, src) in enumerate(code):
-        if ins != "jsr" or not re.match(r"_LVO(AllocMem|FreeMem)\(a6\)", ops):
+        fixed_alloc = (L.has('bm_chipcur') and ops == '(a0)' and
+                       any('bm_alloc-binstart' in item[3] for item in code[max(0, i - 4):i]))
+        if ins != "jsr" or not (re.match(r"_LVO(AllocMem|FreeMem)\(a6\)", ops) or fixed_alloc):
             continue
         d0 = d1 = None
         for j in range(i - 1, max(i - 14, -1), -1):
@@ -370,8 +372,13 @@ def build_model(L, data=None, adf=None, data_len=None):
             data_len = ad["data_len"]
     if data_len is None and data is not None:
         data_len = align(len(data), SECTOR)
-    m.info.append("loader: stage2 %d B en chip (boot.s, se libera al copiarse a la slow), datos %s B"
-                  % (stage2_len, data_len))
+    fixed = L.has('bm_chipcur')
+    if fixed:
+        m.info.append('BM1: stage2 directo a $C00000, sin copia temporal en chip; datos %s B' % data_len)
+        m.blocks.append(Block('el binario fijo ($C00000)', 'slow', binlen, 'binary', MEMF_FAST))
+    else:
+        m.info.append("loader: stage2 %d B en chip (boot.s, se libera al copiarse a la slow), datos %s B"
+                      % (stage2_len, data_len))
 
     # ---- los AllocMem --------------------------------------------------------
     allocs = find_allocs(L)
@@ -405,6 +412,30 @@ def build_model(L, data=None, adf=None, data_len=None):
             continue
         mem = "chip" if flags & MEMF_CHIP else ("slow" if flags & MEMF_FAST else "any")
         classify(L, m, addr, size, flags, mem, d0, dest, data)
+    if fixed:
+        chip_cursor, slow_cursor = 0x1000, 0xC00000
+        for b in m.blocks:
+            if b.mem == 'chip':
+                b.start = chip_cursor
+                chip_cursor += b.alloc
+            else:
+                b.start = slow_cursor
+                slow_cursor += b.alloc
+            for sub in b.subs:
+                if (b.start + sub.off) % sub.align:
+                    m.v('V-FIXED-ALIGN', '%s/%s: direccion fija mal alineada' % (b.name, sub.name))
+        if chip_cursor > CHIP_TOP:
+            m.v('V-FIXED-OVERLAP', 'arena chip $%X supera $80000' % chip_cursor)
+        if data_len is None or 0x1000 + data_len > 0x7A000:
+            m.v('V-FIXED-OVERLAP', 'datos del scroll invaden scratch MFM durante la lectura')
+        if slow_cursor > 0xC7C000:
+            m.v('V-FIXED-OVERLAP', 'arena slow $%X invade loader/pila/pista $C7C000' % slow_cursor)
+        m.info.append('BM1 arenas: chip $001000..$%06X; slow $C00000..$%06X' % (chip_cursor, slow_cursor))
+        m.blocks.append(Block('vectores y reserva inferior ($000000..$001000)', 'chip', 4096, 'cpu', MEMF_CHIP))
+        m.blocks.append(Block('DMA MFM transitorio ($07A000..$07D400)', 'chip', 13312, 'transient', MEMF_CHIP,
+                              [Sub('MFM', 0, 13312, 'plane', 8)]))
+        m.blocks.append(Block('loader/pista decodificada/pila ($C7C000..$C80000)', 'slow', 16384, 'cpu', MEMF_FAST))
+        m.info.append('BM1: scratch MFM liberado antes de PF/listas; pico lectura = %d B chip' % (0x1000 + (data_len or 0) + 13312))
     # ---- los bloques ---------------------------------------------------------
     for b in m.blocks:
         check_block(L, m, b)
@@ -449,6 +480,11 @@ def classify(L, m, addr, size, flags, mem, d0expr, dest, data):
     elif 'SG3_SCRATCH_BYTES' in ex:
         m.blocks.append(Block('SG3 scratch disco transitorio', mem, size, 'transient', flags,
                               [Sub('trackdisk', 0, size, 'plane', 8)]))
+    elif 'G5L_CDMA_SIZE' in ex:
+        dma = L.sym('G5L_CDMA_SIZE')
+        m.blocks.append(Block('Rex G5L: variantes limpias y parches', mem, size, 'sprite', flags,
+                              [Sub('variantes inmutables', 0, dma, 'sprite', 8),
+                               Sub('parches por lista', dma, size - dma, 'sprite', 8)]))
     elif dest == "V_BUF1" or re.search(r"\bBUF1\b", ex):
         m.blocks.append(Block("PF1: buffer circular (V_BUF1)", mem, size, "plane", flags,
                               [Sub("PF1", 0, size, "plane", 8)]))
@@ -457,9 +493,10 @@ def classify(L, m, addr, size, flags, mem, d0expr, dest, data):
                               [Sub("lista", 0, size, "copper", 4)]))
     elif dest == "g_spra" or "SPRBUF" in ex:
         sb = L.sym("SPRBUF") if L.has("SPRBUF") else size // 2
+        count = 4 if L.has('V_COP3') else 2
         m.blocks.append(Block("sprites de Mario (g_spra/g_sprb/g_null)", mem, size, "sprite", flags,
-                              [Sub("g_spra", 0, sb, "sprite", 8), Sub("g_sprb", sb, sb, "sprite", 8),
-                               Sub("g_null", 2 * sb, size - 2 * sb, "sprite", 8)]))
+                              [Sub('Mario %d' % i, i * sb, sb, 'sprite', 8) for i in range(count)] +
+                              [Sub("g_null", count * sb, size - count * sb, "sprite", 8)]))
     elif dest == "g_dmem" or re.search(r"\bDG_SIZE\b", ex):
         subs = []
         if all(L.has(k) for k in ("DG_STRIP", "DG_ONES", "DG_COP")):
@@ -571,7 +608,10 @@ def report(m, verbose=False, out=print):
     cpu_only = sum(s.size for b in chip for s in b.subs if b.kind == "data" and s.role == "cpu")
     if cpu_only:
         out("en chip pero solo de la CPU (candidato a slow, ROADMAP 10.7): %s B" % fmt(cpu_only))
-    out("sin la A501 el binario se queda en chip: %s B > 512 KB (D13: hace falta la expansion)"
+    if any(b.name == 'el binario fijo ($C00000)' for b in m.blocks):
+        out('BM_FIXED requiere A501; sin expansion el boot muestra borde rojo (ruta opt-in)')
+    else:
+        out("sin la A501 el binario se queda en chip: %s B > 512 KB (D13: hace falta la expansion)"
         % fmt(m.chip + m.stage2_len) if m.chip + m.stage2_len > CHIP_TOP else
         "sin la A501 el binario se queda en chip: %s B (entra)" % fmt(m.chip + m.stage2_len))
     for t in m.info:
@@ -627,9 +667,14 @@ binend:
 
 
 def synth(buf_flags="MEMF_CHIP|MEMF_CLEAR", cl_size=0x1000, aud_size=2000, l2b=0x1000,
-          binlen=0x30000, blob_extra=0, lineb1=264, ptr="", free_ok=True, chip_extra=0):
+          binlen=0x30000, blob_extra=0, lineb1=264, ptr="", free_ok=True, chip_extra=0, fixed=False):
     """devuelve (texto del listado, yi1_s.dat sintetico, ADF sintetico)"""
     code = SYN_CODE.replace("{BUFFL}", buf_flags).replace("{AUDSZ}", str(aud_size)).replace("{PTRCODE}", ptr)
+    if fixed:
+        code = code.replace('        move.l  #binend-binstart,d0\n        move.l  #MEMF_FAST,d1\n        jsr     _LVOAllocMem(a6)\n', '')
+        code = code.replace('        jsr     _LVOAllocMem(a6)', '        lea     binstart(pc),a0\n        add.l   #bm_alloc-binstart,a0\n        jsr     (a0)')
+        code = code.replace('        jsr     _LVOFreeMem(a6)', '        nop')
+        code += '\nbm_chipcur: dc.l $1000\nbm_alloc: rts\n'
     if not free_ok:
         code = code.replace("(binend-binstart+511)&-512", "(binend-binstart)/2")
     equ = {"MEMF_CHIP": 2, "MEMF_FAST": 4, "MEMF_CLEAR": 0x10000, "_LVOAllocMem": -198, "_LVOFreeMem": -210,
@@ -683,6 +728,9 @@ def selftest():
     case("chip > 512 KB", "V-CHIP-TOTAL", blob_extra=0x80000)
     case("slow > 512 KB", "V-SLOW-TOTAL", binlen=0x81000)
     case("FreeMem de otro tamano que el de boot.s", "V-LOADER", free_ok=False)
+    case('BM1 arena fija y scratch transitorio', None, fixed=True)
+    case('BM1 datos invaden DMA MFM', 'V-FIXED-OVERLAP', fixed=True, blob_extra=0x78000)
+    case('BM1 binario invade loader/pila', 'V-FIXED-OVERLAP', fixed=True, binlen=0x7C008)
     bad = 0
     for name, want, kw in cases:
         text, data, _ = synth(**kw)

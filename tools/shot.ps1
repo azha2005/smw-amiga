@@ -21,6 +21,7 @@ param(
     [int]$Every     = 0,
     [string]$WinUAE = 'C:\Program Files\WinUAE\winuae64.exe',
     [string]$Rom    = 'C:\Users\JC\Downloads\amivideo\kick12.rom',
+    [ValidateSet(0,2)][int]$SlowMem = 2,
     # Sin -Exact el emulador va lo mas rapido posible (blits instantaneos): la
     # IMAGEN es correcta pero cualquier medida de tiempo es falsa.  Con -Exact
     # se usa la temporizacion de a500.uae (cycle-exact): es la unica config
@@ -62,7 +63,7 @@ $lines = @(
     'cpu_type=68000'
     'cpu_model=68000'
     'chipmem_size=1'
-    'bogomem_size=2'
+    "bogomem_size=$SlowMem"
     'fastmem_size=0'
     'z3mem_size=0'
     "kickstart_rom_file=$Rom"
