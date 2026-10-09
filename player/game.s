@@ -63,6 +63,25 @@ DECOUPLE    equ 1
         endc
         endc
 
+; G5L (player/g5l.s): el Rex en los sprites 4-7 con el plan de color por
+; filas. Usa el layout de lista de G2T (segmento de 256 B y bloque VBL de
+; scroll.s, -DSPR_G5) pero no el codigo B2bis (g5env) ni el C de G5.
+        ifd     G5L
+        ifd     SPR_G5
+        fail    "G5L reemplaza a SPR_G5 (B2bis): no usar los dos"
+        endc
+        ifnd    SPR_BANK
+        fail    "G5L requiere SPR_BANK (el banco DMA del Rex)"
+        endc
+        ifnd    SPR_OAM
+        fail    "G5L requiere SPR_OAM (la OAM de los enemigos)"
+        endc
+        ifnd    DECOUPLE
+        fail    "G5L requiere O5 (DECOUPLE)"
+        endc
+SPR_G5      equ 1                           ; solo el layout de la lista
+        endc
+
 ; una sola seccion (como logicbench.s: vasm -Fbin)
         section "CODE",code
 
@@ -151,8 +170,10 @@ cdata1:
         include "player/logic68k.s"
         include "player/mspr68k.s"
         ifd     SPR_G5
+        ifnd    G5L
 G5ENV_PROJECT equ 1
         include "player/g5env.s"
+        endc
         endc
         even
 build_end:                                  ; fin de lo que firma g_build
@@ -328,6 +349,24 @@ entry:
         tst.l   d0
         beq     gfail
         move.l  d0,V_COP2(a5)
+        ifd     G5L
+        move.l  #G5L_CDMA_SIZE+G5L_RBUF_SIZE,d0 ; flujos de las variantes limpias
+        move.l  #MEMF_CHIP,d1               ; del Rex (g5l.py) y el bufer de las
+        jsr     _LVOAllocMem(a6)            ; bandas: los lee el DMA
+        tst.l   d0
+        beq     gfail
+        GETBASE a0
+        move.l  a0,a1
+        add.l   #g5l_cdma-binstart,a0
+        move.l  d0,(a0)+
+        move.l  d0,(a0)                     ; g5l_rbuf (sigue a g5l_cdma)
+        add.l   #G5L_CDMA_SIZE,(a0)
+        add.l   #g5l_cdma_src-binstart,a1
+        move.l  d0,a0
+        move.w  #G5L_CDMA_SIZE/4-1,d1
+.g5c:   move.l  (a1)+,(a0)+
+        dbf     d1,.g5c
+        endc
         ifd     DECOUPLE
         move.l  #3*SPRBUF+16,d0             ; Mario (3 fotos) + nulo
         else
@@ -1314,7 +1353,12 @@ R_ISR       equ 6                           ; .w ticks de la interrupcion (BENCH
         ifd     SPR_G5
 R_G5HAS     equ 8                           ; .w clave MA1 valida
 R_G5KEY     equ 10                          ; 40 B de pose, permutados y alineados
+        ifd     G5L
+R_G5L       equ 8                           ; G5F_SIZE (g5l.s) = 194 B
+DC_REC      equ 8+194
+        else
 DC_REC      equ 50
+        endc
         else
 DC_REC      equ 8
         endc
@@ -1641,7 +1685,20 @@ dc_capture:
         move.w  d6,d0                       ; la foto
         bsr     dc_recp
         move.l  a0,a1
+        ifd     G5L
+        ifd     BENCH
+        GBS     14
+        endc
+dc_g5copy_start equ *
+        GETBASE a4
+        bsr     g5l_capture_far
+dc_g5copy_end equ *
+        ifd     BENCH
+        GBS     15
+        endc
+        endc
         ifd     SPR_G5
+        ifnd    G5L
         ifd     BENCH
         GBS     14
         endc
@@ -1661,6 +1718,7 @@ dc_g5copy_start equ *
 dc_g5copy_end equ *
         ifd     BENCH
         GBS     15
+        endc
         endc
         endc
         move.l  g_data(pc),a3
@@ -1750,6 +1808,11 @@ dc_init:
         bsr     dc_puttail
         lea     dc_ran(pc),a0               ; (el primer VBL no es "tarde")
         st      (a0)
+        ifd     G5L
+        GETBASE a0
+        add.l   #g5l_init-binstart,a0
+        jsr     (a0)
+        endc
         move.l  (sp)+,d7
         rts
 
@@ -1897,6 +1960,10 @@ dc_loop:
         ifnd    NOMID
         bsr     build_mid
         endc
+        ifd     DELAYR
+        move.w  #DELAYR-1,d0                ; calibracion: DELAYR x 10 ciclos
+.dly:   dbf     d0,.dly
+        endc
         ifd     BENCH
         GBR     9
         endc
@@ -1904,7 +1971,15 @@ dc_loop:
         ifd     BENCH
         GBR     16
         endc
+        ifd     G5L
+        move.w  DC_REND(a2),d0
+        bsr     dc_recp
+        GETBASE a1
+        add.l   #g5l_render-binstart,a1
+        jsr     (a1)                        ; el Rex de la foto tomada
+        else
         bsr     dc_g5render                 ; solo la foto tomada por este render
+        endc
         ifd     BENCH
         GBR     17
         endc
@@ -2020,6 +2095,7 @@ dc_busy: dc.b   0                           ; la logica esta corriendo
 dc_ran:  dc.b   0                           ; la COPER llego en este frame
         even
         ifd     SPR_G5
+        ifnd    G5L
 ; --- dc_g5render --- preparar la frontera Mario antes del futuro g5_plan
 ; entrada: DC_REND = foto tomada; a4 = CUSTOM
 ; salida: g5env_view materializada en coordenadas de pantalla
@@ -2062,6 +2138,15 @@ dc_g5render:
         lea     12(sp),sp
         movem.l (sp)+,d2/a2/a4
         rts
+        endc
+        endc
+        ifd     G5L
+; --- g5l_capture_far --- g5l_capture esta al final del binario (P102)
+; entrada: a1 = foto, a4 = binstart. Destruye d0-d1/a0.
+g5l_capture_far:
+        move.l  a4,a0
+        add.l   #g5l_capture-binstart,a0
+        jmp     (a0)
         endc
 dc_rec:  ds.b   DC_REC*NSPRB
         even
@@ -3332,12 +3417,19 @@ replay: incbin  "work/yi1_replay.bin"       ; en vivo: solo el primer estado
         cnop    0,4
         endc
         ifd     SPR_G5
+        ifnd    G5L
 ; Datos de CPU, dentro del binario que el loader copia a slow RAM.
 ; Al final para no alejar referencias (pc) de las rutinas del juego (P102).
         cnop    0,4
 g5env_cache: ds.b G5ENV_BYTES
 g5env_view:  ds.b 1292                     ; prefijo B2, hasta G5B_REX
         even
+        endc
+        endc
+        ifd     G5L
+; G5L: codigo, variables y la tabla G5L1 (tools/g5l.py mk), todo de CPU:
+; slow RAM. Detras del loader G3 (sg3_dma al alcance de (pc)).
+        include "player/g5l.s"
         endc
         ifd     G5_PRE
         ifnd    REPLAY

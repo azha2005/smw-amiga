@@ -38,6 +38,16 @@ case " $CDEFS " in
         GDEFS="$GDEFS -DSPR_G5"; YDAT=work/yi1_s_g5.dat ;;
     *) case " $GDEFS " in *" -DSPR_G5"*) echo "ERROR: SPR_G5 en GDEFS requiere el mismo flag en CDEFS"; exit 1 ;; esac ;;
 esac
+# G5L (player/g5l.s): el Rex con el plan de color por filas. Layout de
+# lista de SPR_G5, sin el C ni el asm de B2bis; la tabla la genera g5l.py.
+case " $GDEFS " in
+    *" -DG5L "*)
+        [ "$SPR_MODE" = 1 ] || { echo "ERROR: G5L requiere SPR_OAM (CDEFS='-DNOOAM -DSPR_OAM')"; exit 1; }
+        case " $CDEFS " in *" -DSPR_G5"*) echo "ERROR: G5L no usa el C de SPR_G5"; exit 1 ;; esac
+        [ -n "$SPR_BANK" ] || { echo "ERROR: G5L requiere SPR_BANK"; exit 1; }
+        YDAT=work/yi1_s_g5.dat
+        $PY tools/g5l.py mk --bank "$SPR_BANK" ;;
+esac
 OUT=${OUT:-work}
 if [ -n "$SPR_BANK" ]; then
     [ "$SPR_MODE" = 1 ] || { echo "ERROR: SPR_BANK requiere SPR_OAM"; exit 1; }
