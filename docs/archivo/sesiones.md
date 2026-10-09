@@ -1892,3 +1892,105 @@ G5L GAME OK, lint/regress verdes, 5 hashes por defecto iguales. Quedó a
 medias: el colchón en vivo y bajar los ~40 tirones restantes. Informe:
 `docs/informe-g5l-r-1009.md`. Rama `g2t-b2bis` integrada a `master` por
 fast-forward a pedido del usuario (sin push).
+
+
+## 2026-10-09 — T medida; V/BM1 parciales verificadas
+
+PROXIMO anterior del worktree, archivado textual. T llegó a su parada; V y BM1 quedan WIP por puertas externas.
+
+# PRÓXIMO — lo que sigue
+
+2026-10-09. Rama `master` (integrada desde `g2t-b2bis` por fast-forward,
+**sin push**). Worktree de trabajo: `C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`.
+
+**Los enemigos se ven.** G5L-R dibuja al Rex por los sprites 4-7 (opt-in
+`-DG5L`); con el colchón de tercera lista (`-DCUSHION`, solo replay) el
+replay de YI1 pierde **67 fotos** en WinUAE cycle-exact (1,06 %, racha 1;
+control sin enemigos 27). El usuario aceptó el colchón (+20 ms) el
+2026-10-09 y pidió revisar los tirones del Rex: son pares repetir/saltear
+(P115), no errores del render. Informe: `docs/informe-g5l-r-1009.md`.
+
+## 1. La próxima sesión
+
+| tarjeta | toca | instrucciones y entrega |
+|---|---|---|
+| **G5L-R-T tirones** | bajar las fotos perdidas por el Rex (67 → hacia 27): patch compartido, camino rápido fallido, sweep con Mario en movimiento | `docs/instrucciones-g5l-r-tirones.md`: G5L GAME OK, WinUAE, vbtrace, parada si dos candidatos no bajan de ~55 |
+| **G5L-R-V vivo** | el colchón fuera del replay (reinicio, diagnóstico, carga) y `-DG5L -DCUSHION` por defecto al final | `docs/instrucciones-g5l-r-vivo.md`: ADF jugable, Z1, memmap, latencia medida, hashes nuevos en commit propio |
+
+Recomendado: primero T (lo que pidió el usuario), después V. No compilar
+en paralelo; una sola WinUAE midiendo. R9: derivados solo en work/.
+
+## 2. Después
+
+Los otros enemigos de YI1 con el mismo mecanismo (Banzai Bill por bob en
+PF1, piraña, Chuck), cobertura de dos Rex a la vez, D1 global (el control
+tampoco la cumple: build_mid/S5), HUD, audio. B2bis/Cpre/B35 quedan como
+estaban (`docs/informe-g2t-b2bis-rendimiento-1008.md`,
+`docs/informe-g2t-cpre-1008.md`): G5L-R los reemplaza como ruta de dibujo;
+no se retoman salvo decisión del usuario. Alcance en ROADMAP.md.
+
+## 3. Pendiente del usuario o la PC
+
+Decisiones tomadas por el agente con libertad creativa, para revisar:
+4 mapas limpios (`CLEAN_PERMS`), quitar el banco G3 del juego con G5L
+(65 KB de chip), caché del plan de 4 entradas, y dejar B2bis/Cpre/B35
+aparcadas en favor de G5L-R. Consulta Cpre de presupuesto (4000) sigue
+sin respuesta y queda sin efecto mientras Cpre esté aparcada.
+Worktrees viejos: todos integrados o equivalentes en master salvo
+`tools/g2t_probe.py` (`wt/g5bis-1007`, sonda de un enfoque superado);
+borrarlos es decisión del usuario.
+U1: jugar ADF vivo con teclado/KS1.2/A501. U2: capa 2 contra referencia.
+U3 opcional: A500 real.
+
+
+PROXIMO de master f24cee7, que añadió BM1 y confirmó el foco del usuario, archivado textual:
+
+# PRÓXIMO — lo que sigue
+
+2026-10-09. Rama `master` (integrada desde `g2t-b2bis` por fast-forward,
+**sin push**). Worktree de trabajo: `C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`.
+
+**Los enemigos se ven.** G5L-R dibuja al Rex por los sprites 4-7 (opt-in
+`-DG5L`); con el colchón de tercera lista (`-DCUSHION`, solo replay) el
+replay de YI1 pierde **67 fotos** en WinUAE cycle-exact (1,06 %, racha 1;
+control sin enemigos 27). El usuario aceptó el colchón (+20 ms) el
+2026-10-09 y pidió revisar los tirones del Rex: son pares repetir/saltear
+(P115), no errores del render. Informe: `docs/informe-g5l-r-1009.md`.
+
+## 1. La próxima sesión
+
+| tarjeta | toca | instrucciones y entrega |
+|---|---|---|
+| **G5L-R-T tirones** | bajar las fotos perdidas por el Rex (67 → hacia 27): patch compartido, camino rápido fallido, sweep con Mario en movimiento | `docs/instrucciones-g5l-r-tirones.md`: G5L GAME OK, WinUAE, vbtrace, parada si dos candidatos no bajan de ~55 |
+| **BM1 bare metal** | sin el SO también al arrancar: medir la chip que retiene, supervisor, trackloader MFM propio, mapa fijo (pedido del usuario 2026-10-09) | `docs/instrucciones-bm1.md`: fase 1 medida con parada si < 16 KB; KS 1.2/1.3; después de T, antes de V si falta chip |
+| **G5L-R-V vivo** | el colchón fuera del replay (reinicio, diagnóstico, carga) y `-DG5L -DCUSHION` por defecto al final | `docs/instrucciones-g5l-r-vivo.md`: ADF jugable, Z1, memmap, latencia medida, hashes nuevos en commit propio |
+
+Recomendado: primero T (lo que pidió el usuario), después V; BM1 entre las dos si la chip aprieta, si no al final. No compilar
+en paralelo; una sola WinUAE midiendo. R9: derivados solo en work/.
+
+## 2. Después
+
+Los otros enemigos de YI1 con el mismo mecanismo (Banzai Bill por bob en
+PF1, piraña, Chuck), cobertura de dos Rex a la vez, D1 global (el control
+tampoco la cumple: build_mid/S5), HUD, audio. B2bis/Cpre/B35 quedan como
+estaban (`docs/informe-g2t-b2bis-rendimiento-1008.md`,
+`docs/informe-g2t-cpre-1008.md`): G5L-R los reemplaza como ruta de dibujo;
+no se retoman salvo decisión del usuario. Alcance en ROADMAP.md.
+
+## 3. Pendiente del usuario o la PC
+
+**[usuario, 2026-10-09]: el foco es G5L-R**; B2bis/Cpre/B35 quedan
+aparcadas. Decisiones del agente con libertad creativa, para revisar:
+4 mapas limpios (`CLEAN_PERMS`), quitar el banco G3 del juego con G5L
+(65 KB de chip) y caché del plan de 4 entradas. Consulta Cpre de presupuesto (4000) sigue
+sin respuesta y queda sin efecto mientras Cpre esté aparcada.
+Worktrees viejos: todos integrados o equivalentes en master salvo
+`tools/g2t_probe.py` (`wt/g5bis-1007`, sonda de un enfoque superado);
+borrarlos es decisión del usuario.
+U1: jugar ADF vivo con teclado/KS1.2/A501. U2: capa 2 contra referencia.
+U3 opcional: A500 real.
+
+
+Entrega en g2t-b2bis, sin merge/push: 5461b8a (T, 66 fotos BENCH frente a 67; segundo candidato 65/racha2 retirado), a728ddc (V, tres listas/Z1/latencia), a41da43 (BM1, MFM/fijo KS1.2, 18920 B recuperados). Red final lint/regress --level --g5l --bm1/OAM68K/hashes verdes. Faltan teclado real y defecto V, KS1.3 y control de carga trackdisk; informes de esta fecha.
+
+Revisión final BM1 `c30ff27`: sincronías corruptas acotadas al DMA, 84 casos MFM exactos, boot988 B; nueva captura Z1 final vuelve en411/$71=00. Informe `docs/informe-bm1-limites-1009.md`.

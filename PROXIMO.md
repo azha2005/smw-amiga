@@ -1,43 +1,51 @@
 # PRÓXIMO — lo que sigue
 
-2026-10-09. Rama `master` (integrada desde `g2t-b2bis` por fast-forward,
-**sin push**). Worktree de trabajo: `C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`.
+2026-10-09. **Código en `g2t-b2bis`, sin merge ni push**; worktree:
+`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
+anterior; los documentos indican el avance de la rama.
 
-**Los enemigos se ven.** G5L-R dibuja al Rex por los sprites 4-7 (opt-in
-`-DG5L`); con el colchón de tercera lista (`-DCUSHION`, solo replay) el
-replay de YI1 pierde **67 fotos** en WinUAE cycle-exact (1,06 %, racha 1;
-control sin enemigos 27). El usuario aceptó el colchón (+20 ms) el
-2026-10-09 y pidió revisar los tirones del Rex: son pares repetir/saltear
-(P115), no errores del render. Informe: `docs/informe-g5l-r-1009.md`.
+Se iteraron las tres tarjetas. **T llegó a su parada**: 67→66 fotos BENCH;
+el segundo intento dio 65 pero racha2 y se retiró. Control con tres listas
+9; VBTRACE sin BENCH 25 saltos (instrumentaciones distintas). D1 roja.
+**V implementada opt-in**: tres listas en vivo, muerte/reinicio/diagnóstico
+y latencia de dos ticks verdes; falta teclado real antes del defecto.
+**BM1 opt-in funciona en KS1.2/A501**: MFM y arenas fijas, datos/imagen
+exactos, reinicio, 18920 B recuperados y carga 32,24 s. Falta KS1.3.
+
+Commits de código: `5461b8a`, `a728ddc`, `a41da43`, `c30ff27`. Informes:
+`docs/informe-g5l-r-tirones-1009.md`, `docs/informe-g5l-r-vivo-1009.md`,
+`docs/informe-bm1-1009.md`, `docs/informe-bm1-limites-1009.md`. Lint, regress `--level --g5l --bm1`, OAM68K
+y cinco MD5 normales verdes. **Los defectos siguen iguales**.
 
 ## 1. La próxima sesión
 
 | tarjeta | toca | instrucciones y entrega |
 |---|---|---|
-| **G5L-R-T tirones** | bajar las fotos perdidas por el Rex (67 → hacia 27): patch compartido, camino rápido fallido, sweep con Mario en movimiento | `docs/instrucciones-g5l-r-tirones.md`: G5L GAME OK, WinUAE, vbtrace, parada si dos candidatos no bajan de ~55 |
-| **G5L-R-V vivo** | el colchón fuera del replay (reinicio, diagnóstico, carga) y `-DG5L -DCUSHION` por defecto al final | `docs/instrucciones-g5l-r-vivo.md`: ADF jugable, Z1, memmap, latencia medida, hashes nuevos en commit propio |
+| **G5L-R-V cierre** | teclado real/RETURN en WinUAE; después, G5L+CUSHION por defecto en commit propio | `docs/instrucciones-g5l-r-cierre.md`: arranque/interacción, Z1, historial, memoria y cinco hashes nuevos |
+| **BM1 cierre** | KS1.3, política sin A501 y tiempo comparable contra trackdisk; conservar boot opt-in mientras falten puertas | `docs/instrucciones-bm1-cierre.md`: MFM/mapa/Z1 verdes, bytes y píxeles exactos en ambas ROMs, tiempo con mismos extremos |
 
-Recomendado: primero T (lo que pidió el usuario), después V. No compilar
-en paralelo; una sola WinUAE midiendo. R9: derivados solo en work/.
+No repetir implementaciones que ya pasan. Si falta el helper o ROM,
+continuar solo puertas independientes. Builds seriales, una WinUAE midiendo,
+R9. T no recibe otro candidato antes de revisar los números de su parada.
 
 ## 2. Después
 
-Los otros enemigos de YI1 con el mismo mecanismo (Banzai Bill por bob en
-PF1, piraña, Chuck), cobertura de dos Rex a la vez, D1 global (el control
-tampoco la cumple: build_mid/S5), HUD, audio. B2bis/Cpre/B35 quedan como
-estaban (`docs/informe-g2t-b2bis-rendimiento-1008.md`,
-`docs/informe-g2t-cpre-1008.md`): G5L-R los reemplaza como ruta de dibujo;
-no se retoman salvo decisión del usuario. Alcance en ROADMAP.md.
+Revisión de T: fast fallido/sweep durante daño y presupuesto global de
+build_mid/S5; 66 BENCH y 25 VBTRACE aún no cumplen D1. Luego otros enemigos,
+dos Rex, bobs/Banzai, HUD y audio. BM1 deja solo 24856 B de chip en vivo:
+las tablas CPU en chip (135468 B) todavía necesitan C2/C4 y espacio slow.
+**[usuario, 2026-10-09]: el foco es G5L-R**; B2bis/Cpre/B35 aparcadas.
 
 ## 3. Pendiente del usuario o la PC
 
-Decisiones tomadas por el agente con libertad creativa, para revisar:
-4 mapas limpios (`CLEAN_PERMS`), quitar el banco G3 del juego con G5L
-(65 KB de chip), caché del plan de 4 entradas, y dejar B2bis/Cpre/B35
-aparcadas en favor de G5L-R. Consulta Cpre de presupuesto (4000) sigue
-sin respuesta y queda sin efecto mientras Cpre esté aparcada.
-Worktrees viejos: todos integrados o equivalentes en master salvo
-`tools/g2t_probe.py` (`wt/g5bis-1007`, sonda de un enfoque superado);
-borrarlos es decisión del usuario.
-U1: jugar ADF vivo con teclado/KS1.2/A501. U2: capa 2 contra referencia.
-U3 opcional: A500 real.
+- Ruta local de **Kickstart 1.3**: solo se encontró `amivideo/kick12.rom`.
+- Helper Computer Use: error de conexión nativa (`os error 2`) tras dos
+  intentos y reinicio; impide enviar teclado real. U1 también puede
+  validarse jugando el ADF normal G5L vivo de la rama.
+- Antes de sustituir el boot normal, cerrar soporte sin A501: el fijo
+  muestra rojo estable, el normal conserva su comportamiento anterior.
+- U2 capa 2 contra referencia; U3 opcional A500 real. Borrar worktrees
+  viejos sigue siendo decisión del usuario.
+
+ADF vivo normal con Rex/colchón: `work/session/live/game.adf` en el
+worktree. ADF vivo bare metal final: `work/rg_bm1/game.adf`.
