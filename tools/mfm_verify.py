@@ -56,7 +56,7 @@ def main():
             if single_sync:
                 raw = raw[20 + 2:]
             raw += b'\xAA' * (s['BM_RAWLEN'] - len(raw))
-            for fault in ('none', 'data', 'header', 'missing', 'track'):
+            for fault in ('none', 'data', 'header', 'missing', 'track', 'sync'):
                 test = bytearray(raw)
                 first = test.find(b'\x44\x89')
                 header = first + (4 if test[first:first+4] == b'\x44\x89\x44\x89' else 2)
@@ -66,6 +66,8 @@ def main():
                     test[header + 20] ^= 1
                 elif fault == 'missing':
                     test[first:first + 1084] = b'\xAA' * 1084
+                elif fault == 'sync':
+                    test[:] = b'\x44\x89' * (s['BM_RAWLEN'] // 2)
                 c.write(s['BM_RAW'], test)
                 c.write(s['BM_TRACK'], b'\xCC' * 5632)
                 c.cpu.w_reg(R.D2, track ^ 1 if fault == 'track' else track)

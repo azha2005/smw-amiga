@@ -186,7 +186,9 @@ bm_decode:
         bhi     .end
         cmp.w   #$4489,(a0)+
         bne.s   .scan
-.sync:  cmp.w   #$4489,(a0)
+.sync:  cmp.l   a3,a0                     ; cabecera completa dentro del DMA
+        bhi     .end
+        cmp.w   #$4489,(a0)
         bne.s   .header
         addq.l  #2,a0
         bra.s   .sync
@@ -263,7 +265,7 @@ bm_long:
         or.l    d1,d0
         rts
 ; --- bm_step/bm_wait --- pulso STEP y espera por lineas PAL
-; entrada: bm_wait d0.w = lineas; salida ninguna
+; entrada: bm_wait d0.w = lineas, a4 = CUSTOM; salida ninguna
 ; registros destruidos: d0-d1; ciclos: espera hardware, 64 us por linea
 bm_step:
         bclr    #0,$bfd100
@@ -296,6 +298,9 @@ bm_motoroff:
         lea     bm_loadsig(pc),a0
         move.l  d0,16(a0)
         rts
+; --- bm_fail --- fallo de carga/memoria: rojo estable sin DMA ni IRQ
+; entrada: a4 = CUSTOM; salida: no retorna
+; registros destruidos: ninguno; ciclos: detenido, no frame de juego
 bm_fail:
         move.w  #$7fff,INTENA(a4)
         move.w  #$7fff,DMACON(a4)
