@@ -387,6 +387,19 @@ entry:
         add.l   #4+GSZ*NGRP,d0
         move.l  d0,V_LTC(a5)
         endc
+        ifd     VBTRACE
+        ifnd    REPLAY
+        fail    "VBTRACE solo en el replay"
+        endc
+        move.l  #VT_CAP*4,d0                ; la traza por VBL (tools: la lee
+        move.l  #MEMF_CLEAR,d1              ; de la memoria de WinUAE)
+        jsr     _LVOAllocMem(a6)
+        lea     vt_ptr(pc),a0
+        move.l  d0,(a0)
+        lea     vt_sig(pc),a1
+        move.l  a1,vt_self-vt_ptr(a0)
+        move.l  V_COP(a5),vt_list-vt_ptr(a0)
+        endc
         ifd     G5L
         move.l  #G5L_CDMA_SIZE+G5L_RBUF_SIZE,d0 ; flujos de las variantes limpias
         move.l  #MEMF_CHIP,d1               ; del Rex (g5l.py) y el bufer de las
@@ -1538,9 +1551,16 @@ dc_vb:
         move.w  d0,COPJMP1(a4)
         move.w  d0,DC_FRONT(a2)
         move.w  #-1,DC_PEND(a2)
+        ifd     VBTRACE
+        lea     vt_list(pc),a0
+        move.l  DC_PLIST(a2),(a0)
+        endc
         bra.s   .sw
 .nosw:  add.w   d7,DC_REP(a2)               ; la imagen se repite
 .sw:
+        ifd     VBTRACE
+        bsr     vt_rec
+        endc
         ifd     DIAG
         move.w  g_dst(pc),d0
         cmp.w   #2,d0
@@ -1581,6 +1601,41 @@ dc_vb:
 .nb:
         endc
         rts
+
+        ifd     VBTRACE
+; --- vt_rec --- (dc_vb) una fila de la traza: .w R_FRAME de la foto que
+; se ve y .w SPR4POS del bloque VBL de su lista
+; entrada:  a2 = dc_st
+; registros destruidos: ninguno
+vt_rec:
+        movem.l d0-d1/a0-a1,-(sp)
+        move.l  vt_ptr(pc),d0
+        beq.s   .x
+        move.l  d0,a1
+        moveq   #0,d1
+        move.w  vt_n(pc),d1
+        cmp.w   #VT_CAP,d1
+        bhs.s   .x
+        move.w  DC_FRONT(a2),d0
+        bmi.s   .x
+        lsl.l   #2,d1
+        add.l   d1,a1
+        bsr     dc_recp
+        move.w  R_FRAME(a0),(a1)+
+        move.l  vt_list(pc),a0
+        move.w  CL_VBL+4+10(a0),(a1)+
+        lea     vt_n(pc),a0
+        addq.w  #1,(a0)
+.x:     movem.l (sp)+,d0-d1/a0-a1
+        rts
+VT_CAP  equ 7000
+        even
+vt_sig:  dc.b   'VBTRACE!'
+vt_self: dc.l   0                           ; donde esta vt_sig (Amiga)
+vt_ptr:  dc.l   0                           ; la traza (AllocMem)
+vt_list: dc.l   0                           ; la lista que se ve
+vt_n:    dc.w   0                           ; filas escritas
+        endc
 
 ; dc_logstk: dc_cop en la pila de la interrupcion (sin cabecera: cambia
 ; de pila, asmlint no lo sigue; dc_vb guarda lo que necesita)

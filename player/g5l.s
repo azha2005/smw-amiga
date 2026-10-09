@@ -147,7 +147,10 @@ GV_WZ       equ GV_MWB+4                    ; 15 x (.l 0, .w -1, .w -1): sin Mar
 GV_LM       equ GV_WZ+15*8                  ; 33 .l: (1 << n) - 1
 GV_IG       equ GV_LM+33*4                  ; 16 x IGSZ: grupos del Rex por indice
 GV_MC       equ GV_IG+16*IGSZ               ; 4 entradas de la cache de Mario
-GV_SIZE     equ GV_MC+4*MCSZ
+GV_PK       equ GV_MC+4*MCSZ                ; 64 B: clave del plan (g5l_pckey)
+GV_PCNX     equ GV_PK+64                    ; .w entrada que se reemplaza (x PCSZ)
+GV_PC       equ GV_PCNX+2                   ; PC_N entradas de la cache del plan
+GV_SIZE     equ GV_PC+PC_N*PCSZ
 ; entrada de la cache de Mario
 MC_KEY      equ 0                           ; 52 B: .w n, 4 x 6 B, 24 B punteros, 2
 MC_XREL     equ 52                          ; .w borde derecho - bx
@@ -163,6 +166,17 @@ MCSZ        equ MC_W+15*8
 ; grupos de un indice (GV_IG): .w n, .w 0, n x (.w color, .w grupo de la
 ; tabla, .l filas); el primero es el de la variante limpia
 IGSZ        equ 64
+; cache del plan (g5l_pcget/g5l_pcput): por entrada la clave (64 B), y lo
+; que leen place/patch/emit del camino completo: GV_VAR, GV_NREM, los
+; bytes de cada cubeta, GV_REM y las transiciones (hasta PC_NTR)
+PC_N        equ 4
+PC_NTR      equ 80
+PC_VAR      equ 64
+PC_NREM     equ 68
+PC_LEN      equ 70                          ; 5 .w
+PC_REM      equ 80                          ; 8 * G5L_NREM
+PC_TRB      equ PC_REM+8*G5L_NREM
+PCSZ        equ PC_TRB+8*PC_NTR
 
 ; LOWB: d1 = el bit mas bajo de d0 (no 0); a1 = GV_BITS. Destruye d0.
 LOWB    macro
@@ -340,6 +354,12 @@ g5l_init:
         moveq   #LINES/4-1,d1
 .z:     clr.l   (a1)+
         dbf     d1,.z
+        lea     GV_PC(a6),a0                ; cache del plan vacia
+        moveq   #PC_N-1,d1
+.pz:    move.w  #-1,(a0)
+        lea     PCSZ(a0),a0
+        dbf     d1,.pz
+        clr.w   GV_PCNX(a6)
         lea     GV_TRB(a6),a0               ; principio de cada cubeta
         lea     GV_BS(a6),a1
         moveq   #5-1,d1
@@ -374,7 +394,8 @@ g5l_init:
         moveq   #LINES/4-1,d1
 .rm:    clr.l   (a1)+
         dbf     d1,.rm
-        lea     g5l_table(pc),a0
+        GETBASE a0                          ; (detras de g5l_v: a mas de
+        add.l   #g5l_table-binstart,a0      ; 32 KB con -DCUSHION)
         move.l  a0,GV_TAB(a6)
         move.l  12(a0),d0                   ; las fichas traspuestas, tras las
         add.l   a0,d0                       ; mascaras (744 x 16 B)
@@ -534,6 +555,11 @@ g5l_render:
 .nz:    lea     GV_WZ-8(a6),a0
         move.l  a0,d0
 .nw:    move.l  d0,GV_MWB(a6)
+        tst.l   GV_MCUR(a6)                 ; sin Mario el camino rapido no
+        beq.s   .nq                         ; falla: sin cache
+        bsr     g5l_pcget
+        beq     .swd                        ; el plan de una foto igual
+.nq:
         lea     GV_NEED(a6),a2              ; ninguna calculada
         moveq   #-1,d0
         move.l  d0,(a2)+
@@ -601,6 +627,9 @@ g5l_render:
         bsr     g5l_plan                    ; grupos y bandas
         bne     .sel
         bsr     g5l_sweep
+        tst.l   GV_MCUR(a6)
+        beq.s   .swd
+        bsr     g5l_pcput
 .swd:
         bsr     g5l_place
         tst.w   d0
@@ -620,6 +649,119 @@ g5l_render:
         bsr     g5l_unpool
         bsr     g5l_vblnull
 .x:     movem.l (sp)+,d2-d7/a2-a6
+        rts
+
+;----------------------------------------------------------------------
+; --- g5l_pcget --- la cache del plan: si una foto anterior tuvo la misma
+; clave (g5l_pckey), su resultado de need/plan/sweep. Nada de eso depende
+; de la x (g5l_place la usa con GV_E/GV_X0/GV_XM de esta foto)
+; entrada:  a6 = g5l_v, GV_MSH/GV_R0/GV_COL/GV_VLIST, GV_KBUF
+; salida:   d0 = 0 (Z) y GV_VAR, GV_NREM, GV_REM y las cubetas; 1 (NZ) no
+; registros destruidos: d0-d3/a0-a4
+;----------------------------------------------------------------------
+g5l_pcget:
+        bsr     g5l_pckey
+        lea     GV_PC(a6),a2
+        moveq   #PC_N-1,d2
+.e:     lea     GV_PK(a6),a0
+        move.l  a2,a1
+        moveq   #16-1,d1
+.c:     cmpm.l  (a0)+,(a1)+
+        bne.s   .n
+        dbf     d1,.c
+        move.l  PC_VAR(a2),GV_VAR(a6)
+        move.w  PC_NREM(a2),GV_NREM(a6)
+        lea     PC_REM(a2),a0
+        lea     GV_REM(a6),a1
+        moveq   #2*G5L_NREM-1,d1
+.r:     move.l  (a0)+,(a1)+
+        dbf     d1,.r
+        lea     PC_LEN(a2),a3               ; las cubetas
+        lea     PC_TRB(a2),a0
+        lea     GV_BS(a6),a4
+        moveq   #5-1,d3
+.b:     move.l  (a4)+,a1
+        move.w  (a3)+,d1
+        beq.s   .be
+        lsr.w   #2,d1
+        subq.w  #1,d1
+.bc:    move.l  (a0)+,(a1)+
+        dbf     d1,.bc
+.be:    move.l  a1,GV_BP-GV_BS-4(a4)
+        dbf     d3,.b
+        moveq   #0,d0
+        rts
+.n:     lea     PCSZ(a2),a2
+        dbf     d2,.e
+        moveq   #1,d0
+        rts
+
+;----------------------------------------------------------------------
+; --- g5l_pcput --- guardar el resultado del camino completo en la cache
+; del plan (la entrada GV_PCNX, rotando); no si las transiciones no caben
+; entrada:  a6 = g5l_v, GV_PK (de g5l_pcget en este frame)
+; registros destruidos: d0-d3/a0-a4
+;----------------------------------------------------------------------
+g5l_pcput:
+        lea     GV_BP(a6),a0                ; bytes de las cubetas
+        moveq   #0,d0
+        moveq   #5-1,d1
+.s:     move.l  (a0),d2
+        sub.l   GV_BS-GV_BP(a0),d2
+        add.l   d2,d0
+        addq.l  #4,a0
+        dbf     d1,.s
+        cmp.l   #8*PC_NTR,d0
+        bhi.s   .x
+        lea     GV_PC(a6),a2
+        move.w  GV_PCNX(a6),d0
+        add.w   d0,a2
+        add.w   #PCSZ,d0
+        cmp.w   #PC_N*PCSZ,d0
+        blo.s   .w
+        moveq   #0,d0
+.w:     move.w  d0,GV_PCNX(a6)
+        lea     GV_PK(a6),a0
+        move.l  a2,a1
+        moveq   #16-1,d1
+.k:     move.l  (a0)+,(a1)+
+        dbf     d1,.k
+        move.l  GV_VAR(a6),PC_VAR(a2)
+        move.w  GV_NREM(a6),PC_NREM(a2)
+        lea     GV_REM(a6),a0
+        lea     PC_REM(a2),a1
+        moveq   #2*G5L_NREM-1,d1
+.r:     move.l  (a0)+,(a1)+
+        dbf     d1,.r
+        lea     PC_LEN(a2),a3
+        lea     PC_TRB(a2),a1
+        lea     GV_BP(a6),a4
+        moveq   #5-1,d3
+.b:     move.l  GV_BS-GV_BP(a4),a0
+        move.l  (a4)+,d1
+        sub.l   a0,d1
+        move.w  d1,(a3)+
+        beq.s   .be
+        lsr.w   #2,d1
+        subq.w  #1,d1
+.bc:    move.l  (a0)+,(a1)+
+        dbf     d1,.bc
+.be:    dbf     d3,.b
+.x:     rts
+
+; --- g5l_pckey --- GV_PK = GV_KBUF (52 B), .w GV_R0, .w GV_MSH, .l GV_COL,
+; .l GV_VLIST
+; registros destruidos: d1/a0-a1
+g5l_pckey:
+        lea     GV_KBUF(a6),a0
+        lea     GV_PK(a6),a1
+        moveq   #13-1,d1
+.k:     move.l  (a0)+,(a1)+
+        dbf     d1,.k
+        move.w  GV_R0(a6),(a1)+
+        move.w  GV_MSH(a6),(a1)+
+        move.l  GV_COL(a6),(a1)+
+        move.l  GV_VLIST(a6),(a1)
         rts
 
 ;----------------------------------------------------------------------
@@ -763,6 +905,36 @@ g5l_mario:
         move.l  (a1)+,(a0)+
         clr.b   GV_KBUF+26(a6)              ; $0D84 y $0D9B no son punteros:
         clr.b   GV_KBUF+49(a6)              ; fuera de la clave
+        ; y solo los pares de punteros que leen las fichas de las entradas
+        ; (g5l_gtile): una ficha animada que Mario no muestra (avanza una
+        ; ficha por frame) hacia fallar la cache en cada foto
+        moveq   #0,d4                       ; d4 = pares usados (bit = par)
+        lea     GV_ENT(a6),a1
+        move.w  d7,d6
+        subq.w  #1,d6
+.pu:    moveq   #0,d0
+        move.b  4(a1),d0                    ; ficha
+        bsr    .pt
+        cmp.w   #2,6(a1)
+        bne.s   .pn
+        addq.w  #1,d0                       ; 16 x 16: t + 1, t + 16, t + 17
+        bsr    .pt
+        add.w   #15,d0
+        bsr    .pt
+        addq.w  #1,d0
+        bsr    .pt
+.pn:    addq.l  #8,a1
+        dbf     d6,.pu
+        lea     GV_KBUF+27(a6),a0           ; los otros pares, a cero
+        moveq   #0,d3
+.pc:    btst    d3,d4
+        bne.s   .pk
+        clr.b   (a0)
+        clr.b   1(a0)
+.pk:    addq.l  #2,a0
+        addq.w  #1,d3
+        cmp.w   #11,d3
+        blo.s   .pc
         ; buscar en la cache, en orden LRU
         lea     GV_MORD(a6),a2
         moveq   #4-1,d6
@@ -806,6 +978,27 @@ g5l_mario:
         move.w  #255,d0
 .xm:    move.w  d0,GV_XM(a6)
 .x:     rts
+; .pt: d0 = ficha de la VRAM (& 255): su par de punteros a d4 (como
+; g5l_gtile: $7F el 10; t < $20 con (t & 15) < 10 el (t & 15) / 2, + 5
+; en la fila de abajo). Destruye d1/d3
+.pt:    move.w  d0,d1
+        and.w   #255,d1
+        cmp.w   #$7F,d1
+        bne.s   .p1
+        bset    #10,d4
+        rts
+.p1:    cmp.w   #$20,d1
+        bhs.s   .p9
+        move.w  d1,d3
+        and.w   #15,d3
+        cmp.w   #10,d3
+        bhs.s   .p9
+        lsr.w   #1,d3
+        btst    #4,d1
+        beq.s   .p2
+        addq.w  #5,d3
+.p2:    bset    d3,d4
+.p9:    rts
 
 ; --- g5l_mfill --- calcular la entrada a3 de la cache para GV_KBUF/GV_ENT:
 ; por indice, las filas 0..63 (desde by + 1) en que Mario lo usa, de las
