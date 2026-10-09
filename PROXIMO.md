@@ -31,10 +31,10 @@ no se retoman salvo decisión del usuario. Alcance en ROADMAP.md.
 
 ## 3. Pendiente del usuario o la PC
 
-Decisiones tomadas por el agente con libertad creativa, para revisar:
+**[usuario, 2026-10-09]: el foco es G5L-R**; B2bis/Cpre/B35 quedan
+aparcadas. Decisiones del agente con libertad creativa, para revisar:
 4 mapas limpios (`CLEAN_PERMS`), quitar el banco G3 del juego con G5L
-(65 KB de chip), caché del plan de 4 entradas, y dejar B2bis/Cpre/B35
-aparcadas en favor de G5L-R. Consulta Cpre de presupuesto (4000) sigue
+(65 KB de chip) y caché del plan de 4 entradas. Consulta Cpre de presupuesto (4000) sigue
 sin respuesta y queda sin efecto mientras Cpre esté aparcada.
 Worktrees viejos: todos integrados o equivalentes en master salvo
 `tools/g2t_probe.py` (`wt/g5bis-1007`, sonda de un enfoque superado);
