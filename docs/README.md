@@ -40,6 +40,9 @@
 |---|---|---|
 | `informe-sw-m-retoma-1010.md` | 2026-10-10 | recuperación SW-M, ocho amarillos corregidos, cola CPU BM1 y puertas pendientes |
 | `informe-sw-d-retoma-1010.md` | 2026-10-10 | diagnóstico de los cinco píxeles BG1: derrames del asignador; herramienta por píxel recuperada |
+| `informe-sw-ap-1010.md` | 2026-10-10 | SW-A (postes) y SW-P (prioridad de la piraña): hechas, opcionales; costes de copper y de D1 |
+| `informe-sw-b-1010.md` | 2026-10-10 | SW-B: cambios del mapa en pantalla, exactos; opcional por coste (`SW_TILES=1`) |
+| `informe-sw-q-recuperacion-1010.md` | 2026-10-10 | SW-Q: `$83` y power-ups en OAM/G5L, integrada; puertas pendientes |
 | `informe-d1.md` | 2026-10-03 | O4: peor frame y compuerta D1 (antes de redefinirla en fotos omitidas) |
 | `estudio-g1-g0.md` | 2026-10-04 | G1 + G0: columnas de sprites a 256 px, DMA contra copper |
 | `medida-g0.md` | 2026-10-05 | G0 real a 256 px en WinUAE |

@@ -275,12 +275,12 @@ original del 2026-09-30, ola por ola, está textual en
 | G4-B | **hecha (2026-10-10), activada por el usuario el 2026-10-10** | tabla G5L3 (órdenes de color y tipos en la cabecera, 1 mapa por tipo): 82 KB slow, +14,2 KB chip. Referencia 0 errores en 11 trazas; `g5l.py game` exacto en yi1/hills2/piranha/chuck; capturas piraña 0 px, Chuck 0 px en el objeto. A/B normal 11 → 27, back +69, piranha +23 → `G5L_TYPES=all`. P126. `docs/informe-g4-b-1010.md` |
 | G9 | **hecha (2026-10-10)** | `tools/sprshot_cmp.py` (imagen y `--logic`): 10 capturas, 8 tipos y Mario con 0 px contra la SNES; deriva de lógica en pocas instancias (Rex yi1 70 %, piraña 74 %). P127. `docs/informe-g9-1010.md` |
 | L-DER | **siguiente** | la deriva de la lógica de sprites: primer frame distinto por instancia, causa y arreglo en el 68000; puerta `--logic` ≥ 99 %. `docs/instrucciones-l-der.md` |
-| SW-A | pendiente (fácil) | tiles animados de la capa 1 (los postes del punto medio): GFX 33 en las ranuras de `DATA_05B93B`; puerta: tiles = VRAM de snesorc y SW1. `docs/instrucciones-sw-a.md` |
-| SW-P | pendiente (fácil) | `BPLCON2 = $0022` en la franja de un objeto G5L con prioridad 0-1 (la piraña). `docs/instrucciones-sw-p.md` |
-| SW-M | pendiente (fácil) | la moneda de Yoshi: `D_COIN` y el paso de `wm_FrameB` por foto. `docs/instrucciones-sw-m.md` |
-| SW-D | pendiente (fácil) | los detalles de 1-6 px de SW1: capa y color por píxel. `docs/instrucciones-sw-d.md` |
-| SW-B | pendiente (mediana) | los cambios del mapa en pantalla: cola de `generate_tile`, `D_TCHG`, `D_MAP` y blit. `docs/instrucciones-sw-b.md` |
-| SW-Q | pendiente (mediana) | `$83` y power-ups en G5L (banco, tabla, regla). `docs/instrucciones-sw-q.md` |
+| SW-A | **hecha (2026-10-10), opcional** | postes con `animtiles.py` (VRAM 42/42 exacta, fase 0 congelada); `SW_ANIM_POSTS=0`. Cuesta `build_mid.max` 81 244 → 93 746 y 1-4 px de derrame: activarla es del usuario. `docs/informe-sw-ap-1010.md` |
+| SW-P | **hecha (2026-10-10), opcional** | `BPLCON2 = $0022` por franja (`g5l_prsingle/prmulti`, `priority_trans`); `g5l.py game` exacto en 4 replays; SW1: piraña 8 fotos a 0 px. BENCH 113 → 124: `-DG5L_PRIORITY`. `docs/informe-sw-ap-1010.md` |
+| SW-M | **hecha (2026-10-10), opcional** | `coinpal.s` + `D_COIN` (+52); SW1: 13 fotos mejores, 0 peores; `coinpal_verify` OK. BENCH 103 → 148: `-DCOINANIM`. `docs/informe-sw-m-retoma-1010.md` |
+| SW-D | **investigada (2026-10-10)** | `sweep_cmp.py cmp --px`, `snesorc --layers`: los píxeles BG1 son derrames del asignador de PF1; los OBJ, L-DER. Sin arreglo. `docs/informe-sw-d-retoma-1010.md` |
+| SW-B | **hecha (2026-10-10), opcional** | diario C + `tilechange.s` + `D_TCHG` (+56); `tilechange_verify` 33/33, 0 px. Reservas de color: `build_mid.max` +836 → `SW_TILES=1`. Falta barrida `turn_block` y A/B. `docs/informe-sw-b-1010.md` |
+| SW-Q | **integrada (2026-10-10), activa** | OAM del `$83` y power-ups (`swq68k.s`), G5L con sus formas; capturas k 1199/1249/1299 a 0 px; regresión y OAM68K OK. Pendiente: Rex 3770 de `pw_flor` (L-DER), estrella real, A/B. `docs/informe-sw-q-recuperacion-1010.md` |
 | SW-S | pendiente (mediana) | puntos, humo y sprites extendidos menores: lógica en asm, dibujo por G7 o G5L. `docs/instrucciones-sw-s.md` |
 | G4-3 | aparcada | Rex en los pares de Mario fuera de sus filas (cota G4-1 §3); solo con G4-2 activado. `docs/instrucciones-g4-3.md` |
 | G5L-R-V | **hecha (2026-10-09)** | teclado real KS 1.2/1.3, historial reproducido, RETURN; defecto G5L+CUSHION+SPR_OAM en `53e6453`. `docs/informe-cierre-v-bm1-1009.md` |

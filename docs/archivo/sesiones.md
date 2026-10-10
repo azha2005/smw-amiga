@@ -3271,3 +3271,114 @@ Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
 - Deriva de lógica en pocas instancias (Rex yi1 70 %, piraña
   stress_piranha 74 %): tarjeta L-DER.
 - P127. Informe `docs/informe-g9-1010.md`.
+
+
+## 2026-10-10 — Retoma de worktrees por límite de uso
+
+# PRÓXIMO — lo que sigue
+
+2026-10-10. **`g2t-b2bis` integrada a master** (sin push, a pedido del
+usuario). El worktree `C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008` sigue
+existiendo; se trabaja en master.
+
+**G4-B y G9 hechas.**
+
+- **G4-B** (`docs/informe-g4-b-1010.md`): con `G5L_TYPES=all`, G5L dibuja
+  los demás enemigos de YI1 (piraña, Chuck, Koopa, caparazón, caja, cinta
+  y `$02`). Exacto en el 68000. **Activado por defecto por el usuario
+  (2026-10-10), con 2 objetos por foto (`G5L_MAXPL` = 2)**, aceptando que
+  D1 empeora (1 por foto: normal 11 → 27, back 387 → 456, piranha 108 →
+  131 fotos perdidas; con 2, más). `G5L_TYPES=AB` y `-DG5L_MAXPL=1`
+  vuelven a lo anterior. **El replay con arranque Exec ya no entra en
+  chip (P126): en WinUAE, `tools/bm_build.sh`** (arranque BM1).
+- **G9** (`docs/informe-g9-1010.md`): `tools/sprshot_cmp.py` compara la
+  captura con la OAM de la SNES. **El dibujo es exacto**: en 10
+  capturas, los 8 tipos (limpios y con bandas) y Mario dan 0 px
+  distintos. Lo que no es exacto es la **lógica** de unas pocas
+  instancias, que se desvían 1-2 px u otra pose durante cientos de fotos
+  (Rex de yi1: 70 % de fotos iguales; piraña de stress_piranha: 74 %).
+
+**Ahora: L-DER**, encontrar y corregir esa deriva de la lógica.
+
+**D1 sigue roja**: back 387/4126, sprites 93/1914, hills2 216/2835 y
+normal BENCH 11/6312 (controles de esta tanda). 50 Hz y colchón
+aceptados.
+
+## 1. La próxima sesión, en orden
+
+| tarjeta | responsable | ficheros / puerta | instrucciones |
+|---|---|---|---|
+| **L-DER** | coordinador; **siguiente** | la lógica de sprites en el 68000. El primer frame en que cada instancia se separa de la SNES (RAM de la ranura contra la traza `oamb`), su causa y el arreglo. Puerta: `sprshot_cmp.py --logic` ≥ 99 % por tipo en yi1, stress_piranha, chuck y hills2 (o cada tramo explicado); regresión; A/B si cambia la CPU de la lógica | `docs/instrucciones-l-der.md` |
+| G4-3 | aparcada | Rex en los pares de Mario: solo tiene sentido con G4-2 activado | `docs/instrucciones-g4-3.md` |
+
+Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
+--baseline tools/baseline_pc.json --level --g5l --bm1`, en verde.
+
+## 1b. SW1: barrida de la pantalla entera (2026-10-10, a pedido del usuario)
+
+`docs/informe-sw1-1010.md`. Una foto por segundo de yi1 (126) contra la
+PPU de la SNES: fuera de la barra de estado, 50 exactas (44 de 98 en
+sincronía). Diferencias **nuevas**, candidatas a tarjeta:
+
+- la piraña se dibuja **delante** de la tubería: falta la prioridad
+  sprite/capa 1 (11 fotos);
+- los **postes del punto medio** no se ven: son capa 1; sospecha de
+  color/índice por línea (9 fotos);
+- los **bloques giratorios no se rompen**, ni salen los trozos (6 fotos,
+  también en sincronía);
+- **los puntos** (200/400/1000), las estrellas del pisotón, el **bloque
+  `?` volador `$83`** y su champiñón: sin dibujar;
+- la **moneda de Yoshi** en otro tono (animación de paleta, P22);
+- detalles de 1-6 px (esquina de cornisa, un píxel en la fila 185, el
+  pie del Koopa).
+
+Ya conocidas: la barra de estado (D11), el Banzai (G7) y los Rex que no
+entran por la regla de 2 por foto.
+
+**Tarjetas de SW1** (instrucciones escritas el 2026-10-10; orden
+propuesto):
+
+| tarjeta | qué | dificultad | instrucciones |
+|---|---|---|---|
+| SW-A | tiles animados de la capa 1: los postes del punto medio (`$74`-`$77`, GFX 33) | fácil, solo datos | `docs/instrucciones-sw-a.md` |
+| SW-P | prioridad sprite/capa 1: `BPLCON2 = $0022` en la franja de un objeto con prioridad 0-1 (la piraña) | fácil, 2 MOVE por objeto | `docs/instrucciones-sw-p.md` |
+| SW-M | la moneda de Yoshi: los 8 pasos de la paleta (P22) en `D_INI`/`D_CHG` y la lista | fácil | `docs/instrucciones-sw-m.md` |
+| SW-D | los detalles de 1-6 px: investigar capa y color | fácil de investigar | `docs/instrucciones-sw-d.md` |
+| SW-B | los cambios del mapa en pantalla (`D_MAP` + blit; bloques rotos, usados, monedas) | mediana | `docs/instrucciones-sw-b.md` |
+| SW-Q | el bloque `?` volador `$83` y los power-ups en G5L (la lógica ya existe) | mediana | `docs/instrucciones-sw-q.md` |
+| SW-S | puntos, estrellas, humo y trozos: la lógica en asm y el dibujo (G7 o G5L) | mediana | `docs/instrucciones-sw-s.md` |
+
+Todas se cierran repitiendo la barrida (`informe-sw1-1010.md` §4).
+
+## 2. Pendiente del usuario
+
+- **Qué arreglar primero de SW1** (lista de arriba). Propuesta: la
+  prioridad de la piraña y los postes (se ven en todo el nivel y no
+  cuestan CPU), después los bloques giratorios (lógica + mapa).
+
+- **Todos los tipos y 2 por foto, activados** (usuario, 2026-10-10). Falta
+  el A/B de D1 con los dos juntos (la tanda de controles de arriba es con
+  1 Rex por foto).
+- **La regla de prioridad** (qué objetos se dibujan cuando no entran
+  todos): hoy, de arriba abajo, hasta 2, y el segundo solo si no comparte
+  filas con el primero (`bob_canal`) y hay índice de color (`bob_color`).
+  Con 2 por foto el Chuck se ve 531 de 998 fotos y el caparazón 550 de
+  938. Alternativas (decisión de fidelidad, del usuario): el más cercano
+  a Mario, enemigos antes que la caja y la cinta, o mantener la elección
+  de la foto anterior. El arreglo de fondo es la cola de bobs (G7).
+- Probar en la Amiga real el ADF del vivo: `GDEFS=" " OUT=work/live sh
+  tools/game_build.sh` → `work/live/game.adf` (A500 con A501, 1 MB). Sin
+  input, el Koopa mata a Mario hasta el game over, que no está portado
+  (congela; GameMode `$15`).
+- **Solo como dato (no se propone):** S11 y L3 indican que el estrés back
+  probablemente no entre en D1 solo con CPU. Con 5 planos (PF2 de 2) el
+  ≈ 1,6× de los planos casi desaparecería, pero cambia D8 y el fondo. Es
+  decisión tuya si alguna vez se quiere evaluar.
+- En el checkout de master quedó sin commitear una versión vieja de
+  `docs/investigacion-demoscene-1010.md` (264 líneas) y su fila en
+  `docs/README.md`; la rama tiene la versión actualizada (320 líneas,
+  `6797dd0`).
+
+Avance: master recuperado en 9522b60; SW-M verifica ocho amarillos del fuente, cola CPU BM1 y SW-D. Tres worktrees SW-A/P, SW-B y SW-Q/S retomados y guardados por separado; no integrar puertas rojas. Cierre anticipado solicitado por el usuario; detalle en los informes de retoma.
+
+Cierre (segunda retoma, 2026-10-10 noche): SW-Q integrada y activa; SW-A, SW-P, SW-M y SW-B integradas como opcionales (D1 medido en WinUAE: SW-P 113 → 124, SW-M 103 → 148 fotos perdidas; SW-A y SW-B suben `build_mid`). Lint y regresión en verde en master; `work/live_fid/game.adf` con las cuatro.
