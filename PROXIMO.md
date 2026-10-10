@@ -4,29 +4,28 @@
 `C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
 anterior.
 
-**G4-A hecha (solo medida)** (`docs/informe-g4a-1010.md`). Con trazas
-exactas de las 30 grabaciones aparecen 9 tipos con gráfico; ninguno pasa
-de 15 colores. **Hallazgo:** G5L no dibuja el Rex aplastado cuando
-aparece con otro desplazamiento vertical: 340 de 2.110 frames con Rex en
-`hills2`, también en `stress_*`, `shells` y `pw_estrella`. Con la clave
-normalizada, 30 de esas 33 formas ya están en el banco, y el Rex baja de
-48 a 22 formas. La tabla G5L de todos los enemigos solo entra en slow con
-la clave normalizada y las máscaras compartidas (83 KB con 4 mapas). El
-Banzai como bob (+59 KB) y el audio no entran en chip hasta C2/C4, que
-además necesitan compresión (C3). **Ahora: G5L-N.**
+**G5L-N hecha e integrada en la rama** (`docs/informe-g5l-n-1010.md`).
+La tabla del Rex pasa a `G5L2`, con la clave normalizada y las máscaras
+una vez por forma. Ocupa 44.810 B en vez de 128.724, y la slow libre del
+vivo sube de 61 a 145 KB. **El Rex aplastado sobre una pendiente ya se
+dibuja**: en `hills2`, 340 frames → 0 sin forma. En la foto 1720, la
+captura WinUAE es el control más el Rex planeado, con 0 de 327.680
+píxeles distintos. El A/B BENCH no empeora (normal 14→9, back 392→373,
+sprites 98→88). Trampa nueva: P124. **Ahora: G4-1.**
 
-L3 quedó cerrada antes, sin integrar (`docs/informe-g5l-r-l3-1010.md`):
-ningún recorte de la lógica mueve D1.
+G4-A (medida) quedó antes (`docs/informe-g4a-1010.md`): 9 tipos con
+gráfico, ninguno de más de 15 colores. El Banzai es bob, y el bob y el
+audio no entran en chip hasta C2/C4 + C3.
 
-**D1 sigue roja** (control sin cambios): back 387/4126 (9,38 %, racha 5),
-sprites 98/1914, normal BENCH 14/6312, VBTRACE 2. 50 Hz y colchón aceptados.
+**D1 sigue roja**: back 373/4126 (racha 4), sprites 88/1914, normal BENCH
+9/6312 (tanda de G5L-N). 50 Hz y colchón aceptados.
 
 ## 1. La próxima sesión, en orden
 
 | tarjeta | responsable | ficheros / puerta | instrucciones |
 |---|---|---|---|
-| **G5L-N** | coordinador; **en curso** | `tools/g5l.py` (formato `G5L2`), `player/g5l.s` (`g5l_choose`, `g5l_patch`): clave normalizada y máscaras una vez por forma. Puertas: `g5l.py trace` con las trazas nuevas (`rex_sin_forma` ≤ 3 formas), `g5l.py game`, regresión, memmap, A/B BENCH y captura de `hills2` | `docs/instrucciones-g5l-n.md` |
-| G4 + G6 | después de G5L-N | el plan G5L para N objetos con el formato `G5L2`; Rex con 4 mapas y los demás con 1 (chip) | `docs/instrucciones-olas.md` §3, `informe-g4a-1010.md` §6 |
+| **G4-1** | coordinador; **en curso** | `tools/g5l.py` (`plan_frame_n`, `check_trace_n`, `trace --multi`), solo Python: varios Rex por foto en los pares 4-5 y 6-7, con reuso vertical y colores compartidos con Mario. Puerta: 0 errores de color en las 8 trazas; cada Rex visible queda dibujado o en la cola de bobs con su motivo | `docs/instrucciones-g4-1.md` |
+| G4-2 | después de G4-1 | el 68000 de `plan_frame_n` en `g5l.s`, `g5l.py game` exacto, A/B | (la escribe G4-1) |
 
 Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
 --baseline tools/baseline_pc.json --level --g5l --bm1`, en verde.
@@ -34,6 +33,7 @@ Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
 ## 2. Pendiente del usuario
 
 - Probar el vivo a mano en esta rama y decidir cuándo integrar a master.
+  Novedad visible: el Rex aplastado sobre pendientes.
 - **Solo como dato (no se propone):** S11 y L3 indican que el estrés back
   probablemente no entre en D1 solo con CPU. Con 5 planos (PF2 de 2) el
   ≈ 1,6× de los planos casi desaparecería, pero cambia D8 y el fondo. Es

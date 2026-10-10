@@ -5,7 +5,7 @@
 ;
 ; Modelo de copper: el de G2T-A (tools/g2t_ref.py, medido en WinUAE). El
 ; plan no mira pixeles: mascaras de indices por fila (Mario desde sus
-; fichas de GFX32, el Rex desde la tabla G5L1) y el borde derecho de cada
+; fichas de GFX32, el Rex desde la tabla G5L2) y el borde derecho de cada
 ; figura. Las recargas de COLOR17-31 van al final del segmento de la fila,
 ; en el borrado horizontal (WAIT $D0), con una capacidad que no necesita
 ; leer la lista: 12 - nb sin cargas, 10 - nb con cargas (nb = el borrado
@@ -1187,7 +1187,8 @@ g5l_gtile:
 
 ;----------------------------------------------------------------------
 ; --- g5l_choose --- el Rex visible mas alto (fila, ranura) con forma en
-; la tabla
+; la tabla. G5L-N: la clave va normalizada (dx, dy menos su minimo como
+; s8); ese minimo se suma a sx/sy, que es el origen de las variantes.
 ; entrada:  a4 = foto G5L, a6 = g5l_v
 ; salida:   d0 = 1 y GV_R0/X0/VLIST/NVAR/SLOT; 0 si no hay
 ; registros destruidos: d0-d7/a0-a3
@@ -1206,6 +1207,28 @@ g5l_choose:
         sub.w   G5F_CAMX(a4),d4             ; d4 = sx
         move.w  4(a1),d5
         sub.w   G5F_CAMY(a4),d5             ; d5 = sy
+        ; G5L-N: el minimo de dx y dy (s8) de las fichas, sumado a sx/sy
+        lea     6(a1),a0
+        move.w  d6,d2
+        subq.w  #1,d2
+        moveq   #127,d1                     ; d1 = min dx
+        moveq   #127,d3                     ; d3 = min dy
+.mn:    move.b  (a0)+,d0
+        sub.b   d4,d0
+        cmp.b   d1,d0
+        bge.s   .m1
+        move.b  d0,d1
+.m1:    move.b  (a0)+,d0
+        sub.b   d5,d0
+        cmp.b   d3,d0
+        bge.s   .m2
+        move.b  d0,d3
+.m2:    addq.l  #3,a0                       ; tile, attr, hi
+        dbf     d2,.mn
+        ext.w   d1
+        add.w   d1,d4                       ; d4 = sx + min dx
+        ext.w   d3
+        add.w   d3,d5                       ; d5 = sy + min dy
         ; clave: dx, dy, tile, banderas; la prioridad de todas igual
         lea     6(a1),a0
         lea     GV_KEY(a6),a2
@@ -2383,17 +2406,22 @@ g5l_patch:
 .rm:    move.b  (a5),d4
         move.b  1(a5),d0
         eor.b   d0,d4                       ; d4 = los planos que cambian
-        moveq   #0,d0
+        moveq   #0,d0                       ; G5L2: el bloque de la forma
         move.b  2(a5),d0                    ; su grupo de la tabla
-        mulu    d7,d0
-        mulu    d6,d0
-        add.l   d0,d0
+        add.w   d6,d0
+        lsl.w   #3,d0
         moveq   #0,d1
-        move.b  9(a3),d1
-        add.w   d6,d1
-        lsl.w   #3,d1
-        add.l   d1,d0
-        lea     12(a3,d0.l),a0              ; a0 = sus mascaras (filas x columnas .w)
+        move.b  13(a3,d0.w),d1              ; su mascara (el .b del grupo)
+        mulu    d7,d1
+        mulu    d6,d1
+        add.l   d1,d1                       ; x alto x columnas .w
+        moveq   #0,d0
+        move.b  9(a3),d0
+        add.w   d6,d0
+        lsl.w   #3,d0
+        add.l   12(a3,d0.w),d1              ; + el bloque (desde la tabla)
+        add.l   GV_TAB(a6),d1
+        move.l  d1,a0                       ; a0 = sus mascaras (filas x columnas .w)
         move.l  4(a5),d3                    ; la banda
         move.l  GV_RBUF(a6),a2
         addq.l  #4,a2                       ; a2 = fila 0 del primer flujo

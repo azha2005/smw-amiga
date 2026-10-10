@@ -106,9 +106,13 @@ def schedule(row, last, free, nb1, needs):
 
 
 # ----------------------------------------------------------------------
-# tabla G5L1 (big endian, offsets relativos al principio)
+# tabla G5L2 (big endian, offsets relativos al principio)
 # ----------------------------------------------------------------------
-#  0  'G5L1'
+# G5L-N (2026-10-10): la clave de la forma está normalizada (dx, dy menos
+# su mínimo como s8; el 68000 suma ese mínimo a sx/sy antes de usar el
+# origen de la variante) y las máscaras de píxeles van una vez por forma,
+# por color, no repetidas en cada mapa (informe-g4a-1010.md §6).
+#  0  'G5L2'
 #  4  .w formas  .w variantes  .w NHASH  .w 0
 # 12  .l offset de la tabla de máscaras de Mario (744 x 8 .w)
 # 16  NHASH x .w: offset de la primera forma del cubo (0 = vacío)
@@ -118,8 +122,10 @@ def schedule(row, last, free, nb1, needs):
 # variante: .w ox, .w oy, .b ancho, .b alto, .b columnas, .b índices,
 #        .b xmax, .b grupos, .w variante del banco, columnas x (.l off0,
 #        .l off1) en bank.dma, grupos x (.b índice, .b 0, .w color, .l
-#        filas): el filtro A3 por máscaras; grupos x alto x columnas .w:
-#        los píxeles del índice del grupo (g5l_patch); índices x (.b índice, .b
+#        filas): el filtro A3 por máscaras (el .b 0 es el número de su
+#        máscara en el bloque de la forma); .l offset del bloque de
+#        máscaras de la forma (por color: alto x columnas .w, los píxeles de
+#        ese color, g5l_patch); índices x (.b índice, .b
 #        tramos, tramos x (.b fila primera, .b fila última, .w color),
 #        .b cambios, .b última fila, cambios x (.b fila, .b última del
 #        tramo anterior o $FF, .w color)): filas seguidas, mismo color;
@@ -128,11 +134,21 @@ def tile_flags(tile, size, fx, fy, pal):
     return (tile >> 8) | (2 if size == 16 else 0) | fx << 2 | fy << 3 | pal << 4
 
 
+def norm_key(t4):
+    """G5L-N: (dx, dy) menos su mínimo (s8), sin reordenar las fichas;
+    devuelve las fichas normalizadas y el mínimo (el 68000: g5l_choose)"""
+    mx = min(s8(t[0]) for t in t4)
+    my = min(s8(t[1]) for t in t4)
+    return [((s8(t[0]) - mx) & 255, (s8(t[1]) - my) & 255) + tuple(t[2:]) for t in t4], mx, my
+
+
 def key_hash(tiles4):
     return (sum(sum(t) for t in tiles4) + len(tiles4)) & (NHASH - 1)
 
 
-def variant_record(pose, tables, n, offs=None):
+def variant_record(pose, tables, n, offs=None, masks=None):
+    """masks = (offset del bloque de la forma, [colores en orden]) (G5L2);
+    None: las máscaras dentro del registro, como G5L1 (solo para medir)"""
     ox, oy = pose['origin']
     w, h = pose['width'], pose['height']
     cols = (w + 15) // 16
@@ -152,18 +168,12 @@ def variant_record(pose, tables, n, offs=None):
             groups[d, c] = groups.get((d, c), 0) | ((1 << (b + 1)) - 1) & ~((1 << a) - 1)
     out[9] = len(groups)
     for (d, c), m in groups.items():
-        out += struct.pack('>BBHI', d, 0, c, m)
-    # G5L-R: por grupo, los píxeles de su índice en cada fila y columna
-    # (el parche de g5l_patch): h x columnas .w, bit 15 = x 16c
-    for (d, c), m in groups.items():
-        for r in range(h):
-            for col in range(cols):
-                wv = 0
-                for x in range(16):
-                    xx = 16 * col + x
-                    if xx < w and pose['rows'][r][xx] == d:
-                        wv |= 1 << (15 - x)
-                out += struct.pack('>H', wv)
+        out += struct.pack('>BBHI', d, masks[1].index(c) if masks else 0, c, m)
+    if masks:
+        out += struct.pack('>I', masks[0])
+    else:
+        for (d, c), m in groups.items():
+            out += pose_mask(pose, d)
     out[7] = len(runs)
     for d in sorted(runs):
         out += struct.pack('>BB', d, len(runs[d]))
@@ -173,6 +183,22 @@ def variant_record(pose, tables, n, offs=None):
         out += struct.pack('>BB', len(chg), runs[d][-1][1])
         for a, pb, c in chg:
             out += struct.pack('>BBH', a, pb, c)
+    return bytes(out)
+
+
+def pose_mask(pose, d):
+    """G5L-R: los píxeles del índice d en cada fila y columna (el parche de
+    g5l_patch): alto x columnas .w, bit 15 = x 16c"""
+    w, h = pose['width'], pose['height']
+    out = bytearray()
+    for r in range(h):
+        for col in range((w + 15) // 16):
+            wv = 0
+            for x in range(16):
+                xx = 16 * col + x
+                if xx < w and pose['rows'][r][xx] == d:
+                    wv |= 1 << (15 - x)
+            out += struct.pack('>H', wv)
     return bytes(out)
 
 
@@ -255,6 +281,10 @@ def clean_streams(pose, out, index):
     return offs
 
 
+def cp_cols(pose):
+    return (pose['width'] + 15) // 16
+
+
 def build_table(bank, clean=True):
     import g2t_ref as T
     import g5ref as R
@@ -263,33 +293,69 @@ def build_table(bank, clean=True):
     ctx['clean'], ctx['cdma'] = [], bytearray()
     cindex = {}
     shapes = []
+    seen = {}
+    ctx['norm_dup'] = 0
     for (tiles, pri), variants in directory.items():
         t4 = [((dx & 255), (dy & 255), tile & 255, tile_flags(tile, size, fx, fy, pal))
               for dx, dy, tile, size, fx, fy, pal in tiles]
         if any(not -128 <= dx < 128 or not -128 <= dy < 128 for dx, dy, *_ in tiles):
             raise ValueError('ficha fuera de s8')
-        shapes.append((t4, pri, variants))
+        if not clean:
+            shapes.append((t4, pri, variants, 0, 0))
+            continue
+        # G5L-N: una forma por clave normalizada; la traslación tiene que
+        # dar la misma imagen con el mismo origen relativo al mínimo
+        t4n, mx, my = norm_key(t4)
+        pose0 = poses[variants[0]]
+        org = (pose0['origin'][0] - mx, pose0['origin'][1] - my)
+        img = clean_pose(pose0, CLEAN_MAPS[0])['rows']     # colores, no los índices del banco
+        k = (tuple(t4n), pri)
+        if k in seen:
+            o2, img2 = seen[k]
+            if o2 != org or img2 != img:
+                raise ValueError('traslación con otra imagen u origen')
+            ctx['norm_dup'] += 1
+            continue
+        seen[k] = (org, img)
+        shapes.append((t4n, pri, variants, mx, my))
     vblob = bytearray()
     voff = {}
+    mfix = []                                   # (en vblob, offset en vblob del bloque)
     if clean:
-        for k, (t4, pri, variants) in enumerate(shapes):
+        for k, (t4, pri, variants, mx, my) in enumerate(shapes):
             names = []
+            p0 = poses[variants[0]]
+            p0 = dict(p0, origin=[p0['origin'][0] - mx, p0['origin'][1] - my])
+            # el bloque de máscaras de la forma: un color por máscara, con
+            # los píxeles del mapa 0 (la misma imagen en los 4 mapas)
+            c0 = clean_pose(p0, CLEAN_MAPS[0])
+            colors = sorted({c for row in c0['row_maps'] for _, _, _, c in row})
+            if len(vblob) & 1:
+                vblob.append(0)
+            mblk = len(vblob)
+            for c in colors:
+                vblob += pose_mask(c0, CLEAN_MAPS[0][c])
             for cmap in CLEAN_MAPS:
-                cp = clean_pose(poses[variants[0]], cmap)
+                cp = clean_pose(p0, cmap)
                 offs = clean_streams(cp, ctx['cdma'], cindex)
                 ck = len(ctx['clean'])
                 ctx['clean'].append(cp)
                 if len(vblob) & 1:
                     vblob.append(0)
                 voff['c%d' % ck] = len(vblob)
-                vblob += variant_record(cp, None, 0x8000 | ck, [
-                    (o0 | CLEAN_FLAG, o1 | CLEAN_FLAG) for o0, o1 in offs])
+                rec = variant_record(cp, None, 0x8000 | ck, [
+                    (o0 | CLEAN_FLAG, o1 | CLEAN_FLAG) for o0, o1 in offs], (0, colors))
+                at = 12 + 8 * cp_cols(cp) + 8 * rec[9]
+                mfix.append((len(vblob) + at, mblk))
+                vblob += rec
                 names.append('c%d' % ck)
             shapes[k] = (t4, pri, names)        # G5L-R: solo la limpia
+    else:
+        shapes = [(t4, pri, v) for t4, pri, v, _, _ in shapes]
     sbase = 16 + 2 * NHASH
     vbase = sbase + sum(6 + 4 * len(t4) + 4 * len(v) for t4, _, v in shapes)
     blob = bytearray(sbase)
-    struct.pack_into('>4sHHHH', blob, 0, b'G5L1', len(shapes), len(poses), NHASH, 0)
+    struct.pack_into('>4sHHHH', blob, 0, b'G5L2', len(shapes), len(poses), NHASH, 0)
     heads = [0] * NHASH
     for t4, pri, variants in shapes:
         h = key_hash(t4)
@@ -304,6 +370,8 @@ def build_table(bank, clean=True):
         raise ValueError('formas fuera de los offsets .w')
     for h in range(NHASH):
         struct.pack_into('>H', blob, 16 + 2 * h, heads[h])
+    for at, mblk in mfix:
+        struct.pack_into('>I', vblob, at, vbase + mblk)
     blob += vblob
     if len(blob) & 1:
         blob.append(0)
@@ -335,7 +403,7 @@ class Table:
     def __init__(self, blob):
         self.b = blob
         magic, self.nshapes, self.nvar, nh, _ = struct.unpack_from('>4sHHHH', blob, 0)
-        if magic != b'G5L1' or nh != NHASH:
+        if magic != b'G5L2' or nh != NHASH:
             raise ValueError('tabla G5L desconocida')
         self.mo, = struct.unpack_from('>I', blob, 12)
 
@@ -358,7 +426,8 @@ class Table:
         offs = [struct.unpack_from('>II', self.b, p + 8 * c) for c in range(cols)]
         groups = [struct.unpack_from('>BBHI', self.b, p + 8 * cols + 8 * j) for j in range(ng)]
         p += 8 * cols + 8 * ng
-        p += 2 * h * cols * ng                  # máscaras de píxeles (g5l_patch)
+        mblk, = struct.unpack_from('>I', self.b, p)
+        p += 4                                  # el bloque de máscaras (g5l_patch)
         runs = {}
         for _ in range(nidx):
             d, nr = self.b[p], self.b[p + 1]
@@ -366,7 +435,14 @@ class Table:
             p += 2 + 4 * nr
             p += 2 + 4 * self.b[p]              # cambios (solo el 68000)
         return dict(ox=ox, oy=oy, w=w, h=h, cols=cols, xmax=xmax, offs=offs, runs=runs, n=n,
-                    groups=[(d, c, m) for d, _, c, m in groups])
+                    groups=[(d, c, m) for d, _, c, m in groups], mblk=mblk,
+                    midx=[k for _, k, _, _ in groups])
+
+    def mask(self, v, g):
+        """las máscaras del grupo g de la variante v (alto x columnas .w)"""
+        n = v['h'] * v['cols']
+        o = v['mblk'] + 2 * n * v['midx'][g]
+        return list(struct.unpack_from('>%dH' % n, self.b, o))
 
     def tmask(self, gtile, row):
         return self.w(self.mo + 16 * gtile + 2 * row)
@@ -471,6 +547,8 @@ def plan_frame(photo, tab, colors, lst, st):
         if pri is None:
             st['rex_prio_mixta'] += 1
             continue
+        t4, mx, my = norm_key(t4)               # G5L-N (g5l_choose)
+        sx, sy = sx + mx, sy + my
         vs = tab.lookup(t4, pri)
         if vs is None:
             st['rex_sin_forma'] += 1

@@ -1133,3 +1133,30 @@ GV_TAB después de init. En el binario original: escritor B+$32730,
 Volcados y datos derivados solo en `work/`. Evidencia y reconstrucción
 e7234ab + arreglo, 150 s cycle-exact sin excepción:
 `docs/informe-p123-scroll-1010.md` §1.
+
+
+**P124 — Una forma de sprite es la misma con otro desplazamiento respecto de la ranura; y las filas del banco G3 no son colores.**
+
+**Síntoma:** G5L no dibujaba el Rex aplastado o medio aplastado en
+`hills2` (340 de 2.110 frames con Rex), `stress_*`, `shells` y
+`pw_estrella`; `g5l.py trace` contaba `rex_sin_forma`. En `yi1`, `normal`
+y `spin_kill`, las trazas de las que sale el banco, no pasaba.
+
+**Causa:** la clave de la forma eran las fichas con dx/dy relativos a la
+ranura. El mismo dibujo aparece con otro dy (−3 … +1) según dónde quede
+la ranura respecto de las fichas: 30 de las 33 formas que faltaban eran
+traslaciones de una que ya estaba.
+
+**Arreglo (G5L-N):** normalizar la clave al mínimo dx/dy (s8), sin
+reordenar las fichas, y sumar ese mínimo a sx/sy antes de usar el origen
+de la variante (`g5l.norm_key`, `g5l_choose`). Al deduplicar, comparar la
+imagen con `clean_pose(..., CLEAN_MAPS[0])['rows']`. **No** con
+`pose['rows']`: en el banco G3 son índices asignados por petición (con
+las filas reservadas de Mario), y dos traslaciones de la misma imagen
+tienen índices distintos. La primera versión abortó por eso.
+
+**Cómo verlo:** `tools/g4a.py traceall` hace las trazas SOT1 completas
+del host. Las trazas del Rex de otras grabaciones van a
+`work/oam_<nombre>.trace` (filtro `$AB`), y `g5l.py trace --traces ...`.
+`docs/informe-g4a-1010.md` §3, `docs/informe-g5l-n-1010.md`.
+
