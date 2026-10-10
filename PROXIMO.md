@@ -50,7 +50,9 @@ Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
   a Mario, enemigos antes que la caja y la cinta, o mantener la elección
   de la foto anterior. El arreglo de fondo es la cola de bobs (G7).
 - Probar en la Amiga real el ADF del vivo: `GDEFS=" " OUT=work/live sh
-  tools/game_build.sh` → `work/live/smw.adf` (A500 con A501, 1 MB).
+  tools/game_build.sh` → `work/live/game.adf` (A500 con A501, 1 MB). Sin
+  input, el Koopa mata a Mario hasta el game over, que no está portado
+  (congela; GameMode `$15`).
 - **Solo como dato (no se propone):** S11 y L3 indican que el estrés back
   probablemente no entre en D1 solo con CPU. Con 5 planos (PF2 de 2) el
   ≈ 1,6× de los planos casi desaparecería, pero cambia D8 y el fondo. Es
