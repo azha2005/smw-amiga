@@ -631,7 +631,7 @@ class Stats(collections.Counter):
     pass
 
 
-def plan_frame(photo, tab, colors, lst, st, seen=None):
+def plan_frame(photo, tab, colors, lst, st, seen=None, priority=False):
     """photo: pal, moam, mosz, ptrs, camx, camy, rex=[(slot, x, y, entries)]
     lst: nb[s], has_loads(s), walk(s) -> (last, free, J)
     seen: lista a la que se agrega (slot, estado) de cada objeto (G4-B)
@@ -663,10 +663,10 @@ def plan_frame(photo, tab, colors, lst, st, seen=None):
             continue
         seen.append((slot, 'en_pantalla'))
         if best is None or (r0, slot) < (best[0], best[1]):
-            best = (r0, slot, x0, vs)
+            best = (r0, slot, x0, vs, pri)
     if best is None:
         return None
-    r0, slot, x0, vs = best
+    r0, slot, x0, vs, pri = best
     # la variante limpia que menos choca (la primera si empatan); si no
     # encuentra banda, la siguiente en ese orden
     cands = sorted((band_need(tab.variant(vo), r0, mrow, colors), m, vo) for m, vo in enumerate(vs))
@@ -691,6 +691,8 @@ def plan_frame(photo, tab, colors, lst, st, seen=None):
         raise AssertionError('A3 tras band_assign')
     xr = min(255, x0 + v['xmax'])
     E = (0, xm + 1, xr + 1, max(xm, xr) + 1)
+    if priority:
+        trans += priority_trans([dict(r0=r0, var=v, priority=pri)])
     res = place(trans, lst, E, st)
     if res is None:
         st['sin_plazo'] += 1
@@ -997,8 +999,33 @@ def suffix_words(s, form, ms):
         words.append((((s + V0) & 255) << 8 | form[1] | 1, 0xFFFE))
     else:
         words += [(MOVE_PAD, 0)] * form[1]
-    words += [(0x01A0 + 2 * i, c) for i, c, _ in ms]
+    words += [(move_reg(i), c) for i, c, _ in ms]
     return words
+
+
+def move_reg(i):
+    # COLOR16 (i=0) no pertenece a ninguna transicion de color de G5L.
+    # SW-P lo reserva como identificador del MOVE BPLCON2.
+    return 0x0104 if i == 0 else 0x01A0 + 2*i
+
+
+def priority_trans(objs):
+    """PF1P=2 dentro de objetos de prioridad 0/1; 4 fuera de su franja.
+    Ventanas limitadas por la franja vecina. Los duenos dan al plan el
+    borde que debe esperar para cambiar despues de la ultima fila.
+    """
+    out=[]
+    for k,q in enumerate(objs):
+        if q['priority'] >= 2:
+            continue
+        a=max(0,q['r0'])
+        b=min(ROWS,q['r0']+q['var']['h'])
+        prev=min(ROWS,objs[k-1]['r0']+objs[k-1]['var']['h'])-1 if k else -1
+        nxt=max(0,objs[k+1]['r0']) if k+1<len(objs) else ROWS
+        out.append((0,0x22,prev,1<<k if k else 0,a))
+        if b<ROWS:
+            out.append((0,0x24,b-1,1<<(k+1),nxt))
+    return out
 
 
 def positions(s, form, ms):
@@ -1263,7 +1290,7 @@ CSTRIDE = 264                   # un flujo de cadena: 2 x 32 filas, POS/CTL, fin
 LBLK = 4 * (2 * RSTRIDE + CSTRIDE)  # por lista: bandas del Rex 0 y 1, cadena
 
 
-def plan_frame_n(photo, tab, colors, lst, st, maxrex=G5L_MAXPL):
+def plan_frame_n(photo, tab, colors, lst, st, maxrex=G5L_MAXPL, priority=False):
     """G4-1/G4-2: varios Rex por foto. Los visibles en orden (fila, ranura):
     uno entra si está separado del último ubicado por una línea libre (los
     pares 4-5 y 6-7 se reusan en vertical por encadenado DMA; así la columna
@@ -1294,14 +1321,14 @@ def plan_frame_n(photo, tab, colors, lst, st, maxrex=G5L_MAXPL):
         x0, r0 = sx + v0['ox'], sy + v0['oy'] + 1
         if not (r0 + v0['h'] > 0 and r0 < ROWS and x0 + v0['w'] > 0 and x0 < 256):
             continue
-        cands.append((r0, slot, x0, vs))
+        cands.append((r0, slot, x0, vs, pri))
     if not cands:
         return None
     cands.sort(key=lambda t: (t[0], t[1]))
     occ = mario_occ(mrow, colors)
     placed, bobs = [], []
     lastb = None
-    for r0, slot, x0, vs in cands:
+    for r0, slot, x0, vs, pri in cands:
         v0 = tab.variant(vs[0])
         a, b = max(r0, 0), min(ROWS, r0 + v0['h'])
         if placed and (len(placed) >= maxrex or a <= lastb):
@@ -1320,7 +1347,7 @@ def plan_frame_n(photo, tab, colors, lst, st, maxrex=G5L_MAXPL):
             continue
         groups, remaps = asg
         placed.append(dict(slot=slot, vo=vo, var=v, x0=x0, r0=r0, groups=groups, remaps=remaps,
-                           mapa=m, pares=list(range(v0['cols']))))
+                           mapa=m, pares=list(range(v0['cols'])), priority=pri))
         occ_add(occ, groups, r0)
         lastb = b
     best = None
@@ -1330,11 +1357,15 @@ def plan_frame_n(photo, tab, colors, lst, st, maxrex=G5L_MAXPL):
         if trans is None:
             raise AssertionError('A3 tras band_assign_n')
         E = EMap([xm] + [min(255, q['x0'] + q['var']['xmax']) for q in placed])
+        if priority:
+            trans += priority_trans(placed)
         res = place(trans, lst, E, collections.Counter())
         if res is not None:
             best = (trans, res, E)
             break
-        bobs.append((placed.pop()['slot'], 'plazo'))
+        had_priority = priority and any(q['priority'] < 2 for q in placed)
+        q = placed.pop()
+        bobs.append((q['slot'], 'sin_prioridad' if had_priority else 'plazo'))
     if not placed:
         st['sin_plan'] += 1
         return dict(rex=[], trans=[], vbl=[], segs={}, E=None, bobs=bobs)
@@ -1653,7 +1684,7 @@ def expected_list(ml, p, s, dma, null, cdma, rbuf=0, chans=None):
     cols = p['vbl'] if p else []
     for k in range(VBL_COLORS):
         if k < len(cols):
-            ml.w16(a, 0x01A0 + 2 * cols[k][0])
+            ml.w16(a, move_reg(cols[k][0]))
             ml.w16(a + 2, cols[k][1])
         else:
             ml.w32(a, 0x01FE0000)
@@ -1868,7 +1899,8 @@ def run_game(a):
                 ml.put_jump(J, sg)
         ph = read_photo(mem, rec, s)
         colors = struct.unpack_from('>16H', pals, 32 * ph['pal'])
-        p = plan_frame_n(ph, tab, colors, ml, st, s.get("G5L_MAXPL", G5L_MAXPL))  # G4-2 (con un Rex: plan_frame)
+        p = plan_frame_n(ph, tab, colors, ml, st, s.get("G5L_MAXPL", G5L_MAXPL),
+                         priority=bool(s.get('G5L_PRI_ON', 0)))
         if p is not None and not p['rex']:
             p = None
         rbuf = gr.RBUF + list_index * s.get('G5L_LBLK', LBLK)
@@ -2072,7 +2104,8 @@ def run_shot(a):
             ml = MemList(bytearray(cpu.read(back, s['CL_SIZE'])), back, s, gr.nb)
             ph = read_photo(mem, rec, s)
             colors = struct.unpack_from('>16H', pals, 32 * ph['pal'])
-            p = plan_frame_n(ph, tab, colors, ml, st, s.get("G5L_MAXPL", G5L_MAXPL))   # G4-2
+            p = plan_frame_n(ph, tab, colors, ml, st, s.get("G5L_MAXPL", G5L_MAXPL),
+                             priority=bool(s.get('G5L_PRI_ON', 0)))
             if p is not None and not p['rex']:
                 p = None
         cpu.cpu.w_reg(R.A0, rec)

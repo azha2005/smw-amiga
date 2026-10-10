@@ -922,7 +922,7 @@ def build(lv_path, verbose=True, desc=None):
 # ---------------------------------------------------------------------------
 # Render
 # ---------------------------------------------------------------------------
-def load_gfx(src_dir, files):
+def load_gfx(src_dir, files, tileset=7, anim_phase=None):
     """Devuelve {nombre: [tiles decodificados]}"""
     out = {}
     for f in files:
@@ -932,7 +932,18 @@ def load_gfx(src_dir, files):
         dec = lc_lz2_decompress(raw)
         bpp = BPP_TABLE.get(f, 3)
         out[f] = decode_snes_tileset(dec, bpp)
-    return out
+    # SW-A ocupa chip adicional en el blob del nivel. Hasta resolver el
+    # presupuesto del vivo, se genera explicitamente con SW_ANIM_POSTS=0
+    # (fase referencia; 1..3, las demas fases para auditoria).
+    if anim_phase is None:
+        phase = os.environ.get('SW_ANIM_POSTS')
+        if phase is None:
+            return out
+        anim_phase = int(phase)
+    if anim_phase not in range(4):
+        raise ValueError('SW_ANIM_POSTS debe ser 0..3')
+    from animtiles import overlay
+    return overlay(out, files, os.path.dirname(src_dir), tileset, anim_phase)
 
 
 # Los 8 pasos de la animacion de color de la moneda de Yoshi.
@@ -956,7 +967,7 @@ def render(h, lv, out_png, scale=1, pal_index=None, use_ramp=False,
     if files is None:
         raise SystemExit("tileset %d fuera de OBJECTGFXLIST" % ts)
     print("tileset %d -> bloques GFX: %s" % (ts, files))
-    gfx = load_gfx(src, files)
+    gfx = load_gfx(src, files, ts)
 
     setidx = TILESET_SET.get(ts, 0)
     m16 = Map16(set_index=setidx, tileset=ts)

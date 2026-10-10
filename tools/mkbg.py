@@ -78,7 +78,7 @@ def render_bg(name, h, out_png=None):
     page = 0 if BG_ORDER.index(name) < BG_ORDER.index("cave") else 1
     m16 = bg_map16(src)
     files = mklvl.gfx_files_for_tileset(h["tileset"])
-    gfx = mklvl.load_gfx(os.path.join(src, "graphics"), files)
+    gfx = mklvl.load_gfx(os.path.join(src, "graphics"), files, h["tileset"])
     bank, labels = palmod.load_palette_bank(os.path.join(src, "palettes", "palettes.a"))
     cgram, bgc = palmod.build_cgram(bank, labels, h["fg_palette"], h["bg_palette"],
                                     h["spr_palette"], h["bg_color"], mklvl.COIN_ANIM_REF)
@@ -136,8 +136,9 @@ def main():
     print("fondo %s -> %s (%dx%d)" % (a.bg, a.out, bg.size[0], bg.size[1]))
     if a.comp:
         l1 = d.out["level_png"]
-        if not os.path.exists(l1):
-            mklvl.render(h, lv, l1)
+        # La fase SW-A y el fuente GFX son entradas del render. Un PNG
+        # de otra fase no puede funcionar como cache por mera existencia.
+        mklvl.render(h, lv, l1)
         fg = Image.open(l1).convert("RGB")
         W, H = fg.size
         comp = Image.new("RGB", (W, H), sky)

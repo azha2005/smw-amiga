@@ -63,6 +63,16 @@ CA_NV       equ 8
 CA_SL       equ 10                          ; ranura
 CA_H        equ 12                          ; alto (la primera variante)
 CA_DEAD     equ 14                          ; .b sin variante (bob 'color')
+CA_PRI      equ 15                          ; .b prioridad OAM (SW-P)
+        ifd     G5L_PRIORITY
+        ifnd    G5L_NOPRI
+G5L_PRI_ON  equ 1
+        else
+G5L_PRI_ON  equ 0
+        endc
+        else
+G5L_PRI_ON  equ 0
+        endc
 CASZ        equ 16
 ; Rex ubicado (GV_RX, camino de varios)
 RX_R0       equ 0
@@ -79,6 +89,7 @@ RX_IXN      equ 36                          ; 16 .b: cuantos
 RX_REM      equ 52                          ; G5L_NREM x 8 (GV_REM)
 RX_G        equ RX_REM+8*G5L_NREM           ; RX_NG x (.b i, .b 0, .w color, .l filas)
 RX_MSH      equ 252                         ; .w r0 - fila 0 de la cache de Mario
+RX_PRI      equ 254                         ; .w prioridad OAM (SW-P)
 RXSZ        equ 256                         ; (lsl #8)
 G5L_NREM    equ 5                           ; bandas reasignadas
         ifgt    RX_G+8*(15+G5L_NREM)-RX_MSH
@@ -697,6 +708,14 @@ g5l_render:
         beq.s   .swd
         bsr     g5l_pcput
 .swd:
+        ifd     G5L_PRIORITY                ; SW-P opt-in: puerta D1 pendiente
+        ifnd    G5L_NOPRI                   ; control A/B (SW-P)
+        cmp.w   #1+G5L_PRI_ON,GV_VMAP(a6)    ; referencia tambien exporta el flag al listado
+        bhs.s   .sprdone
+        bsr     g5l_prsingle
+.sprdone:
+        endc
+        endc
         bsr     g5l_place
         tst.w   d0
         bne     .fail
@@ -746,6 +765,11 @@ g5l_render:
         move.l  CA_VL(a0),GV_VLIST(a6)
         move.w  CA_NV(a0),GV_NVAR(a6)
         move.w  CA_SL(a0),GV_SLOT(a6)
+        ifd     G5L_PRIORITY
+        moveq   #0,d0
+        move.b  CA_PRI(a0),d0
+        move.w  d0,GV_VMAP(a6)
+        endc
         bsr     g5l_rexmw
         lea     GV_NEED(a6),a2              ; ninguna calculada
         moveq   #-1,d0
@@ -764,6 +788,11 @@ g5l_render:
 .mdone: tst.w   GV_NPL(a6)
         beq     .fail
 .mpl:   bsr     g5l_sweepn
+        ifd     G5L_PRIORITY
+        ifnd    G5L_NOPRI
+        bsr     g5l_prmulti
+        endc
+        endc
         bsr     g5l_unpool
         bsr     g5l_edges
         bsr     g5l_place_e
@@ -941,6 +970,9 @@ g5l_rxsave:
         move.w  GV_X0(a6),RX_X0(a3)
         move.w  GV_SLOT(a6),RX_SLOT(a3)
         move.w  GV_MSH(a6),RX_MSH(a3)
+        ifd     G5L_PRIORITY
+        move.w  GV_VMAP(a6),RX_PRI(a3)
+        endc
         move.l  GV_VAR(a6),a0
         move.l  a0,RX_VAR(a3)
         moveq   #0,d0
@@ -1025,6 +1057,9 @@ g5l_rxsavef:
         move.w  GV_X0(a6),RX_X0(a3)
         move.w  GV_SLOT(a6),RX_SLOT(a3)
         move.w  GV_MSH(a6),RX_MSH(a3)
+        ifd     G5L_PRIORITY
+        move.w  GV_VMAP(a6),RX_PRI(a3)
+        endc
         move.l  GV_VAR(a6),a0
         move.l  a0,RX_VAR(a3)
         moveq   #0,d0
@@ -2145,13 +2180,21 @@ g5l_choose:
         moveq   #0,d2
         move.b  5(a3),d2                    ; alto
         add.w   d1,d2
+        ifd     G5L_PRIORITY
+        ble     .nx
+        else
         ble.s   .nx
+        endc
         cmp.w   #LINES,d1
         bge.s   .nx
         moveq   #0,d2
         move.b  4(a3),d2                    ; ancho
         add.w   d0,d2
+        ifd     G5L_PRIORITY
+        ble     .nx
+        else
         ble.s   .nx
+        endc
         cmp.w   #256,d0
         bge.s   .nx
         ; G4-2: a GV_CAND por (r0, ranura); las ranuras llegan en orden,
@@ -2183,6 +2226,9 @@ g5l_choose:
         move.w  d5,CA_SL(a3)
         move.w  d4,CA_H(a3)
         clr.w   CA_DEAD(a3)
+        ifd     G5L_PRIORITY
+        move.b  d3,CA_PRI(a3)
+        endc
         addq.w  #1,GV_NC(a6)
         bra.s   .nx
 .cn:    move.w  (a0),d0                     ; siguiente del cubo
@@ -2198,6 +2244,11 @@ g5l_choose:
         move.w  CA_SL(a0),GV_SLOT(a6)
         move.l  CA_VL(a0),GV_VLIST(a6)
         move.w  CA_NV(a0),GV_NVAR(a6)
+        ifd     G5L_PRIORITY
+        moveq   #0,d1
+        move.b  CA_PRI(a0),d1
+        move.w  d1,GV_VMAP(a6)
+        endc
         rts
 .none:  moveq   #0,d0
         rts
@@ -3311,6 +3362,95 @@ ADV     macro
 ; con cargas caben 2 menos, siempre al menos 1). Un MOVE se guarda ya
 ; escrito (.w registro, .w color) con su need en ese segmento.
 ;----------------------------------------------------------------------
+; SW-P: agrega dos transiciones al mismo plan de colores. i=0 es
+; BPLCON2; las cubetas y need conservan los plazos normales del copper.
+; La cache del plan guarda solo colores, por eso se agrega despues de
+; recuperarla. GV_VMAP era una palabra libre; no aumenta memoria.
+        ifd     G5L_PRIORITY
+; --- g5l_prsingle ---
+; entrada: a6 = estado G5L; GV_VMAP = prioridad baja elegida
+; salida: transiciones BPLCON2 en las cubetas GV_TRB
+; registros destruidos: d0-d5/a0/a2/a3
+; ciclos: incluidos en g5l_render (BENCH exacto); sin medida aislada
+g5l_prsingle:
+        moveq   #0,d2
+        moveq   #0,d5
+        moveq   #-1,d4
+        move.w  GV_R0(a6),d0
+        bpl.s   .a
+        moveq   #0,d0
+.a:     move.w  #$22,d3
+        TRB
+        move.l  GV_VAR(a6),a0
+        moveq   #0,d4
+        move.b  5(a0),d4
+        add.w   GV_R0(a6),d4
+        cmp.w   #LINES,d4
+        bge.s   .x
+        subq.w  #1,d4
+        moveq   #2,d5
+        move.w  #LINES,d0
+        move.w  #$24,d3
+        TRB
+.x:     rts
+
+; --- g5l_prmulti ---
+; entrada: a6 = estado G5L; GV_RX = objetos ubicados por franja
+; salida: transiciones BPLCON2 en las cubetas GV_TRB
+; registros destruidos: d0-d7/a0/a2/a3/a5
+; ciclos: incluidos en g5l_render (BENCH exacto); sin medida aislada
+g5l_prmulti:
+        moveq   #0,d7
+        moveq   #-1,d6                     ; fin anterior inclusive
+        lea     GV_RX(a6),a5
+.q:     cmp.w   GV_NPL(a6),d7
+        bhs     .x
+        move.w  RX_R0(a5),d4
+        move.l  RX_VAR(a5),a0
+        moveq   #0,d1
+        move.b  5(a0),d1
+        add.w   d4,d1                      ; fin exclusivo
+        cmp.w   #LINES,d1
+        ble.s   .b
+        move.w  #LINES,d1
+.b:     cmp.w   #2,RX_PRI(a5)
+        bhs     .n
+        moveq   #0,d2
+        move.w  d4,d0
+        bpl.s   .a
+        moveq   #0,d0
+.a:     move.w  d6,d4
+        moveq   #0,d5
+        tst.w   d7
+        beq.s   .own
+        moveq   #1,d5
+        lsl.w   d7,d5                      ; dueno del objeto anterior
+.own:   move.w  #$22,d3
+        TRB
+        cmp.w   #LINES,d1
+        bge.s   .n
+        move.w  d1,d4
+        subq.w  #1,d4
+        move.w  #LINES,d0
+        move.w  d7,d3
+        addq.w  #1,d3
+        cmp.w   GV_NPL(a6),d3
+        bhs.s   .end
+        move.w  RX_R0+RXSZ(a5),d0
+        bpl.s   .end
+        moveq   #0,d0
+.end:   moveq   #2,d5
+        lsl.w   d7,d5                      ; dueno de este objeto
+        move.w  #$24,d3
+        TRB
+.n:     move.w  d1,d6
+        subq.w  #1,d6
+        lea     RXSZ(a5),a5
+        addq.w  #1,d7
+        bra     .q
+.x:     rts
+        endc
+
 g5l_place:
         bsr     g5l_unpool
         move.l  GV_VAR(a6),a0               ; bordes por duenos
@@ -3355,8 +3495,16 @@ g5l_place_e:
         add.w   d0,a0
         moveq   #0,d0
         move.b  (a1),d0
+        ifd     G5L_PRIORITY
+        beq.s   .vp
+        endc
         add.w   d0,d0
         add.w   #$01a0,d0
+        ifd     G5L_PRIORITY
+        bra.s   .vr
+.vp:    move.w  #$0104,d0
+.vr:
+        endc
         move.w  d0,(a0)+
         move.w  2(a1),(a0)
         bra     .tn
@@ -3571,8 +3719,16 @@ g5l_place_e:
         lea     P_MV(a2,d0.w),a0
         moveq   #0,d0
         move.b  (a1),d0
+        ifd     G5L_PRIORITY
+        beq.s   .ap
+        endc
         add.w   d0,d0
         add.w   #$01a0,d0
+        ifd     G5L_PRIORITY
+        bra.s   .ar
+.ap:    move.w  #$0104,d0
+.ar:
+        endc
         move.w  d0,(a0)+                    ; MOVE COLORxx
         move.w  2(a1),(a0)+
         move.w  d1,(a0)                     ; need
