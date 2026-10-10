@@ -1071,3 +1071,22 @@ escáner de memoria propio se cambió por `winuae_memory.ProcessMemory.find`
 (el de `bm_probe`/`load_probe`), que además dice cuántas firmas sin
 inicializar vio (la copia del ADF vale cero); no está probado que el
 escáner viejo fallara. Un `.uae` generado para leer memoria: `use_gui=no`.
+
+**P121 — Los picos de `build_mid` vienen de a tres (uno por lista), no se adelantan.**
+Con el colchón hay tres listas del copper y cada una reescribe las mismas
+líneas una foto después de la otra: 5834/5835/5836 = 78k/83k/86k ciclos.
+S5 (adelantar líneas que vencen pronto con un presupuesto) no los baja:
+en una pasada de arriba abajo gasta el presupuesto antes de llegar a las
+debidas y **sube** el pico; con dos pasadas el pico queda igual y la media
+sube 5-60 % (`informe-g5l-r-s9-1010.md` §2). Lo que sirve es **S9**:
+copiar la línea de la lista anterior si vale en s (vale por su contenido,
+`[vl, vu)`), y solo calcular en la primera foto del pico. Medir antes por
+foto y por lista, no por frame suelto.
+
+**P122 — `lint_port.py` (V3): una cabecera `; ---` entre `build_mid` y `bm_left` los separa.**
+El analizador asigna el código a la rutina de la última cabecera `; ---
+nombre ---`. `bm_left` no tiene una: vive dentro de `build_mid`, que salta
+a ella con `blt bm_left`. Una cabecera nueva en medio la convierte en otra
+rutina y salen errores de pila y de registros "en `build_mid`" que no son
+reales. Las rutinas nuevas van después de `bm_left`. Un `jmp` calculado
+(`jmp .x(pc,d1.w)`) necesita `; lint: targets .x`.

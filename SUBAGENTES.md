@@ -259,7 +259,9 @@ original del 2026-09-30, ola por ola, está textual en
 | G5L-R-T2 | **hecha (2026-10-09)** | 66 BENCH/25 VBTRACE reproducidas; atraso acumulado (modelo 21/25); camino lento G5L (145 fotos) + picos `build_mid`; estimado 0-4 saltos con las dos. `docs/informe-g5l-r-t2-1009.md` |
 | G5L-R-Pa | **hecha (2026-10-09); puerta no cumplida** | sin `R0` 100 % iguales pero 0 aciertos (N = 4); sin `R0`/`MSH` 8 % iguales: caché descartada. ≤ 5 saltos pide S5 + recortes de G5L (estimado). `docs/informe-g5l-r-pa-1009.md` |
 | G5L-R-Q | **hecha (2026-10-09)** | perfil por PC plano; reescrituras concretas −8 % render y `build_mid` → modelo 14-16 saltos (10-11 con S5). `docs/informe-g5l-r-q-1009.md` |
-| G5L-R-R1 | **siguiente; pendiente de autorización** | reescrituras concretas en `g5l.s` + primera medida BENCH/VBTRACE. `docs/instrucciones-g5l-r-r1.md` |
+| G5L-R-R1 | **hecha (2026-10-09)** | `f837262`: render G5L −5,6 % (Musashi); BENCH 53, VBTRACE 17. `docs/informe-g5l-r-r1-1009.md` |
+| G5L-R-S9 | **hecha (2026-10-10)** | `b67ee4b`: `build_mid` copia líneas entre listas; S5 descartado (P121); BENCH 36, VBTRACE 12. `docs/informe-g5l-r-s9-1010.md` |
+| G5L-R-L | **siguiente** (autorización de optimizar) | racimo 3305-3364: lógica, camino lento G5L, primer pico `bm_left`. `docs/instrucciones-g5l-r-l.md` |
 | G5L-R-V | **hecha (2026-10-09)** | teclado real KS 1.2/1.3, historial reproducido, RETURN; defecto G5L+CUSHION+SPR_OAM en `53e6453`. `docs/informe-cierre-v-bm1-1009.md` |
 | BM1 | **hecha (2026-10-09); boot del vivo por defecto** | KS 1.2/1.3 exactos, Z1, sin A501 no carga (usuario); 31,96 s contra 33,02 s trackdisk (`143c9ea`). `docs/informe-cierre-v-bm1-1009.md` |
 | G2T-Cpre | **WIP: C2a exacta, C2b detenido por coste** | 2288 planes, cinco contadores cero; sonda 28680 ciclos >4000, sin emitir. C3/C4 pendientes. `docs/informe-g2t-cpre-1008.md`, `docs/instrucciones-g2t-cpre-coste.md` |

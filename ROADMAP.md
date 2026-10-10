@@ -48,7 +48,16 @@
 
 ---
 
-## 1. Estado por etapa (al 2026-10-09)
+## 1. Estado por etapa (al 2026-10-10)
+
+**G5L-R-R1 y S9 (2026-10-09/10, rama g2t-b2bis, autorizadas):** R1
+reescribe el render G5L (clave del plan, copias desenrolladas, búsqueda
+del segmento): −5,6 % en Musashi. S9: `build_mid`/`bm_left` copian la
+línea de la lista anterior si vale en s (los picos venían de a tres, uno
+por lista, P121); S5 se probó y se descartó. WinUAE: BENCH 66 → 53 → **36**
+fotos, VBTRACE 25 → 17 → **12** omitidas. Siguen: el racimo 3305-3364
+(camino lento de G5L y la lógica). `docs/informe-g5l-r-r1-1009.md`,
+`docs/informe-g5l-r-s9-1010.md`.
 
 **G5L-R-Q (2026-10-09 noche, rama g2t-b2bis, solo medida):** histograma
 por PC en Musashi (`g5l.py game --pcprof`, totales idénticos en 6313
@@ -269,7 +278,12 @@ cambiable en un solo lugar (una tabla).
 
 ---
 
-## 4. Olas y sesiones (revisado el 2026-10-09)
+## 4. Olas y sesiones (revisado el 2026-10-10)
+
+2026-10-10 (R1 + S9): de 25 a 12 omitidas en una sesión. El modelo de
+cola es pesimista en +2 a +5 saltos. Llegar a ≤ 5 pide G5L-R-L (1-2
+sesiones, ESTIMADO) y quizá otra palanca sin identificar. Restante:
+**9-12**.
 
 2026-10-09 (noche, Q): R1 (1 sesión) da la primera medida real del
 recorte; llegar a ≤ 5 saltos estimado en 3-5 sesiones más con resultado
@@ -391,6 +405,10 @@ O5 es el modo por defecto (`-DNODECOUPLE` = bucle viejo); si cambia
 ---
 
 ## 7. Cierre de sesión (obligatorio)
+
+2026-10-10: G5L-R-R1 y S9 hechas (autorizadas). P121, P122. Archivado
+PROXIMO; nueva tarjeta G5L-R-L (`docs/instrucciones-g5l-r-l.md`), bajo la
+autorización de optimizar.
 
 2026-10-09 (noche, 4): G5L-R-Q hecha (autorizada). Archivado PROXIMO;
 nueva tarjeta G5L-R-R1 pendiente de autorización
