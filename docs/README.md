@@ -97,6 +97,8 @@
 | `informe-g5l-r-s11-1010.md` | 2026-10-10 | S11 cerrada en fase 1: ventanas de ≈ 13 px a la izquierda, ≈ 90 reescrituras por foto; candidatos sin margen |
 | `informe-g5l-r-l3-1010.md` | 2026-10-10 | L3 cerrada: perfil de la lógica plano, MCACHE retirado, C restante 0,8/5,7 %; ningún recorte mueve D1 |
 | `instrucciones-g4a.md` | 2026-10-10 | G4-A: inventario de enemigos, columnas por línea, cota de bobs y memoria de la tabla G5L para todos |
+| `informe-g4a-1010.md` | 2026-10-10 | G4-A: inventario exacto de enemigos, columnas por línea, cota de bobs, memoria por formato; el Rex aplastado que G5L no dibuja |
+| `instrucciones-g5l-n.md` | 2026-10-10 | G5L-N: clave normalizada y máscaras compartidas en la tabla del Rex |
 | `instrucciones-g5l-r-s11.md` | 2026-10-10 | Cortar la espiral de la vuelta en `build_mid`, sin cambiar la imagen |
 | `instrucciones-g5l-r-m1.md` | 2026-10-10 | Medir por qué `build_mid` cuesta ≈ 2,8× en el hardware: pares por foto, VHPOSR, variantes opt-in |
 | `investigacion-demoscene-1010.md` | 2026-10-10 | fuentes de demos: speedcode, código automodificable, cadenas copper-blitter y carga/descompresión; §11 reordena tras L2: speedcode en `build_mid` según el perfil de estrés |

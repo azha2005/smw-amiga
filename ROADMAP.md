@@ -233,6 +233,12 @@ cambiable en un solo lugar (una tabla).
 
 ## 4. Olas y sesiones (revisado el 2026-10-10)
 
+2026-10-10 (G4-A): todos los enemigos caben en pares acoplados (≤ 15
+colores). La tabla G5L de todos entra en slow solo con la clave
+normalizada y las máscaras compartidas. El Banzai como bob (+59 KB) y el
+audio no caben en chip hasta C2/C4, que además necesitan compresión (C3).
+El estimado no cambia; G5L-N es parte de la ola 4.
+
 2026-10-10 (L3): la ola 3 deja de tener palancas de CPU con margen
 medido (S10, S11, L3). Empieza la ola 4 con G4-A, que mide el coste en
 memoria de llevar todos los enemigos al copper. El estimado no cambia.
@@ -267,7 +273,7 @@ pero detenida por coste; primer microbench asm medido (18 794 ciclos solo en tra
 | 1. Medir y preparar | — | **cerrada** | 0 |
 | 2. 50 Hz (1) | — (S4 descartada, P89) | **cerrada** | 0 |
 | 3. 50 Hz (2) + diseños | G2/G3 acotadas y traza D1 integradas; L-OAM asm parcial (41,2 % YI1, estrés rojo), G5a-bis detenida fase A (ventanas vacías). G2T-A hecha (contrato fijado, A-T verde); B35 exacta en rama pero inviable (2,41 M ciclos máx.); primer microbench asm entregado y detenido (18 794 ciclos solo en transiciones); faltan nuevo diseño viable, rendimiento de B2bis, resolver coste Cpre/C y la ruta OAM de piraña; A2 y R7. A1/G8b adelantadas | **B35 parcial por coste; L-OAM roja** | **3 estimadas** (nuevo diseño viable de B35 + B2bis/C + L-OAM; el microbench no reduce la ruta crítica) |
-| 4. Motores y estructura | G4-A (medida, en curso 2026-10-10), G4 + G6, G5 + G9, C2 (vlink), S8 (cámara vertical), A0 + A2, P7/P9/P10, T1, I/E sueltas | **en curso** | 2-3 |
+| 4. Motores y estructura | G4-A hecha (medida), G5L-N (en curso), G4 + G6, G5 + G9, C2 (vlink), S8 (cámara vertical), A0 + A2, P7/P9/P10, T1, I/E sueltas | **en curso** | 2-3 |
 | 5. Integraciones y 50 Hz con sprites | S5 (+ S3/S6) con G5 ya hecho, C3/C4/C5 (loader), segundo PF1 + G7 (bobs), H2-H4 (HUD), A3/A4 (música) | pendiente | 2-3 |
 | 6. El juego completo | Z2-Z6 (punto medio, meta, tiempo, fundidos, poste), T2/T3 (tubería), A5-A8 (efectos, comparación), H5, R7 | pendiente | 2 |
 | 7. Segunda ronda de 50 Hz | todo junto contra la compuerta D1 en estrés | pendiente | 1 |
@@ -338,6 +344,9 @@ O5 es el modo por defecto (`-DNODECOUPLE` = bucle viejo); si cambia
 ---
 
 ## 7. Cierre de sesión (obligatorio)
+
+2026-10-10 (G4-A): medida hecha; sigue G5L-N (PROXIMO §1). PROXIMO
+archivado y reescrito.
 
 2026-10-10 (L3): perfil de la lógica plano; tarjeta cerrada sin integrar.
 Empieza la ola 4 por G4-A (medida). PROXIMO archivado y reescrito.
