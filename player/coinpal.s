@@ -7,6 +7,9 @@
 ; registros destruidos: d0-d1/a0-a1
 ; ciclos: medidos por tools/coinpal_verify.py (sin DMA)
 coin_prepare:
+        ifd     COINCONTROL                ; A/B: mismas llamadas, paleta estática
+        rts
+        endc
         and.w   #$1c,d0
         lsr.w   #2,d0                       ; paso 0..7, cada cuatro frames
         lea     coin_state(pc),a1
@@ -36,6 +39,9 @@ coin_prepare:
 ; registros destruidos: d0-d1/a0-a1
 ; ciclos: medidos por tools/coinpal_verify.py (sin DMA)
 coin_list:
+        ifd     COINCONTROL
+        rts
+        endc
         movem.l d2-d4/a2-a3,-(sp)
         lea     coin_state(pc),a1
         moveq   #1,d0

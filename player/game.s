@@ -2677,7 +2677,7 @@ gb_scroll_frame:
         FBSR    set_pointers
         GBS     8
         ifnd    NOMID
-        bsr     build_mid
+        FBSR    build_mid                   ; P102: BENCH también supera 32 KB
         endc
         GBS     9
         move.l  V_BACK(a5),COP1LC(a4)       ; se usa desde el proximo frame
