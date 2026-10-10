@@ -63,6 +63,8 @@ BLOCKS = (0x00, 0x05, 0x06, 0x0C, 0x0D, 0x0E, 0x0F, 0x11, 0x1E, 0x1F, 0x20, 0x21
 def build_lib(out, cdefs, export=None, func=None, nargs=0, ret=None):
     cc = shutil.which("gcc") or shutil.which("cc")
     src = [os.path.join(ROOT, f) for f in LIBSRC]
+    src += sorted(glob.glob(os.path.join(ROOT, "player", "spr_*.c")))
+    src += [os.path.join(ROOT, "player", "gen", "smwrom00.c")]
     if export:                              # la funcion es static en el PC: un envoltorio
         path = os.path.join(ROOT, "player", export)     # que incluye el fuente y la exporta
         args = ", ".join("u8 a%d" % k for k in range(nargs)) or "void"
@@ -71,8 +73,6 @@ def build_lib(out, cdefs, export=None, func=None, nargs=0, ret=None):
         body = ("return %s;" % call) if ret else ("%s; return 0;" % call)
         open(w, "w").write('#include "%s"\nint fz_%s(%s) { %s }\n' % (path.replace(os.sep, "/"), func, args, body))
         src = [w if os.path.normpath(f) == os.path.normpath(path) else f for f in src]
-    src += sorted(glob.glob(os.path.join(ROOT, "player", "spr_*.c")))
-    src += [os.path.join(ROOT, "player", "gen", "smwrom00.c")]
     # cc1 busca sus DLL (gmp, mpfr...) en el PATH: con /mingw64/bin delante sale sin
     # decir nada (codigo 1); el directorio del gcc va primero
     env = dict(os.environ, PATH=os.path.dirname(cc) + os.pathsep + os.environ.get("PATH", ""))
@@ -124,6 +124,7 @@ def main():
                     help="la ranura del primer --arg junto a Mario (+-16 px), para las ramas de contacto")
     ap.add_argument("--dumpcase", type=int, default=None, metavar="N",
                     help="guardar la RAM de entrada de la prueba N en work/fz/case.bin (y los args)")
+    ap.add_argument("--asm", metavar="SIMBOLO", help="el simbolo del 68000 si no es _FUNC (p. ej. _x_asm)")
     ap.add_argument("--export", metavar="FICHERO.c",
                     help="la funcion es static en el PC: compilar ese fuente con un fz_FUNC publico")
     ap.add_argument("--seedram", help="semillas: ram[] enteras seguidas (m68kverify --dumpall)")
@@ -160,7 +161,7 @@ def main():
     code = open(a.bin, "rb").read()
     syms = V.symbols(a.lst)
     need = ["_ram", "_map16_lo", "_map16_hi", "_mario_unsupported", "_mario_events", "map16",
-            "_" + a.func] + ["_" + n for n, _ in extra]
+            a.asm or "_" + a.func] + ["_" + n for n, _ in extra]
     for s in need:
         if s not in syms:
             sys.exit("falta el simbolo %s en %s" % (s, a.lst))
@@ -181,7 +182,7 @@ def main():
         except ValueError:
             pass
     UNS, EV = V.BASE + syms["_mario_unsupported"], V.BASE + syms["_mario_events"]
-    entry = V.BASE + syms["_" + a.func]
+    entry = V.BASE + syms[a.asm or "_" + a.func]
     M = cpu.M
 
     names = ram_names()
