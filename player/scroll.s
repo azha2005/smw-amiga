@@ -183,6 +183,7 @@ D_L2P   equ 36
 D_MLX   equ 40
 D_MLD   equ 44
 D_LNS   equ 48
+D_COIN  equ 52                  ; SW-M: colores, offsets de origen y filas
 
 ; build_mid, LNS por grupos de 16 lineas (tools/mkscroll.py: NGRP, GSZ):
 ; el estado de cada grupo va justo ANTES de linetab_a/b, en

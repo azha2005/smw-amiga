@@ -76,6 +76,7 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import render_d                                 # noqa: E402
+import coinpal                                  # noqa: E402
 
 WORK = os.path.join(HERE, "..", "work")
 Y0, LINES = 192, 224
@@ -138,9 +139,16 @@ def main():
     chg = []
     mld = [[] for _ in range(LINES)]
     idx = render_d.l1_index(d)
+    coin_flags = coinpal.event_origins(d, coinpal.origin_mask())
+    coin_rows = []
+    coin_data = []
+    coin_initial = set()
     for L in range(LINES):
         by_reg = {}
-        for ev in d["events"][Y0 + L]:
+        for ev, animated in zip(d["events"][Y0 + L], coin_flags[Y0 + L]):
+            if animated:
+                coin_rows.append(L)
+                ev = (*ev[:3], ev[3] | 0x8000)
             by_reg.setdefault(ev[2], []).append(ev)
         row = idx[Y0 + L]
         for r, lst in by_reg.items():
@@ -222,6 +230,17 @@ def main():
             + b"".join(struct.pack(">HHHH", *c) for c in chg) + struct.pack(">HHHH", 0xFFFF, 0, 0, 0))
     secs = [bytes(blk), bytes(mp), inib, chgb, bytes(l2), l2p,
             struct.pack(">%dH" % len(mlx), *mlx), bytes(mldb), lns]
+    # El bit 15 conserva el origen animado en las copias de las listas;
+    # COLORxx del OCS sólo usa los bits 11..0. No buscar por igualdad RGB.
+    for section, start, stride in ((2, 0, 2), (3, 4, 8), (3, 6, 8), (7, 6, 12)):
+        for pos in range(start, len(secs[section]) - 1, stride):
+            if struct.unpack_from('>H', secs[section], pos)[0] & 0x8000:
+                coin_data.append((section, pos))
+                if section == 2:
+                    line, reg = divmod(pos // 2, 7)
+                    coin_initial.add(line * SEG + 10 + 4 * reg)
+                elif section == 3:
+                    coin_initial.add(struct.unpack_from('>H', secs[section], pos // 8 * 8 + 2)[0])
     head = b"SMWS" + struct.pack(">HHHHH", W, cols, d["nblk"], d["sky"], len(chg))
     off = len(head) + 2 + 4 * 10
     offs = []
@@ -229,9 +248,19 @@ def main():
         off = (off + 7) & ~7
         offs.append(off)
         off += len(s)
-    out = bytearray(head + b"\0\0" + struct.pack(">10I", *offs, 0))
+    from palette import COIN_ANIM, snes_to_amiga12
+    coin = struct.pack('>8H4H', *[snes_to_amiga12(c) | 0x8000 for c in COIN_ANIM],
+                       len(coin_data), len(coin_initial), len(set(coin_rows)), 0)
+    coin += b''.join(struct.pack('>I', offs[section] + pos) for section, pos in coin_data)
+    coin += b''.join(struct.pack('>I', offset) for offset in sorted(coin_initial))
+    coin += b''.join(struct.pack('>H', L * 32) for L in sorted(set(coin_rows)))
+    coin_off = (off + 7) & ~7
+    out = bytearray(head + b"\0\0" + struct.pack(">10I", *offs, coin_off))
     for o, s in zip(offs, secs):
         out += bytes(o - len(out)) + s
+    out += bytes(coin_off - len(out)) + coin
+    print('SW-M: %d palabras de origen CGRAM $64, %d filas, tabla %d B'
+          % (len(coin_data), len(set(coin_rows)), len(coin)))
     name = "yi1_s_g5.dat" if g5 else "yi1_s.dat"
     open(os.path.join(WORK, name), "wb").write(out)
     print("%s: %d bytes, %d bloques, %d cambios de color (capa 1, borrado)"

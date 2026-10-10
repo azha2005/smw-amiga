@@ -1813,6 +1813,9 @@ def run_game(a):
                 lt_ = mem.r32(fr.vars + s['V_LTC'])
             before_ = cpu.read(lt_, 32 * 224)
         pre = {}                                # T2: coste del render previo, por foto
+        if 'coin_prepare' in s:
+            cpu.cpu.w_reg(cpu.M.Register.D0, mem.r8(rec + s['R_COIN']))
+            pre['coin_prepare'] = sum(fr.call(addr('coin_prepare'), G.FAKE).values())
         for n in ('columns', 'apply_colors', 'set_pointers', 'build_mid'):
             if a.pcprof and (not pcframes or k in pcframes) and (n == 'build_mid' or a.pcscroll):
                 h_ = {}
@@ -1824,6 +1827,8 @@ def run_game(a):
                     pcprof['scroll'].setdefault(k, {})[n] = hist_
             else:
                 pre[n] = sum(fr.call(addr(n), G.FAKE).values())
+        if 'coin_list' in s:
+            pre['coin_list'] = sum(fr.call(addr('coin_list'), G.FAKE).values())
         if dumpk:
             pcprof.setdefault('lines', {})[k] = {'s': mem.r16(fr.vars + s['V_S']), 'lt': lt_,
                                                 'before': bytes(before_).hex(), 'after': bytes(cpu.read(lt_, 32 * 224)).hex()}
@@ -1883,6 +1888,8 @@ def run_game(a):
                            cap=caps[-1] if k else 0, logic=logic, f=cycles[-1][1],
                            pk=cpu.read(gv + s['GV_PK'], 64).hex(),    # T2: clave del plan
                            sc=mem.r16(rec + s['R_S']),                # la s del scroll
+                           camx=ph['camx'], camy=ph['camy'],
+                           frameb=mem.r8(rec + s['R_COIN']) if 'R_COIN' in s else None,
                            plan=dict(rex=[dict(vo=q['vo'], r0=q['r0'], x0=q['x0'],   # Pa: el plan de Python
                                                slot=q['slot'],   # G9: el tipo, por la traza
                                                familia=cctx['ctype'][q['var']['n'] & 0x7FFF],
@@ -2031,8 +2038,13 @@ def run_shot(a):
         rec = addr('dc_rec') + photo * s['DC_REC']
         mem.w16(gr.dc + s['DC_REND'], photo)
         mem.w16(fr.vars + s['V_S'], mem.r16(rec + s['R_S']))
+        if 'coin_prepare' in s:
+            cpu.cpu.w_reg(R.D0, mem.r8(rec + s['R_COIN']))
+            fr.call(addr('coin_prepare'), G.FAKE)
         for n in ('columns', 'apply_colors', 'set_pointers', 'build_mid'):
             fr.call(addr(n), G.FAKE)
+        if 'coin_list' in s:
+            fr.call(addr('coin_list'), G.FAKE)
         if k == a.frame:
             back = mem.r32(fr.vars + s['V_BACK'])
             ml = MemList(bytearray(cpu.read(back, s['CL_SIZE'])), back, s, gr.nb)

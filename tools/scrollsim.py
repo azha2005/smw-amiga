@@ -84,13 +84,13 @@ def run_list(mem, base):
             if stage == 0 and not (w1 == 0x1FE):
                 nb += 1
                 if 0x182 <= w1 <= 0x18E:
-                    ev.append((-1, (w1 - 0x180) >> 1, w2))
+                    ev.append((-1, (w1 - 0x180) >> 1, w2 & 0xfff))
                 continue
             if stage == 0:
                 stage = 1
                 T = T0 + max(0, 16 * (nb - 9))
             if 0x182 <= w1 <= 0x18E:
-                ev.append((T, (w1 - 0x180) >> 1, w2))
+                ev.append((T, (w1 - 0x180) >> 1, w2 & 0xfff))
             T = advance(T)
         out.append(ev)
     return out

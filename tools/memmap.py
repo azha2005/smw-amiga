@@ -67,6 +67,8 @@ DATA_SECS = {
     "D_MLX": ("MLX", "cpu", 2),
     "D_MLD": ("MLD", "cpu", 2),
     "D_LNS": ("LNS", "cpu", 2),
+    "D_COIN": ("COIN", "cpu", 2),
+    "D_TCHG": ("TCHG", "cpu", 2),
 }
 
 
@@ -336,6 +338,8 @@ def data_subblocks(L, data, m, total):
     offs = []
     for sym, (nm, role, al) in DATA_SECS.items():
         if not L.has(sym):
+            if sym in ("D_TCHG", "D_COIN"):  # cabeceras anteriores a SW-B/SW-M
+                continue
             m.warn.append("el listado no define %s" % sym)
             continue
         pos = L.sym(sym)
@@ -384,6 +388,9 @@ def build_model(L, data=None, adf=None, data_len=None):
     allocs = find_allocs(L)
     seen_free = False
     for addr, ops, d0, d1, dest in allocs:
+        if (fixed and L.has('bm_cpu_tail') and L.has('bm_tail_end') and
+                L.sym('bm_cpu_tail') <= addr < L.sym('bm_tail_end')):
+            continue                        # reserva dependiente de D_LNS, modelada abajo
         if "FreeMem" in ops:
             if d0 is not None:
                 try:
@@ -413,6 +420,22 @@ def build_model(L, data=None, adf=None, data_len=None):
         mem = "chip" if flags & MEMF_CHIP else ("slow" if flags & MEMF_FAST else "any")
         classify(L, m, addr, size, flags, mem, d0, dest, data)
     if fixed:
+        if L.has('g_cpu_tail') and data is not None:
+            start = struct.unpack_from('>I', data, L.sym('D_LNS'))[0]
+            for b in m.blocks:
+                if b.kind != 'data':
+                    continue
+                tail = [Sub(s.name, s.off - start, s.size, s.role, s.align)
+                        for s in b.subs if s.off >= start]
+                if any(s.role != 'cpu' for s in tail):
+                    m.v('V-CHIP', 'BM1: la cola migrada contiene datos del chipset')
+                b.subs = [s for s in b.subs if s.off < start]
+                size = b.size - start
+                b.size = start
+                m.blocks.insert(1, Block('cola CPU de yi1_s.dat (LNS y tablas finales)',
+                                         'slow', size, 'cpu', MEMF_FAST, tail))
+                m.info.append('BM1: cola CPU %d B migra de chip a slow desde D_LNS=%d' % (size, start))
+                break
         chip_cursor, slow_cursor = 0x1000, 0xC00000
         for b in m.blocks:
             if b.mem == 'chip':
