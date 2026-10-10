@@ -1658,8 +1658,10 @@ def run_game(a):
     st = Stats()
     cycles, caps, frames = [], [], []
     prof = {}
+    prof_n, ciclos_n = {}, {}
     regions = {addr(n): n for n in ('g5l_clean', 'g5l_mario', 'g5l_mfill', 'g5l_choose', 'g5l_plan', 'g5l_fast', 'g5l_need', 'g5l_mrow', 'g5l_mwall', 'g5l_mrowba', 'g5l_mba',
-                                    'g5l_sweep', 'g5l_patch', 'g5l_place', 'g5l_emit', 'g5l_vblnull', 'g5l_sweepn', 'g5l_emitn', 'g5l_picksel')}
+                                    'g5l_sweep', 'g5l_patch', 'g5l_place', 'g5l_emit', 'g5l_vblnull', 'g5l_sweepn', 'g5l_emitn', 'g5l_picksel',
+                                    'g5l_rxsave', 'g5l_edges', 'g5l_rexmw', 'g5l_rxload', 'g5l_geo')}   # (g5l_place_e y g5l_emitc: se entra cayendo)
     nlim = a.frames or gr.n
     last_key = None
     keys = []
@@ -1755,11 +1757,14 @@ def run_game(a):
         else:
             parts = fr.call(addr('g5l_render'), G.FAKE, 'render', regions)
         c = sum(parts.values())
+        nrx = len(p['rex']) if p else 0         # G4-2o: partes por Rex ubicados
         for kk, vv in parts.items():
-            pp = prof.setdefault(kk, [0, 0, 0])
-            pp[0] += vv
-            pp[1] = max(pp[1], vv)
-            pp[2] += 1
+            for pr_ in (prof, prof_n.setdefault(nrx, {})):
+                pp = pr_.setdefault(kk, [0, 0, 0])
+                pp[0] += vv
+                pp[1] = max(pp[1], vv)
+                pp[2] += 1
+        ciclos_n.setdefault(nrx, []).append(sum(parts.values()))
         for r_, v_ in poison.items():
             if cpu.cpu.r_reg(r_) != v_:
                 st['abi'] += 1
@@ -1842,7 +1847,9 @@ def run_game(a):
                ciclos_max=worst[0], ciclos_max_frame=worst[1],
                captura_max=max(caps) if caps else 0,
                captura_media=round(sum(caps) / max(1, len(caps)), 1),
-               partes={kk: dict(media=round(v[0] / v[2]), max=v[1], n=v[2]) for kk, v in prof.items()})
+               partes={kk: dict(media=round(v[0] / v[2]), max=v[1], n=v[2]) for kk, v in prof.items()},
+               partes_rex={nr: {kk: dict(media=round(v[0] / v[2]), max=v[1], n=v[2]) for kk, v in pr_.items()} for nr, pr_ in prof_n.items()},
+               mediana_rex={nr: sorted(cs)[len(cs) // 2] for nr, cs in ciclos_n.items()})
     if a.pcprof:                                # Q: no pisa la corrida normal
         pcprof['tot'] = {x['k']: [x['c'], x['pre']['build_mid']] for x in frames}
         pcprof['logic_tot'] = {x['k']: x['logic'] for x in frames if x['k'] in pclogic}

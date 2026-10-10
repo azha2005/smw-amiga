@@ -210,7 +210,9 @@ GV_SWG      equ GV_SWS+4                    ; .l filas del grupo que quedan
 GV_EV       equ GV_SWG+4                    ; G5L_MAXPL x (.w POS, .w CTL sin la x, .w filas, .w 4 + 4 clip)
 GV_CKP      equ GV_EV+8*G5L_MAXPL           ; .l claves de las cadenas de esta lista
 GV_CK       equ GV_CKP+4                    ; 3 listas x 4 flujos x (.l filas 1, .l filas 2, .w n1, .w n2)
-GV_SIZE     equ GV_CK+3*4*12
+GV_PSF      equ GV_CK+3*4*12                ; .b G4-2o: g5l_picksel sin g5l_plan si no choca
+GV_SWE      equ GV_PSF+2                    ; .l fin de los tramos de Mario (g5l_sweepn)
+GV_SIZE     equ GV_SWE+4
         ifgt    G5L_MAXPL-2
         fail    "G4-2: g5l_edges y la cadena son para dos Rex como mucho"
         endc
@@ -225,7 +227,11 @@ MC_MSHK     equ MC_R0+2                     ; .w y su r0 - fila 0
 MC_WOK      equ MC_MSHK+2                   ; .w indices de MC_W calculados
 MC_BOK      equ MC_WOK+2                    ; .w indices con B y A calculados
 MC_W        equ MC_BOK+2                    ; 15 x (.l Mw, .w B, .w A): g5l_mrow, g5l_mba
-MCSZ        equ MC_W+15*8
+MC_RV       equ MC_W+15*8                   ; .w G4-2o: indices con sus tramos en MC_RS
+MC_RN       equ MC_RV+2                     ; 16 .b cuantos tramos (por indice)
+MC_RS       equ MC_RN+16                    ; 16 x 32 x (.b primera, .b ultima): los
+                                            ; tramos (filas desde la 0, sin recortar)
+MCSZ        equ MC_RS+16*64
 ; grupos de un indice (GV_IG): .w n, .w 0, n x (.w color, .w grupo de la
 ; tabla, .l filas); el primero es el de la variante limpia
 IGSZ        equ 64
@@ -627,7 +633,8 @@ g5l_render:
         moveq   #LINES/4-1,d0
 .wk:    clr.l   (a0)+
         dbf     d0,.wk
-.st:    bsr     g5l_clean
+.st:    sf      GV_PSF(a6)                  ; (el camino de un Rex: con g5l_plan)
+        bsr     g5l_clean
         moveq   #0,d0
         move.b  R_PAL(a4),d0
         lsl.w   #5,d0
@@ -708,6 +715,7 @@ g5l_render:
 ; ubicado se cae y se repite.
 .multi: clr.w   GV_NPL(a6)
         clr.w   GV_CI(a6)
+        st      GV_PSF(a6)                  ; G4-2o: sin choques, sin g5l_plan
 .mc:    move.w  GV_CI(a6),d7
         cmp.w   GV_NC(a6),d7
         bhs     .mdone
@@ -739,9 +747,12 @@ g5l_render:
         move.l  d0,(a2)+
         move.l  d0,(a2)
         bsr     g5l_picksel
-        bne.s   .mc                         ; bob 'color'
+        bmi.s   .mf
+        bne     .mc                         ; bob 'color'
         bsr     g5l_rxsave
-        addq.w  #1,GV_NPL(a6)
+        bra.s   .mn
+.mf:    bsr     g5l_rxsavef                 ; sin choques: de la tabla
+.mn:    addq.w  #1,GV_NPL(a6)
         bra     .mc
 .mdone: tst.w   GV_NPL(a6)
         beq     .fail
@@ -789,7 +800,9 @@ g5l_render:
 ; g5l_plan no encuentra banda, la siguiente en ese orden (tools/g5l.py
 ; plan_frame). GV_NEED: -1 sin calcular, $7fff ya probada.
 ; entrada:  GV_VLIST/NVAR/MV/COL, GV_NEED, la cache de Mario, a6 = g5l_v
-; salida:   d0 = 0 (Z) y GV_VAR/VMAP y lo de g5l_plan; 1 (NZ) ninguna
+; salida:   d0 = 0 (Z) y GV_VAR/VMAP y lo de g5l_plan; 1 (NZ) ninguna;
+;           -1 (N) con GV_PSF: GV_VAR/VMAP sin choques, sin g5l_plan
+;           (G4-2o: g5l_rxsavef)
 ; registros destruidos: d0-d7/a0-a5
 ;----------------------------------------------------------------------
 g5l_picksel:
@@ -833,7 +846,13 @@ g5l_picksel:
         add.w   d4,d0
         add.w   d4,d0
         move.w  d0,GV_VMAP(a6)
-        bsr     g5l_plan                    ; grupos y bandas
+        tst.w   d3                          ; G4-2o: sin choques y en el camino
+        bne.s   .pl                         ; de varios: sin bandas, no hace
+        tst.b   GV_PSF(a6)                  ; falta g5l_plan
+        beq.s   .pl
+        moveq   #-1,d0
+        rts
+.pl:    bsr     g5l_plan                    ; grupos y bandas
         bne     .sel
         moveq   #0,d0
         rts
@@ -987,6 +1006,86 @@ g5l_rxsave:
         rts
 
 ;----------------------------------------------------------------------
+; --- g5l_rxsavef --- G4-2o: g5l_rxsave sin g5l_plan, para una variante
+; sin choques con Mario (g5l_picksel con GV_PSF): sin bandas y con los
+; grupos de la tabla en pantalla (lo que daria g5l_plan; como g5l_fast,
+; van por indice creciente)
+; entrada:  GV_R0/X0/SLOT/VAR/MSH/MV/COL, a6 = g5l_v
+; registros destruidos: d0-d7/a0-a4
+;----------------------------------------------------------------------
+g5l_rxsavef:
+        move.w  GV_NPL(a6),d0
+        lsl.w   #8,d0
+        lea     GV_RX(a6),a3
+        add.w   d0,a3                       ; a3 = registro
+        move.w  GV_R0(a6),RX_R0(a3)
+        move.w  GV_X0(a6),RX_X0(a3)
+        move.w  GV_SLOT(a6),RX_SLOT(a3)
+        move.w  GV_MSH(a6),RX_MSH(a3)
+        move.l  GV_VAR(a6),a0
+        move.l  a0,RX_VAR(a3)
+        moveq   #0,d0
+        move.b  8(a0),d0                    ; borde derecho
+        add.w   GV_X0(a6),d0
+        cmp.w   #255,d0
+        ble.s   .r1
+        move.w  #255,d0
+.r1:    move.w  d0,RX_XR(a3)
+        moveq   #0,d0
+        move.b  5(a0),d0                    ; alto
+        move.w  d0,d1
+        add.w   GV_R0(a6),d0
+        cmp.w   #LINES,d0
+        ble.s   .r2
+        move.w  #LINES,d0
+.r2:    move.w  d0,GV_LB(a6)
+        clr.w   RX_NREM(a3)
+        lsl.w   #2,d1
+        lea     GV_LM(a6),a1
+        move.l  (a1,d1.w),d6
+        and.l   GV_MV(a6),d6                ; d6 = filas en pantalla
+        moveq   #0,d0
+        move.b  6(a0),d0
+        lsl.w   #3,d0
+        moveq   #0,d7
+        move.b  9(a0),d7
+        lea     12(a0,d0.w),a4              ; a4 = grupos (.b i .b 0 .w color .l filas)
+        clr.l   RX_IXN(a3)
+        clr.l   RX_IXN+4(a3)
+        clr.l   RX_IXN+8(a3)
+        clr.l   RX_IXN+12(a3)
+        lea     RX_G(a3),a2
+        move.l  GV_COL(a6),a1
+        moveq   #0,d2                       ; grupos
+        moveq   #0,d4                       ; indices de otro color
+        bra.s   .g9
+.g:     move.l  4(a4),d0
+        and.l   d6,d0
+        beq.s   .gn                         ; fuera de la pantalla
+        moveq   #0,d1
+        move.b  (a4),d1                     ; d1 = indice
+        tst.b   RX_IXN(a3,d1.w)             ; P40 ok (1..15)
+        bne.s   .g1
+        move.b  d2,RX_IXS(a3,d1.w)          ; P40 ok: el primero del indice
+.g1:    addq.b  #1,RX_IXN(a3,d1.w)          ; P40 ok
+        move.b  d1,(a2)+                    ; .b i .b 0 (como g5l_rxsave)
+        clr.b   (a2)+
+        move.w  2(a4),(a2)+                 ; color
+        move.l  d0,(a2)+
+        addq.w  #1,d2
+        move.w  d1,d3
+        add.w   d3,d3
+        move.w  (a1,d3.w),d3                ; color de Mario
+        cmp.w   2(a4),d3
+        beq.s   .gn
+        bset    d1,d4
+.gn:    addq.l  #8,a4
+.g9:    dbf     d7,.g
+        move.w  d2,RX_NG(a3)
+        move.w  d4,RX_DM(a3)
+        rts
+
+;----------------------------------------------------------------------
 ; --- g5l_rxload --- G4-2: el Rex d0 en GV_VAR/NREM/REM para g5l_patch,
 ; con su bufer (GV_RBUF + 4 x G5L_RSTR x k) y su clave
 ; registros destruidos: d1/a0-a1
@@ -1069,9 +1168,142 @@ g5l_sweepn:
         move.l  4(a3),GV_SWM(a6)            ; 0..31
         move.l  (a3),GV_SWM+4(a6)           ; 32..63
 .nm:    lea     GV_RUNS(a6),a4              ; a4 = tramos
+        move.l  GV_SWM(a6),d4               ; primero los tramos de Mario
+        move.l  GV_SWM+4(a6),d5
+        move.l  d4,d0
+        or.l    d5,d0
+        beq     .mf                         ; no usa el indice
+        move.l  GV_MCUR(a6),a5              ; G4-2o: sus tramos (relativos a la
+        lea     MC_RS(a5),a2                ; fila 0, sin recortar) van en la
+        move.w  d2,d0                       ; cache de Mario la primera vez
+        lsl.w   #6,d0
+        add.w   d0,a2                       ; a2 = los del indice
+        move.w  MC_RV(a5),d0
+        btst    d2,d0
+        bne     .mk
+        move.l  a2,a0
+        moveq   #0,d6                       ; cuantos
+        moveq   #0,d7                       ; 0: la mitad baja, 32: la alta
+.mh:    tst.l   d4
+        bne.s   .mr
+        tst.w   d7
+        bne     .mv
+        move.l  d5,d4
+        moveq   #0,d5
+        moveq   #32,d7
+        bra.s   .mh
+.mr:    move.l  d4,d0
+        LOWB
+        add.w   d7,d1
+        move.b  d1,(a0)+                    ; a
+        move.l  d4,d0
+        neg.l   d0
+        and.l   d4,d0
+        add.l   d4,d0
+        and.l   d0,d4
+        tst.l   d0
+        bne.s   .m1
+        tst.w   d7                          ; hasta la 31 de la mitad baja: sigue
+        bne.s   .m0                         ; en la alta si tiene la 32
+        btst    #0,d5
+        beq.s   .m0
+        moveq   #1,d0
+        add.l   d5,d0
+        and.l   d0,d5
+        tst.l   d0
+        bne.s   .m3
+        moveq   #64,d1
+        bra.s   .m2
+.m3:    LOWB
+        add.w   #32,d1
+        bra.s   .m2
+.m0:    moveq   #32,d1
+        add.w   d7,d1
+        bra.s   .m2
+.m1:    LOWB
+        add.w   d7,d1
+.m2:    subq.w  #1,d1
+        move.b  d1,(a0)+                    ; b
+        addq.w  #1,d6
+        bra     .mh
+.mv:    lea     MC_RN(a5),a0
+        move.b  d6,(a0,d2.w)                ; P40 ok (1..15)
+        move.w  MC_RV(a5),d0
+        bset    d2,d0
+        move.w  d0,MC_RV(a5)
+.mk:    moveq   #0,d6
+        lea     MC_RN(a5),a0
+        move.b  (a0,d2.w),d6                ; P40 ok
+        move.w  GV_WBASE(a6),d7             ; d7 = fila de la 0
+        bra.s   .q9
+.q:     moveq   #0,d0
+        move.b  (a2)+,d0
+        add.w   d7,d0                       ; a
+        moveq   #0,d1
+        move.b  (a2)+,d1
+        add.w   d7,d1                       ; b
+        bmi.s   .q9                         ; todo arriba de la pantalla
+        cmp.w   #LINES,d0
+        bge.s   .mf                         ; todo abajo (y los que siguen)
+        tst.w   d0
+        bpl.s   .q1
+        moveq   #0,d0
+.q1:    cmp.w   #LINES-1,d1
+        ble.s   .q2
+        move.w  #LINES-1,d1
+.q2:    move.w  d0,(a4)+
+        move.w  #$0001,(a4)+                ; tipo 0, dueno 1
+        move.w  d1,(a4)+
+        move.w  d3,(a4)+
+.q9:    dbf     d6,.q
+.mf:    move.l  a4,GV_SWE(a6)               ; (su fin)
+; G4-2o: cada Rex con un solo grupo del indice y ningun tramo de Mario
+; entre su primera y su ultima fila: un bloque (lo mismo que .grp sin
+; separadores en el bloque). Si alguno no, el camino general.
         moveq   #0,d7                       ; d7 = Rex k
+        lea     GV_RX(a6),a3
+.f:     cmp.w   GV_NPL(a6),d7
+        bhs     .sort
+        move.b  RX_IXN(a3,d2.w),d5          ; P40 ok (1..15)
+        beq     .fn
+        cmp.b   #1,d5
+        bne     .fg                         ; varios grupos
+        moveq   #0,d0
+        move.b  RX_IXS(a3,d2.w),d0          ; P40 ok
+        lsl.w   #3,d0
+        lea     RX_G(a3,d0.w),a2            ; a2 = el grupo
+        move.l  4(a2),d0
+        LOWB
+        move.w  d1,d6
+        add.w   RX_R0(a3),d6                ; d6 = a
+        move.l  4(a2),d0
+        HIGHB
+        add.w   RX_R0(a3),d1                ; d1 = b
+        lea     GV_RUNS(a6),a0              ; Mario entre a y b?
+.fo:    cmp.l   GV_SWE(a6),a0
+        bhs.s   .fk
+        cmp.w   (a0),d1
+        blt.s   .fk                         ; empieza despues de b (en orden)
+        cmp.w   4(a0),d6
+        ble     .fg                         ; termina en a o despues: se solapa
+        addq.l  #8,a0
+        bra.s   .fo
+.fk:    move.w  d6,(a4)+                    ; a
+        move.b  d7,d0
+        addq.b  #1,d0
+        move.b  d0,(a4)+                    ; tipo 1 + k
+        moveq   #2,d0
+        lsl.b   d7,d0
+        move.b  d0,(a4)+                    ; dueno 2 << k
+        move.w  d1,(a4)+                    ; b
+        move.w  2(a2),(a4)+                 ; color
+.fn:    addq.w  #1,d7
+        lea     RXSZ(a3),a3
+        bra     .f
+.fg:    move.l  GV_SWE(a6),a4               ; el general: sin los bloques
+        moveq   #0,d7                       ; rapidos, d7 = Rex k
 .rex:   cmp.w   GV_NPL(a6),d7
-        bhs     .mar
+        bhs     .sort
         move.w  d7,d0
         lsl.w   #8,d0
         lea     GV_RX(a6),a3
@@ -1167,66 +1399,6 @@ g5l_sweepn:
         bne     .grp
 .rnx:   addq.w  #1,d7
         bra     .rex
-.mar:   move.l  GV_SWM(a6),d4               ; los tramos de Mario
-        move.l  GV_SWM+4(a6),d5
-        move.w  GV_WBASE(a6),a5             ; a5 = fila de la 0
-        moveq   #0,d7                       ; 0: la mitad baja, 32: la alta
-.mh:    tst.l   d4
-        bne.s   .mr
-        tst.w   d7
-        bne     .sort
-        move.l  d5,d4
-        moveq   #0,d5
-        moveq   #32,d7
-        bra.s   .mh
-.mr:    move.l  d4,d0
-        LOWB
-        add.w   d7,d1
-        add.w   a5,d1
-        move.w  d1,(a4)                     ; a (sin recortar)
-        move.l  d4,d0
-        neg.l   d0
-        and.l   d4,d0
-        add.l   d4,d0
-        and.l   d0,d4
-        tst.l   d0
-        bne.s   .m1
-        tst.w   d7                          ; hasta la 31 de la mitad baja: sigue
-        bne.s   .m0                         ; en la alta si tiene la 32
-        btst    #0,d5
-        beq.s   .m0
-        moveq   #1,d0
-        add.l   d5,d0
-        and.l   d0,d5
-        tst.l   d0
-        bne.s   .m3
-        moveq   #64,d1
-        bra.s   .m2
-.m3:    LOWB
-        add.w   #32,d1
-        bra.s   .m2
-.m0:    moveq   #32,d1
-        add.w   d7,d1
-        bra.s   .m2
-.m1:    LOWB
-        add.w   d7,d1
-.m2:    subq.w  #1,d1
-        add.w   a5,d1                       ; b (sin recortar)
-        bmi     .mh                         ; todo arriba de la pantalla
-        move.w  (a4),d0
-        cmp.w   #LINES,d0
-        bge     .mh                         ; todo abajo
-        tst.w   d0
-        bpl.s   .m4
-        clr.w   (a4)
-.m4:    cmp.w   #LINES-1,d1
-        ble.s   .m5
-        move.w  #LINES-1,d1
-.m5:    move.w  #$0001,2(a4)                ; tipo 0, dueno 1
-        move.w  d1,4(a4)
-        move.w  d3,6(a4)
-        addq.l  #8,a4
-        bra     .mh
 .sort:  lea     GV_RUNS+8(a6),a0            ; insercion por (fila, tipo)
 .s1:    cmp.l   a4,a0
         bhs.s   .s9
@@ -1683,6 +1855,7 @@ g5l_mfill:
         dbf     d0,.ck
         move.w  #-1,MC_XREL(a3)
         move.w  #$8000,MC_R0(a3)            ; MC_W sin calcular
+        clr.w   MC_RV(a3)                   ; (y sus tramos)
         lea     MC_MM(a3),a0                ; mascaras a 0
         moveq   #15-1,d0
 .z:     clr.l   (a0)+

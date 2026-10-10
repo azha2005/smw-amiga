@@ -4,43 +4,41 @@
 `C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
 anterior.
 
-**G4-2 hecha, pero apagada por defecto** (`docs/informe-g4-2-1010.md`).
-El 68000 ubica hasta 2 Rex por foto, separados en vertical, con encadenado
-DMA por lista y sin MOVE nuevos en el copper:
+**G4-2 y G4-2o hechas; los 2 Rex por foto siguen apagados por defecto**
+(`docs/informe-g4-2-1010.md`, `docs/informe-g4-2o-1010.md`). El 68000
+ubica hasta 2 Rex con encadenado DMA, y es exacto. G4-2o abarató la foto
+con 2 Rex (hills2: mediana de 63,5 k a 52,3 k ciclos; con un Rex, 25 k),
+pero D1 sigue empeorando más que el ruido:
 
-- `g5l.py game` es exacto en yi1, hills2, stress_sprites y stress_back.
-- Capturas de hills2 con el segundo Rex: 0 píxeles distintos.
-
-Una foto con 2 Rex cuesta ≈ 63 k ciclos contra ≈ 25 k, y **D1 empeora**:
-
-| replay | fotos perdidas sin G4-2 | con G4-2 |
+| replay | fotos perdidas, control | con 2 Rex |
 |---|---:|---:|
-| hills2 | 210 | 398 |
-| sprites | 91 | 194 |
-| back | 380 | 418 |
+| hills2 | 211 | 346 |
+| sprites | 91 | 180 |
+| back | 385 | 407 |
 
-Por eso `G5L_MAXPL` = 1 por defecto. Con `-DG5L_MAXPL=2` se dibujan más
-Rex: en hills2, de 1.893 a 2.498. **Ahora: G4-2o, abaratarlo.**
+`-DG5L_MAXPL=2` los activa. **Ahora: G4-B, los demás enemigos de YI1**:
+hoy solo se ven Mario y el Rex, y la piraña, el Chuck, los Koopa, la caja
+de mensaje y la cinta de meta no se dibujan.
 
-**D1 sigue roja**: back 380/4126 (racha 5), sprites 91/1914, hills2
-210/2835 y normal BENCH 11/6312 (control de la tanda de G4-2). 50 Hz y
+**D1 sigue roja**: back 385/4126 (racha 5), sprites 91/1914, hills2
+211/2835 y normal BENCH 11/6312 (controles de esta tanda). 50 Hz y
 colchón aceptados.
 
 ## 1. La próxima sesión, en orden
 
 | tarjeta | responsable | ficheros / puerta | instrucciones |
 |---|---|---|---|
-| **G4-2o** | coordinador; **en curso** | `player/g5l.s`: el camino de varios Rex más barato (rápido sin bandas, caché, `g5l_emitn`). Puerta: `g5l.py game` exacto con MAXPL 1 y 2; A/B BENCH con MAXPL 2 dentro del ruido del control → el defecto pasa a 2 | `docs/instrucciones-g4-2o.md` |
-| G4-3 | después de G4-2o | Rex en los pares de Mario (0-1/2-3) fuera de sus filas: la referencia con colores y prioridad primero | `docs/instrucciones-g4-3.md` |
+| **G4-B** | coordinador; **en curso** | `tools/g5l.py`, `player/g5l.s` y la tabla: los demás enemigos de YI1 por G5L, un objeto por foto (el Banzai es bob, G7). Primero las formas y la referencia Python (0 errores de color), después el 68000. Puerta: `g5l.py game` exacto, memmap, A/B BENCH reportado como trade y capturas de la piraña y el Chuck | `docs/instrucciones-g4-b.md` |
+| G4-3 | aparcada | Rex en los pares de Mario: solo tiene sentido con G4-2 activado | `docs/instrucciones-g4-3.md` |
 
 Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
 --baseline tools/baseline_pc.json --level --g5l --bm1`, en verde.
 
 ## 2. Pendiente del usuario
 
-- **Trade de G4-2, si querés decidirlo antes de G4-2o:** más Rex visibles
-  (hills2 +32 %) contra ≈ 2× fotos perdidas en los replays con muchos Rex.
-  Hoy queda apagado (la regla de la tarjeta). Un Rex que no entra no se
+- **Trade de los 2 Rex por foto** (G4-2/G4-2o): más Rex visibles (hills2
+  +32 %) contra ≈ 1,6× fotos perdidas en hills2 y ≈ 2× en sprites. Hoy
+  está apagado por la regla de la tarjeta. Un Rex que no entra no se
   dibuja: la cola de bobs es G7.
 - Probar el vivo a mano en esta rama y decidir cuándo integrar a master.
   Novedad visible: el Rex aplastado sobre pendientes.
