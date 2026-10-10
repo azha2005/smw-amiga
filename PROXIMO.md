@@ -4,41 +4,36 @@
 `C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
 anterior; los documentos indican el avance de la rama.
 
-**G5L-R-T2 hecha** (`docs/informe-g5l-r-t2-1009.md`), solo medida. Con el
-defecto nuevo: BENCH 66 fotos, racha 1; VBTRACE 25 omitidas, los frames
-del informe T. Los saltos son **atraso acumulado** por rachas de 3-6 fotos
-caras (modelo de cola: 21 de 25). Dos fuentes independientes:
+**G5L-R-T2 y G5L-R-Pa hechas**, solo medida (`docs/informe-g5l-r-t2-1009.md`,
+`docs/informe-g5l-r-pa-1009.md`). Los 25 saltos de VBTRACE (66 fotos
+BENCH) son atraso acumulado por rachas de fotos caras. **Reutilizar el
+plan de G5L no sirve**: sin la altura absoluta el plan corrido es igual,
+pero casi nunca acierta (0 con N = 4); sin la relativa acierta, pero el
+plan es otro en el 92 %. El exceso está repartido entre el render de G5L
+y `build_mid` en los dos sentidos. Para ≤ 5 saltos (modelo, ESTIMADO):
 
-- **camino lento de G5L**: 145 fotos con sweep/plan, `g5l_render` 66 k
-  ciclos contra 9 k. El Rex cambia de forma mientras se solapa con Mario y
-  la altura relativa cambia; agrandar la caché no sirve (26/145 sin límite);
-- **picos de `build_mid`** (S5).
+- S5 (`build_mid` −50 % del exceso) + camino lento −50 %: 2-6;
+- S5 + `g5l_render` −20 %: 1-2;
+- `g5l_render` −30 % sin S5: 4-5.
 
-Estimado: el camino lento gratis deja 8-12 saltos, S5 al 50 % 13-18, las
-dos juntas 0-4. **D1 sigue roja.**
+**D1 sigue roja.**
 
 ## 1. La próxima sesión — decide el usuario
 
-La parada de T sigue: **un candidato nuevo necesita autorización.**
-Recomendación: empezar por la fase de medida de P-a, que no toca el juego.
-
 | tarjeta | toca | instrucciones y entrega |
 |---|---|---|
-| **G5L-R-Pa** (recomendada; **pendiente de autorización**) | solo medida, offline: ¿el plan de G5L de un fallo es el de un fallo anterior corrido en Δr0? Si sí en ≥ 80 % de los aciertos, la caché con clave sin la altura vale | `docs/instrucciones-g5l-r-pa.md`: planes por foto, comparación con corrimiento, puerta ≥ 80 %, informe con contrafáctico |
+| **G5L-R-Q** (recomendada; **pendiente de autorización**) | solo medida: histograma por PC de `g5l_render` (ventanas de salto y fallos) y de `build_mid` (picos), una reescritura concreta por bucle caliente con su recorte estimado, y el modelo con esos recortes | `docs/instrucciones-g5l-r-q.md`: puerta del histograma = ciclos de `game_frames.json`; informe con qué meta es alcanzable |
 
-Las otras opciones del informe T2 §5, para que el usuario elija:
-
-- **P-b, S5 en `build_mid`** (cola por plazo, `docs/plan-tecnico.md`
-  §9.2): necesaria igual, pero sola deja 13-18 saltos (estimado).
-- **Recorte uniforme del 20-30 % de `g5l_render`** más S5: sin diseño
-  todavía.
+Sin Q, cualquier candidato sería elegir un porcentaje sin saber si se
+puede. Si Q dice que ninguna meta es alcanzable, D1 vuelve al usuario con
+números (colchón aceptado; 25 Hz solo con la optimización agotada).
 
 Builds seriales, una WinUAE midiendo, R9.
 
 ## 2. Después
 
-Con P-a: la implementación (clave reducida o sweep/plan en asm) y S5, con
-la puerta BENCH ≤ 9 fotos (control sin G5L), VBTRACE ≤ 5, `G5L GAME: OK`,
+El candidato que Q haga posible (S5 + recortes de asm en G5L), con la
+puerta BENCH ≤ 9 fotos (control sin G5L), VBTRACE ≤ 5, `G5L GAME: OK`,
 0 píxeles distintos en el frame 1700 y la compuerta D1. Luego otros
 enemigos (dos Rex, Banzai/bobs), HUD y audio. BM1 deja 24856 B de chip en
 el vivo: las tablas de CPU en chip (135468 B) todavía necesitan C2/C4 y
@@ -47,7 +42,7 @@ aparcadas.
 
 ## 3. Pendiente del usuario o la PC
 
-- **Autorizar (o no) G5L-R-Pa**, o elegir otra opción de §1.
+- **Autorizar (o no) G5L-R-Q.**
 - U2 capa 2 contra referencia; U3 opcional, A500 real (con A501).
 - Worktrees con commits fuera de master, conservados: `agent-ab11…`
   (G2T-B2 parada), `agent-af1f…` (revisión L-OAM), `wt-g5bis-1007`,

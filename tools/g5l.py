@@ -1264,7 +1264,12 @@ def run_game(a):
         frames.append(dict(k=k, c=c, parts=parts, ntr=len(p['trans']) if p else -1,
                            nseg=len(p['segs']) if p else 0, pre=pre,
                            cap=caps[-1] if k else 0, logic=logic, f=cycles[-1][1],
-                           pk=cpu.read(gv + s['GV_PK'], 64).hex()))   # T2: clave del plan
+                           pk=cpu.read(gv + s['GV_PK'], 64).hex(),    # T2: clave del plan
+                           sc=mem.r16(rec + s['R_S']),                # la s del scroll
+                           plan=dict(vo=p['vo'], r0=p['r0'], x0=p['x0'],   # Pa: el plan de Python
+                                     groups=[[i, c_, m_] for (i, c_), m_ in p['groups'].items()],
+                                     remaps=[list(r_) for r_ in p['remaps']],
+                                     trans=[list(t_) for t_ in p['trans']]) if p else None))
         got = cpu.read(back, size)
         dslot = mem.r16(gv + s['GV_DSLOT'])
         want_slot = p['slot'] if p else 0xFFFF

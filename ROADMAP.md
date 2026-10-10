@@ -50,6 +50,15 @@
 
 ## 1. Estado por etapa (al 2026-10-09)
 
+**G5L-R-Pa (2026-10-09 noche, rama g2t-b2bis, solo medida):** reutilizar
+el plan de G5L corrido no sirve: sin `R0` es igual al 100 % pero acierta 0
+con N = 4; sin `R0`/`MSH`, 8 % de iguales (`pa_shift.py`). Un fallo cuesta
+66 056 contra 27 562 ciclos (sweep + plan 19 k, exceso de patch 8 k).
+`build_mid` > 40 000: 60 fotos a la izquierda, 11 a la derecha; el 56 % del
+exceso es de la ida. ≤ 5 saltos pide dos palancas (S5 + recortes de G5L)
+o `g5l_render` −30 % (ESTIMADO, `pa_levers.py`).
+`docs/informe-g5l-r-pa-1009.md`.
+
 **G5L-R-T2 (2026-10-09 noche, rama g2t-b2bis, solo medida):** BENCH del
 defecto 66 fotos/racha 1 y VBTRACE 25 omitidas reproducidas (WinUAE
 cycle-exact). Coste por foto en Musashi: total mediana 52 521, p99
@@ -255,6 +264,11 @@ cambiable en un solo lugar (una tabla).
 
 ## 4. Olas y sesiones (revisado el 2026-10-09)
 
+2026-10-09 (noche, Pa): la vía de la caché queda descartada. Quedan Q
+(media sesión, medida) y después recortes de asm en G5L + S5 (2-4
+sesiones, ESTIMADO, según lo que diga Q). Restante sin cambios:
+**10-13**.
+
 2026-10-09 (noche, T2): medida hecha. Bajar los tirones pide dos cosas
 (camino lento de G5L y S5), estimado 1 sesión de medida (P-a) + 1-2 de
 implementación + 1-2 de S5, dentro del total; restante estimado sin
@@ -365,6 +379,10 @@ O5 es el modo por defecto (`-DNODECOUPLE` = bucle viejo); si cambia
 ---
 
 ## 7. Cierre de sesión (obligatorio)
+
+2026-10-09 (noche, 3): G5L-R-Pa hecha (autorizada; puerta no cumplida).
+Archivado PROXIMO; nueva tarjeta G5L-R-Q pendiente de autorización
+(`docs/instrucciones-g5l-r-q.md`).
 
 2026-10-09 (noche, 2): G5L-R-T2 hecha (solo medida, herramientas). P120.
 Archivado PROXIMO; nueva tarjeta G5L-R-Pa pendiente de autorización

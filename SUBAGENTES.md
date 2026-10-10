@@ -257,7 +257,8 @@ original del 2026-09-30, ola por ola, está textual en
 | G5L-R | **Rex visible; vivo opt-in; D1 roja** | `5461b8a`/`a728ddc`: 66 fotos BENCH (control con colchón 9), VBTRACE 25; tres listas y Z1/latencia verdes. Defecto pendiente de teclado real; informes T/V 1009 |
 | G5L-R-T | **parada tras dos candidatos** | `5461b8a`: compartida 66/racha 1; especializada 65/racha 2 retirada. Perfil y traza entregados; revisar números antes de otro candidato. `docs/informe-g5l-r-tirones-1009.md` |
 | G5L-R-T2 | **hecha (2026-10-09)** | 66 BENCH/25 VBTRACE reproducidas; atraso acumulado (modelo 21/25); camino lento G5L (145 fotos) + picos `build_mid`; estimado 0-4 saltos con las dos. `docs/informe-g5l-r-t2-1009.md` |
-| G5L-R-Pa | **siguiente; pendiente de autorización** | medida offline: ¿el plan de un fallo es otro corrido en Δr0? puerta ≥ 80 %. `docs/instrucciones-g5l-r-pa.md` |
+| G5L-R-Pa | **hecha (2026-10-09); puerta no cumplida** | sin `R0` 100 % iguales pero 0 aciertos (N = 4); sin `R0`/`MSH` 8 % iguales: caché descartada. ≤ 5 saltos pide S5 + recortes de G5L (estimado). `docs/informe-g5l-r-pa-1009.md` |
+| G5L-R-Q | **siguiente; pendiente de autorización** | medida: histograma por PC de `g5l_render` y `build_mid`, recortes posibles por rutina. `docs/instrucciones-g5l-r-q.md` |
 | G5L-R-V | **hecha (2026-10-09)** | teclado real KS 1.2/1.3, historial reproducido, RETURN; defecto G5L+CUSHION+SPR_OAM en `53e6453`. `docs/informe-cierre-v-bm1-1009.md` |
 | BM1 | **hecha (2026-10-09); boot del vivo por defecto** | KS 1.2/1.3 exactos, Z1, sin A501 no carga (usuario); 31,96 s contra 33,02 s trackdisk (`143c9ea`). `docs/informe-cierre-v-bm1-1009.md` |
 | G2T-Cpre | **WIP: C2a exacta, C2b detenido por coste** | 2288 planes, cinco contadores cero; sonda 28680 ciclos >4000, sin emitir. C3/C4 pendientes. `docs/informe-g2t-cpre-1008.md`, `docs/instrucciones-g2t-cpre-coste.md` |
