@@ -1,25 +1,22 @@
 /*
- * spr_powerup.c - la seta $74 (_PowerUpRt de sprite_1-1.s, CODE_01C371 ..
+ * spr_powerup.c - power-ups $74-$78 (_PowerUpRt de sprite_1-1.s, CODE_01C371 ..
  * TouchedPowerUp / GiveMarioMushroom) y lo que sale de los bloques
  * (_02887D .. GenSpriteFromBlk de sprite_2-clus.s). Cuarto sprite en fichero
  * propio (I1, ver msprite.h).
  *
  * Transcripcion instruccion por instruccion (P27), con A, X (= ranura x) e Y
  * anotados donde importan. Diferencias con la ROM:
- *   - el dibujo (CODE_01C61A: GetDrawInfoBnk1 + OAM) se reduce a
- *     GetDrawInfoBnk1 (los flags de fuera de pantalla; los tiles son de la
- *     9.2); SpriteProp (PHA/PLA y $10 = detras de la pantalla) es solo
- *     dibujo y no se porta;
+ *   - con SPR_OAM, CODE_01C61A escribe la OAM y conserva SpriteProp;
+ *     sin SPR_OAM solo calcula los flags de fuera de pantalla;
  *   - GivePoints (la puntuacion y su sprite) es de la etapa 10: MEV_SPRITE;
  *   - la animacion de crecer de Mario ($71 = 02 con $1496 = $2F) es de la
  *     logica de Mario (P8): aca solo se escriben las variables, como la ROM;
  *   - sin portar (spr_unsup): el modo de nivel con el bit 6 (CODE_01C3F3), el
- *     $21 (moneda), las flores / estrella / pluma / 1-UP al tocarlas
- *     (GiveMarioFire..: P7, P10), el contenido de bloque >= 8 (P-switch,
+ *     $21 (moneda), la pluma al tocarla, el contenido de bloque >= 8 (P-switch,
  *     enredadera...) y la capa 2. El contenido 6 / 7 (moneda que gira,
  *     CODE_028A66) es de P9: no hace nada.
- *   - de msprite.c solo se despachan el $74 (powerup_main) y su init
- *     (powerup_init, InitPowerUp: el $74 que pone el nivel).
+ *   - msprite.c despacha seta, flor, estrella y 1-UP, tambien su init;
+ *     la pluma $77 queda fuera de YI1 (D12).
  * Las tablas .DB vienen de tools/smwtabx.py (WANT_POWERUP, SMWTABX_POWERUP):
  * solo este fichero las incluye (P78).
  */
@@ -110,7 +107,23 @@ static void pw_touch(u8 x)
     case 1:                                 /* CODE_01C56F */
         pw_points(x);
         break;
-    default:                                /* estrella, pluma, flor, 1-UP: P7 / P10 */
+    case 2:                                 /* GiveMarioStar */
+        W8(wm_StarPowerTimer, 0xFF);
+        W8(wm_MusicCh1, 0x0D);
+        W8(wm_LevelMusicMod, R8(wm_LevelMusicMod) | 0x80);
+        pw_points(x);
+        break;
+    case 4:                                 /* GiveMarioFire */
+        W8(wm_FlashingPalTimer, 0x20);
+        W8(wm_SpritesLocked, 0x20);
+        W8(wm_MarioAnimation, 4);
+        W8(wm_MarioPowerUp, 3);
+        pw_points(x);
+        break;
+    case 5:                                 /* GiveMario1Up: los puntos llevan la vida */
+        mario_events |= MEV_SPRITE;
+        break;
+    default:                                /* la pluma no es de YI1 (D12) */
         spr_unsup();
         break;
     }
@@ -120,6 +133,11 @@ static void pw_touch(u8 x)
 void powerup_main(u8 x)
 {
     u8 n, st;
+#ifdef SPR_OAM
+    u8 prop = R8(wm_SpriteProp);
+#endif
+    if (SPR(wm_SpriteNum, x) == 0x75)
+        SETSPR(wm_SpriteDir, x, (R8(wm_FrameB) >> 3) & 1);
     if (SPR(wm_SpriteMiscTbl8, x)) {        /* la baya de Yoshi comida: SubSprGfx2Entry1 */
         get_draw_info1(x);
         return;
@@ -136,6 +154,9 @@ void powerup_main(u8 x)
     }
     if (SPR(wm_SpriteDecTbl1, x)) {         /* CODE_01C38F: sale del bloque */
         spr_obj_interact(x);                /* CODE_019140 */
+#ifdef SPR_OAM
+        if (!SPR(wm_SpriteMiscTbl4, x)) W8(wm_SpriteProp, 0x10);
+#endif
         if (!R8(wm_SpritesLocked)) {
             SETSPR(wm_SpriteSpeedY, x, 0xFC);
             pw_axis(x);
@@ -190,8 +211,18 @@ void powerup_main(u8 x)
         SETSPR(wm_SpriteDir, x, SPR(wm_SpriteDir, x) ^ 1);
     }
 tail:                                       /* _01C48D */
-    if (SPR(wm_SpriteDecTbl1, x) < 0x36)
+    if (SPR(wm_SpriteDecTbl1, x) < 0x36) {
+#ifdef SPR_OAM
+        st = SPR(wm_SpriteState, x);
+        if ((st && st != 0xFF) || SPR(wm_SprBehindScrn, x)) W8(wm_SpriteProp, 0x10);
+        powerup_gfx(x);
+#else
         get_draw_info1(x);                  /* CODE_01C61A: GetDrawInfoBnk1 + OAM */
+#endif
+    }
+#ifdef SPR_OAM
+    W8(wm_SpriteProp, prop);
+#endif
 }
 
 /* _02887D: el contenido de un bloque (m5, los de DATA_01AE88 / el que pone el

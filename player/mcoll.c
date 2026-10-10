@@ -498,7 +498,7 @@ static void f17f(u8 a, u8 y)
         }
         /* CODE_00F1AE: el contenido alterna segun la fila */
         c = v & 1;
-        v = (u8)(((c << 7) | (R8(wm_BlockXPos) >> 1)) >> 3);
+        v = (u8)(((c << 7) | (R8(wm_BlockYPos) >> 1)) >> 3);
         v = T8X(DATA_00F100, v);
     }
     /* _00F1BA */

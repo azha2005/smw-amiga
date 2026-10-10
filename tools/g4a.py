@@ -375,7 +375,7 @@ def run_traceall(a):
         print(nm, 'bobs', json.dumps(bobst[nm], ensure_ascii=False), flush=True)
     out = {}
     tot_slow = tot_chip = 0
-    dump = {}
+    dump = json.loads((OUT / 'shapes.json').read_text(encoding='utf-8')) if a.merge and (OUT / 'shapes.json').exists() else {}
     for num in sorted(types):
         t = types[num]
         # una pose recortada por el borde (sus fichas visibles son un
@@ -383,8 +383,9 @@ def run_traceall(a):
         # registro propio si el motor recorta: se cuenta aparte
         full = [k for k in t['shapes']
                 if not any(o[1] == k[1] and set(k[0]) < set(o[0]) for o in t['shapes'])]
-        dump['%02X' % num] = dict(todas=[list(map(list, k[0])) + [k[1]] for k in t['shapes']],
-                                  completas=len(full))
+        old = dump.get('%02X' % num, {}).get('todas', [])
+        shapes = [list(map(list, k[0])) + [k[1]] for k in sorted(t['shapes'])]
+        dump['%02X' % num] = dict(todas=old + [k for k in shapes if k not in old], completas=len(full))
         t['full'] = full
         cdma, cindex = bytearray(), {}
         rec = ws = hs = colsmax = ncol = rowmax = bad15 = tall = 0
@@ -591,6 +592,7 @@ def main():
     t = sub.add_parser('traceall')
     t.add_argument('--host', default='work/g4a/host.exe')
     t.add_argument('--recs', nargs='*')
+    t.add_argument('--merge', action='store_true', help='ampliar el inventario conservando las otras grabaciones')
     sub.add_parser('lines')
     b = sub.add_parser('bobs')
     b.add_argument('--traces', nargs='+', default=list(TRACES))

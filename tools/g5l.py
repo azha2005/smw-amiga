@@ -240,7 +240,8 @@ CLEAN_FLAG = 0x80000000
 # G4-B: los demás enemigos de YI1 (informe-g4a-1010.md §2; el Banzai es bob,
 # G7). Un mapa limpio por tipo: blanco 1, negro 2 y sus colores propios
 # (ordenados) en los índices de BAND_PREF; mapa 4 + su posición aquí.
-G5L_OTHER = (0x4F, 0x95, 0xBD, 0x05, 0xB9, 0x7B, 0x02)
+G5L_OTHER = (0x4F, 0x95, 0xBD, 0x05, 0xB9, 0x7B, 0x02,
+             0x74, 0x75, 0x76, 0x78, 0x83)   # SW-Q; la pluma no es de YI1 (D12)
 NORDS = 16                      # G5L3: órdenes de colores propios (16 x 16 B)
 
 
@@ -300,6 +301,24 @@ def other_shapes(types):
         return [], {}
     vram, cg = g4a.ctx()
     sj = json.loads(Path('work/g4a/shapes.json').read_text(encoding='utf-8'))
+    # SW-Q: las poses legales de los power-ups salen de PowerUpGfxRt y
+    # sus tablas. Las trazas por si solas no cubren la estrella (pw_estrella
+    # solo pone el timer) ni las dos direcciones de la flor y del 1-UP.
+    from smwgen import SRC, parse_tables
+    pt = parse_tables(str(Path(SRC) / 'sprite_1-1.s'))
+    st = parse_tables(str(Path(SRC) / 'sprite_tables.s'))
+    for num in (0x74, 0x75, 0x76, 0x78):
+        if num not in want:
+            continue
+        entry = sj.setdefault('%02X' % num, dict(todas=[]))
+        pals = {((st['Sprite166EVals'][num] & 15) ^ p) >> 1
+                for p in (pt['StarPalValues'] if num == 0x76 else (0,))}
+        for pal in sorted(pals):
+            for fx in (0, 1):
+                for pri in (1, 2):
+                    key = [[0, -1, pt['PowerUpTiles'][num - 0x74], 16, fx, 0, pal], pri]
+                    if key not in entry['todas']:
+                        entry['todas'].append(key)
     out, maps = [], {}
     for num in want:
         items = []
@@ -468,6 +487,9 @@ def build_table(bank, clean=True, types=(0xAB,)):
     blob += tt
     if len(blob) & 1:
         blob.append(0)
+    # La arena de parches sigue a la DMA limpia y tambien necesita 8 B.
+    # Las formas nuevas de SW-Q pueden dejar el ultimo flujo en 4 mod 8.
+    ctx['cdma'] += bytes((-len(ctx['cdma'])) & 7)
     return bytes(blob), ctx
 
 

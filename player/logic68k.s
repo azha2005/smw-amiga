@@ -650,6 +650,7 @@ _goal_gfx:
 .ret:   movem.l (sp)+,d2-d5/a3
         rts
 
+        include "player/swq68k.s"
         endc
 ; tablas tg2_ / tx_ de smwtabx.h (GENERADO por logicbench_build.sh, no versionado: R9)
         include "work/cc/smwtabx.i"

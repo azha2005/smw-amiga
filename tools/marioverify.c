@@ -752,10 +752,11 @@ static int run_sprloop(const char *sprpath, const char *mappath)
    iniciales tambien son del port desde el primer frame; si no, se marcan
    cargados los que estan a la vista (no se conocen sus tablas).
    Cuenta los frames exactos de cada numero de sprite (etapa 9.1). */
+static int game_powerup(int n) { return n == 0x74 || n == 0x75 || n == 0x76 || n == 0x78; }
 static int game_ported(int n)
 {
     return n == 0xAB || n == 0xB9 || n == 0x83 || n == 0xBD || n == 0x02 || n == 0x9F || n == 0x4F
-        || n == 0x8E || n == 0xC7 || n == 0x74 || n == 0x95 || n == 0x7B || (n >= 0x04 && n <= 0x07);
+        || n == 0x8E || n == 0xC7 || game_powerup(n) || n == 0x95 || n == 0x7B || (n >= 0x04 && n <= 0x07);
 }
 
 /* P8: animaciones de $71 que el port corre (manim.c): 1 encoger, 2 crecer, 4 flor, 9 morir */
@@ -1162,8 +1163,8 @@ static int run_game(const char *sprpath, const char *mappath)
            bounce_spawn), que crea lo que sale del bloque (la seta). Lo que nace
            en la fase de Mario ya corre en los sprites de este frame */
         for (k = 0; k < 12; k++)
-            if (!mario_unsupported && ram[wm_SpriteStatus + k] && ram[wm_SpriteNum + k] == 0x74
-                && (st0[k] != ram[wm_SpriteStatus + k] || num0[k] != 0x74))
+            if (!mario_unsupported && ram[wm_SpriteStatus + k] && game_powerup(ram[wm_SpriteNum + k])
+                && (st0[k] != ram[wm_SpriteStatus + k] || num0[k] != ram[wm_SpriteNum + k]))
                 follow[k] = 1;
         if (skip && mario_unsupported) {        /* lo congelo Mario (tuberia, meta...): */
             synced = 0;                         /* los sprites no llegaron a correr */
@@ -1183,7 +1184,7 @@ static int run_game(const char *sprpath, const char *mappath)
 #endif
         for (k = 11; k >= 0; k--) {
             born74[k] = 0;
-            if (!follow[k] && orc(i, wm_SpriteStatus + k) == 8 && orc(i, wm_SpriteNum + k) == 0x74
+            if (!follow[k] && orc(i, wm_SpriteStatus + k) == 8 && game_powerup(orc(i, wm_SpriteNum + k))
                 && i > 0 && orc(i - 1, wm_SpriteStatus + k) == 0 && frame_of(i - 1) + 1 == frame_of(i)) {
                 born74[k] = 1;                  /* P6: nace de un bloque: lo crea el port (spr_powerup.c) */
                 continue;
@@ -1257,7 +1258,7 @@ static int run_game(const char *sprpath, const char *mappath)
                 follow[k] = 1;
         for (k = 0; k < 12; k++)
             if (born74[k]) {                    /* P6: lo creo el port (en esa ranura); si no, el oraculo */
-                if (ram[wm_SpriteStatus + k] == 8 && ram[wm_SpriteNum + k] == 0x74)
+                if (ram[wm_SpriteStatus + k] == 8 && game_powerup(ram[wm_SpriteNum + k]))
                     follow[k] = 1;
                 else {
                     for (c = 0; c < NSCMP; c++) take(i, scmp[c] + k);
