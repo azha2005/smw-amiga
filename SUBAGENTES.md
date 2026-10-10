@@ -275,6 +275,13 @@ original del 2026-09-30, ola por ola, está textual en
 | G4-B | **hecha (2026-10-10), activada por el usuario el 2026-10-10** | tabla G5L3 (órdenes de color y tipos en la cabecera, 1 mapa por tipo): 82 KB slow, +14,2 KB chip. Referencia 0 errores en 11 trazas; `g5l.py game` exacto en yi1/hills2/piranha/chuck; capturas piraña 0 px, Chuck 0 px en el objeto. A/B normal 11 → 27, back +69, piranha +23 → `G5L_TYPES=all`. P126. `docs/informe-g4-b-1010.md` |
 | G9 | **hecha (2026-10-10)** | `tools/sprshot_cmp.py` (imagen y `--logic`): 10 capturas, 8 tipos y Mario con 0 px contra la SNES; deriva de lógica en pocas instancias (Rex yi1 70 %, piraña 74 %). P127. `docs/informe-g9-1010.md` |
 | L-DER | **siguiente** | la deriva de la lógica de sprites: primer frame distinto por instancia, causa y arreglo en el 68000; puerta `--logic` ≥ 99 %. `docs/instrucciones-l-der.md` |
+| SW-A | pendiente (fácil) | tiles animados de la capa 1 (los postes del punto medio): GFX 33 en las ranuras de `DATA_05B93B`; puerta: tiles = VRAM de snesorc y SW1. `docs/instrucciones-sw-a.md` |
+| SW-P | pendiente (fácil) | `BPLCON2 = $0022` en la franja de un objeto G5L con prioridad 0-1 (la piraña). `docs/instrucciones-sw-p.md` |
+| SW-M | pendiente (fácil) | la moneda de Yoshi: `D_COIN` y el paso de `wm_FrameB` por foto. `docs/instrucciones-sw-m.md` |
+| SW-D | pendiente (fácil) | los detalles de 1-6 px de SW1: capa y color por píxel. `docs/instrucciones-sw-d.md` |
+| SW-B | pendiente (mediana) | los cambios del mapa en pantalla: cola de `generate_tile`, `D_TCHG`, `D_MAP` y blit. `docs/instrucciones-sw-b.md` |
+| SW-Q | pendiente (mediana) | `$83` y power-ups en G5L (banco, tabla, regla). `docs/instrucciones-sw-q.md` |
+| SW-S | pendiente (mediana) | puntos, humo y sprites extendidos menores: lógica en asm, dibujo por G7 o G5L. `docs/instrucciones-sw-s.md` |
 | G4-3 | aparcada | Rex en los pares de Mario fuera de sus filas (cota G4-1 §3); solo con G4-2 activado. `docs/instrucciones-g4-3.md` |
 | G5L-R-V | **hecha (2026-10-09)** | teclado real KS 1.2/1.3, historial reproducido, RETURN; defecto G5L+CUSHION+SPR_OAM en `53e6453`. `docs/informe-cierre-v-bm1-1009.md` |
 | BM1 | **hecha (2026-10-09); boot del vivo por defecto** | KS 1.2/1.3 exactos, Z1, sin A501 no carga (usuario); 31,96 s contra 33,02 s trackdisk (`143c9ea`). `docs/informe-cierre-v-bm1-1009.md` |

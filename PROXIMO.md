@@ -58,6 +58,21 @@ sincronía). Diferencias **nuevas**, candidatas a tarjeta:
 Ya conocidas: la barra de estado (D11), el Banzai (G7) y los Rex que no
 entran por la regla de 2 por foto.
 
+**Tarjetas de SW1** (instrucciones escritas el 2026-10-10; orden
+propuesto):
+
+| tarjeta | qué | dificultad | instrucciones |
+|---|---|---|---|
+| SW-A | tiles animados de la capa 1: los postes del punto medio (`$74`-`$77`, GFX 33) | fácil, solo datos | `docs/instrucciones-sw-a.md` |
+| SW-P | prioridad sprite/capa 1: `BPLCON2 = $0022` en la franja de un objeto con prioridad 0-1 (la piraña) | fácil, 2 MOVE por objeto | `docs/instrucciones-sw-p.md` |
+| SW-M | la moneda de Yoshi: los 8 pasos de la paleta (P22) en `D_INI`/`D_CHG` y la lista | fácil | `docs/instrucciones-sw-m.md` |
+| SW-D | los detalles de 1-6 px: investigar capa y color | fácil de investigar | `docs/instrucciones-sw-d.md` |
+| SW-B | los cambios del mapa en pantalla (`D_MAP` + blit; bloques rotos, usados, monedas) | mediana | `docs/instrucciones-sw-b.md` |
+| SW-Q | el bloque `?` volador `$83` y los power-ups en G5L (la lógica ya existe) | mediana | `docs/instrucciones-sw-q.md` |
+| SW-S | puntos, estrellas, humo y trozos: la lógica en asm y el dibujo (G7 o G5L) | mediana | `docs/instrucciones-sw-s.md` |
+
+Todas se cierran repitiendo la barrida (`informe-sw1-1010.md` §4).
+
 ## 2. Pendiente del usuario
 
 - **Qué arreglar primero de SW1** (lista de arriba). Propuesta: la
