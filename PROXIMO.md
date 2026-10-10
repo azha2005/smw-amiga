@@ -4,6 +4,8 @@
 `C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
 anterior.
 
+**S11 cerrada en fase 1, sin integrar** (`docs/informe-g5l-r-s11-1010.md`): en la vuelta, una línea reescrita vale ≈ 13 px y en la espiral se reescriben ≈ 90 por foto; ningún candidato del scroll tiene margen medible. **Ahora: L3 (lógica).**
+
 **M1 hecha (solo medida).** El ≈ 2,8× de `build_mid` en el hardware se
 reparte en dos partes: fotos omitidas ≈ 1,6× (Musashi con la secuencia real
 de la Amiga: 146.860 ciclos contra 92.078) y DMA de los 6 planos ≈ 1,6×
@@ -22,8 +24,7 @@ sprites 98/1914, normal BENCH 14/6312, VBTRACE 2. 50 Hz y colchón aceptados.
 
 | tarjeta | responsable | ficheros / puerta | instrucciones |
 |---|---|---|---|
-| **G5L-R-S11** | coordinador, Sol high | `player/scroll.s` (`bm_left`, LNS de `mkscroll.py`): medir por línea en las fotos de la espiral; candidatos A (buscar desde `prevlt`) y B (LNS para \|Δs\| ≤ 48). Lista exacta en los tres replays y A/B WinUAE con menos fotos perdidas | `docs/instrucciones-g5l-r-s11.md` |
-| **G5L-R-L3** | coordinador, Sol high; después o en paralelo | `logic68k.s`, `mspr68k.s`: elegir por perfil entre `mario_E2BD`, `spr_tile`, `mc_pxy`, cámara y Mario. Fuzz/copper/ABI exactos y A/B real; retirar si empeora | `docs/instrucciones-g5l-r-l3.md` |
+| **G5L-R-L3** | coordinador, Sol high; **en curso** | `logic68k.s`, `mspr68k.s`: elegir por perfil entre `mario_E2BD`, `spr_tile`, `mc_pxy`, cámara y Mario. Fuzz/copper/ABI exactos y A/B real; retirar si empeora | `docs/instrucciones-g5l-r-l3.md` |
 
 Herramientas nuevas para medir: `-DM1POS` (+ `tools/m1_read.py`) da una fila
 por foto dibujada en WinUAE y `g5l.py game --render-list` repite esa
@@ -36,7 +37,8 @@ Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
 ## 2. Pendiente del usuario
 
 - Probar el vivo a mano en esta rama y decidir cuándo integrar a master.
-- **Solo como dato (no se propone):** con 5 planos (PF2 de 2) el ≈ 1,6× de
+- **Solo como dato (no se propone):** S11 indica que el estrés back
+  probablemente no entre en D1 solo con CPU del scroll. Con 5 planos (PF2 de 2) el ≈ 1,6× de
   los planos casi desaparecería, pero cambia D8 y el fondo. Es decisión
   tuya si alguna vez se quiere evaluar.
 - En el checkout de master quedó sin commitear una versión vieja de

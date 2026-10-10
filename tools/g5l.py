@@ -1252,6 +1252,7 @@ def run_game(a):
         if r_:
             lo_, _, hi_ = r_.partition('-')
             pclogic.update(range(int(lo_), int(hi_ or lo_) + 1))
+    dumpset = {int(x) for x in (a.dump_lines or '').split(',') if x}
     rlist = None                                # M1: R_FRAME de las fotos que dibujó la Amiga
     if a.render_list:
         rlist = {r_['frame'] for r_ in json.loads(Path(a.render_list).read_text())['rows']}
@@ -1274,6 +1275,13 @@ def run_game(a):
             continue                            # M1: la Amiga no dibujó esta foto
         mem.w16(dc + s['DC_REND'], photo)
         mem.w16(fr.vars + s['V_S'], mem.r16(rec + s['R_S']))
+        dumpk = a.dump_lines and k in dumpset
+        if dumpk:                               # S11: linetab de la lista de atrás, antes
+            back_ = mem.r32(fr.vars + s['V_BACK'])
+            lt_ = {gr.cops[0]: addr('linetab_a'), gr.cops[1]: addr('linetab_b')}.get(back_)
+            if lt_ is None:
+                lt_ = mem.r32(fr.vars + s['V_LTC'])
+            before_ = cpu.read(lt_, 32 * 224)
         pre = {}                                # T2: coste del render previo, por foto
         for n in ('columns', 'apply_colors', 'set_pointers', 'build_mid'):
             if a.pcprof and (not pcframes or k in pcframes) and (n == 'build_mid' or a.pcscroll):
@@ -1286,6 +1294,9 @@ def run_game(a):
                     pcprof['scroll'].setdefault(k, {})[n] = hist_
             else:
                 pre[n] = sum(fr.call(addr(n), G.FAKE).values())
+        if dumpk:
+            pcprof.setdefault('lines', {})[k] = {'s': mem.r16(fr.vars + s['V_S']), 'lt': lt_,
+                                                'before': bytes(before_).hex(), 'after': bytes(cpu.read(lt_, 32 * 224)).hex()}
         if rlist is not None:
             pcprof['m1'][k] = [mem.r16(rec + s['R_FRAME']), mem.r16(rec + s['R_S']), pre['build_mid']]
         back = mem.r32(fr.vars + s['V_BACK'])
@@ -1548,6 +1559,7 @@ def main():
     g.add_argument('--lst', default='work/g5l/rep/game.lst')
     g.add_argument('--bank', default='work/g3/bank')
     g.add_argument('--frames', type=int, default=0)
+    g.add_argument('--dump-lines', help='S11: con --pcprof, fotos k cuyo linetab (antes/después de build_mid) se vuelca')
     g.add_argument('--render-list', help='M1: JSON de tools/m1_read.py; dibujar solo las fotos (R_FRAME) que dibujó la Amiga')
     g.add_argument('--render-every', type=int, default=1, help='Dibujar cada N fotos; ejercita el scroll y las cachés con fotos omitidas')
     g.add_argument('--pcprof', help='Q: histograma por PC de g5l_render y build_mid (json)')
