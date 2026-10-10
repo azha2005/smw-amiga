@@ -1153,12 +1153,20 @@ def occ_add(occ, groups, r0):
             r += 1
 
 
-def plan_frame_n(photo, tab, colors, lst, st, maxrex=8):
-    """G4-1: como plan_frame, pero ubica los Rex visibles en orden (fila,
-    ranura) mientras entren: pares 4-5 y 6-7 (una columna por par, una línea
-    libre para reusar un par), colores con la ocupación de Mario y de los
-    ya ubicados, y el plazo de place para todos juntos. Lo que no entra va a
-    la cola de bobs con su motivo (canal, color o plazo).
+G5L_MAXPL = 2                   # G4-2: Rex ubicados por foto (el búfer de cadena)
+CSTRIDE = 264                   # un flujo de cadena: 2 x 32 filas, POS/CTL, fin
+LBLK = 4 * (2 * RSTRIDE + CSTRIDE)  # por lista: bandas del Rex 0 y 1, cadena
+
+
+def plan_frame_n(photo, tab, colors, lst, st, maxrex=G5L_MAXPL):
+    """G4-1/G4-2: varios Rex por foto. Los visibles en orden (fila, ranura):
+    uno entra si está separado del último ubicado por una línea libre (los
+    pares 4-5 y 6-7 se reusan en vertical por encadenado DMA; así la columna
+    c va siempre al par c) y quedan menos de maxrex; si no, bob 'canal'. Los
+    colores, con la ocupación de Mario y de los ya ubicados (al no compartir
+    filas, la de Mario sola); si no hay variante, bob 'color'. Después las
+    transiciones de todos (sweep_n) y place; si no entra, el último ubicado
+    pasa a bob 'plazo' y se repite (el 68000, player/g5l.s g5l_render).
     Devuelve dict(rex=[...], trans, vbl, segs, E, bobs) o None si no hay
     ningún Rex visible."""
     ents = mario_entries(photo['moam'], photo['mosz'])
@@ -1186,14 +1194,12 @@ def plan_frame_n(photo, tab, colors, lst, st, maxrex=8):
         return None
     cands.sort(key=lambda t: (t[0], t[1]))
     occ = mario_occ(mrow, colors)
-    pairs = {0: [], 1: []}
     placed, bobs = [], []
-    best = None
-    for r0, slot, x0, vs in cands[:maxrex]:
+    lastb = None
+    for r0, slot, x0, vs in cands:
         v0 = tab.variant(vs[0])
         a, b = max(r0, 0), min(ROWS, r0 + v0['h'])
-        free = [p for p in (0, 1) if all(b2 <= a - 1 or a2 >= b + 1 for a2, b2 in pairs[p])]
-        if len(free) < v0['cols']:
+        if placed and (len(placed) >= maxrex or a <= lastb):
             bobs.append((slot, 'canal'))
             continue
         order = sorted((band_need_n(tab.variant(vo), r0, occ), m, vo) for m, vo in enumerate(vs))
@@ -1208,30 +1214,65 @@ def plan_frame_n(photo, tab, colors, lst, st, maxrex=8):
             bobs.append((slot, 'color'))
             continue
         groups, remaps = asg
-        trial = placed + [dict(slot=slot, vo=vo, var=v, x0=x0, r0=r0, groups=groups, remaps=remaps,
-                               mapa=m, pares=free[:v0['cols']])]
-        objs = [(group_runs(p['groups']), p['r0']) for p in trial]
+        placed.append(dict(slot=slot, vo=vo, var=v, x0=x0, r0=r0, groups=groups, remaps=remaps,
+                           mapa=m, pares=list(range(v0['cols']))))
+        occ_add(occ, groups, r0)
+        lastb = b
+    best = None
+    while placed:
+        objs = [(group_runs(q['groups']), q['r0']) for q in placed]
         trans = sweep_n(objs, mruns, colors)
         if trans is None:
             raise AssertionError('A3 tras band_assign_n')
-        E = EMap([xm] + [min(255, p['x0'] + p['var']['xmax']) for p in trial])
+        E = EMap([xm] + [min(255, q['x0'] + q['var']['xmax']) for q in placed])
         res = place(trans, lst, E, collections.Counter())
-        if res is None:
-            bobs.append((slot, 'plazo'))
-            continue
-        placed = trial
-        for p in free[:v0['cols']]:
-            pairs[p].append((a, b))
-        occ_add(occ, groups, r0)
-        best = (trans, res, E)
+        if res is not None:
+            best = (trans, res, E)
+            break
+        bobs.append((placed.pop()['slot'], 'plazo'))
     if not placed:
         st['sin_plan'] += 1
         return dict(rex=[], trans=[], vbl=[], segs={}, E=None, bobs=bobs)
     trans, (vbl, segs), E = best
-    for p in placed:
-        st['remap_%d' % len(p['remaps'])] += 1
-        st['mapa_%d' % p['mapa']] += 1
-    return dict(rex=placed, trans=trans, vbl=vbl, segs=segs, E=E, bobs=bobs)
+    for q in placed:
+        st['remap_%d' % len(q['remaps'])] += 1
+        st['mapa_%d' % q['mapa']] += 1
+    return dict(rex=placed, trans=trans, vbl=vbl, segs=segs, E=E, bobs=bobs, slot=placed[0]['slot'])
+
+
+def channels_n(rex, cdma, lbase):
+    """G4-2: [(pt, pos, ctl)] de SPR4-7 (None = nulo) y las cadenas
+    {flujo: (dirección, [(filas, n), (pos, ctl), (filas, n)])}. El flujo s
+    = 2c + mitad lleva la columna c de cada Rex que la tiene en pantalla:
+    uno solo, desde su fuente (banco limpio o sus bandas en lbase + 4 x
+    RSTRIDE x k); dos, encadenados en lbase + 8 x RSTRIDE + CSTRIDE x s
+    (sus filas, POS/CTL del segundo, sus filas, fin)"""
+    out, chains = [None] * 4, {}
+    for s in range(4):
+        c, half = s >> 1, s & 1
+        pres = []
+        for k, q in enumerate(rex):
+            v, x0, r0 = q['var'], q['x0'], q['r0']
+            hx = x0 + 16 * c
+            if c >= v['cols'] or not -16 < hx < 256:
+                continue
+            clip = max(0, -r0)
+            pos, ctl = control(hx, V0 + max(r0, 0), V0 + r0 + v['h'], 4 + s)
+            if remap_halves(q['remaps']) >> half & 1:
+                src = lbase + 4 * RSTRIDE * k + RSTRIDE * s
+            else:
+                off = v['offs'][c][half]
+                assert off & CLEAN_FLAG
+                src = cdma + (off & ~CLEAN_FLAG)
+            pres.append((src + 4 + 4 * clip, pos, ctl, v['h'] - clip))
+        if len(pres) == 1:
+            out[s] = pres[0][:3]
+        elif pres:
+            (p1, pos1, ctl1, n1), (p2, pos2, ctl2, n2) = pres
+            C = lbase + 8 * RSTRIDE + CSTRIDE * s
+            chains[s] = (C, [(p1, n1), (pos2, ctl2), (p2, n2)])
+            out[s] = (C, pos1, ctl1)
+    return out, chains
 
 
 def check_trace_n(p, recs, ctx, colors):
@@ -1362,6 +1403,11 @@ def run_multi_photo(photo, tab, colors, sl, st, recs, ctx):
     st['max_bobs'] = max(st['max_bobs'], len(pn['bobs']))
     if not n:
         return
+    for k, q in enumerate(pn['rex'][1:], 1):
+        a, b = q['r0'], q['r0'] + q['var']['h']
+        both = any(p['r0'] < b and a < p['r0'] + p['var']['h'] for p in pn['rex'][:k])
+        st['extra_comparte_filas' if both else 'extra_separado'] += 1
+        st['extra_%d_columnas' % q['var']['cols']] += 1
     if n == 1 and p1 is not None and pn['rex'][0]['slot'] == p1['slot']:
         same = (pn['trans'] == p1['trans'] and pn['vbl'] == p1['vbl'] and pn['segs'] == p1['segs']
                 and pn['rex'][0]['remaps'] == p1['remaps'])
@@ -1466,10 +1512,11 @@ def read_photo(mem, rec, s):
                 pal=mem.r8(rec + s['R_PAL']))
 
 
-def expected_list(ml, p, s, dma, null, cdma, rbuf=0):
-    """con la limpieza ya aplicada: el bloque VBL y los sufijos del plan p"""
+def expected_list(ml, p, s, dma, null, cdma, rbuf=0, chans=None):
+    """con la limpieza ya aplicada: el bloque VBL y los sufijos del plan p
+    (chans: los canales ya calculados, G4-2 channels_n)"""
     vbl = ml.base + s['CL_VBL'] + 4
-    for n, ch in enumerate(channels(p, dma, cdma, rbuf)):
+    for n, ch in enumerate(chans if chans is not None else channels(p, dma, cdma, rbuf)):
         a = vbl + 16 * n
         pt, pos, ctl = ch if ch else (null, 0, 0)
         ml.w16(a + 2, pt >> 16)
@@ -1612,7 +1659,7 @@ def run_game(a):
     cycles, caps, frames = [], [], []
     prof = {}
     regions = {addr(n): n for n in ('g5l_clean', 'g5l_mario', 'g5l_mfill', 'g5l_choose', 'g5l_plan', 'g5l_fast', 'g5l_need', 'g5l_mrow', 'g5l_mwall', 'g5l_mrowba', 'g5l_mba',
-                                    'g5l_sweep', 'g5l_patch', 'g5l_place', 'g5l_emit', 'g5l_vblnull')}
+                                    'g5l_sweep', 'g5l_patch', 'g5l_place', 'g5l_emit', 'g5l_vblnull', 'g5l_sweepn', 'g5l_emitn', 'g5l_picksel')}
     nlim = a.frames or gr.n
     last_key = None
     keys = []
@@ -1687,9 +1734,14 @@ def run_game(a):
                 ml.put_jump(J, sg)
         ph = read_photo(mem, rec, s)
         colors = struct.unpack_from('>16H', pals, 32 * ph['pal'])
-        p = plan_frame(ph, tab, colors, ml, st)
-        rbuf = gr.RBUF + list_index * 4 * RSTRIDE
-        expected_list(ml, p, s, gr.DMA, gr.null, gr.cdma, rbuf)
+        p = plan_frame_n(ph, tab, colors, ml, st, s.get("G5L_MAXPL", G5L_MAXPL))  # G4-2 (con un Rex: plan_frame)
+        if p is not None and not p['rex']:
+            p = None
+        rbuf = gr.RBUF + list_index * s.get('G5L_LBLK', LBLK)
+        chans, chains = channels_n(p['rex'] if p else [], gr.cdma, rbuf)
+        expected_list(ml, p, s, gr.DMA, gr.null, gr.cdma, rbuf, chans)
+        if p:
+            st['rex_%d' % len(p['rex'])] += 1
         poison = {R.D2: 0x12345602, R.D3: 0x12345603, R.D4: 0x12345604, R.D5: 0x12345605,
                   R.D6: 0x12345606, R.D7: 0x12345607, R.A2: 0x00012342, R.A6: 0x00012346}
         for r_, v_ in poison.items():
@@ -1719,9 +1771,9 @@ def run_game(a):
                            cap=caps[-1] if k else 0, logic=logic, f=cycles[-1][1],
                            pk=cpu.read(gv + s['GV_PK'], 64).hex(),    # T2: clave del plan
                            sc=mem.r16(rec + s['R_S']),                # la s del scroll
-                           plan=dict(vo=p['vo'], r0=p['r0'], x0=p['x0'],   # Pa: el plan de Python
-                                     groups=[[i, c_, m_] for (i, c_), m_ in p['groups'].items()],
-                                     remaps=[list(r_) for r_ in p['remaps']],
+                           plan=dict(rex=[dict(vo=q['vo'], r0=q['r0'], x0=q['x0'],   # Pa: el plan de Python
+                                               groups=[[i, c_, m_] for (i, c_), m_ in q['groups'].items()],
+                                               remaps=[list(r_) for r_ in q['remaps']]) for q in p['rex']],
                                      trans=[list(t_) for t_ in p['trans']]) if p else None))
         got = cpu.read(back, size)
         dslot = mem.r16(gv + s['GV_DSLOT'])
@@ -1739,26 +1791,37 @@ def run_game(a):
             ents = mario_entries(ph['moam'], ph['mosz']) or []
             bx = min((e[0] for e in ents), default=0)
             by = min((e[1] for e in ents), default=0)
-            key = (p['vo'], p['r0'], ph['pal'], tuple((e[0] - bx, e[1] - by) + tuple(e[2:]) for e in ents),
-                   tuple(ph['ptrs']) if ents else (), p['r0'] - by)
+            q0 = p['rex'][0]
+            key = (q0['vo'], q0['r0'], ph['pal'], tuple((e[0] - bx, e[1] - by) + tuple(e[2:]) for e in ents),
+                   tuple(ph['ptrs']) if ents else (), q0['r0'] - by, len(p['rex']))
             st['plan_igual'] += key == last_key
             last_key = key
             keys.append(repr(key))
         else:
             last_key = None
-        if p and p['remaps']:
+        for kq, q in enumerate(p['rex'] if p else []):
+            if not q['remaps']:
+                continue
             st['con_bandas'] += 1
-            pose = cctx['clean'][p['var']['n'] & 0x7FFF]
-            hm = remap_halves(p['remaps'])
-            for j, want in enumerate(rbuf_streams(pose, p['remaps'])):
+            pose = cctx['clean'][q['var']['n'] & 0x7FFF]
+            hm = remap_halves(q['remaps'])
+            for j, want in enumerate(rbuf_streams(pose, q['remaps'])):
                 if not hm >> (j & 1) & 1:
                     continue
-                n_ = 4 * p['var']['h'] + 8
-                if cpu.read(rbuf + RSTRIDE * j, n_) != want[:n_]:
+                n_ = 4 * q['var']['h'] + 8
+                if cpu.read(rbuf + 4 * RSTRIDE * kq + RSTRIDE * j, n_) != want[:n_]:
                     st['bufer_distinto'] += 1
                     if st['bufer_distinto'] <= 3:
-                        print('foto k=%d: flujo %d del búfer distinto' % (k, j))
+                        print('foto k=%d: Rex %d, flujo %d del búfer distinto' % (k, kq, j))
                     break
+        for sj, (C, ((p1, n1), (pos2, ctl2), (p2, n2))) in chains.items():
+            st['cadenas'] += 1                  # G4-2: el flujo encadenado
+            want = (bytes(cpu.read(p1, 4 * n1)) + struct.pack('>HH', pos2, ctl2)
+                    + bytes(cpu.read(p2, 4 * n2)) + bytes(4))
+            if bytes(cpu.read(C, len(want))) != want:
+                st['cadena_distinta'] += 1
+                if st['cadena_distinta'] <= 3:
+                    print('foto k=%d: cadena del flujo %d distinta' % (k, sj))
         planned = set(p['segs']) if p else set()
         st['restos'] += stale_check(mem, back, s, nb, planned)
         st['fotos'] += 1
@@ -1786,7 +1849,7 @@ def run_game(a):
         pcprof['scroll_tot'] = {x['k']: x['pre'] for x in frames}
         Path(a.pcprof).write_text(json.dumps(pcprof), encoding='utf-8')
         print(json.dumps(dict(st), sort_keys=True))
-        ok = not st['distintas'] and not st['abi'] and not st['restos'] and not st['sin_plan'] and not st['bufer_distinto']
+        ok = not st['distintas'] and not st['abi'] and not st['restos'] and not st['sin_plan'] and not st['bufer_distinto'] and not st['cadena_distinta'] and not st['cadena_distinta']
         print('G5L GAME (pcprof): ' + ('OK' if ok else 'FALLA'))
         return 0 if ok else 1
     OUT.mkdir(parents=True, exist_ok=True)
@@ -1795,7 +1858,7 @@ def run_game(a):
     (OUT / 'game_frames.json').write_text(json.dumps(frames), encoding='utf-8')
     (OUT / 'game_keys.json').write_text(json.dumps(keys), encoding='utf-8')
     print(json.dumps(res, sort_keys=True))
-    ok = not st['distintas'] and not st['abi'] and not st['restos'] and not st['sin_plan'] and not st['bufer_distinto']
+    ok = not st['distintas'] and not st['abi'] and not st['restos'] and not st['sin_plan'] and not st['bufer_distinto'] and not st['cadena_distinta']
     print('G5L GAME: ' + ('OK' if ok else 'FALLA'))
     return 0 if ok else 1
 
@@ -1858,7 +1921,9 @@ def run_shot(a):
             ml = MemList(bytearray(cpu.read(back, s['CL_SIZE'])), back, s, gr.nb)
             ph = read_photo(mem, rec, s)
             colors = struct.unpack_from('>16H', pals, 32 * ph['pal'])
-            p = plan_frame(ph, tab, colors, ml, st)
+            p = plan_frame_n(ph, tab, colors, ml, st, s.get("G5L_MAXPL", G5L_MAXPL))   # G4-2
+            if p is not None and not p['rex']:
+                p = None
         cpu.cpu.w_reg(R.A0, rec)
         fr.call(addr('g5l_render'), G.FAKE)
         back = mem.r32(fr.vars + s['V_BACK'])
@@ -1873,24 +1938,26 @@ def run_shot(a):
         raise SystemExit('la foto %d no tiene Rex dibujado' % a.frame)
     ctx = T.load_context(a.bank)
     blob, cctx = build_table(a.bank)
-    v = p['var']
-    pose = cctx['clean'][v['n'] & 0x7FFF] if v['n'] & 0x8000 else ctx['poses'][v['n']]
     mario = mario_pixels(tab, ph, gfx)
     ctrl = Image.open(a.control).convert('RGB').crop(SHOT_BOX)
     shot = Image.open(a.shot).convert('RGB').crop(SHOT_BOX)
     want = ctrl.copy()
     rex = 0
-    for r, row in enumerate(pose['rows']):
-        cmap = {d: c for _, _, d, c in pose['row_maps'][r]}
-        for x, d in enumerate(row):
-            gx, gy = p['x0'] + x, p['r0'] + r
-            if not d or not (0 <= gx < 256 and 0 <= gy < ROWS) or (gx, gy) in mario:
-                continue
-            rex += 1
-            col = rgb12(cmap[d])
-            for yy in range(2):
-                for xx in range(2):
-                    want.putpixel((2 * (gx + SHOT_DX) + xx, 2 * gy + yy), col)
+    only = [int(x) for x in a.only.split(',')] if a.only else range(len(p['rex']))
+    for q in (p['rex'][j] for j in only):      # G4-2: los Rex que el control no dibuja
+        v = q['var']
+        pose = cctx['clean'][v['n'] & 0x7FFF] if v['n'] & 0x8000 else ctx['poses'][v['n']]
+        for r, row in enumerate(pose['rows']):
+            cmap = {d: c for _, _, d, c in pose['row_maps'][r]}
+            for x, d in enumerate(row):
+                gx, gy = q['x0'] + x, q['r0'] + r
+                if not d or not (0 <= gx < 256 and 0 <= gy < ROWS) or (gx, gy) in mario:
+                    continue
+                rex += 1
+                col = rgb12(cmap[d])
+                for yy in range(2):
+                    for xx in range(2):
+                        want.putpixel((2 * (gx + SHOT_DX) + xx, 2 * gy + yy), col)
     bad = sum(1 for q, w in zip(shot.getdata(), want.getdata()) if q != w)
     sheet = Image.new('RGB', (640, 1536))
     sheet.paste(ctrl, (0, 0))
@@ -1898,7 +1965,8 @@ def run_shot(a):
     sheet.paste(shot, (0, 1024))
     out = Path(a.shot).with_name('check.png')
     sheet.save(out)
-    res = dict(foto=a.frame, variante=v['n'], limpia=bool(v['n'] & 0x8000), x0=p['x0'], r0=p['r0'],
+    res = dict(foto=a.frame, rex=[dict(variante=q['var']['n'], x0=q['x0'], r0=q['r0'], bandas=len(q['remaps']))
+                                  for q in p['rex']], dibujados=list(only),
                pixeles_rex=rex, pixeles_distintos=bad, de=640 * 512, transiciones=len(p['trans']),
                sufijos=len(p['segs']), vbl=len(p['vbl']))
     print(json.dumps(res))
@@ -1950,6 +2018,7 @@ def main():
     h.add_argument('--frame', type=int, required=True)
     h.add_argument('--shot', required=True)
     h.add_argument('--control', required=True)
+    h.add_argument('--only', help='G4-2: los Rex del plan que se suman al control (p.ej. 1); todos si no')
     a = ap.parse_args()
     if a.cmd == 'game' and a.render_every < 1:
         ap.error('--render-every debe ser >= 1')

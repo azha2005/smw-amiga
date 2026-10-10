@@ -1160,3 +1160,27 @@ del host. Las trazas del Rex de otras grabaciones van a
 `work/oam_<nombre>.trace` (filtro `$AB`), y `g5l.py trace --traces ...`.
 `docs/informe-g4a-1010.md` §3, `docs/informe-g5l-n-1010.md`.
 
+
+
+**P125 — El encadenado DMA de dos Rex: la cadena es una copia, y un búfer de bandas cambia sin cambiar de dirección.**
+
+**Síntoma (evitado en G4-2, no llegó a fallar):** con dos Rex en un par de
+sprites, el DMA lee las filas del primero, en su VSTOP el POS/CTL del
+segundo y después sus filas. Eso no se puede escribir en el flujo del
+banco limpio, que es inmutable (P108) y compartido por todas las fotos.
+Tampoco en el búfer de bandas, que tiene lugar para un solo Rex.
+
+**Causa:** el flujo encadenado es otro objeto. G4-2 lo copia a un búfer de
+chip por lista y flujo (`G5L_CSTR` = 264 B: 2 × 32 filas, POS/CTL y fin;
+`G5L_LBLK` por lista con las bandas de los dos Rex). La copia cuesta
+≈ 1,3 k ciclos por flujo, así que se cachea por (lista, flujo) con la
+clave (filas del primero, filas del segundo, n1, n2). Si coincide, solo se
+reescribe el POS/CTL del segundo. **La clave vale solo si las dos fuentes
+son del banco limpio.** Un búfer de bandas (`GV_RBUF + 4 × G5L_RSTR × k`)
+se reescribe con otro parche en la misma dirección, así que con bandas
+se copia siempre. La caché de `g5l_patch` tampoco puede elegir su clave
+comparando `GV_RBUF`: ahora hay una por (lista, Rex) (`GV_RKP`).
+
+**Cómo verlo:** `g5l.py game` compara cada cadena con las fuentes en
+memoria (`cadenas`, `cadena_distinta`) y cada búfer de bandas con
+`rbuf_streams` (`bufer_distinto`). `docs/informe-g4-2-1010.md`.

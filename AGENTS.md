@@ -372,7 +372,7 @@ En español. Cada rutina de hardware (blitter/copper) lleva arriba:
 Índice, una línea por trampa. **El texto completo (causa, síntoma, arreglo y
 comandos) está en `docs/pitfalls.md`, textual**: leer ahí las del área que se
 toca antes de cambiar nada. Una trampa nueva se agrega allí y aquí con el
-número siguiente (**la próxima es P125**).
+número siguiente (**la próxima es P126**).
 
 - **P1** El layout de paletas de SMW no es un array 8×16. ✅ RESUELTO
 - **P2** El blitter tiene prioridad sobre la CPU y la "roba" ciclos
@@ -500,6 +500,7 @@ número siguiente (**la próxima es P125**).
 - **P122** `lint_port.py` (V3): una cabecera `; ---` entre `build_mid` y `bm_left` los separa
 - **P123** `columns` destruye a2: `dc_loop` debe recuperar dc_st antes de leer DC_REND; si no, g5l_choose pisa GV_TAB. ADRTRAP/watchpoint y `dc_loop_verify.py`
 - **P124** Una forma de sprite es la misma con otro desplazamiento respecto de la ranura (clave normalizada, G5L2); y las filas del banco G3 son índices por petición, no colores
+- **P125** El encadenado DMA de dos Rex es una copia en chip por lista; un búfer de bandas cambia sin cambiar de dirección (la caché de cadenas solo con fuentes del banco)
 
 ---
 

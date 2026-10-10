@@ -40,12 +40,50 @@ G5L_VBLN    equ 15
 G5L_NONE    equ $8000                       ; "sin carga" en last
 G5L_WRAP    equ 255-$2c                     ; el segmento que cruza la 255
 G5L_RSTR    equ 136                         ; un flujo del bufer: POS/CTL, 32 filas, fin
-        ifd     CUSHION
-G5L_RBUF_SIZE equ 3*4*G5L_RSTR              ; tres listas x 4 flujos (chip)
+        ifnd    G5L_MAXPL
+G5L_MAXPL   equ 1                           ; G4-2: Rex ubicados por foto; 2 con -DG5L_MAXPL=2
+        endc                                ; (apagado: empeora D1, informe-g4-2-1010.md)
+G5L_CSTR    equ 264                         ; flujo de cadena: 2 x 32 filas, POS/CTL, fin
+        ifeq    G5L_MAXPL-1
+G5L_LBLK    equ 4*G5L_RSTR                  ; por lista: las bandas del Rex
         else
-G5L_RBUF_SIZE equ 2*4*G5L_RSTR              ; dos listas x 4 flujos (chip)
+G5L_LBLK    equ 4*(2*G5L_RSTR+G5L_CSTR)     ; por lista: bandas del Rex 0 y 1, cadena
         endc
+        ifd     CUSHION
+G5L_RBUF_SIZE equ 3*G5L_LBLK                ; tres listas (chip)
+        else
+G5L_RBUF_SIZE equ 2*G5L_LBLK                ; dos listas (chip)
+        endc
+G5L_NRUN    equ 96                          ; tramos de un indice (g5l_sweepn)
+; candidato (GV_CAND, g5l_choose: por fila y ranura)
+CA_R0       equ 0
+CA_X0       equ 2
+CA_VL       equ 4                           ; .l lista de variantes
+CA_NV       equ 8
+CA_SL       equ 10                          ; ranura
+CA_H        equ 12                          ; alto (la primera variante)
+CA_DEAD     equ 14                          ; .b sin variante (bob 'color')
+CASZ        equ 16
+; Rex ubicado (GV_RX, camino de varios)
+RX_R0       equ 0
+RX_X0       equ 2
+RX_SLOT     equ 4
+RX_XR       equ 6                           ; borde derecho (<= 255)
+RX_VAR      equ 8                           ; .l
+RX_NREM     equ 12
+RX_RH       equ 14
+RX_NG       equ 16
+RX_DM       equ 18                          ; .w indices con un grupo de otro color que Mario
+RX_IXS      equ 20                          ; 16 .b: primer grupo de cada indice
+RX_IXN      equ 36                          ; 16 .b: cuantos
+RX_REM      equ 52                          ; G5L_NREM x 8 (GV_REM)
+RX_G        equ RX_REM+8*G5L_NREM           ; RX_NG x (.b i, .b 0, .w color, .l filas)
+RX_MSH      equ 252                         ; .w r0 - fila 0 de la cache de Mario
+RXSZ        equ 256                         ; (lsl #8)
 G5L_NREM    equ 5                           ; bandas reasignadas
+        ifgt    RX_G+8*(15+G5L_NREM)-RX_MSH
+        fail    "G4-2: RX_G no tiene lugar para 15 grupos + las bandas"
+        endc
 ; entrada del pool
 P_S         equ 0                           ; .w segmento
 P_N         equ 2                           ; .b MOVE
@@ -60,8 +98,8 @@ PSZ         equ 128                         ; (lsl #7)
 ; variables (g5l_v)
 GV_NB       equ 0                           ; 224 B: nb de cada linea
 GV_SEGIX    equ GV_NB+LINES                 ; 224 B: entrada del pool + 1
-GV_E        equ GV_SEGIX+LINES              ; 4 .w: bordes por duenos (0, M, R, MR)
-GV_TRB      equ GV_E+8                      ; 5 cubetas x G5L_MAXTR transiciones
+GV_E        equ GV_SEGIX+LINES              ; 8 .w: bordes por duenos (bit 0 Mario, k+1 Rex k)
+GV_TRB      equ GV_E+16                      ; 5 cubetas x G5L_MAXTR transiciones
 GV_VBL      equ GV_TRB+5*8*G5L_MAXTR        ; 15 x (.w registro, .w color)
 GV_POOL     equ GV_VBL+4*G5L_VBLN
 GV_RECA     equ GV_POOL+PSZ*G5L_NPOOL       ; .w n + n x (.l J, .l w0, .l w1, .w s)
@@ -152,7 +190,30 @@ GV_PCNX     equ GV_PK+64                    ; .w entrada que se reemplaza (x PCS
 GV_PC       equ GV_PCNX+2                   ; PC_N entradas de la cache del plan
 GV_RKS      equ GV_PC+PC_N*PCSZ             ; 46 B: ultimo parche, compartido
 GV_RSBUF    equ GV_RKS+46                   ; .l lista que conserva ese parche
-GV_SIZE     equ GV_RSBUF+4
+GV_RK2      equ GV_RSBUF+4                  ; 3 x 46 B: clave del bufer del Rex 1 (A, B, C)
+GV_RKP      equ GV_RK2+3*46                 ; .l la clave que mira g5l_patch
+GV_RK0P     equ GV_RKP+4                    ; .l la del Rex 0 en esta lista
+GV_RK2P     equ GV_RK0P+4                   ; .l la del Rex 1
+GV_PBUF     equ GV_RK2P+4                   ; .l bufer que parchea g5l_patch
+GV_NC       equ GV_PBUF+4                   ; .w candidatos
+GV_NPL      equ GV_NC+2                     ; .w Rex ubicados
+GV_CI       equ GV_NPL+2                    ; .w contador
+GV_LB       equ GV_CI+2                     ; .w fin (excluido) del ultimo ubicado
+GV_CAND     equ GV_LB+2                     ; G5L_MAXREX x CASZ
+GV_EN       equ GV_CAND+G5L_MAXREX*CASZ     ; 2 x (.l filas, .w pos, .w ctl, .w n, .w 0)
+GV_RUNS     equ GV_EN+24                    ; G5L_NRUN x (.w a, .b tipo, .b dueno, .w b, .w color)
+GV_RX       equ GV_RUNS+8*G5L_NRUN          ; G5L_MAXPL x RXSZ
+GV_SWI      equ GV_RX+G5L_MAXPL*RXSZ       ; .w indices que quedan (g5l_sweepn)
+GV_SWM      equ GV_SWI+2                    ; .l filas 0..31, .l 32..63 de Mario
+GV_SWS      equ GV_SWM+8                    ; .l separadores del grupo
+GV_SWG      equ GV_SWS+4                    ; .l filas del grupo que quedan
+GV_EV       equ GV_SWG+4                    ; G5L_MAXPL x (.w POS, .w CTL sin la x, .w filas, .w 4 + 4 clip)
+GV_CKP      equ GV_EV+8*G5L_MAXPL           ; .l claves de las cadenas de esta lista
+GV_CK       equ GV_CKP+4                    ; 3 listas x 4 flujos x (.l filas 1, .l filas 2, .w n1, .w n2)
+GV_SIZE     equ GV_CK+3*4*12
+        ifgt    G5L_MAXPL-2
+        fail    "G4-2: g5l_edges y la cadena son para dos Rex como mucho"
+        endc
 ; entrada de la cache de Mario
 MC_KEY      equ 0                           ; 52 B: .w n, 4 x 6 B, 24 B punteros, 2
 MC_XREL     equ 52                          ; .w borde derecho - bx
@@ -220,6 +281,31 @@ HIGHB   macro
 .b\@:   and.w   #$ff,d0
         add.w   d0,d0
         add.b   (a1,d0.w),d1
+        endm
+
+; TRB: la transicion (d2 = i, d5 = duenos, d3 = color, d4 = desde, d0 =
+; hasta) al final de su cubeta: 0 = sin uso anterior, 1..4 = min(hasta -
+; desde, 4) (el orden del pase 1 de g5l_place). Destruye a2/a3.
+TRB     macro
+        move.w  d0,a3
+        tst.w   d4
+        bmi.s   .z\@
+        sub.w   d4,a3
+        cmp.w   #4,a3
+        bls.s   .y\@
+        move.w  #4,a3
+        bra.s   .y\@
+.z\@:   sub.l   a3,a3
+.y\@:   add.w   a3,a3
+        add.w   a3,a3
+        add.l   a6,a3
+        move.l  GV_BP(a3),a2
+        move.b  d2,(a2)+
+        move.b  d5,(a2)+
+        move.w  d3,(a2)+
+        move.w  d4,(a2)+
+        move.w  d0,(a2)+
+        move.l  a2,GV_BP(a3)
         endm
 
 ;----------------------------------------------------------------------
@@ -446,6 +532,13 @@ g5l_init:
         clr.l   GV_RKA(a6)                  ; los buferes sin parche
         clr.l   GV_RKB(a6)
         clr.l   GV_RKS(a6)                  ; cache compartida sin fuente
+        clr.l   GV_RK2(a6)                  ; G4-2: los del Rex 1 sin parche
+        clr.l   GV_RK2+46(a6)
+        clr.l   GV_RK2+92(a6)
+        lea     GV_CK(a6),a0                ; y las cadenas sin clave
+        moveq   #3*4*3-1,d1
+.ck:    clr.l   (a0)+
+        dbf     d1,.ck
         clr.l   GV_WNONE(a6)
         move.l  #-1,GV_WNONE+4(a6)
         lea     GV_WZ(a6),a0
@@ -497,19 +590,36 @@ g5l_render:
         move.l  V_BACK(a5),a2
         move.l  a2,GV_LIST(a6)
         lea     GV_RECA(a6),a3
+        lea     GV_RKA(a6),a1               ; claves de los buferes de bandas
+        lea     GV_RK2(a6),a0               ; (Rex 0 y Rex 1) de la lista
+        moveq   #0,d1                       ; y de sus cadenas
         move.l  g5l_rbuf(pc),d0             ; bufer de la lista A
         cmp.l   V_COP(a5),a2
         beq.s   .ra
         lea     GV_RECB(a6),a3
-        add.l   #4*G5L_RSTR,d0              ; el de la B
+        lea     GV_RKB(a6),a1
+        lea     46(a0),a0
+        moveq   #48,d1
+        add.l   #G5L_LBLK,d0                ; el de la B
         ifd     CUSHION
         cmp.l   V_COP2(a5),a2
         beq.s   .ra
         lea     GV_RECC(a6),a3
-        add.l   #4*G5L_RSTR,d0              ; el de la C
+        lea     GV_RKC(a6),a1
+        lea     46(a0),a0
+        moveq   #96,d1
+        add.l   #G5L_LBLK,d0                ; el de la C
         endc
 .ra:    move.l  a3,GV_REC(a6)
+        move.l  a6,d2
+        add.l   #GV_CK,d2
+        add.l   d1,d2
+        move.l  d2,GV_CKP(a6)
         move.l  d0,GV_RBUF(a6)
+        move.l  d0,GV_PBUF(a6)              ; (el Rex 0: el principio del bloque)
+        move.l  a1,GV_RKP(a6)
+        move.l  a1,GV_RK0P(a6)
+        move.l  a0,GV_RK2P(a6)
         addq.b  #1,GV_WSTAMP(a6)            ; recorridos de este frame
         bne.s   .st
         move.b  #1,GV_WSTAMP(a6)            ; (vuelta: borrar los sellos)
@@ -527,7 +637,7 @@ g5l_render:
         move.l  a0,GV_COL(a6)
         lea     R_G5L(a4),a4                ; a4 = foto G5L
         move.w  #-1,GV_DSLOT(a6)
-        bsr     g5l_choose                  ; (Mario solo si hay un Rex)
+        bsr     g5l_choose                  ; candidatos (Mario solo si hay)
         tst.w   d0
         beq    .none
         ifd     DELAYG
@@ -536,28 +646,10 @@ g5l_render:
         bra.s   .none
         endc
         bsr     g5l_mario
-        bsr     g5l_mvis
-        move.l  GV_MCUR(a6),d0              ; MC_W vale para el mismo r0 y r0 - by
-        beq.s   .nm
-        move.l  d0,a0
-        move.w  GV_R0(a6),d0
-        move.w  GV_MSH(a6),d1
-        cmp.w   MC_R0(a0),d0
-        bne.s   .mk
-        cmp.w   MC_MSHK(a0),d1
-        beq.s   .nm
-.mk:    move.w  d0,MC_R0(a0)
-        move.w  d1,MC_MSHK(a0)
-        clr.l   MC_WOK(a0)                  ; (y MC_BOK)
-        bsr     g5l_mwall
-.nm:
-        move.l  GV_MCUR(a6),d0              ; GV_MWB (MWLD)
-        beq.s   .nz
-        add.l   #MC_W-8,d0
-        bra.s   .nw
-.nz:    lea     GV_WZ-8(a6),a0
-        move.l  a0,d0
-.nw:    move.l  d0,GV_MWB(a6)
+        bsr     g5l_geo                     ; G4-2: si entran dos, el camino
+        cmp.w   #1,d0                       ; de varios
+        bhi     .multi
+        bsr     g5l_rexmw
         tst.l   GV_MCUR(a6)                 ; sin Mario el camino rapido no
         beq.s   .nq                         ; falla: sin cache
         bsr     g5l_pcget
@@ -584,9 +676,123 @@ g5l_render:
         lsl.w   #2,d0
         cmp.w   GV_FM(a6),d0
         bhi.s   .fm
-; la variante limpia que menos choca con Mario (la primera si empatan; la
-; primera sin choque corta la busqueda); si g5l_plan no encuentra banda, la
-; siguiente en ese orden (tools/g5l.py plan_frame)
+.sel:   bsr     g5l_picksel
+        bne     .selx
+        bsr     g5l_sweep
+        tst.l   GV_MCUR(a6)
+        beq.s   .swd
+        bsr     g5l_pcput
+.swd:
+        bsr     g5l_place
+        tst.w   d0
+        bne     .fail
+        bsr     g5l_nullflag
+        clr.b   (a0)                        ; esta lista deja de ser nula
+        move.l  GV_VAR(a6),d0
+        sub.l   GV_TAB(a6),d0
+        move.w  d0,GV_DVAR(a6)
+        move.w  GV_SLOT(a6),GV_DSLOT(a6)
+        bsr     g5l_patch
+        bsr     g5l_emit
+        bsr     g5l_unpool
+        bra     .x
+.selx:  cmp.w   #1,GV_NC(a6)                ; G4-2: el primero sin variante
+        bls     .fail                       ; (bob 'color'): los demas
+        lea     GV_CAND(a6),a0
+        st      CA_DEAD(a0)
+; G4-2: varios Rex (tools/g5l.py plan_frame_n). Los candidatos en orden;
+; uno entra si queda una linea libre tras el ultimo ubicado (encadenado DMA
+; en los pares 4-5 y 6-7) y hay lugar (G5L_MAXPL); su variante y bandas
+; contra Mario (sin filas compartidas con otro Rex, solo Mario cuenta).
+; Despues las transiciones de todos y el plazo; si no entra, el ultimo
+; ubicado se cae y se repite.
+.multi: clr.w   GV_NPL(a6)
+        clr.w   GV_CI(a6)
+.mc:    move.w  GV_CI(a6),d7
+        cmp.w   GV_NC(a6),d7
+        bhs     .mdone
+        addq.w  #1,GV_CI(a6)
+        lea     GV_CAND(a6),a0
+        lsl.w   #4,d7
+        add.w   d7,a0
+        tst.b   CA_DEAD(a0)
+        bne.s   .mc
+        move.w  CA_R0(a0),d0                ; a = max(r0, 0)
+        bpl.s   .m1
+        moveq   #0,d0
+.m1:    move.w  GV_NPL(a6),d1
+        beq.s   .m2
+        cmp.w   #G5L_MAXPL,d1
+        bhs.s   .mc                         ; bob 'canal'
+        cmp.w   GV_LB(a6),d0
+        ble.s   .mc                         ; sin linea libre: bob 'canal'
+.m2:    move.w  CA_R0(a0),GV_R0(a6)
+        move.w  CA_X0(a0),GV_X0(a6)
+        move.l  CA_VL(a0),GV_VLIST(a6)
+        move.w  CA_NV(a0),GV_NVAR(a6)
+        move.w  CA_SL(a0),GV_SLOT(a6)
+        bsr     g5l_rexmw
+        lea     GV_NEED(a6),a2              ; ninguna calculada
+        moveq   #-1,d0
+        move.l  d0,(a2)+
+        move.l  d0,(a2)+
+        move.l  d0,(a2)+
+        move.l  d0,(a2)
+        bsr     g5l_picksel
+        bne.s   .mc                         ; bob 'color'
+        bsr     g5l_rxsave
+        addq.w  #1,GV_NPL(a6)
+        bra     .mc
+.mdone: tst.w   GV_NPL(a6)
+        beq     .fail
+.mpl:   bsr     g5l_sweepn
+        bsr     g5l_unpool
+        bsr     g5l_edges
+        bsr     g5l_place_e
+        tst.w   d0
+        beq.s   .mok
+        subq.w  #1,GV_NPL(a6)               ; bob 'plazo': el ultimo
+        bne.s   .mpl
+        bra     .fail
+.mok:   bsr     g5l_nullflag
+        clr.b   (a0)
+        lea     GV_RX(a6),a0
+        move.l  RX_VAR(a0),d0
+        sub.l   GV_TAB(a6),d0
+        move.w  d0,GV_DVAR(a6)
+        move.w  RX_SLOT(a0),GV_SLOT(a6)     ; (g5l_emitc: GV_DSLOT)
+        clr.w   GV_CI(a6)
+.mp:    move.w  GV_CI(a6),d0
+        cmp.w   GV_NPL(a6),d0
+        bhs.s   .mpe
+        bsr     g5l_rxload
+        bsr     g5l_patch
+        move.w  GV_CI(a6),d0
+        lsl.w   #8,d0
+        lea     GV_RX(a6),a0
+        move.w  GV_RH(a6),RX_RH(a0,d0.w)    ; P40 ok (0 o 256)
+        addq.w  #1,GV_CI(a6)
+        bra.s   .mp
+.mpe:   bsr     g5l_emitn
+        bsr     g5l_unpool
+        bra     .x
+.fail:  addq.w  #1,GV_DFAIL(a6)
+.none:  move.w  #-1,GV_DSLOT(a6)
+        bsr     g5l_unpool
+        bsr     g5l_vblnull
+.x:     movem.l (sp)+,d2-d7/a2-a6
+        rts
+
+;----------------------------------------------------------------------
+; --- g5l_picksel --- la variante limpia que menos choca con Mario (la
+; primera si empatan; la primera sin choque corta la busqueda); si
+; g5l_plan no encuentra banda, la siguiente en ese orden (tools/g5l.py
+; plan_frame). GV_NEED: -1 sin calcular, $7fff ya probada.
+; entrada:  GV_VLIST/NVAR/MV/COL, GV_NEED, la cache de Mario, a6 = g5l_v
+; salida:   d0 = 0 (Z) y GV_VAR/VMAP y lo de g5l_plan; 1 (NZ) ninguna
+; registros destruidos: d0-d7/a0-a5
+;----------------------------------------------------------------------
+g5l_picksel:
 .sel:   lea     GV_NEED(a6),a2
         move.w  GV_NVAR(a6),d7
         add.w   d7,d7
@@ -615,7 +821,7 @@ g5l_render:
         cmp.w   d7,d5
         blo.s   .sc
 .go:    tst.w   d4
-        bmi     .fail                       ; todas probadas
+        bmi.s   .fail                       ; todas probadas
         move.w  #$7fff,(a2,d4.w)
         move.w  d4,d0
         add.w   d0,d0
@@ -629,30 +835,487 @@ g5l_render:
         move.w  d0,GV_VMAP(a6)
         bsr     g5l_plan                    ; grupos y bandas
         bne     .sel
-        bsr     g5l_sweep
-        tst.l   GV_MCUR(a6)
-        beq.s   .swd
-        bsr     g5l_pcput
-.swd:
-        bsr     g5l_place
-        tst.w   d0
-        bne.s   .fail
-        bsr     g5l_nullflag
-        clr.b   (a0)                        ; esta lista deja de ser nula
-        move.l  GV_VAR(a6),d0
-        sub.l   GV_TAB(a6),d0
-        move.w  d0,GV_DVAR(a6)
-        move.w  GV_SLOT(a6),GV_DSLOT(a6)
-        bsr     g5l_patch
-        bsr     g5l_emit
-        bsr     g5l_unpool
-        bra.s   .x
-.fail:  addq.w  #1,GV_DFAIL(a6)
-.none:  move.w  #-1,GV_DSLOT(a6)
-        bsr     g5l_unpool
-        bsr     g5l_vblnull
-.x:     movem.l (sp)+,d2-d7/a2-a6
+        moveq   #0,d0
         rts
+.fail:  moveq   #1,d0
+        rts
+
+;----------------------------------------------------------------------
+; --- g5l_rexmw --- lo de Mario para el r0 de GV_R0: GV_MSH/MV, MC_W
+; (vale para el mismo r0 y r0 - by) y GV_MWB (MWLD)
+; registros destruidos: d0-d5/a0-a2
+;----------------------------------------------------------------------
+g5l_rexmw:
+        bsr     g5l_mvis
+        move.l  GV_MCUR(a6),d0
+        beq.s   .nm
+        move.l  d0,a0
+        move.w  GV_R0(a6),d0
+        move.w  GV_MSH(a6),d1
+        cmp.w   MC_R0(a0),d0
+        bne.s   .mk
+        cmp.w   MC_MSHK(a0),d1
+        beq.s   .nm
+.mk:    move.w  d0,MC_R0(a0)
+        move.w  d1,MC_MSHK(a0)
+        clr.l   MC_WOK(a0)                  ; (y MC_BOK)
+        bsr     g5l_mwall
+.nm:    move.l  GV_MCUR(a6),d0
+        beq.s   .nz
+        add.l   #MC_W-8,d0
+        bra.s   .nw
+.nz:    lea     GV_WZ-8(a6),a0
+        move.l  a0,d0
+.nw:    move.l  d0,GV_MWB(a6)
+        rts
+
+;----------------------------------------------------------------------
+; --- g5l_geo --- G4-2: cuantos candidatos vivos entrarian por canal (el
+; primero, y cada uno con una linea libre tras el anterior), hasta
+; G5L_MAXPL. Uno solo: el camino de siempre.
+; salida:   d0
+; registros destruidos: d0-d3/a0
+;----------------------------------------------------------------------
+g5l_geo:
+        moveq   #0,d0
+        moveq   #0,d2                       ; fin (excluido) del ultimo
+        lea     GV_CAND(a6),a0
+        move.w  GV_NC(a6),d1
+        bra.s   .g9
+.g:     tst.b   CA_DEAD(a0)
+        bne.s   .gn
+        move.w  CA_R0(a0),d3
+        bpl.s   .g1
+        moveq   #0,d3
+.g1:    tst.w   d0
+        beq.s   .g2
+        cmp.w   d2,d3
+        ble.s   .gn
+.g2:    addq.w  #1,d0
+        cmp.w   #G5L_MAXPL,d0
+        bhs.s   .x
+        move.w  CA_R0(a0),d2
+        add.w   CA_H(a0),d2
+        cmp.w   #LINES,d2
+        ble.s   .gn
+        move.w  #LINES,d2
+.gn:    lea     CASZ(a0),a0
+.g9:    dbf     d1,.g
+.x:     rts
+
+;----------------------------------------------------------------------
+; --- g5l_rxsave --- G4-2: el Rex de GV_R0/X0/SLOT/VAR/MSH y lo de
+; g5l_plan (bandas; grupos en orden de indice, con el primero y cuantos de
+; cada indice, y los indices con algun grupo de otro color que Mario) al
+; registro GV_NPL; GV_LB = su fin (excluido) en pantalla
+; registros destruidos: d0-d6/a0-a4
+;----------------------------------------------------------------------
+g5l_rxsave:
+        move.w  GV_NPL(a6),d0
+        lsl.w   #8,d0
+        lea     GV_RX(a6),a3
+        add.w   d0,a3                       ; a3 = registro
+        move.w  GV_R0(a6),RX_R0(a3)
+        move.w  GV_X0(a6),RX_X0(a3)
+        move.w  GV_SLOT(a6),RX_SLOT(a3)
+        move.w  GV_MSH(a6),RX_MSH(a3)
+        move.l  GV_VAR(a6),a0
+        move.l  a0,RX_VAR(a3)
+        moveq   #0,d0
+        move.b  8(a0),d0                    ; borde derecho
+        add.w   GV_X0(a6),d0
+        cmp.w   #255,d0
+        ble.s   .r1
+        move.w  #255,d0
+.r1:    move.w  d0,RX_XR(a3)
+        moveq   #0,d0
+        move.b  5(a0),d0
+        add.w   GV_R0(a6),d0
+        cmp.w   #LINES,d0
+        ble.s   .r2
+        move.w  #LINES,d0
+.r2:    move.w  d0,GV_LB(a6)
+        move.w  GV_NREM(a6),d0              ; las bandas que hay
+        move.w  d0,RX_NREM(a3)
+        beq.s   .rc9
+        lea     GV_REM(a6),a0
+        lea     RX_REM(a3),a2
+        add.w   d0,d0
+        subq.w  #1,d0
+.rc:    move.l  (a0)+,(a2)+
+        dbf     d0,.rc
+.rc9:   clr.l   RX_IXN(a3)
+        clr.l   RX_IXN+4(a3)
+        clr.l   RX_IXN+8(a3)
+        clr.l   RX_IXN+12(a3)
+        lea     RX_G(a3),a2
+        lea     GV_BITS(a6),a1
+        move.l  GV_COL(a6),a4
+        moveq   #0,d2                       ; grupos
+        moveq   #0,d4                       ; indices de otro color
+        move.w  GV_IM(a6),d6                ; indices que quedan
+.ri:    move.w  d6,d0
+        beq.s   .re
+        LOWB                                ; d1 = indice
+        bclr    d1,d6
+        move.b  d2,RX_IXS(a3,d1.w)          ; P40 ok (1..15)
+        move.w  d1,d0
+        add.w   d0,d0
+        move.w  (a4,d0.w),d5                ; color de Mario
+        lsl.w   #5,d0                       ; IGSZ
+        lea     GV_IG(a6),a0
+        add.w   d0,a0
+        move.w  (a0),d3                     ; sus grupos
+        addq.l  #4,a0
+        bra.s   .rg9
+.rg:    move.l  4(a0),d0
+        beq.s   .rgn
+        move.b  d1,(a2)+
+        clr.b   (a2)+
+        move.w  (a0),(a2)+
+        move.l  d0,(a2)+
+        addq.w  #1,d2
+        addq.b  #1,RX_IXN(a3,d1.w)          ; P40 ok
+        cmp.w   (a0),d5
+        beq.s   .rgn
+        bset    d1,d4
+.rgn:   addq.l  #8,a0
+.rg9:   dbf     d3,.rg
+        bra.s   .ri
+.re:    move.w  d2,RX_NG(a3)
+        move.w  d4,RX_DM(a3)
+        rts
+
+;----------------------------------------------------------------------
+; --- g5l_rxload --- G4-2: el Rex d0 en GV_VAR/NREM/REM para g5l_patch,
+; con su bufer (GV_RBUF + 4 x G5L_RSTR x k) y su clave
+; registros destruidos: d1/a0-a1
+;----------------------------------------------------------------------
+g5l_rxload:
+        move.w  d0,d1
+        lsl.w   #8,d1
+        lea     GV_RX(a6),a0
+        add.w   d1,a0
+        move.l  RX_VAR(a0),GV_VAR(a6)
+        move.w  RX_NREM(a0),d1              ; las bandas que hay
+        move.w  d1,GV_NREM(a6)
+        beq.s   .c9
+        lea     RX_REM(a0),a0
+        lea     GV_REM(a6),a1
+        add.w   d1,d1
+        subq.w  #1,d1
+.c:     move.l  (a0)+,(a1)+
+        dbf     d1,.c
+.c9:    move.l  GV_RK0P(a6),GV_RKP(a6)
+        move.l  GV_RBUF(a6),d1
+        tst.w   d0
+        beq.s   .x
+        move.l  GV_RK2P(a6),GV_RKP(a6)
+        add.l   #4*G5L_RSTR,d1
+.x:     move.l  d1,GV_PBUF(a6)
+        rts
+
+;----------------------------------------------------------------------
+; --- g5l_sweepn --- G4-2: las transiciones de varios Rex (tools/g5l.py
+; sweep_n). Por indice con algun grupo de otro color que Mario: los tramos
+; de Mario (sus 64 filas de la cache, recortadas a la pantalla) y los de
+; cada Rex, ordenados por (fila, Mario primero, Rex en su orden); una
+; transicion donde cambia el color, desde el ultimo uso. Los tramos de un
+; grupo sin nada entre ellos (filas de Mario o de otro grupo del indice en
+; la ventana del Rex; los otros Rex no comparten filas) van juntos en un
+; bloque: el mismo resultado con menos tramos.
+; entrada:  GV_NPL Rex en GV_RX, GV_COL, la cache de Mario, a6 = g5l_v
+; salida:   las cubetas (GV_BP)
+; registros destruidos: d0-d7/a0-a5
+;----------------------------------------------------------------------
+g5l_sweepn:
+        lea     GV_BS(a6),a2                ; cubetas vacias
+        lea     GV_BP(a6),a3
+        move.l  (a2)+,(a3)+
+        move.l  (a2)+,(a3)+
+        move.l  (a2)+,(a3)+
+        move.l  (a2)+,(a3)+
+        move.l  (a2)+,(a3)+
+        lea     GV_BITS(a6),a1
+        moveq   #0,d0                       ; los indices de otro color
+        lea     GV_RX+RX_DM(a6),a0
+        move.w  GV_NPL(a6),d1
+        subq.w  #1,d1
+.dm:    or.w    (a0),d0
+        lea     RXSZ(a0),a0
+        dbf     d1,.dm
+        move.w  d0,GV_SWI(a6)
+.idx:   move.w  GV_SWI(a6),d0
+        beq     .x
+        LOWB
+        move.w  d1,d2                       ; d2 = i
+        move.w  GV_SWI(a6),d0
+        bclr    d2,d0
+        move.w  d0,GV_SWI(a6)
+        move.w  d2,d0
+        add.w   d0,d0
+        move.l  GV_COL(a6),a0
+        move.w  (a0,d0.w),d3                ; d3 = color de Mario
+        clr.l   GV_SWM(a6)                  ; las 64 filas de Mario con i
+        clr.l   GV_SWM+4(a6)
+        move.l  GV_MCUR(a6),d1
+        beq.s   .nm
+        move.l  d1,a5
+        lea     MC_FL-2(a5),a3
+        cmp.b   #$ff,(a3,d0.w)              ; P40 ok (2..30)
+        beq.s   .nm                         ; Mario no usa el indice
+        lsl.w   #2,d0
+        lea     MC_MM-8(a5,d0.w),a3
+        move.l  4(a3),GV_SWM(a6)            ; 0..31
+        move.l  (a3),GV_SWM+4(a6)           ; 32..63
+.nm:    lea     GV_RUNS(a6),a4              ; a4 = tramos
+        moveq   #0,d7                       ; d7 = Rex k
+.rex:   cmp.w   GV_NPL(a6),d7
+        bhs     .mar
+        move.w  d7,d0
+        lsl.w   #8,d0
+        lea     GV_RX(a6),a3
+        add.w   d0,a3                       ; a3 = registro
+        moveq   #0,d5
+        move.b  RX_IXN(a3,d2.w),d5          ; P40 ok: sus grupos del indice
+        beq     .rnx
+        move.l  GV_SWM(a6),d4               ; d4 = Mario en las 32 filas desde r0
+        move.l  GV_SWM+4(a6),d6
+        move.l  d4,d0
+        or.l    d6,d0
+        beq.s   .sv                         ; (Mario no usa el indice: 0)
+        move.w  RX_MSH(a3),d0
+        tst.w   d0
+        bmi.s   .sl
+        cmp.w   #32,d0
+        bhs.s   .sb
+        lsr.l   d0,d4
+        moveq   #32,d1
+        sub.w   d0,d1
+        lsl.l   d1,d6                       ; (32: queda 0)
+        or.l    d6,d4
+        bra.s   .sv
+.sb:    sub.w   #32,d0
+        cmp.w   #32,d0
+        bhs.s   .sz
+        lsr.l   d0,d6
+        move.l  d6,d4
+        bra.s   .sv
+.sl:    neg.w   d0
+        cmp.w   #32,d0
+        bhs.s   .sz
+        lsl.l   d0,d4
+        bra.s   .sv
+.sz:    moveq   #0,d4
+.sv:    moveq   #0,d0
+        move.b  RX_IXS(a3,d2.w),d0          ; P40 ok
+        lsl.w   #3,d0
+        lea     RX_G(a3,d0.w),a2            ; a2 = sus grupos
+        move.l  a2,a0
+        moveq   #0,d6                       ; d6 = todas sus filas con i
+        move.w  d5,d1
+        subq.w  #1,d1
+.u:     or.l    4(a0),d6
+        addq.l  #8,a0
+        dbf     d1,.u
+        move.w  RX_R0(a3),a5                ; a5 = r0
+.grp:   move.l  4(a2),d0                    ; separadores: Mario y los otros
+        move.l  d0,GV_SWG(a6)               ; grupos del indice
+        not.l   d0
+        and.l   d6,d0
+        or.l    d4,d0
+        bne.s   .gs
+        clr.l   GV_SWG(a6)                  ; sin separadores: un bloque con
+        move.l  4(a2),d0                    ; todo el grupo
+        LOWB
+        move.w  d1,(a4)
+        move.l  4(a2),d0
+        bra.s   .bh
+.gs:    move.l  d0,GV_SWS(a6)
+.blk:   move.l  GV_SWG(a6),d0
+        beq     .gnx
+        LOWB                                ; d1 = s
+        move.w  d1,(a4)
+        moveq   #-2,d0
+        lsl.l   d1,d0                       ; las filas despues de s
+        and.l   GV_SWS(a6),d0
+        beq.s   .ball
+        LOWB                                ; d1 = el primer separador
+        lsl.w   #2,d1
+        lea     GV_LM(a6),a0
+        move.l  (a0,d1.w),d0                ; P40 ok: filas antes de el
+        and.l   GV_SWG(a6),d0               ; d0 = el bloque
+        bra.s   .bb
+.ball:  move.l  GV_SWG(a6),d0
+.bb:    eor.l   d0,GV_SWG(a6)
+.bh:    HIGHB                               ; d1 = su ultima fila
+        add.w   a5,d1
+        move.w  (a4),d0
+        add.w   a5,d0
+        move.w  d0,(a4)+                    ; a
+        move.b  d7,d0
+        addq.b  #1,d0
+        move.b  d0,(a4)+                    ; tipo 1 + k
+        moveq   #2,d0
+        lsl.b   d7,d0
+        move.b  d0,(a4)+                    ; dueno 2 << k
+        move.w  d1,(a4)+                    ; b
+        move.w  2(a2),(a4)+                 ; color
+        bra     .blk
+.gnx:   addq.l  #8,a2
+        subq.w  #1,d5
+        bne     .grp
+.rnx:   addq.w  #1,d7
+        bra     .rex
+.mar:   move.l  GV_SWM(a6),d4               ; los tramos de Mario
+        move.l  GV_SWM+4(a6),d5
+        move.w  GV_WBASE(a6),a5             ; a5 = fila de la 0
+        moveq   #0,d7                       ; 0: la mitad baja, 32: la alta
+.mh:    tst.l   d4
+        bne.s   .mr
+        tst.w   d7
+        bne     .sort
+        move.l  d5,d4
+        moveq   #0,d5
+        moveq   #32,d7
+        bra.s   .mh
+.mr:    move.l  d4,d0
+        LOWB
+        add.w   d7,d1
+        add.w   a5,d1
+        move.w  d1,(a4)                     ; a (sin recortar)
+        move.l  d4,d0
+        neg.l   d0
+        and.l   d4,d0
+        add.l   d4,d0
+        and.l   d0,d4
+        tst.l   d0
+        bne.s   .m1
+        tst.w   d7                          ; hasta la 31 de la mitad baja: sigue
+        bne.s   .m0                         ; en la alta si tiene la 32
+        btst    #0,d5
+        beq.s   .m0
+        moveq   #1,d0
+        add.l   d5,d0
+        and.l   d0,d5
+        tst.l   d0
+        bne.s   .m3
+        moveq   #64,d1
+        bra.s   .m2
+.m3:    LOWB
+        add.w   #32,d1
+        bra.s   .m2
+.m0:    moveq   #32,d1
+        add.w   d7,d1
+        bra.s   .m2
+.m1:    LOWB
+        add.w   d7,d1
+.m2:    subq.w  #1,d1
+        add.w   a5,d1                       ; b (sin recortar)
+        bmi     .mh                         ; todo arriba de la pantalla
+        move.w  (a4),d0
+        cmp.w   #LINES,d0
+        bge     .mh                         ; todo abajo
+        tst.w   d0
+        bpl.s   .m4
+        clr.w   (a4)
+.m4:    cmp.w   #LINES-1,d1
+        ble.s   .m5
+        move.w  #LINES-1,d1
+.m5:    move.w  #$0001,2(a4)                ; tipo 0, dueno 1
+        move.w  d1,4(a4)
+        move.w  d3,6(a4)
+        addq.l  #8,a4
+        bra     .mh
+.sort:  lea     GV_RUNS+8(a6),a0            ; insercion por (fila, tipo)
+.s1:    cmp.l   a4,a0
+        bhs.s   .s9
+        move.l  (a0),d0
+        move.l  4(a0),d1
+        move.l  a0,a2
+.s2:    cmp.l   -8(a2),d0
+        bhs.s   .s3
+        move.l  -8(a2),(a2)
+        move.l  -4(a2),4(a2)
+        subq.l  #8,a2
+        lea     GV_RUNS(a6),a3
+        cmp.l   a3,a2
+        bhi.s   .s2
+.s3:    move.l  d0,(a2)
+        move.l  d1,4(a2)
+        addq.l  #8,a0
+        bra.s   .s1
+.s9:    move.l  a4,a5                       ; a5 = fin
+        lea     GV_RUNS(a6),a4
+        moveq   #-1,d4                      ; ultimo uso: ninguno
+        moveq   #0,d5
+.w:     cmp.l   a5,a4
+        bhs     .idx
+        move.w  6(a4),d0
+        cmp.w   d3,d0
+        beq.s   .ws
+        move.w  d0,d3
+        move.w  (a4),d0
+        TRB
+.ws:    move.w  4(a4),d0
+        cmp.w   d4,d0
+        blt.s   .wn
+        beq.s   .we
+        move.w  d0,d4
+        moveq   #0,d5
+.we:    or.b    3(a4),d5
+.wn:    addq.l  #8,a4
+        bra.s   .w
+.x:     rts
+
+;----------------------------------------------------------------------
+; --- g5l_edges --- G4-2: GV_E de los GV_NPL Rex (1 o 2): E[m] = el mayor
+; borde derecho de los duenos de m + 1 (bit 0 Mario, k + 1 el Rex k; 0 sin
+; duenos). tools/g5l.py EMap
+; registros destruidos: d0-d4/a0
+;----------------------------------------------------------------------
+g5l_edges:
+        lea     GV_E(a6),a0
+        move.w  GV_XM(a6),d0                ; Mario (-1 sin Mario)
+        move.w  GV_RX+RX_XR(a6),d1          ; Rex 0
+        clr.w   (a0)+                       ; E[0]
+        move.w  d0,d2
+        addq.w  #1,d2
+        move.w  d2,(a0)+                    ; E[1]
+        move.w  d1,d2
+        addq.w  #1,d2
+        move.w  d2,(a0)+                    ; E[2]
+        move.w  d0,d2                       ; d2 = max(M, R0)
+        cmp.w   d1,d2
+        bge.s   .e1
+        move.w  d1,d2
+.e1:    move.w  d2,d3
+        addq.w  #1,d3
+        move.w  d3,(a0)+                    ; E[3]
+        cmp.w   #2,GV_NPL(a6)
+        blo.s   .x
+        move.w  GV_RX+RXSZ+RX_XR(a6),d3     ; Rex 1
+        move.w  d3,d4
+        addq.w  #1,d4
+        move.w  d4,(a0)+                    ; E[4]
+        move.w  d0,d4
+        cmp.w   d3,d4
+        bge.s   .e2
+        move.w  d3,d4
+.e2:    addq.w  #1,d4
+        move.w  d4,(a0)+                    ; E[5]
+        move.w  d1,d4
+        cmp.w   d3,d4
+        bge.s   .e3
+        move.w  d3,d4
+.e3:    addq.w  #1,d4
+        move.w  d4,(a0)+                    ; E[6]
+        cmp.w   d3,d2
+        bge.s   .e4
+        move.w  d3,d2
+.e4:    addq.w  #1,d2
+        move.w  d2,(a0)                     ; E[7]
+.x:     rts
 
 ;----------------------------------------------------------------------
 ; --- g5l_pcget --- la cache del plan: si una foto anterior tuvo la misma
@@ -1190,16 +1853,16 @@ g5l_gtile:
 ; la tabla. G5L-N: la clave va normalizada (dx, dy menos su minimo como
 ; s8); ese minimo se suma a sx/sy, que es el origen de las variantes.
 ; entrada:  a4 = foto G5L, a6 = g5l_v
-; salida:   d0 = 1 y GV_R0/X0/VLIST/NVAR/SLOT; 0 si no hay
+; salida:   d0 = candidatos (GV_NC, en GV_CAND por fila y ranura) y el
+;           primero en GV_R0/X0/VLIST/NVAR/SLOT; 0 si no hay
 ; registros destruidos: d0-d7/a0-a3
 ;----------------------------------------------------------------------
 g5l_choose:
+        clr.w   GV_NC(a6)
         moveq   #0,d0
         move.b  G5F_NREX(a4),d0
         beq     .none
         move.w  d0,GV_TMP2(a6)              ; Rex que quedan
-        move.w  #$7fff,GV_R0(a6)            ; mejor fila
-        move.w  #$7fff,GV_SLOT(a6)          ; su ranura
         lea     G5F_REX(a4),a1
 .rex:   moveq   #0,d6
         move.b  1(a1),d6                    ; d6 = fichas
@@ -1315,29 +1978,50 @@ g5l_choose:
         ble.s   .nx
         cmp.w   #256,d0
         bge.s   .nx
-        cmp.w   GV_R0(a6),d1                ; (r0, ranura) menor
-        blt.s   .best
-        bgt.s   .nx
-        moveq   #0,d2
-        move.b  (a1),d2
-        cmp.w   GV_SLOT(a6),d2
-        bge.s   .nx
-.best:  move.w  d1,GV_R0(a6)
-        move.w  d0,GV_X0(a6)
-        moveq   #0,d2
-        move.b  (a1),d2
-        move.w  d2,GV_SLOT(a6)
-        move.l  a2,GV_VLIST(a6)
-        move.w  4(a0),GV_NVAR(a6)
+        ; G4-2: a GV_CAND por (r0, ranura); las ranuras llegan en orden,
+        ; asi que con el mismo r0 va detras
+        moveq   #0,d4
+        move.b  5(a3),d4                    ; alto
+        moveq   #0,d5
+        move.b  (a1),d5                     ; ranura
+        move.w  GV_NC(a6),d2
+        lea     GV_CAND(a6),a3
+        move.w  d2,d7
+        lsl.w   #4,d7
+        add.w   d7,a3                       ; a3 = el final
+.ins:   tst.w   d2
+        beq.s   .put
+        cmp.w   CA_R0-CASZ(a3),d1
+        bge.s   .put
+        move.l  -16(a3),(a3)
+        move.l  -12(a3),4(a3)
+        move.l  -8(a3),8(a3)
+        move.l  -4(a3),12(a3)
+        lea     -CASZ(a3),a3
+        subq.w  #1,d2
+        bra.s   .ins
+.put:   move.w  d1,CA_R0(a3)
+        move.w  d0,CA_X0(a3)
+        move.l  a2,CA_VL(a3)
+        move.w  4(a0),CA_NV(a3)
+        move.w  d5,CA_SL(a3)
+        move.w  d4,CA_H(a3)
+        clr.w   CA_DEAD(a3)
+        addq.w  #1,GV_NC(a6)
         bra.s   .nx
 .cn:    move.w  (a0),d0                     ; siguiente del cubo
         bra     .ch
 .nx:    lea     G5L_RECSZ(a1),a1
         subq.w  #1,GV_TMP2(a6)
         bne     .rex
-        cmp.w   #$7fff,GV_R0(a6)
+        move.w  GV_NC(a6),d0                ; el primero, para el camino de uno
         beq.s   .none
-        moveq   #1,d0
+        lea     GV_CAND(a6),a0
+        move.w  CA_R0(a0),GV_R0(a6)
+        move.w  CA_X0(a0),GV_X0(a6)
+        move.w  CA_SL(a0),GV_SLOT(a6)
+        move.l  CA_VL(a0),GV_VLIST(a6)
+        move.w  CA_NV(a0),GV_NVAR(a6)
         rts
 .none:  moveq   #0,d0
         rts
@@ -1631,30 +2315,6 @@ g5l_mvis:
 .x:     move.l  d2,GV_MV(a6)
         rts
 
-; TRB: la transicion (d2 = i, d5 = duenos, d3 = color, d4 = desde, d0 =
-; hasta) al final de su cubeta: 0 = sin uso anterior, 1..4 = min(hasta -
-; desde, 4) (el orden del pase 1 de g5l_place). Destruye a2/a3.
-TRB     macro
-        move.w  d0,a3
-        tst.w   d4
-        bmi.s   .z\@
-        sub.w   d4,a3
-        cmp.w   #4,a3
-        bls.s   .y\@
-        move.w  #4,a3
-        bra.s   .y\@
-.z\@:   sub.l   a3,a3
-.y\@:   add.w   a3,a3
-        add.w   a3,a3
-        add.l   a6,a3
-        move.l  GV_BP(a3),a2
-        move.b  d2,(a2)+
-        move.b  d5,(a2)+
-        move.w  d3,(a2)+
-        move.w  d4,(a2)+
-        move.w  d0,(a2)+
-        move.l  a2,GV_BP(a3)
-        endm
 
 ;----------------------------------------------------------------------
 ; --- g5l_fast --- g5l_plan + g5l_sweep juntos para la variante GV_VAR si
@@ -2259,7 +2919,7 @@ g5l_sweep:
 ; copiados al bufer de chip de esta lista (GV_RBUF, G5L_RSTR por flujo)
 ; y en las filas de cada banda los pixeles de ic pasados a f (XOR de
 ; ic ^ f en los planos, con las mascaras de pixeles de su grupo)
-; entrada:  GV_VAR, GV_REM/NREM, GV_RBUF, a6 = g5l_v
+; entrada:  GV_VAR, GV_REM/NREM, GV_PBUF y su clave GV_RKP, a6 = g5l_v
 ; registros destruidos: d0-d7/a0-a5
 ;----------------------------------------------------------------------
 g5l_patch:
@@ -2287,18 +2947,8 @@ g5l_patch:
 .hm2:   addq.l  #8,a0
         dbf     d1,.hm
         move.w  d2,GV_RH(a6)
-        lea     GV_RKA(a6),a0               ; el bufer de esta lista ya tiene
-        move.l  GV_RBUF(a6),d0              ; este parche? (variante y bandas)
-        cmp.l   g5l_rbuf(pc),d0
-        beq.s   .ka
-        lea     GV_RKB(a6),a0
-        ifd     CUSHION
-        sub.l   g5l_rbuf(pc),d0
-        cmp.l   #4*G5L_RSTR,d0
-        beq.s   .ka
-        lea     GV_RKC(a6),a0
-        endc
-.ka:    move.l  a0,a1
+        move.l  GV_RKP(a6),a0               ; el bufer ya tiene este parche?
+        move.l  a0,a1                       ; (variante y bandas; por lista y Rex)
         move.l  GV_VAR(a6),d0
         cmp.l   (a1)+,d0
         bne.s   .km
@@ -2341,7 +2991,7 @@ g5l_patch:
         bne     .sharedmiss
         dbf     d1,.sharedkey
         move.l  GV_RSBUF(a6),a0
-        move.l  GV_RBUF(a6),a1
+        move.l  GV_PBUF(a6),a1
         move.w  d6,d5
         add.w   d5,d5
         subq.w  #1,d5
@@ -2375,8 +3025,8 @@ g5l_patch:
         move.l  (a4)+,(a0)+
         move.l  (a4)+,(a0)+
         dbf     d1,.sharedstore
-        move.l  GV_RBUF(a6),GV_RSBUF(a6)
-        move.l  GV_RBUF(a6),a1              ; copiar esos flujos de la limpia
+        move.l  GV_PBUF(a6),GV_RSBUF(a6)
+        move.l  GV_PBUF(a6),a1              ; copiar esos flujos de la limpia
         lea     12(a3),a2                   ; offsets (columna, mitad)
         move.w  d6,d5
         add.w   d5,d5
@@ -2423,7 +3073,7 @@ g5l_patch:
         add.l   GV_TAB(a6),d1
         move.l  d1,a0                       ; a0 = sus mascaras (filas x columnas .w)
         move.l  4(a5),d3                    ; la banda
-        move.l  GV_RBUF(a6),a2
+        move.l  GV_PBUF(a6),a2
         addq.l  #4,a2                       ; a2 = fila 0 del primer flujo
 .rr:    lsr.l   #1,d3
         bcc.s   .rn
@@ -2506,6 +3156,8 @@ g5l_place:
         move.w  d1,d0
 .e1:    addq.w  #1,d0
         move.w  d0,GV_E+6(a6)
+; g5l_place_e: con el pool vacio y GV_E ya puestos (G4-2: g5l_edges)
+g5l_place_e:
         clr.w   GV_NV(a6)
         lea     GV_MISS(a6),a3              ; a3 = los que no entran a ciegas
         lea     GV_E(a6),a4                 ; a4 = bordes
@@ -3051,7 +3703,7 @@ g5l_emit:
         add.w   d0,d0
         add.w   d3,d0
         mulu    #G5L_RSTR,d0
-        add.l   GV_RBUF(a6),d0
+        add.l   GV_PBUF(a6),d0
         bra.s   .bk2
 .h0:    move.w  d2,d0                       ; pt = dma + off + 4 + 4 clip
         lsl.w   #3,d0
@@ -3086,6 +3738,8 @@ g5l_emit:
 .cn:    addq.w  #1,d2
         cmp.w   #2,d2
         blo     .col
+; g5l_emitc: colores de partida y sufijos (a2 = lista, a4 = tras SPR7)
+g5l_emitc:
         ; colores de partida; despues, NOP solo donde esta lista tenia
         ; colores de antes (GV_PNVA/B: cuantos)
         lea     GV_VBL(a6),a0
@@ -3235,6 +3889,194 @@ g5l_emit:
         bra.s   .s1
 .s9:    movem.l (sp)+,d0-d3/a0-a1
         rts
+
+;----------------------------------------------------------------------
+; --- g5l_emitn --- G4-2: SPR4-7 de los GV_NPL Rex y despues g5l_emitc.
+; El flujo s = 2c + mitad lleva la columna c de cada Rex que la tiene en
+; pantalla: uno solo, desde su fuente (variante limpia o su bufer de
+; bandas); dos, encadenados en el bufer de la lista (sus filas, POS/CTL del
+; segundo, sus filas, fin), que el DMA lee tras el VSTOP del primero
+; (tools/g5l.py channels_n)
+; registros destruidos: d0-d7/a0-a5
+;----------------------------------------------------------------------
+g5l_emitn:
+        lea     GV_EV(a6),a1                ; lo vertical de cada Rex, una vez
+        lea     GV_RX(a6),a3
+        move.w  GV_NPL(a6),d6
+        subq.w  #1,d6
+.v:     move.l  RX_VAR(a3),a0
+        move.w  RX_R0(a3),d2
+        moveq   #0,d3
+        move.b  5(a0),d3                    ; alto
+        moveq   #0,d0                       ; clip = max(0, -r0)
+        move.w  d2,d4                       ; vs = $2C + max(r0, 0)
+        bpl.s   .v1
+        move.w  d2,d0
+        neg.w   d0
+        moveq   #0,d4
+.v1:    add.w   #$2c,d4
+        add.w   d3,d2
+        add.w   #$2c,d2                     ; ve
+        sub.w   d0,d3                       ; filas que lee el DMA
+        move.w  d4,d1
+        lsl.w   #8,d1
+        move.w  d1,(a1)+                    ; POS sin la x
+        move.w  d2,d1
+        lsl.w   #8,d1
+        lsr.w   #8,d4
+        lsl.w   #2,d4
+        or.w    d4,d1
+        lsr.w   #8,d2
+        add.w   d2,d2
+        or.w    d2,d1
+        move.w  d1,(a1)+                    ; CTL sin la x
+        move.w  d3,(a1)+
+        lsl.w   #2,d0
+        addq.w  #4,d0
+        move.w  d0,(a1)+                    ; 4 + 4 clip
+        lea     RXSZ(a3),a3
+        dbf     d6,.v
+        move.l  GV_LIST(a6),a2
+        lea     CL_VBL+4(a2),a4             ; a4 = SPR4PTH
+        clr.w   GV_CI(a6)                   ; flujo s
+.s:     lea     GV_EN(a6),a5
+        moveq   #0,d7                       ; Rex con esta columna
+        moveq   #0,d6                       ; Rex k
+        lea     GV_RX(a6),a3
+        lea     GV_EV(a6),a1
+.k:     cmp.w   GV_NPL(a6),d6
+        bhs     .kd
+        move.l  RX_VAR(a3),a0
+        move.w  GV_CI(a6),d5                ; d5 = s
+        move.w  d5,d4
+        lsr.w   #1,d4                       ; c
+        moveq   #0,d0
+        move.b  6(a0),d0
+        cmp.w   d0,d4
+        bhs     .kn                         ; sin esa columna
+        lsl.w   #4,d4
+        add.w   RX_X0(a3),d4                ; hx = x0 + 16c
+        cmp.w   #-16,d4
+        ble     .kn
+        cmp.w   #256,d4
+        bge     .kn
+        add.w   #$a0,d4                     ; hp
+        moveq   #1,d1
+        and.w   d4,d1
+        or.w    2(a1),d1
+        btst    #0,d5
+        beq.s   .o2
+        or.w    #$80,d1                     ; el impar: ATTACH
+.o2:    move.w  d1,6(a5)                    ; CTL
+        lsr.w   #1,d4
+        and.w   #$ff,d4
+        or.w    (a1),d4
+        move.w  d4,4(a5)                    ; POS
+        move.w  4(a1),8(a5)                 ; filas
+        moveq   #0,d0
+        move.w  6(a1),d0                    ; 4 + 4 clip
+        tst.w   RX_NREM(a3)
+        beq.s   .o3
+        move.w  RX_RH(a3),d1
+        moveq   #1,d2
+        and.w   d5,d2
+        btst    d2,d1
+        beq.s   .o3
+        move.w  d6,d1                       ; con bandas: GV_RBUF + G5L_RSTR
+        lsl.w   #2,d1                       ; x (4k + s)
+        add.w   d5,d1
+        mulu    #G5L_RSTR,d1
+        add.l   GV_RBUF(a6),d1
+        clr.w   10(a5)                      ; (de un bufer que cambia)
+        bra.s   .o4
+.o3:    move.w  d5,d1                       ; limpia: offs[c][mitad] = 12 + 4s
+        lsl.w   #2,d1
+        move.l  12(a0,d1.w),d1
+        bclr    #31,d1
+        add.l   g5l_cdma(pc),d1
+        move.w  #1,10(a5)                   ; (del banco, que no cambia)
+.o4:    add.l   d0,d1
+        move.l  d1,(a5)
+        lea     12(a5),a5
+        addq.w  #1,d7
+.kn:    addq.w  #1,d6
+        lea     RXSZ(a3),a3
+        addq.l  #8,a1
+        bra     .k
+.kd:    lea     GV_EN(a6),a5
+        tst.w   d7
+        beq     .null
+        cmp.w   #1,d7
+        beq     .one
+        move.w  GV_CI(a6),d0                ; dos: la cadena del flujo s
+        mulu    #12,d0
+        move.l  GV_CKP(a6),a3
+        add.w   d0,a3                       ; a3 = su clave
+        move.w  GV_CI(a6),d0
+        mulu    #G5L_CSTR,d0
+        add.l   GV_RBUF(a6),d0
+        add.l   #8*G5L_RSTR,d0
+        move.l  d0,a1                       ; a1 = la cadena
+        move.w  10(a5),d1                   ; las dos del banco: con clave
+        and.w   12+10(a5),d1
+        beq.s   .cn
+        move.l  (a5),d1
+        cmp.l   (a3),d1
+        bne.s   .ck
+        move.l  12(a5),d1
+        cmp.l   4(a3),d1
+        bne.s   .ck
+        move.w  8(a5),d1
+        cmp.w   8(a3),d1
+        bne.s   .ck
+        move.w  12+8(a5),d1
+        cmp.w   10(a3),d1
+        bne.s   .ck
+        move.w  8(a5),d1                    ; la misma: solo POS y CTL del
+        lsl.w   #2,d1                       ; segundo
+        move.w  12+4(a5),(a1,d1.w)          ; P40 ok (0..128)
+        move.w  12+6(a5),2(a1,d1.w)
+        bra     .pt
+.ck:    move.l  (a5),(a3)
+        move.l  12(a5),4(a3)
+        move.w  8(a5),8(a3)
+        move.w  12+8(a5),10(a3)
+        bra.s   .cc
+.cn:    clr.l   (a3)                        ; con bandas: sin clave
+.cc:    move.l  (a5),a0
+        move.w  8(a5),d1
+        add.w   d1,d1
+        neg.w   d1
+        jmp     .c1e(pc,d1.w)               ; P40 ok: indice negativo a proposito
+        rept    32
+        move.l  (a0)+,(a1)+
+        endr
+.c1e:   move.w  12+4(a5),(a1)+              ; POS y CTL del segundo
+        move.w  12+6(a5),(a1)+
+        move.l  12(a5),a0
+        move.w  12+8(a5),d1
+        add.w   d1,d1
+        neg.w   d1
+        jmp     .c2e(pc,d1.w)               ; P40 ok: indice negativo a proposito
+        rept    32
+        move.l  (a0)+,(a1)+
+        endr
+.c2e:   clr.l   (a1)                        ; fin
+        bra.s   .pt
+.one:   move.l  (a5),d0
+.pt:    swap    d0
+        move.w  d0,2(a4)
+        swap    d0
+        move.w  d0,6(a4)
+        move.w  4(a5),10(a4)
+        move.w  6(a5),14(a4)
+        lea     16(a4),a4
+        bra.s   .sn
+.null:  bsr     g5l_nullch
+.sn:    addq.w  #1,GV_CI(a6)
+        cmp.w   #4,GV_CI(a6)
+        blo     .s
+        bra     g5l_emitc
 
 ; --- g5l_nullch --- canal nulo en a4 (PT = g_null, POS = CTL = 0); a4 += 16
 ; registros destruidos: d0/a0
