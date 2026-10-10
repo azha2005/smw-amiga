@@ -255,11 +255,8 @@ out:
     return a;
 }
 #ifdef LOGIC68K
-#ifdef SPR_OAM
+/* G5L-R-L2: en los dos builds f44d_asm queda a mas de 32 KB del C del juego */
 #define f44d f44d_asm_bridge     /* player/pic68k.s */
-#else
-#define f44d f44d_asm            /* player/logic68k.s */
-#endif
 #endif
 
 /* CODE_00F443: carry = ((XPos + 4) & $0F) >= 8 */

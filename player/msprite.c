@@ -674,6 +674,7 @@ MSX int get_draw_info1(u8 x)
 int spr_draw_info1(u8 x) { return get_draw_info1(x); }
 
 /* SubOffscreen0Bnk3 (nivel horizontal) */
+#ifndef LOGIC68K            /* con LOGIC68K: player/logic68k.s (G5L-R-L2) */
 MSX void sub_offscreen3(u8 x)
 {
     u8 y, e = 0;
@@ -702,6 +703,7 @@ MSX void sub_offscreen3(u8 x)
         W8(wm_SprLoadStatus + SPR(wm_SprIndexInLvl, x), 0);
     SETSPR(wm_SpriteStatus, x, 0);
 }
+#endif
 
 /* GetMarioClipping + GetSpriteClippingA + CheckForContact: 1 si las cajas
    de Mario y del sprite se tocan. */
@@ -781,7 +783,7 @@ static void star_kill(u8 x)
     SETSPR(wm_SpriteSpeedX, x, sub_horiz_pos(x) ? 0x10 : 0xF0);    /* DATA_01A839 */
 }
 
-static void default_interact(u8 x)
+MSS void default_interact(u8 x)      /* MSS: con LOGIC68K la llama mario_spr_interact (asm) */
 {
     u8 c;
     u16 sy;
@@ -860,6 +862,7 @@ static void default_interact(u8 x)
 /* MarioSprInteractRt, hasta el contacto. 1 si hay contacto y la reaccion
    la hace el propio sprite (Tweaker167A bit 7, el Rex); si no, la hace
    DefaultInteractR y devuelve 0. */
+#ifndef LOGIC68K            /* con LOGIC68K: player/logic68k.s (G5L-R-L2) */
 static int process_interact(u8 x);
 MSX int mario_spr_interact(u8 x)
 {
@@ -893,6 +896,9 @@ static int process_interact(u8 x)
         return 0;
     return spr_mario_contact(x);
 }
+#else
+int process_interact(u8 x);          /* player/logic68k.s (invis_blk) */
+#endif
 
 /* CODE_01B457 (InvisBlkMainRt): el sprite como bloque solido para Mario */
 static const s8 blk_push_lo[6] = { 14, -15, 16, -32, 31, -15 };  /* DATA_01B4F9 */

@@ -57,3 +57,6 @@ _mario_D7E4_bridge:
         public  _mario_CEB1_bridge
 _mario_CEB1_bridge:
         PICJUMP _mario_CEB1
+        public  _f7f4_bridge
+_f7f4_bridge:                               ; camera_F6DB_c (mcam.c) -> f7f4 (asm)
+        PICJUMP _f7f4

@@ -112,6 +112,10 @@ def main():
                     help="no mutar (un indice que el C usa sin limite: fuera de la tabla es indefinido)")
     ap.add_argument("--setx", action="append", default=[], metavar="wm_NOMBRE=VALOR",
                     help="fijar la tabla en la ranura del primer --arg (p. ej. el numero de sprite)")
+    ap.add_argument("--atmario", action="store_true",
+                    help="la ranura del primer --arg junto a Mario (+-16 px), para las ramas de contacto")
+    ap.add_argument("--dumpcase", type=int, default=None, metavar="N",
+                    help="guardar la RAM de entrada de la prueba N en work/fz/case.bin (y los args)")
     ap.add_argument("--seedram", help="semillas: ram[] enteras seguidas (m68kverify --dumpall)")
     ap.add_argument("--cdefs", default="-DNOOAM", help="opciones del C del PC (como CDEFS)")
     ap.add_argument("--n", type=int, default=5000)
@@ -250,6 +254,12 @@ def main():
         args = [rnd.randint(lo, hi) for lo, hi in argr]
         for n, v in setx:
             ram[names[n] + args[0]] = v
+        if a.atmario:
+            for lo, hi, m in (("wm_SpriteXLo", "wm_SpriteXHi", 0xD1), ("wm_SpriteYLo", "wm_SpriteYHi", 0xD3)):
+                v = (ram[m] | ram[m + 1] << 8) + rnd.randrange(-16, 17) & 0xFFFF
+                ram[names[lo] + args[0]], ram[names[hi] + args[0]] = v & 0xFF, v >> 8
+        if t == a.dumpcase:
+            open(os.path.join(ROOT, "work", "fz", "case.bin"), "wb").write(bytes(ram) + bytes(args))
         # PC
         ctypes.memmove(pram, bytes(ram), 0x2000)
         ctypes.memmove(pmap, bytes(mp), len(mp))

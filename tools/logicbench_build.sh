@@ -79,6 +79,8 @@ esac
 # G5L-R-L2: mario_player_c (C) llama a la logica que paso a logic68k.s,
 # lejos en los dos builds: puentes de pic68k.s
 sed -i -E 's/^([[:space:]]*jsr[[:space:]]+)_mario_(collide|D5F2|D062|D7E4|CEB1)([[:space:]]*)$/\1_mario_\2_bridge\3/' "$CC/manim.code.s"
+# y camera_F6DB_c (mcam.c, nivel vertical) a f7f4, que tambien es asm
+sed -i -E 's/^([[:space:]]*jsr[[:space:]]+)_f7f4([[:space:]]*)$/\1_f7f4_bridge\2/' "$CC/mcam.code.s"
 # Los spr_*.c se anexan a msprite.data.s / msprite.code.s: los arneses
 # (game.s, logicbench.s) incluyen por nombre y asi no hay que tocarlos al
 # agregar un sprite. Los datos siguen yendo antes que todo el codigo (P36).
@@ -122,15 +124,15 @@ mkdir -p work/cc
 sed -nE 's/^#define (m[0-9]+|wm_[A-Za-z0-9_]+) +0x([0-9A-Fa-f]+).*/\1 equ $\2/p' player/gen/smwram.h > work/cc/smwram.i
 sed -nE 's/^#define ([A-Za-z_][A-Za-z0-9_]*) +0x([0-9A-Fa-f]+).*/\1 equ $\2/p' player/gen/smwtab.h >> work/cc/smwram.i
 awk '/^enum \{/{e=1;n=0;next} e&&/^\};/{e=0} e&&match($0,/MARIO_[A-Z_]+/){print substr($0,RSTART,RLENGTH)" equ "n; n++}' player/mario.h >> work/cc/smwram.i
-# G5L-R-L2: las tablas tg2_ de smwtabx.h (graficos de sprites) para el asm,
+# G5L-R-L2: las tablas tg2_ y tx_ de smwtabx.h para el asm,
 # en el mismo orden (logic68k.s comprueba las que lee como contiguas). R9:
 # work/ no se versiona.
-awk '/^static const unsigned char tg2_/ {
+awk '/^static const unsigned char t(g2|x)_/ {
         n = $0; sub(/^static const unsigned char /, "", n); sub(/\[.*/, "", n)
         k = $0; sub(/^[^[]*\[/, "", k); sub(/\].*/, "", k)
         v = $0; sub(/^[^{]*\{/, "", v); sub(/\}.*/, "", v)
         print n "_len\tequ\t" k; print n ":"; print "\tdc.b\t" v }
-     END { print "\teven" }' player/gen/smwtabx.h > work/cc/smwtabx_gfx.i
+     END { print "\teven" }' player/gen/smwtabx.h > work/cc/smwtabx.i
 [ -f work/yi1_map16.bin ] || python tools/mkmapbin.py
 # el arnes incluye work/cc/*.s: en PROF, una copia que apunta a work/prof/cc
 HARNESS=player/logicbench.s

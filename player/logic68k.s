@@ -86,6 +86,132 @@ sg_di1:
         moveq   #0,d0
         rts
 
+; --- sub_offscreen3 ---
+; entrada:  pila vbcc = u8 x; a4 = datos del C
+; salida:   como sub_offscreen3 de msprite.c (SubOffscreen0Bnk3, nivel horizontal)
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+        public  _sub_offscreen3
+_sub_offscreen3:
+        moveq   #0,d1
+        move.b  7(sp),d1
+        lea     _ram(a4),a1
+        add.w   d1,a1                       ; a1 = ram + x
+        move.b  wm_OffscreenHorz(a1),d0
+        or.b    wm_OffscreenVert(a1),d0
+        beq.s   .ret
+        move.b  wm_SpriteYHi(a1),d0
+        lsl.w   #8,d0
+        move.b  wm_SpriteYLo(a1),d0
+        add.w   #$50,d0                     ; sy + $50, 16 bits
+        cmp.w   #$200,d0
+        blo.s   .x
+        tst.w   d0                          ; y el bit 15 en 0: muy abajo
+        bpl.s   .erase
+.x:     btst    #2,wm_Tweaker167A(a1)
+        bne.s   .ret
+        moveq   #1,d1
+        and.b   _ram+wm_FrameA(a4),d1       ; y
+        lea     tx_03B83F(pc),a0
+        move.b  8(a0,d1.w),d0               ; DATA_03B847 (va detras)
+        lsl.w   #8,d0
+        move.b  (a0,d1.w),d0
+        move.w  _ram+wm_Bg1HOfs(a4),d1
+        ror.w   #8,d1
+        add.w   d1,d0                       ; lim
+        move.b  wm_SpriteXHi(a1),d1
+        lsl.w   #8,d1
+        move.b  wm_SpriteXLo(a1),d1
+        sub.w   d1,d0                       ; m0 = alto de (lim - sx)
+        btst    #0,_ram+wm_FrameA(a4)
+        beq.s   .n
+        eor.w   #$8000,d0
+.n:     tst.w   d0
+        bpl.s   .ret
+.erase: cmp.b   #$08,wm_SpriteStatus(a1)
+        blo.s   .z
+        moveq   #0,d0
+        move.b  wm_SprIndexInLvl(a1),d0
+        cmp.b   #$ff,d0
+        beq.s   .z
+        lea     _ram+wm_SprLoadStatus(a4),a0
+        clr.b   (a0,d0.w)
+.z:     clr.b   wm_SpriteStatus(a1)
+.ret:   rts
+
+; --- mario_spr_interact ---
+; entrada:  pila vbcc = u8 x; a4 = datos del C
+; salida:   d0.l como mario_spr_interact de msprite.c (MarioSprInteractRt):
+;           1 = contacto y lo resuelve el sprite (Tweaker167A bit 7)
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+; El contacto sin reaccion propia (DefaultInteractR) es default_interact (C).
+        public  _mario_spr_interact
+_mario_spr_interact:
+        moveq   #0,d1
+        move.b  7(sp),d1
+        lea     _ram(a4),a1
+        add.w   d1,a1                       ; a1 = ram + x
+        btst    #5,wm_Tweaker167A(a1)
+        bne.s   .go
+        move.b  _ram+wm_FrameA(a4),d0       ; un frame si y otro no
+        eor.b   d1,d0
+        and.b   #1,d0
+        or.b    wm_OffscreenHorz(a1),d0
+        bne.s   .no
+.go:    move.l  d1,-(sp)
+        bsr.s   _process_interact
+        addq.l  #4,sp
+        tst.l   d0
+        beq.s   .ret                        ; d0 = 0
+        moveq   #0,d1
+        move.b  7(sp),d1
+        lea     _ram(a4),a1
+        add.w   d1,a1
+        tst.b   wm_Tweaker167A(a1)
+        bmi.s   .yes
+        move.l  d1,-(sp)
+        PICCALL _default_interact
+        addq.l  #4,sp
+.no:    moveq   #0,d0
+.ret:   rts
+.yes:   moveq   #1,d0
+        rts
+
+; --- process_interact ---
+; entrada:  pila vbcc = u8 x; a4 = datos del C
+; salida:   d0.l = 1 si Mario y el sprite se tocan (ProcessInteract); m14, m15
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+; Termina saltando a spr_mario_contact_asm con el mismo argumento en la pila.
+        public  _process_interact
+_process_interact:
+        moveq   #0,d1
+        move.b  7(sp),d1
+        lea     _ram(a4),a1
+        add.w   d1,a1                       ; a1 = ram + x
+        move.b  _ram+wm_PlayerXPosLv(a4),d0 ; SubHorizPos: m15 = bajo de (Mario - sx)
+        sub.b   wm_SpriteXLo(a1),d0
+        move.b  d0,_ram+m15(a4)
+        add.b   #$50,d0
+        cmp.b   #$a0,d0
+        bhs.s   .no
+        move.b  _ram+wm_PlayerYPosLv(a4),d0 ; CODE_01AD42: m14
+        sub.b   wm_SpriteYLo(a1),d0
+        move.b  d0,_ram+m14(a4)
+        add.b   #$60,d0
+        cmp.b   #$c0,d0
+        bhs.s   .no
+        tst.b   _ram+wm_MarioAnimation(a4)
+        bne.s   .no
+        btst    #6,_ram+wm_LevelMode(a4)
+        bne     _spr_mario_contact_asm
+        move.b  _ram+wm_IsBehindScenery(a4),d0
+        cmp.b   wm_SprBehindScrn(a1),d0
+        beq     _spr_mario_contact_asm
+.no:    moveq   #0,d0
+        rts
+
         ifd     SPR_OAM
 ; --- spr_oam_index ---
 ; entrada:  pila vbcc = u8 x; a4 = datos del C
@@ -296,7 +422,7 @@ _spr013_gfx:
 ; salida:   como banzai_gfx de spr_gfx.c (CODE_02D5E4, 16 fichas)
 ; registros destruidos: d0-d1/a0-a1
 ; ciclos:   tools/l_funcs.py
-; Las cuatro tablas de 16 van seguidas en smwtabx_gfx.i (comprobado abajo).
+; Las cuatro tablas de 16 van seguidas en smwtabx.i (comprobado abajo).
         public  _banzai_gfx
 _banzai_gfx:
         movem.l d2-d5/a3,-(sp)
@@ -524,15 +650,18 @@ _goal_gfx:
 .ret:   movem.l (sp)+,d2-d5/a3
         rts
 
-; tablas tg2_ de smwtabx.h (GENERADO por logicbench_build.sh, no versionado: R9)
-        include "work/cc/smwtabx_gfx.i"
+        endc
+; tablas tg2_ / tx_ de smwtabx.h (GENERADO por logicbench_build.sh, no versionado: R9)
+        include "work/cc/smwtabx.i"
         if      (tg2_07F0B4-tg2_07F000)<>180
-        fail    "smwtabx_gfx.i: DATA_07F0B4 tiene que ir detras de DATA_07F000"
+        fail    "smwtabx.i: DATA_07F0B4 tiene que ir detras de DATA_07F000"
         endif
         if      (tg2_DATA_02D5D4-tg2_DATA_02D5A4)<>48
-        fail    "smwtabx_gfx.i: las tablas de Banzai tienen que ir seguidas"
+        fail    "smwtabx.i: las tablas de Banzai tienen que ir seguidas"
         endif
-        endc
+        if      (tx_03B847-tx_03B83F)<>8
+        fail    "smwtabx.i: DATA_03B847 tiene que ir detras de DATA_03B83F"
+        endif
 ;----------------------------------------------------------------------
 ; u8 spr_tile_asm(u8 x, u8 y) = spr_tile de msprite.c (CODE_019441 /
 ; _01944D / CODE_0194BF): el bloque bajo el punto de choque y del sprite x.
@@ -898,7 +1027,7 @@ _camera_F6DB:
         eor.b   d2,d0
         bpl     .l2
         WR16    m2,d1
-        jsr     _f8ab
+        PICCALL _f8ab                       ; C de mcam.c, lejos en el juego (P102)
         RD16    m2,d1                       ; v2
         add.w   d4,d1                       ; a = v2 + bg1h
         bpl.s   .pos
