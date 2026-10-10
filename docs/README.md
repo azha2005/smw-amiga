@@ -93,6 +93,8 @@
 | `instrucciones-g5l-r-s10.md` | 2026-10-10 | Prototipo acotado de speedcode: tamaño/coste antes de integrar; tres replays y A/B real con P123 corregida |
 | `instrucciones-g5l-r-l3.md` | 2026-10-10 | Recortes de los núcleos asm restantes tras S10: perfil, fuzz, copper y WinUAE |
 | `informe-g5l-r-s10-1010.md` | 2026-10-10 | S10 cerrada: speedcode 118 KB y −6,2 % de CPU; no cabe en el vivo; WinUAE ≈ 2,8× Musashi |
+| `informe-g5l-r-m1-1010.md` | 2026-10-10 | M1: ≈ 2,8× = fotos omitidas × DMA de 6 planos; espiral de la vuelta con \|Δs\| > 16 |
+| `instrucciones-g5l-r-s11.md` | 2026-10-10 | Cortar la espiral de la vuelta en `build_mid`, sin cambiar la imagen |
 | `instrucciones-g5l-r-m1.md` | 2026-10-10 | Medir por qué `build_mid` cuesta ≈ 2,8× en el hardware: pares por foto, VHPOSR, variantes opt-in |
 | `investigacion-demoscene-1010.md` | 2026-10-10 | fuentes de demos: speedcode, código automodificable, cadenas copper-blitter y carga/descompresión; §11 reordena tras L2: speedcode en `build_mid` según el perfil de estrés |
 | `instrucciones-g5l-r-l2.md` | 2026-10-10 | Opción A: la lógica en C a asm, por partes (si el usuario la elige) |

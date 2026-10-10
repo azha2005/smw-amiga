@@ -2230,9 +2230,15 @@ dc_loop:
         FBSR    set_pointers
         ifd     BENCH
         GBR     8
+        ifd     M1POS
+        bsr     m1_pre
+        endc
         endc
         ifnd    NOMID
         bsr     build_mid
+        endc
+        ifd     M1POS
+        bsr     m1_post
         endc
         ifd     DELAYR
         move.w  #DELAYR-1,d0                ; calibracion: DELAYR x 10 ciclos
@@ -3008,6 +3014,75 @@ gb_isr:  dc.w   0                           ; ticks en la interrupcion (suma)
 gb_isrmax: dc.w 0                           ; peor interrupcion con logica
 gl_done: dc.b   0                           ; el replay se acabo
         even
+        endc
+
+        ifd     M1POS
+        ifnd    DECOUPLE
+        fail    "-DM1POS necesita el render desacoplado (G5L)"
+        endc
+;----------------------------------------------------------------------
+; --- m1_pre / m1_post --- (G5L-R-M1, solo medida) una fila por foto
+; dibujada en m1_buf: .w R_FRAME, V_S, V_BACK (palabra baja), ticks del
+; timer A durante build_mid (con la interrupcion), ticks de la
+; interrupcion en ese tramo, linea de pantalla al entrar y al salir,
+; gb_frn. tools/m1_read.py lo lee de la memoria de WinUAE (firma).
+; registros destruidos: ninguno
+;----------------------------------------------------------------------
+m1_pre:
+        movem.l d0-d2/a0-a1,-(sp)
+        lea     CUSTOM,a1
+        move.l  VPOSR(a1),d0
+        lsr.l   #8,d0
+        and.w   #$1ff,d0
+        lea     m1_tmp(pc),a0
+        move.w  d0,4(a0)                    ; linea al entrar
+        move.w  gb_isr(pc),2(a0)
+        bsr     gb_rt
+        move.w  d0,(a0)                     ; timer al entrar (cuenta abajo)
+        ifd     M1NOBPL
+        move.w  #$0100,DMACON(a1)           ; sin DMA de planos (solo medida:
+        endc                                ; la imagen no vale)
+        movem.l (sp)+,d0-d2/a0-a1
+        rts
+
+m1_post:
+        movem.l d0-d3/a0-a2,-(sp)
+        bsr     gb_rt
+        move.w  d0,d3                       ; timer al salir
+        lea     CUSTOM,a1
+        ifd     M1NOBPL
+        move.w  #$8100,DMACON(a1)           ; planos otra vez
+        endc
+        move.l  VPOSR(a1),d2
+        lsr.l   #8,d2
+        and.w   #$1ff,d2                    ; linea al salir
+        GETBASE a2
+        add.l   #m1_n-binstart,a2
+        move.l  (a2),d0
+        cmp.l   #M1N,d0
+        bhs.s   .x                          ; lleno
+        addq.l  #1,(a2)
+        lsl.l   #4,d0
+        lea     8(a2,d0.l),a2               ; a2 = fila
+        move.w  d2,12(a2)
+        lea     m1_tmp(pc),a0
+        move.w  (a0),d0
+        sub.w   d3,d0
+        move.w  d0,6(a2)                    ; ticks (con la interrupcion)
+        move.w  gb_isr(pc),d0
+        sub.w   2(a0),d0
+        move.w  d0,8(a2)                    ; de ellos, en la interrupcion
+        move.w  4(a0),10(a2)
+        move.w  V_S(a5),2(a2)
+        move.w  V_BACK+2(a5),4(a2)
+        move.w  gb_frn(pc),14(a2)
+        lea     dc_st(pc),a0
+        move.w  DC_REND(a0),d0
+        bsr     dc_recp
+        move.w  R_FRAME(a0),(a2)
+.x:     movem.l (sp)+,d0-d3/a0-a2
+        rts
+m1_tmp: ds.w    3
         endc
         endc
 
@@ -3965,6 +4040,15 @@ at_save:
 at_sig: dc.b    'ADRTRAP!'
         dcb.b   92,0                        ; self, base, tipo, marco, regs, usp
         cnop    0,4                         ; la copia a la slow RAM va por .l
+        endc
+
+        ifd     M1POS
+M1N     equ     4400                        ; filas (G5L-R-M1, m1_post)
+m1_sig: dc.b    'M1POSBUF'
+m1_n:   dc.l    0
+        dc.l    M1N
+m1_buf: dcb.b   16*M1N,0
+        cnop    0,4
         endc
 
 binend:
