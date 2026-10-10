@@ -28,49 +28,25 @@ cfg.write_text('\n'.join([
     r'kickstart_rom_file=C:\Users\JC\Downloads\amivideo\kick12.rom',
     'floppy0=%s' % adf, 'floppy0type=0', 'nr_floppies=1', 'floppy_speed=100',
     'gfx_width=720', 'gfx_height=568', 'gfx_lores=true', 'gfx_linemode=double',
-    'win32.start_not_captured=true', 'win32.nonotificationicon=true', '']), encoding='ascii')
+    'win32.start_not_captured=true', 'win32.nonotificationicon=true', 'use_gui=no', '']), encoding='ascii')
 proc = subprocess.Popen([r'C:\Program Files\WinUAE\winuae64.exe', '-f', str(cfg)])
 try:
     time.sleep(wait)
 
-    class MBI(c.Structure):
-        _fields_ = [('BaseAddress', c.c_void_p), ('AllocationBase', c.c_void_p), ('AllocationProtect', w.DWORD),
-                    ('PartitionId', w.WORD), ('RegionSize', c.c_size_t), ('State', w.DWORD),
-                    ('Protect', w.DWORD), ('Type', w.DWORD)]
-    k = c.WinDLL('kernel32', use_last_error=True)
-    k.OpenProcess.restype = w.HANDLE
-    k.OpenProcess.argtypes = [w.DWORD, w.BOOL, w.DWORD]
-    k.VirtualQueryEx.argtypes = [w.HANDLE, c.c_void_p, c.POINTER(MBI), c.c_size_t]
-    k.VirtualQueryEx.restype = c.c_size_t
-    k.ReadProcessMemory.argtypes = [w.HANDLE, c.c_void_p, c.c_void_p, c.c_size_t, c.POINTER(c.c_size_t)]
-    h = k.OpenProcess(0x410, False, proc.pid)
-    if not h:
-        raise SystemExit('OpenProcess fallo')
-
-    def read(a, n):
-        b = c.create_string_buffer(n)
-        got = c.c_size_t()
-        if not k.ReadProcessMemory(h, c.c_void_p(a), b, n, c.byref(got)) or got.value != n:
-            return None
-        return b.raw
-    addr, best = 0, None
-    while addr < 0x7fffffffffff:
-        m = MBI()
-        if not k.VirtualQueryEx(h, c.c_void_p(addr), c.byref(m), c.sizeof(m)):
-            break
-        base = m.BaseAddress or 0
-        if m.State == 0x1000 and m.Protect in (0x04, 0x40, 0x02, 0x20) and m.RegionSize < (1 << 31):
-            data = read(base, m.RegionSize)
-            if data:
-                i = data.find(b'VBTRACE!')
-                while i >= 0:
-                    self_, ptr, lst, n = struct.unpack_from('>IIIH', data, i + 8)
-                    if self_ and ptr:
-                        best = (base + i, self_, ptr, n)
-                    i = data.find(b'VBTRACE!', i + 1)
-        addr = base + m.RegionSize
+    # La misma lectura que bm_probe/load_probe (winuae_memory): regiones
+    # de hasta 256 MB. La firma tambien esta en la copia del ADF (ceros).
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from winuae_memory import ProcessMemory
+    mem = ProcessMemory(proc.pid)
+    read = mem.read
+    best, seen = None, 0
+    for host, raw in mem.find(b'VBTRACE!', 22):
+        seen += 1
+        self_, ptr, lst, n = struct.unpack_from('>IIIH', raw, 8)
+        if self_ and ptr:
+            best = (host, self_, ptr, n)
     if not best:
-        raise SystemExit('sin traza')
+        raise SystemExit('sin traza (%d firmas sin inicializar)' % seen)
     hs, self_, ptr, n = best
     raw = read(hs + (ptr - self_), n * 4)
     if raw is None:

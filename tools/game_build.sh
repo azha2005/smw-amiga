@@ -2,7 +2,9 @@
 # game_build.sh - arma work/game.adf: el juego (player/game.s = el C de la
 # logica + player/scroll.s), Etapas 6.3 y 6b.
 #
-#   sh tools/game_build.sh                       # replay entero (-DREPLAY)
+#   sh tools/game_build.sh                       # replay entero (-DREPLAY, G5L+CUSHION)
+#   GDEFS=" " OUT=work/live sh tools/game_build.sh   # vivo, G5L+CUSHION
+#   PROFILE=legacy sh tools/game_build.sh        # el control anterior, sin G5L
 #   GDEFS="-DREPLAY -DSTOPF=1200" OUT=work/g1200 sh tools/game_build.sh
 #   ORACLE=work/oracle_stress_back.bin REPLAY=work/stress_back_replay.bin \
 #     OUT=work/d1-back GDEFS="-DREPLAY -DBENCH" sh tools/game_build.sh
@@ -19,7 +21,29 @@ VBCC=${VBCC:-/c/Users/JC/vbcc}
 X=; [ -f "$VBCC/bin/vasmm68k_mot.exe" ] && X=.exe
 PY=${PY:-python}
 GDEFS=${GDEFS--DREPLAY}
-CDEFS=${CDEFS--DNOOAM}
+# Perfil por defecto (G5L-R-V, 2026-10-09): G5L + CUSHION + SPR_OAM con el
+# banco G3. PROFILE=legacy es el build anterior (CDEFS=-DNOOAM, sin G5L).
+# Un CDEFS explicito sin SPR_OAM y los experimentos (SPR_G5, NODECOUPLE,
+# HZ25, G5_PRE) se respetan tal cual: no se les agrega nada.
+PROFILE=${PROFILE-g5l}
+case "$PROFILE" in
+    g5l)
+        CDEFS=${CDEFS--DNOOAM -DSPR_OAM}
+        case " $CDEFS $GDEFS " in
+            *" -DSPR_G5 "*|*" -DNODECOUPLE "*|*" -DHZ25 "*|*" -DG5_PRE "*|*" -DG5L "*) ;;
+            *" -DSPR_OAM "*) GDEFS="$GDEFS -DG5L -DCUSHION"
+                SPR_BANK=${SPR_BANK-work/g3/bank}
+                # El vivo arranca con el boot BM1 (exige A501: sin ella,
+                # rojo estable; decision del usuario, 2026-10-09). Replay,
+                # BENCH y las sondas de Exec siguen con trackdisk.
+                case " $GDEFS " in
+                    *" -DREPLAY "*|*" -DLOADTIME "*|*" -DMEMPROBE "*|*" -DBM_FIXED "*) ;;
+                    *) GDEFS="$GDEFS -DBM_FIXED" ;;
+                esac ;;
+        esac ;;
+    legacy) CDEFS=${CDEFS--DNOOAM} ;;
+    *) echo "ERROR: PROFILE=$PROFILE (g5l o legacy)"; exit 1 ;;
+esac
 export CDEFS
 # Compartir el modo de OAM con logicbench; nunca activar solo una mitad.
 case " $CDEFS " in
@@ -46,7 +70,10 @@ case " $GDEFS " in
         case " $CDEFS " in *" -DSPR_G5"*) echo "ERROR: G5L no usa el C de SPR_G5"; exit 1 ;; esac
         [ -n "$SPR_BANK" ] || { echo "ERROR: G5L requiere SPR_BANK"; exit 1; }
         YDAT=work/yi1_s_g5.dat
-        $PY tools/g5l.py mk --bank "$SPR_BANK"
+        # G4-B: los demás enemigos de YI1 por defecto (usuario, 2026-10-10);
+        # G5L_TYPES=AB deja solo el Rex. Con todos y G5L_MAXPL=2 el replay no
+        # entra en chip con Exec (P126): en WinUAE, tools/bm_build.sh
+        $PY tools/g5l.py mk --bank "$SPR_BANK" --types "${G5L_TYPES-all}"
         # G5L-R solo dibuja variantes limpias (g5l_cdma): el banco G3 hace
         # falta para la tabla (arriba), no en el juego (65 KB de chip menos)
         SPR_BANK= ;;
@@ -115,10 +142,35 @@ if source.count(old) != 1:
 pathlib.Path(sys.argv[2]).write_text(source.replace(old, 'incbin  "' + replay + '"'))
 PY
 fi
+# BM1: el boot MFM se arma primero; game.s incluye sus direcciones.
+case " $GDEFS " in
+    *" -DBM_FIXED "*)
+        "$VBCC/bin/vasmm68k_mot$X" -quiet -Fbin -m68000 -no-opt -I player -L "$OUT/boot_bm.lst" \
+            -o "$OUT/boot_bm.bin" player/boot_bm.s
+        $PY - "$OUT/boot_bm.lst" <<'PY'
+import sys
+from pathlib import Path
+sys.path.insert(0, 'tools')
+from m68kverify import symbols
+s = symbols(sys.argv[1])
+Path('work/bm_boot.i').write_text('BM_READ_ADDR equ $%x\nBM_MOTOR_ADDR equ $%x\n' % (
+    s['BM_CODE'] + s['bm_read'], s['BM_CODE'] + s['bm_motoroff']))
+PY
+        ;;
+esac
 "$VBCC/bin/vasmm68k_mot$X" -quiet -Fbin -m68000 $GDEFS -I player -I . -L "$OUT/game.lst" \
     -o "$OUT/game.bin" "$HARNESS"
 $PY tools/piccheck.py --lst "$OUT/game.lst"
-$PY tools/mkadf.py --boot work/boot.bin --stage2 "$OUT/game.bin" --data "$YDAT" \
+case " $GDEFS " in
+    *" -DBM_FIXED "*) BOOT="$OUT/boot_bm.bin" ;;   # armado antes de game.s
+    *) BOOT=work/boot.bin ;;
+esac
+case " $GDEFS " in
+    *" -DLOADTIME "*)   # control de tiempo de BM1: el boot tambien marca TOD
+        BOOT="$OUT/boot_lt.bin"
+        "$VBCC/bin/vasmm68k_mot$X" -quiet -Fbin -m68000 -no-opt -DLOADTIME -I player -o "$BOOT" player/boot.s ;;
+esac
+$PY tools/mkadf.py --boot "$BOOT" --stage2 "$OUT/game.bin" --data "$YDAT" \
     --out "$OUT/game.adf"
 if [ -n "$SPR_BANK" ]; then
     $PY tools/sprgfx_load.py --bank "$SPR_BANK" --adf "$OUT/game.adf"

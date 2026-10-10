@@ -52,6 +52,7 @@ static void oam_mark(u8 x, u8 y, u8 n)
    LDA DATA_07F000,X, todo de 8 bits). En la ROM DATA_07F0B4 va justo
    detras de DATA_07F000: con el ajuste de memoria $13 el indice pasa de
    180 y se lee de ahi. */
+#ifndef LOGIC68K            /* con LOGIC68K: player/logic68k.s (G5L-R-L2) */
 u8 spr_oam_index(u8 x)
 {
     u8 i = (u8)(x + tg2_07F0B4[R8(wm_SpriteMemory)]);
@@ -59,6 +60,7 @@ u8 spr_oam_index(u8 x)
     SETSPR(wm_SprOAMIndex, x, v);
     return v;
 }
+#endif
 
 /* FinishOAMWriteRt (A = fichas - 1, Y = tamaño o $FF): la X alta de cada
    ficha (CODE_01B844) y la Y fuera de pantalla a $F0 (CODE_01C9BF) */
@@ -216,6 +218,7 @@ static u8 sub_spr_gfx2_at(u8 x, u8 m4v)
     return 1;
 }
 
+#ifndef LOGIC68K            /* con LOGIC68K: player/logic68k.s (G5L-R-L2) */
 u8 sub_spr_gfx2(u8 x, u8 m4v)
 {
     spr_oam_index(x);
@@ -257,7 +260,9 @@ void spr013_gfx(u8 x)
     sub_spr_gfx2(x, 0);
     SETSPR(wm_SpriteDir, x, d);
 }
+#endif
 
+#ifndef LOGIC68K            /* con LOGIC68K: player/logic68k.s (G5L-R-L2) */
 /* CODE_02D5E4: las dieciseis fichas de Banzai, en orden inverso. */
 void banzai_gfx(u8 x)
 {
@@ -324,7 +329,9 @@ void piranha_gfx(u8 x)
     SETSPR(wm_SpriteYHi, x, sy >> 8);
     W8(wm_SpriteProp, prop);
 }
+#endif
 
+#ifndef LOGIC68K            /* con LOGIC68K: player/logic68k.s (G5L-R-L2) */
 /* CODE_01C12D: cinta sin cortar, tres fichas de 8x8. */
 void goal_gfx(u8 x)
 {
@@ -343,6 +350,7 @@ void goal_gfx(u8 x)
     }
     finish_oam_write(x, 2, 0);
 }
+#endif
 
 /* CODE_019806 / CODE_019A2A: caparazon y sus dos fichas de humo. */
 void shell_gfx(u8 x, u8 kicked)

@@ -74,8 +74,48 @@
 | `instrucciones-bm1.md` | 2026-10-09 | Medir Exec, supervisor, MFM propio y arenas fijas, con KS 1.2/1.3 |
 | `informe-bm1-1009.md` | 2026-10-09 | Exec retiene 23016 B, MFM/fijo KS 1.2 opt-in recupera 18920 B; KS 1.3 pendiente |
 | `informe-bm1-limites-1009.md` | 2026-10-09 | Tope de sincronías MFM corruptas: 84 casos, boot 988 B; Z1 final |
-| `instrucciones-g5l-r-cierre.md` | 2026-10-09 | Cerrar teclado/RETURN y hacer G5L+CUSHION defecto solo con puertas verdes |
-| `instrucciones-bm1-cierre.md` | 2026-10-09 | Cerrar KS1.3, alcance sin A501 y tiempo trackdisk comparable |
+| `instrucciones-g5l-r-cierre.md` | 2026-10-09 | Procedimiento ejecutado: teclado/RETURN y G5L+CUSHION por defecto |
+| `instrucciones-bm1-cierre.md` | 2026-10-09 | Procedimiento ejecutado: KS 1.3, sin A501 y tiempo trackdisk comparable |
+| `informe-cierre-v-bm1-1009.md` | 2026-10-09 | V y BM1 cerradas: teclado real, defectos nuevos (BM1 en el vivo), KS 1.3, 31,96 s contra 33,02 s |
+| `instrucciones-g5l-r-t2.md` | 2026-10-09 | Medir por frame qué causa los 25 saltos de VBTRACE antes de otro candidato |
+| `informe-g5l-r-t2-1009.md` | 2026-10-09 | T2: los saltos son atraso acumulado; camino lento de G5L + picos de `build_mid`; propuesta G5L-R-P |
+| `instrucciones-g5l-r-pa.md` | 2026-10-09 | Medida offline: ¿el plan de G5L se reutiliza corrido a otra altura? (hecha) |
+| `informe-g5l-r-pa-1009.md` | 2026-10-09 | Pa: el plan corrido no se reutiliza (puerta no cumplida); reparto del coste y palancas |
+| `instrucciones-g5l-r-q.md` | 2026-10-09 | Medida: histograma por PC y recortes posibles en G5L y `build_mid` (hecha) |
+| `informe-g5l-r-q-1009.md` | 2026-10-09 | Q: perfil por PC plano; reescrituras concretas −8 %; qué metas son alcanzables |
+| `instrucciones-g5l-r-r1.md` | 2026-10-09 | Reescrituras concretas del render G5L y primera medida en WinUAE (hecha) |
+| `informe-g5l-r-r1-1009.md` | 2026-10-09 | R1: render G5L −5,6 %; BENCH 66 → 53, VBTRACE 25 → 17 |
+| `informe-g5l-r-s9-1010.md` | 2026-10-10 | S5 descartado; S9 (compartir líneas entre listas): BENCH 36, VBTRACE 12 |
+| `instrucciones-g5l-r-l.md` | 2026-10-10 | El racimo 3305-3364: lógica, camino lento de G5L, primer pico de `bm_left` |
+| `informe-g5l-r-l1-1010.md` | 2026-10-10 | L paso 1: la lógica por función es plana; qué pide llegar a ≤ 5 omitidas |
+| `informe-g5l-r-l2-1010.md` | 2026-10-10 | L2 lote 1: lógica a asm; YI1 VBTRACE 0 omitidas; estrés rojo; Guru 3 latente (P123) |
+| `informe-p123-scroll-1010.md` | 2026-10-10 | P123 corregida: a2 destruido por columns; prueba del bucle real; perfil de la vuelta; recortes de CPU retirados por BENCH peor |
+| `instrucciones-g5l-r-s10.md` | 2026-10-10 | Prototipo acotado de speedcode: tamaño/coste antes de integrar; tres replays y A/B real con P123 corregida |
+| `instrucciones-g5l-r-l3.md` | 2026-10-10 | Recortes de los núcleos asm restantes tras S10: perfil, fuzz, copper y WinUAE |
+| `informe-g5l-r-s10-1010.md` | 2026-10-10 | S10 cerrada: speedcode 118 KB y −6,2 % de CPU; no cabe en el vivo; WinUAE ≈ 2,8× Musashi |
+| `informe-g5l-r-m1-1010.md` | 2026-10-10 | M1: ≈ 2,8× = fotos omitidas × DMA de 6 planos; espiral de la vuelta con \|Δs\| > 16 |
+| `informe-g5l-r-s11-1010.md` | 2026-10-10 | S11 cerrada en fase 1: ventanas de ≈ 13 px a la izquierda, ≈ 90 reescrituras por foto; candidatos sin margen |
+| `informe-g5l-r-l3-1010.md` | 2026-10-10 | L3 cerrada: perfil de la lógica plano, MCACHE retirado, C restante 0,8/5,7 %; ningún recorte mueve D1 |
+| `instrucciones-g4a.md` | 2026-10-10 | G4-A: inventario de enemigos, columnas por línea, cota de bobs y memoria de la tabla G5L para todos |
+| `informe-g4a-1010.md` | 2026-10-10 | G4-A: inventario exacto de enemigos, columnas por línea, cota de bobs, memoria por formato; el Rex aplastado que G5L no dibuja |
+| `instrucciones-g5l-n.md` | 2026-10-10 | G5L-N: clave normalizada y máscaras compartidas en la tabla del Rex |
+| `informe-g5l-n-1010.md` | 2026-10-10 | G5L-N: tabla G5L2 (clave normalizada, máscaras por forma), el Rex aplastado ya se dibuja, −84 KB de slow |
+| `instrucciones-g4-1.md` | 2026-10-10 | G4-1: varios Rex por foto en la referencia Python, cola de bobs contada |
+| `informe-g4-1-1010.md` | 2026-10-10 | G4-1: varios Rex por foto en la referencia; el límite son los canales, no los colores |
+| `instrucciones-g4-2.md` | 2026-10-10 | G4-2: varios Rex en el 68000 con encadenado DMA por lista |
+| `informe-g4-2-1010.md` | 2026-10-10 | G4-2: 2 Rex por foto en el 68000, exacto; apagado por defecto porque empeora D1 (A/B) |
+| `instrucciones-g4-2o.md` | 2026-10-10 | G4-2o: abaratar el camino de varios Rex para activarlo |
+| `instrucciones-g4-3.md` | 2026-10-10 | G4-3: Rex en los pares de sprites de Mario, fuera de sus filas |
+| `informe-g4-2o-1010.md` | 2026-10-10 | G4-2o: el camino de varios Rex más barato; el A/B sigue sobre el ruido |
+| `instrucciones-g4-b.md` | 2026-10-10 | G4-B: los demás enemigos de YI1 por G5L |
+| `informe-g4-b-1010.md` | 2026-10-10 | G4-B: los demás enemigos por G5L (tabla G5L3), exactos; apagados por defecto por D1 y la chip |
+| `instrucciones-g9.md` | 2026-10-10 | G9: la imagen de los sprites contra la OAM de la SNES |
+| `informe-g9-1010.md` | 2026-10-10 | G9: dibujo exacto contra la SNES (10 capturas); deriva de lógica medida |
+| `instrucciones-l-der.md` | 2026-10-10 | L-DER: la deriva de la lógica de sprites contra la SNES |
+| `instrucciones-g5l-r-s11.md` | 2026-10-10 | Cortar la espiral de la vuelta en `build_mid`, sin cambiar la imagen |
+| `instrucciones-g5l-r-m1.md` | 2026-10-10 | Medir por qué `build_mid` cuesta ≈ 2,8× en el hardware: pares por foto, VHPOSR, variantes opt-in |
+| `investigacion-demoscene-1010.md` | 2026-10-10 | fuentes de demos: speedcode, código automodificable, cadenas copper-blitter y carga/descompresión; §11 reordena tras L2: speedcode en `build_mid` según el perfil de estrés |
+| `instrucciones-g5l-r-l2.md` | 2026-10-10 | Opción A: la lógica en C a asm, por partes (si el usuario la elige) |
 | `instrucciones-g2t-cpre.md` | 2026-10-08 | G2T-Cpre: emisor `g5_emit` y capturas WinUAE (0/57 344 px) con el plan precalculado en el replay, antes de terminar B |
 | `instrucciones-revision-1007.md` | 2026-10-07 | revisión propuesta tras las dos paradas: diagnóstico de coste OAM y contrato temporal, antes de nueva implementación |
 | `informe-revision-loam-1007.md` | 2026-10-07 | revisión L-OAM: coste de OAM por función en YI1 y estrés (Musashi y WinUAE), por qué el estrés sale peor, y una tarjeta (ruta de la piraña en asm) |

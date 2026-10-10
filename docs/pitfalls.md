@@ -1040,3 +1040,185 @@ caminando), y la caché de 4 poses fallaba en cada foto: `g5l_mfill`
 ninguna ficha de las entradas lee (misma regla que `g5l_gtile`: `$7F` el
 par 10, `t < $20` con `(t & 15) < 10` el `(t & 15) / 2`, +5 abajo).
 `g5l_mfill` sigue leyendo los punteros reales de la foto.
+
+**P117 — Teclado real en WinUAE: RawInput ignora `SendInput`, y el Koopa deslizante mata al empezar.**
+`shot.ps1 -Keys` manda scancodes con `SendInput` tras tomar el foco con
+`AttachThreadInput` (sin eso `SetForegroundWindow` falla desde un proceso
+de fondo). Con el teclado por RawInput (lo normal en WinUAE) las teclas
+llegan a Windows pero **no a la Amiga**; hay que lanzar WinUAE con
+`-norawinput_keyboard` (el script lo agrega con `-Keys`). Al probar: el
+Koopa sin caparazón `$BD` baja la colina y mata a Mario quieto (220
+frames) o andando a la derecha desde el inicio (x $21). Es fiel: snesorc
+muere igual. Para no confundirlo con un fallo de entrada, leer la
+página 2 del diagnóstico con `diag_read.py --repro`.
+
+**P118 — PowerShell: `Test-Path` toma los corchetes como comodín.**
+La ROM `Kickstart v1.3 r34.005 (...)[!].rom` "no existe" para `Test-Path`
+sin `-LiteralPath`. `shot.ps1` comprueba ADF, ROM y WinUAE con
+`-LiteralPath` desde el 2026-10-09.
+
+**P119 — `restart_verify.py` no vale sobre un build con `Z1STOP`.**
+La prueba de latencia de `dc_vb` falla con y sin BM1 (`work/g5l/z1n`):
+`Z1STOP` es solo para la captura reproducible. El reinicio se verifica
+con `restart_verify.py` sobre el vivo sin el flag (`regress.py --g5l
+--bm1`) y la captura Z1 con `diag_read.py` (frame 411, X 0010 Y 0160).
+
+**P120 — `vbtrace.py` daba "sin traza": a su `.uae` le faltaba `use_gui=no`.**
+Con el defecto G5L+CUSHION, `vbtrace.py` no encontraba la firma
+`VBTRACE!`: WinUAE se quedaba en el diálogo y el juego no corría. Con
+`use_gui=no` reproduce los 25 saltos del informe T. En la misma sesión su
+escáner de memoria propio se cambió por `winuae_memory.ProcessMemory.find`
+(el de `bm_probe`/`load_probe`), que además dice cuántas firmas sin
+inicializar vio (la copia del ADF vale cero); no está probado que el
+escáner viejo fallara. Un `.uae` generado para leer memoria: `use_gui=no`.
+
+**P121 — Los picos de `build_mid` vienen de a tres (uno por lista), no se adelantan.**
+Con el colchón hay tres listas del copper y cada una reescribe las mismas
+líneas una foto después de la otra: 5834/5835/5836 = 78k/83k/86k ciclos.
+S5 (adelantar líneas que vencen pronto con un presupuesto) no los baja:
+en una pasada de arriba abajo gasta el presupuesto antes de llegar a las
+debidas y **sube** el pico; con dos pasadas el pico queda igual y la media
+sube 5-60 % (`informe-g5l-r-s9-1010.md` §2). Lo que sirve es **S9**:
+copiar la línea de la lista anterior si vale en s (vale por su contenido,
+`[vl, vu)`), y solo calcular en la primera foto del pico. Medir antes por
+foto y por lista, no por frame suelto.
+
+**P122 — `lint_port.py` (V3): una cabecera `; ---` entre `build_mid` y `bm_left` los separa.**
+El analizador asigna el código a la rutina de la última cabecera `; ---
+nombre ---`. `bm_left` no tiene una: vive dentro de `build_mid`, que salta
+a ella con `blt bm_left`. Una cabecera nueva en medio la convierte en otra
+rutina y salen errores de pila y de registros "en `build_mid`" que no son
+reales. Las rutinas nuevas van después de `bm_left`. Un `jmp` calculado
+(`jmp .x(pc,d1.w)`) necesita `; lint: targets .x`.
+
+### P123 — columns destruye a2 y dc_loop lee una foto falsa: corrupción de GV_TAB
+
+**Síntoma (2026-10-10):** el build BENCH de `stress_back` en el commit
+`e7234ab` (antes de G5L-R-L2) muestra siempre "Guru Meditation
+#00000003.00C01570" en WinUAE; el segundo número es la tarea, no el PC.
+Musashi (`g5l.py game`) y Unicorn (`m68kverify`) no tienen error de
+dirección: un `.w`/`.l` en dirección impar pasa sin avisar.
+
+**Herramientas:** `GDEFS="-DREPLAY -DBENCH -DADRTRAP"` instala vectores
+propios de bus/dirección/ilegal (al final del binario, P102) que guardan
+el marco y los registros tras `ADRTRAP!`; `python tools/adrtrap.py ADF LST
+[s]` corre WinUAE cycle-exact y los traduce. `m68kverify.py --odd`
+(Unicorn) lista los accesos impares de la lógica.
+
+**Observación inicial:** `g5l_render` encontraba `GV_TAB=$31FA0031`.
+La lógica no hacía accesos impares (`--odd`: 0). El candidato inicial
+era `g5l_wcache`, porque su tabla termina junto a GV_TAB. Una sonda puede
+alterar el layout y esconder el fallo; el Guru indica dónde se usa la
+dirección corrupta, no quién la escribió.
+
+**Causa comprobada:** `dc_loop` tenía `a2=dc_st`, pero `columns` destruye
+`a2` (declarado en su cabecera). `build_mid` guardaba/restauraba ese a2
+ya destruido. Después, G5L leía `DC_REND(a2)` desde los píxeles de PF1 y
+`dc_recp` entregaba una foto falsa. Con un contador cero, `g5l_choose`
+restaba 1 y su DBF escribía fuera de GV_KEY, hasta GV_TAB.
+
+**Arreglo:** `lea dc_st(pc),a2` inmediatamente antes de leer DC_REND en
+el camino G5L del bucle. No añadir un límite para esconder la foto falsa.
+`tools/dc_loop_verify.py` ejecuta el bucle real con columnas nuevas en
+ambas direcciones: falla antes del arreglo (slot 2, s=33) y pasa 3/3
+después. Está en `regress.py --g5l`. El arnés que llama las fases por
+separado y les suministra una foto válida no cubre ese fallo.
+
+**Writer sin modificar el binario:** `tools/gvtab_watch.py ADF LST
+--seconds 150 --out work/p123/watch`, bajo el candado, después de generar
+`at.uae` para ese ADF con `adrtrap.py`. Abre un WinUAE propio y cruza su
+PID con el pipe IPC; `DBG w 0 <GV_TAB> 4 BW` provoca bus error al escribir
+GV_TAB después de init. En el binario original: escritor B+$32730,
+`move.b d0,(a2)+`, `g5l_choose .k`; foto falsa $C1D006 dentro de código.
+Volcados y datos derivados solo en `work/`. Evidencia y reconstrucción
+e7234ab + arreglo, 150 s cycle-exact sin excepción:
+`docs/informe-p123-scroll-1010.md` §1.
+
+
+**P124 — Una forma de sprite es la misma con otro desplazamiento respecto de la ranura; y las filas del banco G3 no son colores.**
+
+**Síntoma:** G5L no dibujaba el Rex aplastado o medio aplastado en
+`hills2` (340 de 2.110 frames con Rex), `stress_*`, `shells` y
+`pw_estrella`; `g5l.py trace` contaba `rex_sin_forma`. En `yi1`, `normal`
+y `spin_kill`, las trazas de las que sale el banco, no pasaba.
+
+**Causa:** la clave de la forma eran las fichas con dx/dy relativos a la
+ranura. El mismo dibujo aparece con otro dy (−3 … +1) según dónde quede
+la ranura respecto de las fichas: 30 de las 33 formas que faltaban eran
+traslaciones de una que ya estaba.
+
+**Arreglo (G5L-N):** normalizar la clave al mínimo dx/dy (s8), sin
+reordenar las fichas, y sumar ese mínimo a sx/sy antes de usar el origen
+de la variante (`g5l.norm_key`, `g5l_choose`). Al deduplicar, comparar la
+imagen con `clean_pose(..., CLEAN_MAPS[0])['rows']`. **No** con
+`pose['rows']`: en el banco G3 son índices asignados por petición (con
+las filas reservadas de Mario), y dos traslaciones de la misma imagen
+tienen índices distintos. La primera versión abortó por eso.
+
+**Cómo verlo:** `tools/g4a.py traceall` hace las trazas SOT1 completas
+del host. Las trazas del Rex de otras grabaciones van a
+`work/oam_<nombre>.trace` (filtro `$AB`), y `g5l.py trace --traces ...`.
+`docs/informe-g4a-1010.md` §3, `docs/informe-g5l-n-1010.md`.
+
+
+
+**P125 — El encadenado DMA de dos Rex: la cadena es una copia, y un búfer de bandas cambia sin cambiar de dirección.**
+
+**Síntoma (evitado en G4-2, no llegó a fallar):** con dos Rex en un par de
+sprites, el DMA lee las filas del primero, en su VSTOP el POS/CTL del
+segundo y después sus filas. Eso no se puede escribir en el flujo del
+banco limpio, que es inmutable (P108) y compartido por todas las fotos.
+Tampoco en el búfer de bandas, que tiene lugar para un solo Rex.
+
+**Causa:** el flujo encadenado es otro objeto. G4-2 lo copia a un búfer de
+chip por lista y flujo (`G5L_CSTR` = 264 B: 2 × 32 filas, POS/CTL y fin;
+`G5L_LBLK` por lista con las bandas de los dos Rex). La copia cuesta
+≈ 1,3 k ciclos por flujo, así que se cachea por (lista, flujo) con la
+clave (filas del primero, filas del segundo, n1, n2). Si coincide, solo se
+reescribe el POS/CTL del segundo. **La clave vale solo si las dos fuentes
+son del banco limpio.** Un búfer de bandas (`GV_RBUF + 4 × G5L_RSTR × k`)
+se reescribe con otro parche en la misma dirección, así que con bandas
+se copia siempre. La caché de `g5l_patch` tampoco puede elegir su clave
+comparando `GV_RBUF`: ahora hay una por (lista, Rex) (`GV_RKP`).
+
+**Cómo verlo:** `g5l.py game` compara cada cadena con las fuentes en
+memoria (`cadenas`, `cadena_distinta`) y cada búfer de bandas con
+`rbuf_streams` (`bufer_distinto`). `docs/informe-g4-2-1010.md`.
+
+**P126 — En el replay, el margen de chip de `memmap.py` no descuenta lo que retiene Exec.**
+
+**Síntoma (G4-B):** el ADF de chuck con todos los tipos y `-DG5L_MAXPL=2`
+arranca con la pantalla en rojo y no sale de ahí. `memmap.py` daba
+0 violaciones y 21.480 B de margen de chip.
+
+**Causa:** el replay arranca con el boot de siempre, que pide la chip a
+Exec (`AllocMem`). Exec, sus librerías y trackdisk retienen **23.016 B**
+(medido en BM1, `informe-bm1-1009.md` §1), y `memmap.py` no los cuenta.
+Con menos de eso de margen, un `AllocMem` falla y `game.s` salta a
+`gfail`, que pinta `COLOR00` de rojo. El vivo usa `-DBM_FIXED` (arenas
+sin Exec) y `memmap.py` sí cuenta su reserva inferior de 4.096 B, así que
+en el vivo el margen es real.
+
+**Cómo evitarlo:** en un build de replay hay que tener margen ≥ 23.016 B,
+o usar `tools/bm_build.sh`. Margen de chip real del replay: el de
+`memmap.py` menos 23.016 B. Con todos los tipos y un objeto quedan
+26.280 − 23.016 ≈ 3,3 KB (`docs/informe-g4-b-1010.md` §4).
+
+**P127 — La foto del port: la x/y de la ranura es posterior al movimiento y la OAM anterior; y el mapa de una variante es su familia, no su tipo.**
+
+**Síntoma (G9):** comparando la foto del port con la traza del oráculo
+por (x, y de la ranura − cámara), un Rex que camina salía "corrido +1/+2"
+en cientos de fotos que se veían bien. Y `g5l.py game` contaba como Rex
+al Koopa, a la caja y a `$02`.
+
+**Causa:** SMW dibuja la OAM de un sprite y después lo mueve.
+`g5l_capture` toma la x/y de la ranura al final del frame, con el
+movimiento ya hecho, pero las fichas son las de antes. Lo que se ve es la
+OAM absoluta. La segunda parte: todas las formas de `$BD`, `$B9` y `$02`
+ya estaban en el banco G3, y `build_table` las deja con los 4 mapas del
+Rex. El mapa (byte 7 de la variante, `ctype`) es la familia de colores.
+
+**Cómo evitarlo:** comparar entradas OAM absolutas
+(`sprshot_cmp.py --logic`). Para saber el tipo, ir a la traza por
+(frame, ranura): `game_frames.json` guarda `slot`, y el contador se llama
+`familia_XX`.

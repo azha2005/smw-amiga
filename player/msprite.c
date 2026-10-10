@@ -97,7 +97,7 @@ static int spawn(u8 y, u8 index, u8 col, u8 scr, u8 state)
    recorre el nivel entero cada 2 frames (~3 000 ciclos en el 68000). Se
    arma una vez por nivel (cuando cambia spr_level). */
 const u8 *sll_for;              /* global: logicbench -DWORST lo corrige */
-static u8 sll_y[33], sll_i[33];
+MSS u8 sll_y[33], sll_i[33];      /* MSS: las lee sprite_load_level (asm) */
 static void sll_build(void)
 {
     /* una pasada: las s ya llenas son siempre un prefijo [0, hi) (la
@@ -119,7 +119,8 @@ static void sll_build(void)
 }
 
 /* LoadSprFromLevel (nivel horizontal) */
-static void load_column(void);
+MSS void load_column(void);
+#ifndef LOGIC68K            /* con LOGIC68K: player/logic68k.s (G5L-R-L2) */
 void sprite_load_level(void)
 {
     spr_spawned = 0;
@@ -127,9 +128,10 @@ void sprite_load_level(void)
         return;
     load_column();
 }
+#endif
 
 /* _02A802: la columna que entra por el borde (sin mirar FrameA) */
-static void load_column(void)
+MSS void load_column(void)
 {
     u8 d, col, scrn, y, index;
     u16 c;
@@ -646,6 +648,7 @@ int get_draw_info(u8 x)
    OJO: con un puntero u8 *p = &RX8(wm_SpriteXLo, x) y p[t - wm_SpriteXLo]
    vbcc -O=991 cargo en el puntero la base de OTRA tabla (XHi) y leyo mal
    todo (el PC, bien): se queda con SPR(). */
+#ifndef LOGIC68K            /* con LOGIC68K: player/logic68k.s (G5L-R-L2) */
 MSX int get_draw_info1(u8 x)
 {
     u16 d;
@@ -667,11 +670,13 @@ MSX int get_draw_info1(u8 x)
     SETSPR(wm_OffscreenVert, x, v);
     return 1;
 }
+#endif
 
 /* para spr_shell.c: GetDrawInfoBnk1 */
 int spr_draw_info1(u8 x) { return get_draw_info1(x); }
 
 /* SubOffscreen0Bnk3 (nivel horizontal) */
+#ifndef LOGIC68K            /* con LOGIC68K: player/logic68k.s (G5L-R-L2) */
 MSX void sub_offscreen3(u8 x)
 {
     u8 y, e = 0;
@@ -700,6 +705,7 @@ MSX void sub_offscreen3(u8 x)
         W8(wm_SprLoadStatus + SPR(wm_SprIndexInLvl, x), 0);
     SETSPR(wm_SpriteStatus, x, 0);
 }
+#endif
 
 /* GetMarioClipping + GetSpriteClippingA + CheckForContact: 1 si las cajas
    de Mario y del sprite se tocan. */
@@ -779,7 +785,7 @@ static void star_kill(u8 x)
     SETSPR(wm_SpriteSpeedX, x, sub_horiz_pos(x) ? 0x10 : 0xF0);    /* DATA_01A839 */
 }
 
-static void default_interact(u8 x)
+MSS void default_interact(u8 x)      /* MSS: con LOGIC68K la llama mario_spr_interact (asm) */
 {
     u8 c;
     u16 sy;
@@ -858,6 +864,7 @@ static void default_interact(u8 x)
 /* MarioSprInteractRt, hasta el contacto. 1 si hay contacto y la reaccion
    la hace el propio sprite (Tweaker167A bit 7, el Rex); si no, la hace
    DefaultInteractR y devuelve 0. */
+#ifndef LOGIC68K            /* con LOGIC68K: player/logic68k.s (G5L-R-L2) */
 static int process_interact(u8 x);
 MSX int mario_spr_interact(u8 x)
 {
@@ -891,6 +898,9 @@ static int process_interact(u8 x)
         return 0;
     return spr_mario_contact(x);
 }
+#else
+int process_interact(u8 x);          /* player/logic68k.s (invis_blk) */
+#endif
 
 /* CODE_01B457 (InvisBlkMainRt): el sprite como bloque solido para Mario */
 static const s8 blk_push_lo[6] = { 14, -15, 16, -32, 31, -15 };  /* DATA_01B4F9 */
@@ -1241,6 +1251,7 @@ MSX void spr_spr_interact(u8 y)
 #endif
 
 /* LoadTweakerBytes (para sprites que no corre el port) */
+#ifndef LOGIC68K            /* con LOGIC68K: player/logic68k.s (G5L-R-L2) */
 void sprite_tweakers(u8 x)
 {
     u8 n = SPR(wm_SpriteNum, x);
@@ -1251,6 +1262,7 @@ void sprite_tweakers(u8 x)
     SETSPR(wm_Tweaker1686, x, tx_1686[n]);
     SETSPR(wm_Tweaker190F, x, tx_190F[n]);
 }
+#endif
 
 /* SubOffscreen0Bnk1 = SubOffscreen0Bnk3 con m3 = 0 (mismas tablas en las
    entradas 0 y 1); solo cambia el $1F (Lakitu), que no esta en el nivel */
@@ -1414,6 +1426,7 @@ gfx:                                        /* _Spr0to13Gfx */
    izquierda ($E8). GetDrawInfo2 y SubOffscreen0Bnk2 son los del banco 3
    (mismas tablas); si GetDrawInfo2 lo ve lejos solo se salta el dibujo.
    Aunque SubOffscreen lo borre, el resto del frame sigue (como el ROM). */
+#if !defined(LOGIC68K) || !defined(SPR_OAM)   /* LOGIC68K + SPR_OAM: player/logic68k.s */
 MSS void banzai_bill(u8 x)
 {
 #ifdef SPR_OAM
@@ -1428,6 +1441,9 @@ MSS void banzai_bill(u8 x)
     spr_pos_axis(x, 0x0C);                  /* UpdateXPosNoGrvty2 */
     mario_spr_interact(x);                  /* DefaultInteractR: pisarlo lo tira (estado 2) */
 }
+#else
+void banzai_bill(u8 x);
+#endif
 
 /* JumpingPiranhaMain -> CODE_02E0CD (sprite_2-2.s), el $4F: salta de la
    tuberia (sube a $C0 y frena), baja flotando hasta posarse y espera $40

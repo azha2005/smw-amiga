@@ -1994,3 +1994,1280 @@ U3 opcional: A500 real.
 Entrega en g2t-b2bis, sin merge/push: 5461b8a (T, 66 fotos BENCH frente a 67; segundo candidato 65/racha2 retirado), a728ddc (V, tres listas/Z1/latencia), a41da43 (BM1, MFM/fijo KS1.2, 18920 B recuperados). Red final lint/regress --level --g5l --bm1/OAM68K/hashes verdes. Faltan teclado real y defecto V, KS1.3 y control de carga trackdisk; informes de esta fecha.
 
 Revisión final BM1 `c30ff27`: sincronías corruptas acotadas al DMA, 84 casos MFM exactos, boot988 B; nueva captura Z1 final vuelve en411/$71=00. Informe `docs/informe-bm1-limites-1009.md`.
+
+---
+
+## Archivado 2026-10-09 (noche): PROXIMO de la sesión T/V/BM1, cumplido
+
+# PRÓXIMO — lo que sigue
+
+2026-10-09. **Código en `g2t-b2bis`, sin merge ni push**; worktree:
+`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
+anterior; los documentos indican el avance de la rama.
+
+Se iteraron las tres tarjetas. **T llegó a su parada**: 67→66 fotos BENCH;
+el segundo intento dio 65 pero racha2 y se retiró. Control con tres listas
+9; VBTRACE sin BENCH 25 saltos (instrumentaciones distintas). D1 roja.
+**V implementada opt-in**: tres listas en vivo, muerte/reinicio/diagnóstico
+y latencia de dos ticks verdes; falta teclado real antes del defecto.
+**BM1 opt-in funciona en KS1.2/A501**: MFM y arenas fijas, datos/imagen
+exactos, reinicio, 18920 B recuperados y carga 32,24 s. Falta KS1.3.
+
+Commits de código: `5461b8a`, `a728ddc`, `a41da43`, `c30ff27`. Informes:
+`docs/informe-g5l-r-tirones-1009.md`, `docs/informe-g5l-r-vivo-1009.md`,
+`docs/informe-bm1-1009.md`, `docs/informe-bm1-limites-1009.md`. Lint, regress `--level --g5l --bm1`, OAM68K
+y cinco MD5 normales verdes. **Los defectos siguen iguales**.
+
+## 0. Sesión interrumpida 2026-10-09 (tarde) — retomar desde aquí
+
+El usuario pidió la PC; quedó a medias. **Decisiones del usuario:**
+KS 1.3 = `C:\Users\JC\Desktop\Escritorio 26\Escritorio 25\jueguitos p amiga\Kickstart v1.3 r34.005 (1987-12)(Commodore)(A500-A1000-A2000-CDTV)[!].rom`;
+**sin A501 el juego no carga** (el rojo estable del boot fijo es la
+política; se cierra la exclusión). El usuario jugó el vivo: "anda y se
+mueve" (U1 a mano). Worktrees redundantes borrados (9, ya en master);
+quedan los que tienen commits fuera de master: agent-ab11…, agent-af1f…,
+wt-g5bis-1007, wt-review-1007.
+
+Hecho: partida verde (lint, regress `--level --g5l --bm1`), builds
+`work/g5l/liveclose` (188/190 verdes) y `work/bm1/compare` (MFM y
+memmap verdes). `tools/shot.ps1 -Keys "seg:down|up|tap:TECLA;..."`
+manda scancodes con SendInput; **hace falta `-norawinput_keyboard`**
+(lo agrega solo) o WinUAE no las ve.
+
+**Abierto con teclas inyectadas** (`work/g5l/liveclose/d_*.png`, no
+reproducido a mano por el usuario): mantener RIGHT mata a Mario al
+instante (diag: motivo 11 muerte, frame 07EE, X0010 Y0336, $71=09, PIE
+FFFF, HIST 0002); reaparece, camina y vuelve a morir. Sin teclas no
+muere. Sospecha: artefacto de la inyección (el ALT que `Front()` manda
+cada segundo, o el scancode extendido) — **leer la página 2 con
+`diag_read.py --shot d_105s.png --bin work/g5l/liveclose/game.bin
+--repro`** para ver los bits que vio el juego antes de tocar código.
+Espacio → página 2 y RETURN → juego de nuevo funcionaron (d_111s+);
+d_117s salió negra (sin explicar).
+
+Faltan: esa lectura, KS 1.3 (BM1 pasos 1-3), control trackdisk (paso
+4), defectos G5L+CUSHION y BM_FIXED (ahora sin bloqueo A501), MD5,
+informes y cierre §7.
+
+## 1. La próxima sesión
+
+| tarjeta | toca | instrucciones y entrega |
+|---|---|---|
+| **G5L-R-V cierre** | teclado real/RETURN en WinUAE; después, G5L+CUSHION por defecto en commit propio | `docs/instrucciones-g5l-r-cierre.md`: arranque/interacción, Z1, historial, memoria y cinco hashes nuevos |
+| **BM1 cierre** | KS1.3, política sin A501 y tiempo comparable contra trackdisk; conservar boot opt-in mientras falten puertas | `docs/instrucciones-bm1-cierre.md`: MFM/mapa/Z1 verdes, bytes y píxeles exactos en ambas ROMs, tiempo con mismos extremos |
+
+No repetir implementaciones que ya pasan. Si falta el helper o ROM,
+continuar solo puertas independientes. Builds seriales, una WinUAE midiendo,
+R9. T no recibe otro candidato antes de revisar los números de su parada.
+
+## 2. Después
+
+Revisión de T: fast fallido/sweep durante daño y presupuesto global de
+build_mid/S5; 66 BENCH y 25 VBTRACE aún no cumplen D1. Luego otros enemigos,
+dos Rex, bobs/Banzai, HUD y audio. BM1 deja solo 24856 B de chip en vivo:
+las tablas CPU en chip (135468 B) todavía necesitan C2/C4 y espacio slow.
+**[usuario, 2026-10-09]: el foco es G5L-R**; B2bis/Cpre/B35 aparcadas.
+
+## 3. Pendiente del usuario o la PC
+
+- Ruta local de **Kickstart 1.3**: solo se encontró `amivideo/kick12.rom`.
+- Helper Computer Use: error de conexión nativa (`os error 2`) tras dos
+  intentos y reinicio; impide enviar teclado real. U1 también puede
+  validarse jugando el ADF normal G5L vivo de la rama.
+- Antes de sustituir el boot normal, cerrar soporte sin A501: el fijo
+  muestra rojo estable, el normal conserva su comportamiento anterior.
+- U2 capa 2 contra referencia; U3 opcional A500 real. Borrar worktrees
+  viejos sigue siendo decisión del usuario.
+
+ADF vivo normal con Rex/colchón: `work/session/live/game.adf` en el
+worktree. ADF vivo bare metal final: `work/rg_bm1/game.adf`.
+
+### Qué se hizo (sesión de cierre V/BM1, 2026-10-09 noche)
+
+G5L-R-V y BM1 **cerradas** en g2t-b2bis, sin merge/push. Teclado real por
+`shot.ps1 -Keys` (SendInput + `-norawinput_keyboard`, P117): corre, salta,
+diagnóstico, historial reproducido por la PC, RETURN a juego nuevo, en KS 1.2
+(trackdisk) y KS 1.3 (BM). Las muertes al inicio son fieles (Koopa `$BD`,
+snesorc). Defectos en commit propio `53e6453`: G5L+CUSHION+SPR_OAM, vivo con
+boot BM1 (sin A501 no carga, decisión del usuario); `PROFILE=legacy` da los
+cinco MD5 del informe T. BM1 KS 1.3: datos exactos, 0/327680 px, Z1 411,
+rojo sin A501. Control trackdisk `-DLOADTIME` (`143c9ea`): 33,02 s contra
+31,96-31,98 s de BM1 (−3 %). lint y regress `--level --g5l --bm1` verdes.
+9 worktrees redundantes borrados. Informe: `docs/informe-cierre-v-bm1-1009.md`.
+
+---
+
+## Archivado 2026-10-09 (noche, 2): PROXIMO de la sesión G5L-R-T2, cumplido
+
+# PRÓXIMO — lo que sigue
+
+2026-10-09 (noche). **Código en `g2t-b2bis`, sin merge ni push**; worktree:
+`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
+anterior; los documentos indican el avance de la rama.
+
+**G5L-R-V y BM1 cerradas** (`docs/informe-cierre-v-bm1-1009.md`). Teclado
+real verificado en WinUAE (`shot.ps1 -Keys`, P117) en KS 1.2 y 1.3, y el
+usuario jugó el vivo a mano. **Defectos nuevos** (`53e6453`, commit propio):
+G5L+CUSHION+SPR_OAM; el vivo arranca con el boot BM1 (sin A501 no carga,
+decisión del usuario); `PROFILE=legacy` es el control y da los cinco MD5
+del informe T. BM1: KS 1.3 con datos y píxeles exactos, Z1, rojo sin A501;
+carga 31,96 s contra 33,02 s de trackdisk (−3 %, `-DLOADTIME`). lint y
+regress `--level --g5l --bm1` verdes. BENCH del defecto: 66 fotos, racha 1.
+**D1 sigue roja.** 9 worktrees redundantes borrados.
+
+ADF vivo por defecto: `GDEFS=" " OUT=work/live sh tools/game_build.sh`
+→ `work/live/game.adf` (BM1, exige A501).
+
+## 1. La próxima sesión
+
+| tarjeta | toca | instrucciones y entrega |
+|---|---|---|
+| **G5L-R-T2** | solo medida: atribuir los 25 saltos de VBTRACE (y las 66 fotos BENCH) a las partes de G5L y a `build_mid` por frame; propuesta de candidato con coste estimado, **sin implementarla** | `docs/instrucciones-g5l-r-t2.md`: 66/25 reproducidos, CSV por frame que cuadra con G5L GAME, tabla de los 25 saltos, patrón ≥ 20/25 o su ausencia |
+
+Builds seriales, una WinUAE midiendo, R9. Un candidato nuevo para los
+tirones necesita autorización del usuario después del informe T2.
+
+## 2. Después
+
+Con el informe T2: el candidato que el usuario autorice y la compuerta D1.
+Luego otros enemigos (dos Rex, Banzai/bobs), HUD y audio. BM1 deja 24856 B
+de chip en el vivo: las tablas de CPU en chip (135468 B) todavía necesitan
+C2/C4 y espacio slow. **[usuario, 2026-10-09]: el foco es G5L-R**;
+B2bis/Cpre/B35 aparcadas.
+
+## 3. Pendiente del usuario o la PC
+
+- U2 capa 2 contra referencia; U3 opcional, A500 real (con A501).
+- Worktrees con commits fuera de master, conservados: `agent-ab11…`
+  (G2T-B2 parada), `agent-af1f…` (revisión L-OAM), `wt-g5bis-1007`,
+  `wt-review-1007`. Borrarlos o integrarlos es decisión del usuario.
+- Integrar `g2t-b2bis` a master (sin push) cuando el usuario lo pida.
+
+### Qué se hizo (sesión G5L-R-T2, 2026-10-09 noche)
+
+T2 **hecha** en g2t-b2bis, solo medida, sin merge/push; no cambió código
+del juego. Paso 1 reproducido con el defecto nuevo (WinUAE cycle-exact,
+KS 1.2 + A501): BENCH 66 fotos (1,05 %), racha 1, 68 VBL; VBTRACE 25
+omitidas, los mismos frames del informe T (`vbtrace.py` necesitaba
+`use_gui=no`, P120). `g5l.py game` guarda por foto lógica, captura,
+`build_mid` y demás, partes G5L y la clave del plan; puerta del paso 2 OK
+(media 10 477,6, máx. 93 752). `t2_attrib.py`, `t2_model.py` y
+`t2_keys.py` nuevos. Patrón: atraso acumulado, 21/25 en un modelo de cola
+(B = 102 000, S = 65 000). Dos fuentes: el camino lento de G5L (145
+fotos; el Rex cambia de forma mientras se solapa con Mario y la altura
+relativa cambia; caché mayor no sirve) y los picos de `build_mid`. Estimado:
+camino lento gratis 8-12 saltos, S5 al 50 % 13-18, las dos 0-4. Propuesta
+G5L-R-P (P-a medida offline de planes corridos, P-b S5) sin implementar,
+pendiente de autorización. Informe: `docs/informe-g5l-r-t2-1009.md`.
+
+---
+
+## Archivado 2026-10-09 (noche, 3): PROXIMO de la sesión G5L-R-Pa, cumplido
+
+# PRÓXIMO — lo que sigue
+
+2026-10-09 (noche). **Código en `g2t-b2bis`, sin merge ni push**; worktree:
+`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
+anterior; los documentos indican el avance de la rama.
+
+**G5L-R-T2 hecha** (`docs/informe-g5l-r-t2-1009.md`), solo medida. Con el
+defecto nuevo: BENCH 66 fotos, racha 1; VBTRACE 25 omitidas, los frames
+del informe T. Los saltos son **atraso acumulado** por rachas de 3-6 fotos
+caras (modelo de cola: 21 de 25). Dos fuentes independientes:
+
+- **camino lento de G5L**: 145 fotos con sweep/plan, `g5l_render` 66 k
+  ciclos contra 9 k. El Rex cambia de forma mientras se solapa con Mario y
+  la altura relativa cambia; agrandar la caché no sirve (26/145 sin límite);
+- **picos de `build_mid`** (S5).
+
+Estimado: el camino lento gratis deja 8-12 saltos, S5 al 50 % 13-18, las
+dos juntas 0-4. **D1 sigue roja.**
+
+## 1. La próxima sesión — decide el usuario
+
+La parada de T sigue: **un candidato nuevo necesita autorización.**
+Recomendación: empezar por la fase de medida de P-a, que no toca el juego.
+
+| tarjeta | toca | instrucciones y entrega |
+|---|---|---|
+| **G5L-R-Pa** (recomendada; **pendiente de autorización**) | solo medida, offline: ¿el plan de G5L de un fallo es el de un fallo anterior corrido en Δr0? Si sí en ≥ 80 % de los aciertos, la caché con clave sin la altura vale | `docs/instrucciones-g5l-r-pa.md`: planes por foto, comparación con corrimiento, puerta ≥ 80 %, informe con contrafáctico |
+
+Las otras opciones del informe T2 §5, para que el usuario elija:
+
+- **P-b, S5 en `build_mid`** (cola por plazo, `docs/plan-tecnico.md`
+  §9.2): necesaria igual, pero sola deja 13-18 saltos (estimado).
+- **Recorte uniforme del 20-30 % de `g5l_render`** más S5: sin diseño
+  todavía.
+
+Builds seriales, una WinUAE midiendo, R9.
+
+## 2. Después
+
+Con P-a: la implementación (clave reducida o sweep/plan en asm) y S5, con
+la puerta BENCH ≤ 9 fotos (control sin G5L), VBTRACE ≤ 5, `G5L GAME: OK`,
+0 píxeles distintos en el frame 1700 y la compuerta D1. Luego otros
+enemigos (dos Rex, Banzai/bobs), HUD y audio. BM1 deja 24856 B de chip en
+el vivo: las tablas de CPU en chip (135468 B) todavía necesitan C2/C4 y
+espacio slow. **[usuario, 2026-10-09]: el foco es G5L-R**; B2bis/Cpre/B35
+aparcadas.
+
+## 3. Pendiente del usuario o la PC
+
+- **Autorizar (o no) G5L-R-Pa**, o elegir otra opción de §1.
+- U2 capa 2 contra referencia; U3 opcional, A500 real (con A501).
+- Worktrees con commits fuera de master, conservados: `agent-ab11…`
+  (G2T-B2 parada), `agent-af1f…` (revisión L-OAM), `wt-g5bis-1007`,
+  `wt-review-1007`. Borrarlos o integrarlos es decisión del usuario.
+- Integrar `g2t-b2bis` a master (sin push) cuando el usuario lo pida.
+
+### Qué se hizo (sesión G5L-R-Pa, 2026-10-09 noche)
+
+El usuario autorizó Pa. Hecha en g2t-b2bis, solo medida, sin merge/push;
+el juego no cambió. `g5l.py game` guarda el plan de Python y la s por
+foto. `pa_shift.py`: sin `R0` en la clave, el plan corrido es igual al
+100 %, pero acierta 0 con N = 4 (13 con N = 16); sin `R0`/`MSH`, 8 % de
+iguales en 36 aciertos. **Puerta (≥ 80 %) no cumplida**: la vía de la
+caché queda descartada. `pa_levers.py`: un fallo cuesta 66 k contra 27,5 k
+(sweep + plan 19 k, exceso de patch 8 k); `build_mid` > 40 000 en 60
+fotos de la vuelta y 11 de la ida, pero el 56 % del exceso es de la ida.
+Para ≤ 5 saltos (modelo, ESTIMADO): S5 + camino lento −50 % (2-6), S5 +
+`g5l_render` −20 % (1-2), o `g5l_render` −30 % (4-5). Siguiente
+recomendada: G5L-R-Q, perfil por PC y recortes posibles, pendiente de
+autorización. Informe: `docs/informe-g5l-r-pa-1009.md`.
+
+---
+
+## Archivado 2026-10-09 (noche, 4): PROXIMO de la sesión G5L-R-Q, cumplido
+
+# PRÓXIMO — lo que sigue
+
+2026-10-09 (noche). **Código en `g2t-b2bis`, sin merge ni push**; worktree:
+`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
+anterior; los documentos indican el avance de la rama.
+
+**G5L-R-T2 y G5L-R-Pa hechas**, solo medida (`docs/informe-g5l-r-t2-1009.md`,
+`docs/informe-g5l-r-pa-1009.md`). Los 25 saltos de VBTRACE (66 fotos
+BENCH) son atraso acumulado por rachas de fotos caras. **Reutilizar el
+plan de G5L no sirve**: sin la altura absoluta el plan corrido es igual,
+pero casi nunca acierta (0 con N = 4); sin la relativa acierta, pero el
+plan es otro en el 92 %. El exceso está repartido entre el render de G5L
+y `build_mid` en los dos sentidos. Para ≤ 5 saltos (modelo, ESTIMADO):
+
+- S5 (`build_mid` −50 % del exceso) + camino lento −50 %: 2-6;
+- S5 + `g5l_render` −20 %: 1-2;
+- `g5l_render` −30 % sin S5: 4-5.
+
+**D1 sigue roja.**
+
+## 1. La próxima sesión — decide el usuario
+
+| tarjeta | toca | instrucciones y entrega |
+|---|---|---|
+| **G5L-R-Q** (recomendada; **pendiente de autorización**) | solo medida: histograma por PC de `g5l_render` (ventanas de salto y fallos) y de `build_mid` (picos), una reescritura concreta por bucle caliente con su recorte estimado, y el modelo con esos recortes | `docs/instrucciones-g5l-r-q.md`: puerta del histograma = ciclos de `game_frames.json`; informe con qué meta es alcanzable |
+
+Sin Q, cualquier candidato sería elegir un porcentaje sin saber si se
+puede. Si Q dice que ninguna meta es alcanzable, D1 vuelve al usuario con
+números (colchón aceptado; 25 Hz solo con la optimización agotada).
+
+Builds seriales, una WinUAE midiendo, R9.
+
+## 2. Después
+
+El candidato que Q haga posible (S5 + recortes de asm en G5L), con la
+puerta BENCH ≤ 9 fotos (control sin G5L), VBTRACE ≤ 5, `G5L GAME: OK`,
+0 píxeles distintos en el frame 1700 y la compuerta D1. Luego otros
+enemigos (dos Rex, Banzai/bobs), HUD y audio. BM1 deja 24856 B de chip en
+el vivo: las tablas de CPU en chip (135468 B) todavía necesitan C2/C4 y
+espacio slow. **[usuario, 2026-10-09]: el foco es G5L-R**; B2bis/Cpre/B35
+aparcadas.
+
+## 3. Pendiente del usuario o la PC
+
+- **Autorizar (o no) G5L-R-Q.**
+- U2 capa 2 contra referencia; U3 opcional, A500 real (con A501).
+- Worktrees con commits fuera de master, conservados: `agent-ab11…`
+  (G2T-B2 parada), `agent-af1f…` (revisión L-OAM), `wt-g5bis-1007`,
+  `wt-review-1007`. Borrarlos o integrarlos es decisión del usuario.
+- Integrar `g2t-b2bis` a master (sin push) cuando el usuario lo pida.
+
+### Qué se hizo (sesión G5L-R-Q, 2026-10-09 noche)
+
+El usuario autorizó Q. Hecha en g2t-b2bis, solo medida, sin merge/push;
+el juego no cambió. `g5l.py game --pcprof`: histograma por PC de
+`g5l_render` y `build_mid` instrucción por instrucción; puerta OK (6313
+fotos, totales idénticos, histogramas exactos). `q_report.py`: el perfil
+del render es plano (máx. bucle 5,1 % en las ventanas); `g5l_pcget`
+acierta 159/1980 y compara 6,7 .l por entrada; `build_mid` en las ventanas
+es 84 % `bm_left`. `q_levers.py`: reescrituras concretas −8 % del render y
+de `build_mid` (ESTIMADO) → modelo 14-16 saltos, 10-11 con S5; ≤ 5 pide
+además −10 % general sin bucle identificado. Recomendada G5L-R-R1
+(reescrituras + primera medida en WinUAE), pendiente de autorización.
+Informe: `docs/informe-g5l-r-q-1009.md`.
+
+## Archivado 2026-10-10: PROXIMO de la sesión G5L-R-R1/S9, cumplido
+
+# PRÓXIMO — lo que sigue
+
+2026-10-09 (noche). **Código en `g2t-b2bis`, sin merge ni push**; worktree:
+`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
+anterior; los documentos indican el avance de la rama.
+
+**G5L-R-T2, Pa y Q hechas**, solo medida (`docs/informe-g5l-r-t2-1009.md`,
+`docs/informe-g5l-r-pa-1009.md`, `docs/informe-g5l-r-q-1009.md`). Los 25
+saltos de VBTRACE (66 fotos BENCH) son atraso acumulado; reutilizar el plan
+de G5L no sirve. El perfil por PC es **plano**: las reescrituras concretas
+y exactas ahorran ~8 % del render G5L y ~8 % de `build_mid` en las
+ventanas de salto. Modelo (ESTIMADO): 25 → 14-16 saltos, 10-11 con S5;
+≤ 5 pide además −10 % general sin bucle identificado (2-4 con S5), o el
+patch por blitter (sin medir). **D1 sigue roja.**
+
+## 1. La próxima sesión — decide el usuario
+
+| tarjeta | toca | instrucciones y entrega |
+|---|---|---|
+| **G5L-R-R1** (recomendada; **pendiente de autorización**: es un candidato) | `player/g5l.s`: clave del plan con lo que cambia primero, copias con `movem`, `emit.mv` desenrollado, mapa de bits en `place.f1`; cada una con `G5L GAME: OK`; después **la primera medida en WinUAE** (BENCH, VBTRACE) de cuánto valen los ciclos de Musashi en fotos omitidas | `docs/instrucciones-g5l-r-r1.md`: ahorro medido por reescritura contra el estimado de Q, BENCH/VBTRACE antes/después, modelo recalibrado |
+
+Con ese número el usuario elige entre S5, el patch por blitter o revisar
+D1 (colchón aceptado; 25 Hz solo con la optimización agotada).
+
+Builds seriales, una WinUAE midiendo, R9.
+
+## 2. Después
+
+Según R1: S5 (`build_mid`, sobre todo `bm_left` a la vuelta), el patch de
+G5L por blitter, o D1 al usuario. Luego otros enemigos (dos Rex,
+Banzai/bobs), HUD y audio. BM1 deja 24856 B de chip en el vivo: las tablas
+de CPU en chip (135468 B) todavía necesitan C2/C4 y espacio slow.
+**[usuario, 2026-10-09]: el foco es G5L-R**; B2bis/Cpre/B35 aparcadas.
+
+## 3. Pendiente del usuario o la PC
+
+- **Autorizar (o no) G5L-R-R1.**
+- U2 capa 2 contra referencia; U3 opcional, A500 real (con A501).
+- Worktrees con commits fuera de master, conservados: `agent-ab11…`
+  (G2T-B2 parada), `agent-af1f…` (revisión L-OAM), `wt-g5bis-1007`,
+  `wt-review-1007`. Borrarlos o integrarlos es decisión del usuario.
+- Integrar `g2t-b2bis` a master (sin push) cuando el usuario lo pida.
+
+---
+
+## PROXIMO.md archivado el 2026-10-10 (cierre G5L-R-L2, lote 1)
+
+# PRÓXIMO — lo que sigue
+
+2026-10-10. **Código en `g2t-b2bis`, sin merge ni push**; worktree:
+`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
+anterior; los documentos indican el avance de la rama.
+
+**G5L-R-R1 y S9 hechas** (autorizadas: "hacé lo que puedas, ojalá llegar
+al máximo nivel de optimización", 2026-10-09). R1: reescrituras del render
+G5L, −5,6 % (`docs/informe-g5l-r-r1-1009.md`). S9: `build_mid` copia la
+línea de la lista anterior cuando vale; S5 (repartir) se probó y se
+descartó (`docs/informe-g5l-r-s9-1010.md`, P121). WinUAE cycle-exact:
+
+| | T2 | R1 | S9 |
+|---|---:|---:|---:|
+| BENCH, fotos perdidas | 66 | 53 | **36** (0,57 %) |
+| VBTRACE, omitidas | 25 | 17 | **12** |
+
+**D1 sigue roja** (objetivo ≤ 5 omitidas).
+
+## 1. La próxima sesión — decide el usuario
+
+G5L-R-L paso 1 (`docs/informe-g5l-r-l1-1010.md`): la lógica también es
+**plana** (la función más cara 6,5 %, casi todo asm ya escrito); el racimo
+3305-3364 sube por tener más sprites vivos. Según el modelo de cola, ≤ 5
+omitidas pide **−20 % de toda la lógica** o **una cuarta lista**.
+
+| opción | qué | costo |
+|---|---|---|
+| **A. Lógica a asm, por partes** (recomendada si se sigue a 50 Hz sin más latencia) | `_level_frame`, `mcoll.c`, `_banzai_gfx`, `_sprites_all` y el resto del C de sprites, cada uno con el cruce PC = 68000 (V1); `docs/instrucciones-g5l-r-l2.md` | varias sesiones; −6-9 k por foto ESTIMADO pasando casi todo el C |
+| B. Cuarta lista del copper | otra foto de holgura: modelo 1-8 saltos | **+20 ms de latencia** (decisión del usuario); 57 692 B de chip (`CL_SIZE`) que hoy no hay (24 856 B libres en el vivo): antes C2/C4 |
+| C. G5L (camino lento) y el primer pico de `bm_left` | `instrucciones-g5l-r-l.md` pasos 2-3 | 1-3 saltos según el modelo |
+
+Builds seriales, una WinUAE midiendo, R9.
+
+## 2. Después
+
+Si G5L-R-L no deja una palanca concreta para llegar a ≤ 5, D1 vuelve al
+usuario con los números (colchón aceptado; 25 Hz solo con la optimización
+agotada). Luego otros enemigos (dos Rex, Banzai/bobs), HUD y audio. BM1
+deja 24856 B de chip en el vivo: las tablas de CPU en chip (135468 B)
+todavía necesitan C2/C4 y espacio slow. **[usuario, 2026-10-09]: el foco
+es G5L-R**; B2bis/Cpre/B35 aparcadas.
+
+## 3. Pendiente del usuario o la PC
+
+- **Elegir A, B o C** (o D1: dejarlo así, 12 omitidas en el replay).
+- Probar el vivo con S9 (`work/s9/vivo`, MD5 `510e1ee3…`) a mano: el
+  scroll a la izquierda es lo que cambió.
+- U2 capa 2 contra referencia; U3 opcional, A500 real (con A501).
+- Worktrees con commits fuera de master, conservados: `agent-ab11…`
+  (G2T-B2 parada), `agent-af1f…` (revisión L-OAM), `wt-g5bis-1007`,
+  `wt-review-1007`. Borrarlos o integrarlos es decisión del usuario.
+- Integrar `g2t-b2bis` a master (sin push) cuando el usuario lo pida.
+
+
+---
+
+## 2026-10-10 — P123 y perfil del estrés (cierre)
+
+PROXIMO anterior, textual; archivado tras corregir P123 y llegar a la parada del candidato de optimización.
+
+# PRÓXIMO — lo que sigue
+
+2026-10-10. **Código en `g2t-b2bis`, sin merge ni push**; worktree:
+`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
+anterior.
+
+**G5L-R-L2 lote 1 hecho** (directiva del usuario: "todo asm y bare metal,
+lo más optimizado posible"): la lógica caliente está en asm
+(`docs/informe-g5l-r-l2-1010.md`). Replay normal de YI1, WinUAE
+cycle-exact: **VBTRACE 0 fotos omitidas** (S9: 12), BENCH 10 perdidas
+(0,16 %, S9: 36). **El objetivo D1 del replay normal se cumple.**
+
+**Estrés sigue rojo:** `stress_back` 341/4126 (8,26 %, racha 4),
+`stress_sprites` 92/1914 (4,81 %, racha 3). Ahí domina el scroll/render
+(`build_mid` hasta 171 % del frame en la vuelta), no la lógica.
+
+## 1. La próxima sesión, en orden
+
+1. **El Guru 3 latente (P123, informe §4).** Con `e7234ab` +
+   `stress_back`, `g5l_render` lee `GV_TAB` pisado (`$31FA0031`).
+   Encontrar quién lo escribe (candidato `g5l_wcache` con segmento ≥ 224)
+   antes de seguir optimizando: el render es el mismo en la rama.
+   Herramientas: `-DADRTRAP` + `tools/adrtrap.py`, `tools/g5l.py game`.
+   Para reconstruir el build viejo: `git stash; git checkout e7234ab;
+   git apply` del parche de ADRTRAP (`git diff 222fb64 HEAD --
+   player/game.s`), compilar, volver a la rama.
+2. **Estrés: el render en la vuelta.** Perfil por PC de `build_mid` y
+   `scroll_frame` sobre `stress_back` (`g5l.py game --pcprof`, P121) y
+   bajar los picos de columnas al volver. Medir con BENCH en los dos
+   replays de estrés (comandos en el informe §3). El perfil decide la
+   técnica (`docs/investigacion-demoscene-1010.md` §11): si dominan las
+   decisiones, speedcode por línea generado por `mkscroll.py` + corte con
+   `RTS` parcheado; si domina la copia, escribir menos palabras; si
+   dominan las esperas del blitter, copper → blitter o cambiar cómo se
+   termina la columna al dar la vuelta. Puerta: lista del copper idéntica
+   byte a byte en Musashi en los tres replays.
+3. **Seguir la directiva asm** sobre lo caliente que queda
+   (`finish_oam` costo fijo, `mario_E2BD`, `spr_tile`, `mc_pxy`,
+   cámara, `mspr_draw`), cada cambio con `fuzzcall.py` + lint + regress.
+
+Antes de cada commit: `python tools/lint_port.py && python tools/regress.py
+--baseline tools/baseline_pc.json --level --g5l --bm1`.
+
+## 2. Pendiente del usuario
+
+Probar el vivo a mano en esta rama; decidir cuándo integrar a master.
+
+### Resultado de esta sesión
+
+P123 corregida: columns destruía a2 antes de leer DC_REND; watchpoint atrapó al escritor en g5l_choose. Nuevo verificador del bucle real, integrado en regress. Perfil de diez picos: domina bm_left. Los recortes bm_share/FinishOAM fueron exactos y más baratos en CPU, pero se retiraron por BENCH: back 387 → 389, sprites 98 → 104. Código final back idéntico al control corregido. Speedcode y más recortes asm pendientes; parada de L2 respetada. Informe: docs/informe-p123-scroll-1010.md.
+
+### Estado anterior de ROADMAP §1, textual
+
+**G5L-R-R1 y S9 (2026-10-09/10, rama g2t-b2bis, autorizadas):** R1
+reescribe el render G5L (clave del plan, copias desenrolladas, búsqueda
+del segmento): −5,6 % en Musashi. S9: `build_mid`/`bm_left` copian la
+línea de la lista anterior si vale en s (los picos venían de a tres, uno
+por lista, P121); S5 se probó y se descartó. WinUAE: BENCH 66 → 53 → **36**
+fotos, VBTRACE 25 → 17 → **12** omitidas. Siguen: el racimo 3305-3364
+(camino lento de G5L y la lógica). `docs/informe-g5l-r-r1-1009.md`,
+`docs/informe-g5l-r-s9-1010.md`. G5L-R-L paso 1: la lógica es plana; ≤ 5
+pide −20 % de la lógica o una cuarta lista (decide el usuario,
+`docs/informe-g5l-r-l1-1010.md`).
+
+**G5L-R-Q (2026-10-09 noche, rama g2t-b2bis, solo medida):** histograma
+por PC en Musashi (`g5l.py game --pcprof`, totales idénticos en 6313
+fotos). Render G5L plano (máx. bucle 5,1 % en las ventanas); `build_mid` en
+las ventanas 84 % `bm_left`. Reescrituras concretas: −8 % render, −8 %
+`build_mid` (ESTIMADO) → modelo 14-16 saltos (10-11 con S5). ≤ 5 pide −10 %
+general más S5, o el patch por blitter. `docs/informe-g5l-r-q-1009.md`.
+
+**G5L-R-Pa (2026-10-09 noche, rama g2t-b2bis, solo medida):** reutilizar
+el plan de G5L corrido no sirve: sin `R0` es igual al 100 % pero acierta 0
+con N = 4; sin `R0`/`MSH`, 8 % de iguales (`pa_shift.py`). Un fallo cuesta
+66 056 contra 27 562 ciclos (sweep + plan 19 k, exceso de patch 8 k).
+`build_mid` > 40 000: 60 fotos a la izquierda, 11 a la derecha; el 56 % del
+exceso es de la ida. ≤ 5 saltos pide dos palancas (S5 + recortes de G5L)
+o `g5l_render` −30 % (ESTIMADO, `pa_levers.py`).
+`docs/informe-g5l-r-pa-1009.md`.
+
+**G5L-R-T2 (2026-10-09 noche, rama g2t-b2bis, solo medida):** BENCH del
+defecto 66 fotos/racha 1 y VBTRACE 25 omitidas reproducidas (WinUAE
+cycle-exact). Coste por foto en Musashi: total mediana 52 521, p99
+122 544, máx. 156 864 ciclos sin DMA. Saltos = atraso acumulado por rachas
+de fotos caras (modelo de cola 21/25). Fuentes: camino lento de G5L (145
+fotos, 66 k contra 9 k; el Rex cambia de forma solapado con Mario) y picos
+de `build_mid`. Estimado: 8-12 / 13-18 saltos atacando cada una, 0-4 las
+dos. Propuesta G5L-R-P sin implementar (`docs/informe-g5l-r-t2-1009.md`).
+D1 roja.
+
+**Cierre V/BM1 (2026-10-09 noche, rama g2t-b2bis, sin integrar):**
+G5L-R-V y BM1 cerradas (`docs/informe-cierre-v-bm1-1009.md`). Teclado
+real en WinUAE KS 1.2/1.3 (`shot.ps1 -Keys`, P117), historial reproducido
+por la PC; el usuario jugó el vivo. Defectos `53e6453`: G5L+CUSHION+
+SPR_OAM, vivo con boot BM1 (sin A501 no carga); `PROFILE=legacy` = los
+cinco MD5 del informe T. BM1 KS 1.3: datos/píxeles exactos, Z1, rojo sin
+A501; carga 31,96 s contra 33,02 s de trackdisk (WinUAE, TOD de CIA-A,
+`-DLOADTIME`). Memmap por defecto: replay chip 483808/slow 401224 B, vivo
+499432/454072 B. BENCH del defecto: 66 fotos, racha 1. D1 roja.
+
+**Avance T/V/BM1 (2026-10-09, rama g2t-b2bis, sin integrar):**
+T detenida tras dos candidatos: 66 fotos BENCH, racha 1 (base 67; control
+con colchón 9); máscara especializada 65/racha 2 retirada. VBTRACE sin
+BENCH 25 saltos; D1 roja. V opt-in con tres listas/reinicio/diagnóstico
+verificados y 40 ms desde tick de entrada a publicación; teclado real y
+defecto pendientes. BM1 MFM/fijo KS1.2/A501: datos/imagen exactos, Z1,
+18920 B chip recuperados; KS1.3 y tiempo trackdisk comparable pendientes.
+Commits `5461b8a`, `a728ddc`, `a41da43`, `c30ff27`; informes T/V/BM1 de 2026-10-09.
+Chip vivo normal 495336 B, slow 437896 B; fijo 499432/454072 B, incluidas
+reservas de vectores/loader. No se cambiaron los cinco builds normales.
+
+**Entrega B2bis/Cpre (2026-10-08):** rama g2t-b2bis, sin merge/push.
+B2bis d3e431c: G5ENV/lint/regress --level/OAM68K/hashes verdes; 3404 frames,
+762496 filas y 258 bordes exactos. Cache 554/11910, captura 270; O5 Musashi
+0 > PAL. WinUAE baja de 98 a 92 fotos perdidas (1,46 %, racha 2), control
+27; D1 roja. Vista 0/327680 píxeles distintos. Margen slow vivo G3 con
+reservas: 272 B. Cpre C2a exacta en 2288 fotos; sonda C2b sin emitir
+máximo 28680 ciclos contra parada 4000, C3/C4 pendientes. B35 fuera del vivo.
+Informes: `docs/informe-g2t-b2bis-rendimiento-1008.md` y
+`docs/informe-g2t-cpre-1008.md`.
+
+
+
+### Estimaciones anteriores de ROADMAP §4, textuales
+
+2026-10-10 (R1 + S9): de 25 a 12 omitidas en una sesión. El modelo de
+cola es pesimista en +2 a +5 saltos. Llegar a ≤ 5 pide G5L-R-L (1-2
+sesiones, ESTIMADO) y quizá otra palanca sin identificar. Restante:
+**9-12**.
+
+2026-10-09 (noche, Q): R1 (1 sesión) da la primera medida real del
+recorte; llegar a ≤ 5 saltos estimado en 3-5 sesiones más con resultado
+incierto (S5, ajuste general, blitter). Restante: **10-13**, más ese
+riesgo en D1.
+
+2026-10-09 (noche, Pa): la vía de la caché queda descartada. Quedan Q
+(media sesión, medida) y después recortes de asm en G5L + S5 (2-4
+sesiones, ESTIMADO, según lo que diga Q). Restante sin cambios:
+**10-13**.
+
+2026-10-09 (noche, T2): medida hecha. Bajar los tirones pide dos cosas
+(camino lento de G5L y S5), estimado 1 sesión de medida (P-a) + 1-2 de
+implementación + 1-2 de S5, dentro del total; restante estimado sin
+cambios: **10-13**. La próxima espera la autorización del usuario.
+
+2026-10-09 (noche): V y BM1 cerradas en una sesión; queda T2 (medida de
+los tirones, 1 sesión estimada) antes de otro candidato. Total restante
+estimado sin cambios: **10-13**.
+
+2026-10-09: T llegó a su parada (dos candidatos, 66/65 BENCH; segundo
+retirado por racha2). V ya funciona opt-in: falta teclado real y defecto.
+BM1 MFM/fijo KS1.2 entregado WIP: falta KS1.3 y control de carga comparable.
+Quedan **1-2 sesiones estimadas**, condicionadas a ROM/helper, para cerrar
+esas puertas; bajar los tirones requiere revisar la parada antes de otra
+ronda. Resto de ola3 (L-OAM, A2, R7) sin cambios. Total restante estimado
+**10-13**, con incertidumbre por D1 y los enemigos aún sin dibujar.
+
+B2bis tiene puertas locales verdes en d3e431c; coste real 92 fotos
+perdidas contra 27 del control, D1 roja. Cpre C2a exacta; sonda C2b
+detenida en 28680 ciclos contra 4000, C3/C4 pendientes.
+El avance no cierra D1 ni B35; informe y pasos en PROXIMO.
+
+### Filas anteriores de estado/presupuesto, textuales
+
+| 6.4 | Scroll en el peor frame | **NO hecha**. S1a+S2 y SX/SX2 integradas; S4 descartada (P89); P51 arreglada (+6,7 % en `build_mid`). `build_mid` máx. **89,16 %** en WinUAE (ida, replay YI1, s ≈ 4576; `docs/medida-oam-o5.md`). Vuelta solo en Musashi (94,8 % en s = 2832, ×~1,3 en la Amiga). Falta S5 (EDF), S3/S6 y S8 (cámara vertical) | `player/scroll.s`; `docs/validacion-sx.md` |
+
+| 8.2 | Lógica ≤ 40 % | **hecha para el alcance anterior; L-OAM no cerrada**. Ambas rutinas en asm (`e8ec165`, `bbdf201`, `cd5001c`, fusión `cb8ba8f`), RAM PC=68000 exacta. WinUAE l4: YI1 con `SPR_OAM` **41,2 %** (antes 43,1 %), back 73,9 %; fotos back 295 contra 145 del control, sprites 32 contra 0. Parada explícita tras ambas asm; nueva tarjeta pendiente | `player/logic68k.s`; `docs/informe-loam-1007.md`, `docs/informe-coordinacion-1007.md` |
+
+| 9.2 | Sprites: dibujo | Mario hecho; G0/G1/G3a/G8 y G8b opt-in verificadas. G3 acotada hecha (64528 B DMA, 72724 B tablas, loader replay/vivo). G5a fallida y revertida (`652b23c`). **G5a-bis parcial en rama** `8fe712d`: A2 y variantes exactas; 59318 ventanas vacías + 18 fallos de capacidad, B/C detenidas. Coordinador reproduce el resumen y revisa las PNG. G2T revisión entregada. **G2T-A hecha (2026-10-07): contrato fijado con medidas y puerta A-T verde** en 3404 frames (0 sin plazo, 0 errores de color/capa 1/prioridad; 69 293 transiciones; 56 casos exactos + 27 negativos en WinUAE). El candidato era inviable: el hueco entre filas admite 12 − nb MOVE (P111); codo 231→243 (P110). **B35 parcial en rama `g2t-b35` (2026-10-08, `213ba3c`/`06e777f`)**: B4/B5 exactas en 3404 frames, ABI intacta, paso 4c/regress/hashes verdes; único intento en C agotado, máximo 2 405 022 ciclos sin DMA frente a 8000. No integrada; informe `docs/informe-g2t-b35-1008.md`. Primer microbench B35-asm entregado (`a9b44fe`): transiciones exactas en 3404 frames, máximo 18 794 ciclos solo en ese núcleo; no hay ruta medida al presupuesto, integración detenida (`docs/informe-g2t-b35-asm-1008.md`). El rendimiento de B2bis, C y un nuevo diseño viable del plan, más cobertura global/G4-G7/G9, pendientes. **G5L-R (2026-10-09, `052dac2`): el Rex se ve en la Amiga** por sprites 4-7 con 4 mapas limpios, caché del plan y colchón; 67 fotos perdidas (WinUAE, replay) contra 27 del control; vivo opt-in en a728ddc; T parada en 66 fotos BENCH, control con colchón9; defecto pendiente de teclado real. B2bis/Cpre/B35 aparcadas |  `docs/informe-g3-final.md`, `docs/informe-g5bis-1007.md`, `docs/informe-coordinacion-1007.md`, `docs/informe-g2t-1007.md`, `docs/informe-g2t-a-1007.md` |
+
+| 6b | Integración | ADF en vivo y replay, O5 por defecto y diagnóstico. Con banco G3 y L-OAM asm, memmap replay/vivo: chip 455728/467256 B, slow 287712/323944 B; 0 violaciones. Gamecheck replay integrado 6313 frames, 0 distintos; Mario 6184/6184. Falta vlink C2, compresión C3 y loader C4 | `player/game.s`; `docs/informe-coordinacion-1007.md` |
+
+| scroll: `build_mid` + columna + lista | ida **89,16 %** (WinUAE, s ≈ 4576, con P51); vuelta 94,8 % en Musashi (s = 2832; ×~1,3 en la Amiga, **sin medir en WinUAE**). Media de la ida ~15 % | repartir los picos (S5) | ídem; `scrollprof.py` |
+
+| lógica `level_frame` con sprites y OAM | **37,24 %** (WinUAE, replay YI1) | ≤ 40 % | `docs/medida-oam-o5.md` |
+
+
+## 2026-10-10 — sesión S10 (PROXIMO archivado textual)
+
+PRÓXIMO — lo que sigue
+
+2026-10-10. **Código en `g2t-b2bis`, sin merge ni push**; worktree:
+`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
+anterior.
+
+**P123 corregida y verificada.** `columns` destruía `a2`; el bucle G5L
+leía una foto falsa y `g5l_choose` pisaba `GV_TAB`. Recarga de `dc_st`
+antes de leer `DC_REND`; nuevo `dc_loop_verify.py` en la regresión.
+Guru viejo reproducido con watchpoint; e7234ab + arreglo, 150 s en
+WinUAE cycle-exact sin excepción. Informe:
+`docs/informe-p123-scroll-1010.md`.
+
+**Perfil hecho; optimización detenida por su puerta.** Domina `bm_left`
+en la vuelta. Los recortes `bm_share`/FinishOAM eran exactos y ahorraban
+CPU, pero empeoraron BENCH (back 387 → 389, sprites 98 → 104), por lo
+que se retiraron. No está implementado el generador de speedcode.
+
+**D1 sigue roja con el bucle corregido:** back 387/4126 (9,38 %, racha 5),
+sprites 98/1914 (5,12 %, racha 3). Normal: VBTRACE 2 omitidas; BENCH
+14/6312 (0,22 %, racha 1). Las cifras de L2 con el
+bucle defectuoso quedan históricas; no sirven de control para el código
+corregido. Se mantienen 50 Hz y el colchón aceptado.
+
+#### 1. La próxima sesión, en orden
+
+| tarjeta | responsable | ficheros / puerta | instrucciones |
+|---|---|---|---|
+| **G5L-R-S10** | coordinador, Sol high | `mkscroll.py`, `scroll.s`, pipeline y arnés. Prototipo offline de speedcode por línea/tramo; demostrar tamaño y ahorro antes de integrar. Copper exacto en los tres replays, memoria/PIC válidos, BENCH/VBTRACE mejores contra el control con P123 corregida | `docs/instrucciones-g5l-r-s10.md` |
+| **G5L-R-L3** | coordinador, Sol high; después de la puerta S10 | `logic68k.s`, `mspr68k.s`: elegir por perfil entre `mario_E2BD`, `spr_tile`, `mc_pxy`, cámara y Mario. Fuzz/copper/ABI exactos y A/B real; retirar si empeora | `docs/instrucciones-g5l-r-l3.md` |
+
+S10 empieza por coste y memoria: MLD 3.409 cargas útiles, 125.296 B de
+slow libres en BENCH back (no es el margen de todos los builds). Si
+domina la espera en hardware, medirla antes de elegir copper→blitter.
+No repetir recortes de CPU sin su puerta integrada. No hace falta una
+elección nueva del usuario para esta investigación/optimización ya autorizada.
+
+Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
+--baseline tools/baseline_pc.json --level --g5l --bm1`, en verde.
+
+#### 2. Pendiente del usuario
+
+Probar el vivo a mano en esta rama; decidir cuándo integrar a master.
+
+### Qué se hizo (S10)
+
+- Partida verde: lint, `regress.py --level --g5l --bm1` OK; control
+  `stress_back` con `DC LOOP: OK` y `G5L GAME (pcprof): OK`; perfil de diez
+  fotos 804 730 ciclos de `build_mid`, igual al informe P123.
+- Desglose por tramo: bucle por carga 30,5 %, trabajo fijo por línea ≈ 53 %
+  (404 líneas, ≈ 4,6 cargas por línea).
+- Prototipo `tools/s10_speedcode.py` (versionado): 103 056 B de código
+  (vasm) + 15 424 B de punteros = 118 480 B; −6,2 % de CPU de `build_mid`
+  (cota 13,5 % con entrada/salida gratis). No cabe en el vivo (61 288 B
+  libres). **Puerta no cumplida; nada integrado**; binario y hashes sin
+  cambios.
+- WinUAE back 180,4 % del frame contra ≈ 65 % en Musashi (≈ 2,8×; son
+  máximos, pueden ser de fotos distintas): nueva tarjeta de medida M1.
+- Informe `docs/informe-g5l-r-s10-1010.md`; tarjeta
+  `docs/instrucciones-g5l-r-m1.md`.
+
+
+## 2026-10-10 — sesión M1 (PROXIMO archivado textual)
+
+PRÓXIMO — lo que sigue
+
+2026-10-10. **Código en `g2t-b2bis`, sin merge ni push**; worktree:
+`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
+anterior.
+
+**S10 cerrada por su puerta; nada integrado.** El prototipo de speedcode
+(`tools/s10_speedcode.py`) ocupa 118 480 B (vasm), contra 61 288 B de slow
+libres en el vivo, y ahorra un 6,2 % de la CPU de `build_mid` en Musashi
+(cota 13,5 %). El bucle por carga es solo el 30,6 % de `build_mid`; el resto
+es trabajo fijo por línea. Informe: `docs/informe-g5l-r-s10-1010.md`.
+
+**Lo que manda ahora es el hardware:** en back, `build_mid` llega al 180,4 %
+del frame en WinUAE frente a ≈ 65 % en Musashi (≈ 2,8×). La lógica corre en
+el borde (COPER, línea 272); `build_mid` corre en `dc_loop`, casi siempre en
+líneas visibles, con 6 planos, el copper y la slow compartiendo el bus.
+Esa hipótesis hay que medirla antes de otra optimización.
+
+**D1 sigue roja** (sin cambios): back 387/4126 (9,38 %, racha 5), sprites
+98/1914, normal BENCH 14/6312, VBTRACE 2. 50 Hz y colchón aceptados.
+
+#### 1. La próxima sesión, en orden
+
+| tarjeta | responsable | ficheros / puerta | instrucciones |
+|---|---|---|---|
+| **G5L-R-M1** | coordinador, Sol high | flags opt-in de medida en `game.s`/`scroll.s` (`-DM1POS`, `-DM1NOBPL`, `-DM1BW`); pares por foto Musashi↔WinUAE, histograma de líneas de pantalla, reparto CPU/planos/copper+slow/blitter. Binario sin flags idéntico | `docs/instrucciones-g5l-r-m1.md` |
+| **G5L-R-L3** | coordinador, Sol high; en paralelo con M1 (no depende de S10) | `logic68k.s`, `mspr68k.s`: elegir por perfil entre `mario_E2BD`, `spr_tile`, `mc_pxy`, cámara y Mario. Fuzz/copper/ABI exactos y A/B real; retirar si empeora | `docs/instrucciones-g5l-r-l3.md` |
+
+M1 es solo medida: entrega una propuesta de tarjeta (mover la
+reconstrucción al borde o a líneas sin fetch, partirla entre frames,
+reducir accesos por línea o copper→blitter), sin implementarla. No
+reintentar speedcode: la cota del 30,6 % no alcanza.
+
+Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
+--baseline tools/baseline_pc.json --level --g5l --bm1`, en verde.
+
+#### 2. Pendiente del usuario
+
+Probar el vivo a mano en esta rama; decidir cuándo integrar a master.
+En el checkout de master quedó sin commitear una versión vieja de
+`docs/investigacion-demoscene-1010.md` (264 líneas) y su fila en
+`docs/README.md`; la rama tiene la versión actualizada (320 líneas,
+`6797dd0`). Descartarla o no es decisión del usuario.
+
+### Qué se hizo (M1)
+
+- `-DM1POS`/`-DM1NOBPL` en `game.s`, `tools/m1_read.py`, `g5l.py game
+  --render-list`. Sin flags: replay YI1, BENCH back, vivo y BENCH YI1
+  idénticos a HEAD (`cmp`).
+- WinUAE back M1POS: 408 perdidas, `build_mid` 179,2 %; ratio
+  WinUAE/Musashi por foto (misma secuencia) 1,60 de mediana. Con
+  M1NOBPL: 253 perdidas, 98,8 %, ratio 1,07.
+- Musashi con la secuencia real: máx. 146.860 ciclos contra 92.078 con
+  todas las fotos.
+- Espiral de la vuelta: 86 fotos con |Δs| > 16 en la misma lista, 10.386
+  ticks de media. Foto 2580: 79 líneas reescritas contra 39.
+- L3 no se empezó (sigue pendiente). Informe `informe-g5l-r-m1-1010.md`;
+  tarjeta `instrucciones-g5l-r-s11.md`.
+
+
+## 2026-10-10 — sesión S11 (PROXIMO archivado textual)
+
+PRÓXIMO — lo que sigue
+
+2026-10-10. **Código en `g2t-b2bis`, sin merge ni push**; worktree:
+`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
+anterior.
+
+**M1 hecha (solo medida).** El ≈ 2,8× de `build_mid` en el hardware se
+reparte en dos partes: fotos omitidas ≈ 1,6× (Musashi con la secuencia real
+de la Amiga: 146.860 ciclos contra 92.078) y DMA de los 6 planos ≈ 1,6×
+(sin planos, WinUAE queda a 1,07 de Musashi). Copper, slow y blitter juntos
+suman ≈ 6-9 %. Los picos son una **espiral en la vuelta**: cada lista se
+reescribe con un |Δs| creciente (−12 … −48); con |Δs| > 16 hay 86 fotos de
+10.386 ticks de media. Informe: `docs/informe-g5l-r-m1-1010.md`.
+
+S10 (speedcode) quedó cerrada antes: 118 KB, −6,2 % de CPU, no cabe en el
+vivo (`docs/informe-g5l-r-s10-1010.md`).
+
+**D1 sigue roja** (control sin cambios): back 387/4126 (9,38 %, racha 5),
+sprites 98/1914, normal BENCH 14/6312, VBTRACE 2. 50 Hz y colchón aceptados.
+
+#### 1. La próxima sesión, en orden
+
+| tarjeta | responsable | ficheros / puerta | instrucciones |
+|---|---|---|---|
+| **G5L-R-S11** | coordinador, Sol high | `player/scroll.s` (`bm_left`, LNS de `mkscroll.py`): medir por línea en las fotos de la espiral; candidatos A (buscar desde `prevlt`) y B (LNS para \|Δs\| ≤ 48). Lista exacta en los tres replays y A/B WinUAE con menos fotos perdidas | `docs/instrucciones-g5l-r-s11.md` |
+| **G5L-R-L3** | coordinador, Sol high; después o en paralelo | `logic68k.s`, `mspr68k.s`: elegir por perfil entre `mario_E2BD`, `spr_tile`, `mc_pxy`, cámara y Mario. Fuzz/copper/ABI exactos y A/B real; retirar si empeora | `docs/instrucciones-g5l-r-l3.md` |
+
+Herramientas nuevas para medir: `-DM1POS` (+ `tools/m1_read.py`) da una fila
+por foto dibujada en WinUAE y `g5l.py game --render-list` repite esa
+secuencia en Musashi. Cada ciclo de CPU que se ahorra en la vuelta vale
+doble: lo multiplican los planos y baja el Δs de la espiral.
+
+Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
+--baseline tools/baseline_pc.json --level --g5l --bm1`, en verde.
+
+#### 2. Pendiente del usuario
+
+- Probar el vivo a mano en esta rama y decidir cuándo integrar a master.
+- **Solo como dato (no se propone):** con 5 planos (PF2 de 2) el ≈ 1,6× de
+  los planos casi desaparecería, pero cambia D8 y el fondo. Es decisión
+  tuya si alguna vez se quiere evaluar.
+- En el checkout de master quedó sin commitear una versión vieja de
+  `docs/investigacion-demoscene-1010.md` (264 líneas) y su fila en
+  `docs/README.md`; la rama tiene la versión actualizada (320 líneas,
+  `6797dd0`).
+
+### Qué se hizo (S11)
+
+- `g5l.py game --dump-lines`; fase 1 medida (ventanas de ≈ 13 px, ≈ 90
+  reescrituras por foto). A/B/C sin margen; cerrada sin integrar.
+  Informe `informe-g5l-r-s11-1010.md`. Sigue L3.
+
+
+## 2026-10-10 — sesión L3 (PROXIMO archivado textual)
+
+PRÓXIMO — lo que sigue
+
+2026-10-10. **Código en `g2t-b2bis`, sin merge ni push**; worktree:
+`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
+anterior.
+
+**S11 cerrada en fase 1, sin integrar** (`docs/informe-g5l-r-s11-1010.md`): en la vuelta, una línea reescrita vale ≈ 13 px y en la espiral se reescriben ≈ 90 por foto; ningún candidato del scroll tiene margen medible. **Ahora: L3 (lógica).**
+
+**M1 hecha (solo medida).** El ≈ 2,8× de `build_mid` en el hardware se
+reparte en dos partes: fotos omitidas ≈ 1,6× (Musashi con la secuencia real
+de la Amiga: 146.860 ciclos contra 92.078) y DMA de los 6 planos ≈ 1,6×
+(sin planos, WinUAE queda a 1,07 de Musashi). Copper, slow y blitter juntos
+suman ≈ 6-9 %. Los picos son una **espiral en la vuelta**: cada lista se
+reescribe con un |Δs| creciente (−12 … −48); con |Δs| > 16 hay 86 fotos de
+10.386 ticks de media. Informe: `docs/informe-g5l-r-m1-1010.md`.
+
+S10 (speedcode) quedó cerrada antes: 118 KB, −6,2 % de CPU, no cabe en el
+vivo (`docs/informe-g5l-r-s10-1010.md`).
+
+**D1 sigue roja** (control sin cambios): back 387/4126 (9,38 %, racha 5),
+sprites 98/1914, normal BENCH 14/6312, VBTRACE 2. 50 Hz y colchón aceptados.
+
+#### 1. La próxima sesión, en orden
+
+| tarjeta | responsable | ficheros / puerta | instrucciones |
+|---|---|---|---|
+| **G5L-R-L3** | coordinador, Sol high; **en curso** | `logic68k.s`, `mspr68k.s`: elegir por perfil entre `mario_E2BD`, `spr_tile`, `mc_pxy`, cámara y Mario. Fuzz/copper/ABI exactos y A/B real; retirar si empeora | `docs/instrucciones-g5l-r-l3.md` |
+
+Herramientas nuevas para medir: `-DM1POS` (+ `tools/m1_read.py`) da una fila
+por foto dibujada en WinUAE y `g5l.py game --render-list` repite esa
+secuencia en Musashi. Cada ciclo de CPU que se ahorra en la vuelta vale
+doble: lo multiplican los planos y baja el Δs de la espiral.
+
+Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
+--baseline tools/baseline_pc.json --level --g5l --bm1`, en verde.
+
+#### 2. Pendiente del usuario
+
+- Probar el vivo a mano en esta rama y decidir cuándo integrar a master.
+- **Solo como dato (no se propone):** S11 indica que el estrés back
+  probablemente no entre en D1 solo con CPU del scroll. Con 5 planos (PF2 de 2) el ≈ 1,6× de
+  los planos casi desaparecería, pero cambia D8 y el fondo. Es decisión
+  tuya si alguna vez se quiere evaluar.
+- En el checkout de master quedó sin commitear una versión vieja de
+  `docs/investigacion-demoscene-1010.md` (264 líneas) y su fila en
+  `docs/README.md`; la rama tiene la versión actualizada (320 líneas,
+  `6797dd0`).
+
+### Qué se hizo (L3)
+
+- Perfil por etiqueta (`tools/lprof.py`): plano, nada pasa del 10 %.
+  MCACHE exacto pero con el máximo +28 %: retirado. Ningún recorte de
+  lógica mueve D1. Informe `informe-g5l-r-l3-1010.md`. Sigue G4-A
+  (ola 4), tarjeta `instrucciones-g4a.md`.
+
+
+## 2026-10-10 — sesión G4-A (PROXIMO archivado textual)
+
+PRÓXIMO — lo que sigue
+
+2026-10-10. **Código en `g2t-b2bis`, sin merge ni push**; worktree:
+`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
+anterior.
+
+**L3 cerrada, sin integrar** (`docs/informe-g5l-r-l3-1010.md`): el perfil
+de la lógica es plano (nada pasa del 10 %). La caché de `mspr_draw` era
+exacta pero subía el máximo un 28 %, así que se retiró. El C que queda
+pesa 0,8 % en YI1 y 5,7 % en back. Con S10, S11 y M1, el estrés no tiene
+recortes de CPU con margen medido. Lo que lo separa de D1 es la
+reconstrucción de la vuelta multiplicada por el DMA de los 6 planos.
+**Ahora: ola 4, por G4-A.**
+
+**D1 sigue roja** (control sin cambios): back 387/4126 (9,38 %, racha 5),
+sprites 98/1914, normal BENCH 14/6312, VBTRACE 2. 50 Hz y colchón aceptados.
+
+#### 1. La próxima sesión, en orden
+
+| tarjeta | responsable | ficheros / puerta | instrucciones |
+|---|---|---|---|
+| **G4-A** | coordinador; **en curso** | `tools/g4a.py` (nuevo), solo en la PC: inventario por tipo de enemigo, columnas por línea fuera de Mario, cota de bobs y memoria de la tabla G5L para todos. Puerta de cruce: el Rex da las 48 formas del banco | `docs/instrucciones-g4a.md` |
+| G4 + G6 | después de G4-A | el plan G5L para N objetos, con el formato de tabla que salga de G4-A | `docs/instrucciones-olas.md` §3 |
+
+Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
+--baseline tools/baseline_pc.json --level --g5l --bm1`, en verde.
+
+#### 2. Pendiente del usuario
+
+- Probar el vivo a mano en esta rama y decidir cuándo integrar a master.
+- **Solo como dato (no se propone):** S11 y L3 indican que el estrés back
+  probablemente no entre en D1 solo con CPU. Con 5 planos (PF2 de 2) el
+  ≈ 1,6× de los planos casi desaparecería, pero cambia D8 y el fondo. Es
+  decisión tuya si alguna vez se quiere evaluar.
+- En el checkout de master quedó sin commitear una versión vieja de
+  `docs/investigacion-demoscene-1010.md` (264 líneas) y su fila en
+  `docs/README.md`; la rama tiene la versión actualizada (320 líneas,
+  `6797dd0`).
+
+### Qué se hizo (G4-A)
+
+- `tools/g4a.py`: inventario exacto con trazas SOT1 del host en las 30
+  grabaciones, columnas por línea, cota de bobs y memoria por formato
+  (estimador validado exacto contra `g5l.bin`). Hallazgo: G5L no dibuja
+  el Rex aplastado con otro dy. Informe `informe-g4a-1010.md`. Sigue
+  G5L-N, tarjeta `instrucciones-g5l-n.md`.
+
+
+## 2026-10-10 — sesión G5L-N (PROXIMO archivado textual)
+
+PRÓXIMO — lo que sigue
+
+2026-10-10. **Código en `g2t-b2bis`, sin merge ni push**; worktree:
+`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
+anterior.
+
+**G4-A hecha (solo medida)** (`docs/informe-g4a-1010.md`). Con trazas
+exactas de las 30 grabaciones aparecen 9 tipos con gráfico; ninguno pasa
+de 15 colores. **Hallazgo:** G5L no dibuja el Rex aplastado cuando
+aparece con otro desplazamiento vertical: 340 de 2.110 frames con Rex en
+`hills2`, también en `stress_*`, `shells` y `pw_estrella`. Con la clave
+normalizada, 30 de esas 33 formas ya están en el banco, y el Rex baja de
+48 a 22 formas. La tabla G5L de todos los enemigos solo entra en slow con
+la clave normalizada y las máscaras compartidas (83 KB con 4 mapas). El
+Banzai como bob (+59 KB) y el audio no entran en chip hasta C2/C4, que
+además necesitan compresión (C3). **Ahora: G5L-N.**
+
+L3 quedó cerrada antes, sin integrar (`docs/informe-g5l-r-l3-1010.md`):
+ningún recorte de la lógica mueve D1.
+
+**D1 sigue roja** (control sin cambios): back 387/4126 (9,38 %, racha 5),
+sprites 98/1914, normal BENCH 14/6312, VBTRACE 2. 50 Hz y colchón aceptados.
+
+#### 1. La próxima sesión, en orden
+
+| tarjeta | responsable | ficheros / puerta | instrucciones |
+|---|---|---|---|
+| **G5L-N** | coordinador; **en curso** | `tools/g5l.py` (formato `G5L2`), `player/g5l.s` (`g5l_choose`, `g5l_patch`): clave normalizada y máscaras una vez por forma. Puertas: `g5l.py trace` con las trazas nuevas (`rex_sin_forma` ≤ 3 formas), `g5l.py game`, regresión, memmap, A/B BENCH y captura de `hills2` | `docs/instrucciones-g5l-n.md` |
+| G4 + G6 | después de G5L-N | el plan G5L para N objetos con el formato `G5L2`; Rex con 4 mapas y los demás con 1 (chip) | `docs/instrucciones-olas.md` §3, `informe-g4a-1010.md` §6 |
+
+Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
+--baseline tools/baseline_pc.json --level --g5l --bm1`, en verde.
+
+#### 2. Pendiente del usuario
+
+- Probar el vivo a mano en esta rama y decidir cuándo integrar a master.
+- **Solo como dato (no se propone):** S11 y L3 indican que el estrés back
+  probablemente no entre en D1 solo con CPU. Con 5 planos (PF2 de 2) el
+  ≈ 1,6× de los planos casi desaparecería, pero cambia D8 y el fondo. Es
+  decisión tuya si alguna vez se quiere evaluar.
+- En el checkout de master quedó sin commitear una versión vieja de
+  `docs/investigacion-demoscene-1010.md` (264 líneas) y su fila en
+  `docs/README.md`; la rama tiene la versión actualizada (320 líneas,
+  `6797dd0`).
+
+### Qué se hizo (G5L-N)
+
+- Tabla `G5L2` (clave normalizada, máscaras por forma) en `g5l.py` y
+  `g5l.s`: 128.724 → 44.810 B; el Rex aplastado ya se dibuja (hills2
+  340 → 0); A/B no peor; hills2 foto 1720 exacta. P124. Informe
+  `informe-g5l-n-1010.md`. Sigue G4-1, tarjeta `instrucciones-g4-1.md`.
+
+
+## 2026-10-10 — sesión G4-1 (PROXIMO archivado textual)
+
+PRÓXIMO — lo que sigue
+
+2026-10-10. **Código en `g2t-b2bis`, sin merge ni push**; worktree:
+`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
+anterior.
+
+**G5L-N hecha e integrada en la rama** (`docs/informe-g5l-n-1010.md`).
+La tabla del Rex pasa a `G5L2`, con la clave normalizada y las máscaras
+una vez por forma. Ocupa 44.810 B en vez de 128.724, y la slow libre del
+vivo sube de 61 a 145 KB. **El Rex aplastado sobre una pendiente ya se
+dibuja**: en `hills2`, 340 frames → 0 sin forma. En la foto 1720, la
+captura WinUAE es el control más el Rex planeado, con 0 de 327.680
+píxeles distintos. El A/B BENCH no empeora (normal 14→9, back 392→373,
+sprites 98→88). Trampa nueva: P124. **Ahora: G4-1.**
+
+G4-A (medida) quedó antes (`docs/informe-g4a-1010.md`): 9 tipos con
+gráfico, ninguno de más de 15 colores. El Banzai es bob, y el bob y el
+audio no entran en chip hasta C2/C4 + C3.
+
+**D1 sigue roja**: back 373/4126 (racha 4), sprites 88/1914, normal BENCH
+9/6312 (tanda de G5L-N). 50 Hz y colchón aceptados.
+
+#### 1. La próxima sesión, en orden
+
+| tarjeta | responsable | ficheros / puerta | instrucciones |
+|---|---|---|---|
+| **G4-1** | coordinador; **en curso** | `tools/g5l.py` (`plan_frame_n`, `check_trace_n`, `trace --multi`), solo Python: varios Rex por foto en los pares 4-5 y 6-7, con reuso vertical y colores compartidos con Mario. Puerta: 0 errores de color en las 8 trazas; cada Rex visible queda dibujado o en la cola de bobs con su motivo | `docs/instrucciones-g4-1.md` |
+| G4-2 | después de G4-1 | el 68000 de `plan_frame_n` en `g5l.s`, `g5l.py game` exacto, A/B | (la escribe G4-1) |
+
+Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
+--baseline tools/baseline_pc.json --level --g5l --bm1`, en verde.
+
+#### 2. Pendiente del usuario
+
+- Probar el vivo a mano en esta rama y decidir cuándo integrar a master.
+  Novedad visible: el Rex aplastado sobre pendientes.
+- **Solo como dato (no se propone):** S11 y L3 indican que el estrés back
+  probablemente no entre en D1 solo con CPU. Con 5 planos (PF2 de 2) el
+  ≈ 1,6× de los planos casi desaparecería, pero cambia D8 y el fondo. Es
+  decisión tuya si alguna vez se quiere evaluar.
+- En el checkout de master quedó sin commitear una versión vieja de
+  `docs/investigacion-demoscene-1010.md` (264 líneas) y su fila en
+  `docs/README.md`; la rama tiene la versión actualizada (320 líneas,
+  `6797dd0`).
+
+### Qué se hizo (G4-1)
+
+- `plan_frame_n`/`check_trace_n`/`trace --multi` en `g5l.py`: 0 errores
+  de color en 8 trazas; el límite son los canales. Informe
+  `informe-g4-1-1010.md`. Sigue G4-2, tarjeta `instrucciones-g4-2.md`.
+
+
+## 2026-10-10 — sesión G4-2 (PROXIMO archivado textual)
+
+PRÓXIMO — lo que sigue
+
+2026-10-10. **Código en `g2t-b2bis`, sin merge ni push**; worktree:
+`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
+anterior.
+
+**G4-1 hecha (solo Python)**, ver `docs/informe-g4-1-1010.md`.
+`plan_frame_n` ubica varios Rex por foto en los pares 4-5 y 6-7, con reuso
+vertical (gap 1). En las 8 trazas hay 0 errores de color y 0 píxeles
+tapados. Ningún Rex queda afuera por color ni por plazo: **el límite son
+los canales**. hills2 sube de 1.893 a 2.498 Rex, stress_sprites de 1.040 a
+1.305 y stress_back de 2.440 a 2.576. yi1 queda igual porque los Rex que
+faltan comparten filas. Con un solo Rex el plan es igual al de hoy.
+**Ahora: G4-2.**
+
+Antes quedaron G5L-N (`informe-g5l-n-1010.md`), con la tabla `G5L2`, el
+Rex aplastado y +84 KB de slow, y G4-A (`informe-g4a-1010.md`).
+
+**D1 sigue roja**: back 373/4126 (racha 4), sprites 88/1914, normal BENCH
+9/6312 (tanda de G5L-N). 50 Hz y colchón aceptados.
+
+#### 1. La próxima sesión, en orden
+
+| tarjeta | responsable | ficheros / puerta | instrucciones |
+|---|---|---|---|
+| **G4-2** | coordinador; **en curso** | `player/g5l.s` y `tools/g5l.py`: el 68000 de `plan_frame_n` (hasta 4 Rex en los pares 4-7, encadenado DMA por lista, sin MOVE nuevos). Puerta: `g5l.py game --multi` exacto, regresión, memmap, A/B BENCH y captura con 2 Rex | `docs/instrucciones-g4-2.md` |
+| G4-3 | después de G4-2 | los pares de Mario (0-1/2-3) fuera de sus filas: la cota de G4-1 §3 | (la escribe G4-2) |
+
+Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
+--baseline tools/baseline_pc.json --level --g5l --bm1`, en verde.
+
+#### 2. Pendiente del usuario
+
+- Probar el vivo a mano en esta rama y decidir cuándo integrar a master.
+  Novedad visible: el Rex aplastado sobre pendientes.
+- **Solo como dato (no se propone):** S11 y L3 indican que el estrés back
+  probablemente no entre en D1 solo con CPU. Con 5 planos (PF2 de 2) el
+  ≈ 1,6× de los planos casi desaparecería, pero cambia D8 y el fondo. Es
+  decisión tuya si alguna vez se quiere evaluar.
+- En el checkout de master quedó sin commitear una versión vieja de
+  `docs/investigacion-demoscene-1010.md` (264 líneas) y su fila en
+  `docs/README.md`; la rama tiene la versión actualizada (320 líneas,
+  `6797dd0`).
+
+### Qué se hizo (G4-2)
+
+- El 68000 de `plan_frame_n` en `g5l.s`: hasta 2 Rex por foto, separados
+  en vertical, en los pares 4-5/6-7, con encadenado DMA por lista
+  (`g5l_emitn`) y sin MOVE nuevos. `g5l.py game` exacto en yi1, hills2
+  (605 fotos con 2 Rex, 1.380 cadenas), stress_sprites y stress_back.
+  P125.
+- La foto con 2 Rex cuesta ≈ 63 k ciclos de mediana contra ≈ 25 k. El A/B
+  BENCH empeora D1 (hills2 210 → 398, sprites 91 → 194, back 380 → 418;
+  normal 11 = 11), así que **queda apagado por defecto** (`G5L_MAXPL` = 1,
+  `-DG5L_MAXPL=2` para activarlo).
+- Capturas de hills2 en las fotos 1825 y 2130 con el segundo Rex: 0
+  píxeles distintos. Informe `informe-g4-2-1010.md`. Sigue G4-2o
+  (abaratar), tarjeta `instrucciones-g4-2o.md`; después G4-3.
+
+
+## 2026-10-10 — sesión G4-2o (PROXIMO archivado textual)
+
+PRÓXIMO — lo que sigue
+
+2026-10-10. **Código en `g2t-b2bis`, sin merge ni push**; worktree:
+`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
+anterior.
+
+**G4-2 hecha, pero apagada por defecto** (`docs/informe-g4-2-1010.md`).
+El 68000 ubica hasta 2 Rex por foto, separados en vertical, con encadenado
+DMA por lista y sin MOVE nuevos en el copper:
+
+- `g5l.py game` es exacto en yi1, hills2, stress_sprites y stress_back.
+- Capturas de hills2 con el segundo Rex: 0 píxeles distintos.
+
+Una foto con 2 Rex cuesta ≈ 63 k ciclos contra ≈ 25 k, y **D1 empeora**:
+
+| replay | fotos perdidas sin G4-2 | con G4-2 |
+|---|---:|---:|
+| hills2 | 210 | 398 |
+| sprites | 91 | 194 |
+| back | 380 | 418 |
+
+Por eso `G5L_MAXPL` = 1 por defecto. Con `-DG5L_MAXPL=2` se dibujan más
+Rex: en hills2, de 1.893 a 2.498. **Ahora: G4-2o, abaratarlo.**
+
+**D1 sigue roja**: back 380/4126 (racha 5), sprites 91/1914, hills2
+210/2835 y normal BENCH 11/6312 (control de la tanda de G4-2). 50 Hz y
+colchón aceptados.
+
+#### 1. La próxima sesión, en orden
+
+| tarjeta | responsable | ficheros / puerta | instrucciones |
+|---|---|---|---|
+| **G4-2o** | coordinador; **en curso** | `player/g5l.s`: el camino de varios Rex más barato (rápido sin bandas, caché, `g5l_emitn`). Puerta: `g5l.py game` exacto con MAXPL 1 y 2; A/B BENCH con MAXPL 2 dentro del ruido del control → el defecto pasa a 2 | `docs/instrucciones-g4-2o.md` |
+| G4-3 | después de G4-2o | Rex en los pares de Mario (0-1/2-3) fuera de sus filas: la referencia con colores y prioridad primero | `docs/instrucciones-g4-3.md` |
+
+Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
+--baseline tools/baseline_pc.json --level --g5l --bm1`, en verde.
+
+#### 2. Pendiente del usuario
+
+- **Trade de G4-2, si querés decidirlo antes de G4-2o:** más Rex visibles
+  (hills2 +32 %) contra ≈ 2× fotos perdidas en los replays con muchos Rex.
+  Hoy queda apagado (la regla de la tarjeta). Un Rex que no entra no se
+  dibuja: la cola de bobs es G7.
+- Probar el vivo a mano en esta rama y decidir cuándo integrar a master.
+  Novedad visible: el Rex aplastado sobre pendientes.
+- **Solo como dato (no se propone):** S11 y L3 indican que el estrés back
+  probablemente no entre en D1 solo con CPU. Con 5 planos (PF2 de 2) el
+  ≈ 1,6× de los planos casi desaparecería, pero cambia D8 y el fondo. Es
+  decisión tuya si alguna vez se quiere evaluar.
+- En el checkout de master quedó sin commitear una versión vieja de
+  `docs/investigacion-demoscene-1010.md` (264 líneas) y su fila en
+  `docs/README.md`; la rama tiene la versión actualizada (320 líneas,
+  `6797dd0`).
+
+### Qué se hizo (G4-2o)
+
+- Camino de varios Rex más barato, exacto en hills2/stress_sprites/
+  stress_back: sin `g5l_plan` si no hay choque (`g5l_rxsavef`), bloques
+  rápidos en `g5l_sweepn` y los tramos de Mario en su caché. Mediana de
+  una foto con 2 Rex: hills2 63,5 → 52,3 k; sprites 72,0 → 62,9 k.
+- A/B: el castigo baja (hills2 +188 → +135, sprites +103 → +89, back
+  +38 → +22) pero sigue sobre el ruido: G4-2 sigue apagado. Informe
+  `informe-g4-2o-1010.md`. Sigue G4-B (los demás enemigos), tarjeta
+  `instrucciones-g4-b.md`; G4-3 aparcada.
+
+## 2026-10-10 — sesión G4-B (PROXIMO archivado textual)
+
+PRÓXIMO — lo que sigue
+
+2026-10-10. **Código en `g2t-b2bis`, sin merge ni push**; worktree:
+`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
+anterior.
+
+**G4-2 y G4-2o hechas; los 2 Rex por foto siguen apagados por defecto**
+(`docs/informe-g4-2-1010.md`, `docs/informe-g4-2o-1010.md`). El 68000
+ubica hasta 2 Rex con encadenado DMA, y es exacto. G4-2o abarató la foto
+con 2 Rex (hills2: mediana de 63,5 k a 52,3 k ciclos; con un Rex, 25 k),
+pero D1 sigue empeorando más que el ruido:
+
+| replay | fotos perdidas, control | con 2 Rex |
+|---|---:|---:|
+| hills2 | 211 | 346 |
+| sprites | 91 | 180 |
+| back | 385 | 407 |
+
+`-DG5L_MAXPL=2` los activa. **Ahora: G4-B, los demás enemigos de YI1**:
+hoy solo se ven Mario y el Rex, y la piraña, el Chuck, los Koopa, la caja
+de mensaje y la cinta de meta no se dibujan.
+
+**D1 sigue roja**: back 385/4126 (racha 5), sprites 91/1914, hills2
+211/2835 y normal BENCH 11/6312 (controles de esta tanda). 50 Hz y
+colchón aceptados.
+
+#### 1. La próxima sesión, en orden
+
+| tarjeta | responsable | ficheros / puerta | instrucciones |
+|---|---|---|---|
+| **G4-B** | coordinador; **en curso** | `tools/g5l.py`, `player/g5l.s` y la tabla: los demás enemigos de YI1 por G5L, un objeto por foto (el Banzai es bob, G7). Primero las formas y la referencia Python (0 errores de color), después el 68000. Puerta: `g5l.py game` exacto, memmap, A/B BENCH reportado como trade y capturas de la piraña y el Chuck | `docs/instrucciones-g4-b.md` |
+| G4-3 | aparcada | Rex en los pares de Mario: solo tiene sentido con G4-2 activado | `docs/instrucciones-g4-3.md` |
+
+Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
+--baseline tools/baseline_pc.json --level --g5l --bm1`, en verde.
+
+#### 2. Pendiente del usuario
+
+- **Trade de los 2 Rex por foto** (G4-2/G4-2o): más Rex visibles (hills2
+  +32 %) contra ≈ 1,6× fotos perdidas en hills2 y ≈ 2× en sprites. Hoy
+  está apagado por la regla de la tarjeta. Un Rex que no entra no se
+  dibuja: la cola de bobs es G7.
+- Probar el vivo a mano en esta rama y decidir cuándo integrar a master.
+  Novedad visible: el Rex aplastado sobre pendientes.
+- **Solo como dato (no se propone):** S11 y L3 indican que el estrés back
+  probablemente no entre en D1 solo con CPU. Con 5 planos (PF2 de 2) el
+  ≈ 1,6× de los planos casi desaparecería, pero cambia D8 y el fondo. Es
+  decisión tuya si alguna vez se quiere evaluar.
+- En el checkout de master quedó sin commitear una versión vieja de
+  `docs/investigacion-demoscene-1010.md` (264 líneas) y su fila en
+  `docs/README.md`; la rama tiene la versión actualizada (320 líneas,
+  `6797dd0`).
+
+### Qué se hizo (G4-B)
+
+- Tabla G5L3, con los órdenes de colores propios y el mapa de bits de
+  tipos en la cabecera, y un mapa limpio para cada tipo nuevo.
+  `G5L_TYPES=all` suma los demás enemigos de YI1.
+- Trazas completas `oamb_*`. Referencia con 0 errores de color en 11
+  trazas, con uno y con varios objetos.
+- 68000: `g5l_capture` filtra por el mapa de bits, y `g5l_plan` toma el
+  orden de los colores de la tabla. Exacto en yi1, hills2, piranha y
+  chuck.
+- Capturas: la piraña con 0 px; el Chuck con 0 px en el objeto y 12 px
+  de cargas tarde del poste.
+- A/B: normal 11 → 27, back +69, piranha +23. Queda apagado por defecto.
+- P126: el replay pierde 23 KB de chip en Exec que `memmap` no cuenta.
+- Informe: `docs/informe-g4-b-1010.md`. Sigue G9.
+
+## 2026-10-10 — sesión G9 (PROXIMO archivado textual)
+
+PRÓXIMO — lo que sigue
+
+2026-10-10. **Código en `g2t-b2bis`, sin merge ni push**; worktree:
+`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
+anterior.
+
+**G4-B hecha; los demás enemigos de YI1 quedan apagados por defecto**
+(`docs/informe-g4-b-1010.md`). Con `G5L_TYPES=all`, G5L dibuja la
+piraña, el Chuck, el Koopa, el caparazón, la caja, la cinta y `$02` con
+la misma regla que el Rex: un objeto por foto, el más alto. El 68000 es
+exacto en yi1, hills2, piranha y chuck. Las capturas de la piraña y del
+Chuck salen exactas en el objeto. Pero D1 empeora más que el ruido:
+
+| replay | fotos perdidas, control | todos los tipos |
+|---|---:|---:|
+| normal | 11 | 27 |
+| back | 387 | 456 |
+| piranha | 108 | 131 |
+| sprites | 93 | 104 |
+| hills2 | 216 | 225 |
+
+**Ahora: G9**, la comparación de la imagen de los sprites contra la OAM
+de la SNES, para juzgar el 1:1 sin depender de un control.
+
+**D1 sigue roja**: back 387/4126, sprites 93/1914, hills2 216/2835 y
+normal BENCH 11/6312 (controles de esta tanda). 50 Hz y colchón
+aceptados.
+
+#### 1. La próxima sesión, en orden
+
+| tarjeta | responsable | ficheros / puerta | instrucciones |
+|---|---|---|---|
+| **G9** | coordinador; **siguiente** | `tools/sprshot_cmp.py` (nuevo). La OAM del oráculo dibujada en Python contra la captura de WinUAE, por objeto: exacto, no dibujado con su motivo, o N px distintos. Puerta: 0 px en los objetos dibujados y en Mario, sobre las capturas de G4-B y un juego por tipo | `docs/instrucciones-g9.md` |
+| G4-3 | aparcada | Rex en los pares de Mario: solo tiene sentido con G4-2 activado | `docs/instrucciones-g4-3.md` |
+
+Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
+--baseline tools/baseline_pc.json --level --g5l --bm1`, en verde.
+
+#### 2. Pendiente del usuario
+
+- **Trade de los demás enemigos** (G4-B, `G5L_TYPES=all`):
+  - a favor: se ven la piraña, el Koopa, la caja, la cinta y `$02` casi
+    siempre. El Chuck y el caparazón se ven poco, porque casi siempre hay
+    otro objeto más alto (la cinta, la caja) y gana ese. Con 2 por foto
+    se ve más de la mitad.
+  - en contra: fotos perdidas normal 11 → 27, back +69, piranha +23.
+  - además, la chip del replay queda a ≈ 3 KB del límite real (P126).
+    El vivo (BM1) tiene 14,7 KB.
+
+  Hoy está apagado por la regla de la tarjeta.
+- **Trade de los 2 Rex por foto** (G4-2/G4-2o): más Rex visibles (hills2
+  +32 %) contra ≈ 1,6× fotos perdidas en hills2 y ≈ 2× en sprites. Hoy
+  está apagado.
+  - Con todos los tipos y 2 por foto, el replay **no arranca** por chip
+    (P126). En el vivo sí cabría.
+  - Un objeto que no entra no se dibuja: la cola de bobs es G7.
+- Probar el vivo a mano en esta rama y decidir cuándo integrar a master.
+  Novedad visible: el Rex aplastado sobre pendientes.
+  `G5L_TYPES=all GDEFS=" " OUT=work/live sh tools/game_build.sh` arma el
+  vivo con todos los enemigos.
+- **Solo como dato (no se propone):** S11 y L3 indican que el estrés back
+  probablemente no entre en D1 solo con CPU. Con 5 planos (PF2 de 2) el
+  ≈ 1,6× de los planos casi desaparecería, pero cambia D8 y el fondo. Es
+  decisión tuya si alguna vez se quiere evaluar.
+- En el checkout de master quedó sin commitear una versión vieja de
+  `docs/investigacion-demoscene-1010.md` (264 líneas) y su fila en
+  `docs/README.md`; la rama tiene la versión actualizada (320 líneas,
+  `6797dd0`).
+
+### Qué se hizo (G9)
+
+- `tools/sprshot_cmp.py`: modos imagen (OAM de la SNES contra la
+  captura, por objeto) y lógica (OAM del port contra la SNES, todo el
+  replay en Musashi, sin WinUAE).
+- 10 capturas con 8 tipos (limpias y con bandas) y Mario exactos contra
+  la SNES.
+- Deriva de lógica en pocas instancias (Rex yi1 70 %, piraña
+  stress_piranha 74 %): tarjeta L-DER.
+- P127. Informe `docs/informe-g9-1010.md`.

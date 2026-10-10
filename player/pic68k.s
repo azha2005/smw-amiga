@@ -34,4 +34,41 @@ _mario_E2BD_bridge:
         public  _sprite_run_bridge
 _sprite_run_bridge:
         PICJUMP _sprite_run
+        public  _banzai_bill_bridge
+_banzai_bill_bridge:                        ; sprite_main (msprite.c) -> banzai_bill (asm)
+        PICJUMP _banzai_bill
         endif
+
+; --- _mario_collide_bridge / D5F2 / D062 / D7E4 / CEB1 (G5L-R-L2) ---
+; mario_player_c (el C raro de manim.c) llama a la logica que ahora es
+; asm en logic68k.s, a mas de 32 KB en los dos builds (NOOAM y SPR_OAM).
+; entrada: sin argumentos.
+; salida: la del destino.
+; registros destruidos: a0 (caller saved); los del destino.
+        public  _mario_collide_bridge
+_mario_collide_bridge:                      ; G5L-R-L2: mario_player_c -> logic68k.s
+        PICJUMP _mario_collide
+        public  _mario_D5F2_bridge
+_mario_D5F2_bridge:
+        PICJUMP _mario_D5F2
+        public  _mario_D062_bridge
+_mario_D062_bridge:
+        PICJUMP _mario_D062
+        public  _mario_D7E4_bridge
+_mario_D7E4_bridge:
+        PICJUMP _mario_D7E4
+        public  _mario_CEB1_bridge
+_mario_CEB1_bridge:
+        PICJUMP _mario_CEB1
+        public  _f7f4_bridge
+_f7f4_bridge:                               ; camera_F6DB_c (mcam.c) -> f7f4 (asm)
+        PICJUMP _f7f4
+        public  _f8ab_bridge
+_f8ab_bridge:                               ; camera_F6DB_c (mcam.c) -> f8ab (asm)
+        PICJUMP _f8ab
+        public  _blocks_update_bridge
+_blocks_update_bridge:                      ; mario_player_c (manim.c) -> blocks_update (asm)
+        PICJUMP _blocks_update
+        public  _sprite_load_level_bridge
+_sprite_load_level_bridge:                  ; manim.c -> sprite_load_level (asm)
+        PICJUMP _sprite_load_level

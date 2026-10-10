@@ -264,6 +264,13 @@ def local_writes(stmts, i, target):
 
 
 class PortReader(reader.Reader):
+    def _include(self, statement, directory):
+        # Lo de work/ es derivado (R9) y no se sigue: que falte (p. ej.
+        # work/g5_pre.i sin generar) no es un error de la fuente.
+        if statement.operands and statement.operands[0].strip("\"'").startswith("work/"):
+            return
+        super()._include(statement, directory)
+
     def read_file(self, path):
         path = Path(path)
         rel = os.path.relpath(path.resolve(), ROOT).replace("\\", "/")

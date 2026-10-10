@@ -106,9 +106,13 @@ def schedule(row, last, free, nb1, needs):
 
 
 # ----------------------------------------------------------------------
-# tabla G5L1 (big endian, offsets relativos al principio)
+# tabla G5L2 (big endian, offsets relativos al principio)
 # ----------------------------------------------------------------------
-#  0  'G5L1'
+# G5L-N (2026-10-10): la clave de la forma está normalizada (dx, dy menos
+# su mínimo como s8; el 68000 suma ese mínimo a sx/sy antes de usar el
+# origen de la variante) y las máscaras de píxeles van una vez por forma,
+# por color, no repetidas en cada mapa (informe-g4a-1010.md §6).
+#  0  'G5L2'
 #  4  .w formas  .w variantes  .w NHASH  .w 0
 # 12  .l offset de la tabla de máscaras de Mario (744 x 8 .w)
 # 16  NHASH x .w: offset de la primera forma del cubo (0 = vacío)
@@ -118,8 +122,10 @@ def schedule(row, last, free, nb1, needs):
 # variante: .w ox, .w oy, .b ancho, .b alto, .b columnas, .b índices,
 #        .b xmax, .b grupos, .w variante del banco, columnas x (.l off0,
 #        .l off1) en bank.dma, grupos x (.b índice, .b 0, .w color, .l
-#        filas): el filtro A3 por máscaras; grupos x alto x columnas .w:
-#        los píxeles del índice del grupo (g5l_patch); índices x (.b índice, .b
+#        filas): el filtro A3 por máscaras (el .b 0 es el número de su
+#        máscara en el bloque de la forma); .l offset del bloque de
+#        máscaras de la forma (por color: alto x columnas .w, los píxeles de
+#        ese color, g5l_patch); índices x (.b índice, .b
 #        tramos, tramos x (.b fila primera, .b fila última, .w color),
 #        .b cambios, .b última fila, cambios x (.b fila, .b última del
 #        tramo anterior o $FF, .w color)): filas seguidas, mismo color;
@@ -128,11 +134,21 @@ def tile_flags(tile, size, fx, fy, pal):
     return (tile >> 8) | (2 if size == 16 else 0) | fx << 2 | fy << 3 | pal << 4
 
 
+def norm_key(t4):
+    """G5L-N: (dx, dy) menos su mínimo (s8), sin reordenar las fichas;
+    devuelve las fichas normalizadas y el mínimo (el 68000: g5l_choose)"""
+    mx = min(s8(t[0]) for t in t4)
+    my = min(s8(t[1]) for t in t4)
+    return [((s8(t[0]) - mx) & 255, (s8(t[1]) - my) & 255) + tuple(t[2:]) for t in t4], mx, my
+
+
 def key_hash(tiles4):
     return (sum(sum(t) for t in tiles4) + len(tiles4)) & (NHASH - 1)
 
 
-def variant_record(pose, tables, n, offs=None):
+def variant_record(pose, tables, n, offs=None, masks=None):
+    """masks = (offset del bloque de la forma, [colores en orden]) (G5L2);
+    None: las máscaras dentro del registro, como G5L1 (solo para medir)"""
     ox, oy = pose['origin']
     w, h = pose['width'], pose['height']
     cols = (w + 15) // 16
@@ -152,18 +168,12 @@ def variant_record(pose, tables, n, offs=None):
             groups[d, c] = groups.get((d, c), 0) | ((1 << (b + 1)) - 1) & ~((1 << a) - 1)
     out[9] = len(groups)
     for (d, c), m in groups.items():
-        out += struct.pack('>BBHI', d, 0, c, m)
-    # G5L-R: por grupo, los píxeles de su índice en cada fila y columna
-    # (el parche de g5l_patch): h x columnas .w, bit 15 = x 16c
-    for (d, c), m in groups.items():
-        for r in range(h):
-            for col in range(cols):
-                wv = 0
-                for x in range(16):
-                    xx = 16 * col + x
-                    if xx < w and pose['rows'][r][xx] == d:
-                        wv |= 1 << (15 - x)
-                out += struct.pack('>H', wv)
+        out += struct.pack('>BBHI', d, masks[1].index(c) if masks else 0, c, m)
+    if masks:
+        out += struct.pack('>I', masks[0])
+    else:
+        for (d, c), m in groups.items():
+            out += pose_mask(pose, d)
     out[7] = len(runs)
     for d in sorted(runs):
         out += struct.pack('>BB', d, len(runs[d]))
@@ -173,6 +183,22 @@ def variant_record(pose, tables, n, offs=None):
         out += struct.pack('>BB', len(chg), runs[d][-1][1])
         for a, pb, c in chg:
             out += struct.pack('>BBH', a, pb, c)
+    return bytes(out)
+
+
+def pose_mask(pose, d):
+    """G5L-R: los píxeles del índice d en cada fila y columna (el parche de
+    g5l_patch): alto x columnas .w, bit 15 = x 16c"""
+    w, h = pose['width'], pose['height']
+    out = bytearray()
+    for r in range(h):
+        for col in range((w + 15) // 16):
+            wv = 0
+            for x in range(16):
+                xx = 16 * col + x
+                if xx < w and pose['rows'][r][xx] == d:
+                    wv |= 1 << (15 - x)
+            out += struct.pack('>H', wv)
     return bytes(out)
 
 
@@ -211,6 +237,11 @@ REXC = [0x44D, 0x66D, 0x88F, 0xB20, 0xF80]
 CLEAN_PERMS = [(6, 7, 4, 9, 15), (5, 7, 15, 6, 4), (11, 7, 15, 6, 4), (6, 7, 15, 14, 4)]
 CLEAN_MAPS = [{0xFFF: 1, 0x000: 2, **dict(zip(REXC, p))} for p in CLEAN_PERMS]
 CLEAN_FLAG = 0x80000000
+# G4-B: los demás enemigos de YI1 (informe-g4a-1010.md §2; el Banzai es bob,
+# G7). Un mapa limpio por tipo: blanco 1, negro 2 y sus colores propios
+# (ordenados) en los índices de BAND_PREF; mapa 4 + su posición aquí.
+G5L_OTHER = (0x4F, 0x95, 0xBD, 0x05, 0xB9, 0x7B, 0x02)
+NORDS = 16                      # G5L3: órdenes de colores propios (16 x 16 B)
 
 
 def clean_pose(pose, CLEAN_MAP):
@@ -255,41 +286,148 @@ def clean_streams(pose, out, index):
     return offs
 
 
-def build_table(bank, clean=True):
+def cp_cols(pose):
+    return (pose['width'] + 15) // 16
+
+
+def other_shapes(types):
+    """G4-B: [(fichas, pri, pose, tipo)] y {tipo: (mapa limpio, orden, mapa)}
+    de los tipos de G5L_OTHER en types, desde las formas de G4-A
+    (work/g4a/shapes.json, g4a.py traceall) y la VRAM/CGRAM del nivel"""
+    import g4a
+    want = [n for n in G5L_OTHER if n in types]
+    if not want:
+        return [], {}
+    vram, cg = g4a.ctx()
+    sj = json.loads(Path('work/g4a/shapes.json').read_text(encoding='utf-8'))
+    out, maps = [], {}
+    for num in want:
+        items = []
+        for e in sj['%02X' % num]['todas']:
+            tiles, pri = tuple(tuple(x) for x in e[:-1]), e[-1]
+            pose = g4a.pose_of(vram, cg, tiles)
+            if pose is None:
+                continue
+            items.append((tiles, pri, pose))
+        cols = sorted({c for _, _, pose in items for rm in pose['row_maps'] for _, _, _, c in rm}
+                      - {0xFFF, 0x000})
+        if len(cols) > len(BAND_PREF):
+            raise ValueError('tipo %02X: %d colores propios' % (num, len(cols)))
+        idx = BAND_PREF[:len(cols)]
+        cmap = {0xFFF: 1, 0x000: 2, **dict(zip(cols, idx))}
+        maps[num] = (cmap, list(idx), 4 + G5L_OTHER.index(num))
+        for tiles, pri, pose in items:
+            out.append((tiles, pri, pose, num))
+    return out, maps
+
+
+def color_image(pose):
+    """las filas en colores (para comparar formas de mapas distintos)"""
+    out = []
+    for r, row in enumerate(pose['rows']):
+        cm = {d: c for _, _, d, c in pose['row_maps'][r]}
+        out.append(tuple(cm[d] if d else None for d in row))
+    return tuple(out)
+
+
+def build_table(bank, clean=True, types=(0xAB,)):
     import g2t_ref as T
     import g5ref as R
     ctx = T.load_context(bank)
-    poses, directory, tables = ctx['poses'], ctx['directory'], ctx['tables']
+    poses, directory, tables = list(ctx['poses']), dict(ctx['directory']), ctx['tables']
+    # G4-B: las formas de los demás tipos, como poses extra con su mapa
+    extra, omaps = other_shapes(types) if clean else ([], {})
+    pmap = {}                                   # pose -> (mapas limpios, mapa base)
+    for tiles, pri, pose, num in extra:
+        if (tiles, pri) in directory:
+            continue
+        pmap[len(poses)] = ([omaps[num][0]], omaps[num][2])
+        directory[(tiles, pri)] = [len(poses)]
+        poses.append(pose)
+    ctx['types'] = sorted(set(types))           # (sin el Rex: control de G4-B)
+    ctx['omaps'] = omaps
     ctx['clean'], ctx['cdma'] = [], bytearray()
+    ctx['ctype'] = []                           # G4-B: la familia de mapas de cada limpia
     cindex = {}
     shapes = []
+    seen = {}
+    ctx['norm_dup'] = 0
     for (tiles, pri), variants in directory.items():
         t4 = [((dx & 255), (dy & 255), tile & 255, tile_flags(tile, size, fx, fy, pal))
               for dx, dy, tile, size, fx, fy, pal in tiles]
         if any(not -128 <= dx < 128 or not -128 <= dy < 128 for dx, dy, *_ in tiles):
             raise ValueError('ficha fuera de s8')
-        shapes.append((t4, pri, variants))
+        if not clean:
+            shapes.append((t4, pri, variants, 0, 0))
+            continue
+        # G5L-N: una forma por clave normalizada; la traslación tiene que
+        # dar la misma imagen con el mismo origen relativo al mínimo
+        t4n, mx, my = norm_key(t4)
+        pose0 = poses[variants[0]]
+        org = (pose0['origin'][0] - mx, pose0['origin'][1] - my)
+        img = color_image(pose0)                # colores, no los índices del banco
+        k = (tuple(t4n), pri)
+        if k in seen:
+            o2, img2 = seen[k]
+            if o2 != org or img2 != img:
+                raise ValueError('traslación con otra imagen u origen')
+            ctx['norm_dup'] += 1
+            continue
+        seen[k] = (org, img)
+        shapes.append((t4n, pri, variants, mx, my))
     vblob = bytearray()
     voff = {}
+    mfix = []                                   # (en vblob, offset en vblob del bloque)
     if clean:
-        for k, (t4, pri, variants) in enumerate(shapes):
+        for k, (t4, pri, variants, mx, my) in enumerate(shapes):
             names = []
-            for cmap in CLEAN_MAPS:
-                cp = clean_pose(poses[variants[0]], cmap)
+            p0 = poses[variants[0]]
+            p0 = dict(p0, origin=[p0['origin'][0] - mx, p0['origin'][1] - my])
+            cmaps, mbase = pmap.get(variants[0], (CLEAN_MAPS, 0))
+            # el bloque de máscaras de la forma: un color por máscara, con
+            # los píxeles del mapa 0 (la misma imagen en los 4 mapas)
+            c0 = clean_pose(p0, cmaps[0])
+            colors = sorted({c for row in c0['row_maps'] for _, _, _, c in row})
+            if len(vblob) & 1:
+                vblob.append(0)
+            mblk = len(vblob)
+            for c in colors:
+                vblob += pose_mask(c0, cmaps[0][c])
+            for mi, cmap in enumerate(cmaps):
+                cp = clean_pose(p0, cmap)
                 offs = clean_streams(cp, ctx['cdma'], cindex)
                 ck = len(ctx['clean'])
                 ctx['clean'].append(cp)
+                # la familia de mapas, no el tipo: las formas que ya estaban
+                # en el banco G3 ($BD, $B9, $02) usan los 4 mapas del Rex
+                ctx['ctype'].append(G5L_OTHER[mbase - 4] if mbase else 0xAB)
                 if len(vblob) & 1:
                     vblob.append(0)
                 voff['c%d' % ck] = len(vblob)
-                vblob += variant_record(cp, None, 0x8000 | ck, [
-                    (o0 | CLEAN_FLAG, o1 | CLEAN_FLAG) for o0, o1 in offs])
+                rec = bytearray(variant_record(cp, None, 0x8000 | ck, [
+                    (o0 | CLEAN_FLAG, o1 | CLEAN_FLAG) for o0, o1 in offs], (0, colors)))
+                rec[7] |= (mbase + mi) << 4       # G4-B: el orden de sus colores propios
+                at = 12 + 8 * cp_cols(cp) + 8 * rec[9]
+                mfix.append((len(vblob) + at, mblk))
+                vblob += rec
                 names.append('c%d' % ck)
             shapes[k] = (t4, pri, names)        # G5L-R: solo la limpia
-    sbase = 16 + 2 * NHASH
+    else:
+        shapes = [(t4, pri, v) for t4, pri, v, _, _ in shapes]
+    # G5L3: detrás de las cubetas, los órdenes de los colores propios (16 x
+    # 16 B: índices, 0 al final; mapas 0-3 del Rex, 4 + i de G5L_OTHER[i])
+    # y los tipos de la captura (256 bits)
+    oo = 16 + 2 * NHASH
+    sbase = oo + 16 * NORDS + 32
     vbase = sbase + sum(6 + 4 * len(t4) + 4 * len(v) for t4, _, v in shapes)
     blob = bytearray(sbase)
-    struct.pack_into('>4sHHHH', blob, 0, b'G5L1', len(shapes), len(poses), NHASH, 0)
+    struct.pack_into('>4sHHHH', blob, 0, b'G5L3', len(shapes), len(poses), NHASH, oo)
+    for m, perm in enumerate(CLEAN_PERMS):
+        blob[oo + 16 * m:oo + 16 * m + len(perm)] = bytes(perm)
+    for num, (_, idx, m) in omaps.items():
+        blob[oo + 16 * m:oo + 16 * m + len(idx)] = bytes(idx)
+    for num in ctx['types']:
+        blob[oo + 16 * NORDS + (num >> 3)] |= 1 << (num & 7)
     heads = [0] * NHASH
     for t4, pri, variants in shapes:
         h = key_hash(t4)
@@ -304,6 +442,8 @@ def build_table(bank, clean=True):
         raise ValueError('formas fuera de los offsets .w')
     for h in range(NHASH):
         struct.pack_into('>H', blob, 16 + 2 * h, heads[h])
+    for at, mblk in mfix:
+        struct.pack_into('>I', vblob, at, vbase + mblk)
     blob += vblob
     if len(blob) & 1:
         blob.append(0)
@@ -334,10 +474,13 @@ def build_table(bank, clean=True):
 class Table:
     def __init__(self, blob):
         self.b = blob
-        magic, self.nshapes, self.nvar, nh, _ = struct.unpack_from('>4sHHHH', blob, 0)
-        if magic != b'G5L1' or nh != NHASH:
+        magic, self.nshapes, self.nvar, nh, oo = struct.unpack_from('>4sHHHH', blob, 0)
+        if magic != b'G5L3' or nh != NHASH:
             raise ValueError('tabla G5L desconocida')
         self.mo, = struct.unpack_from('>I', blob, 12)
+        self.ords = [list(blob[oo + 16 * m:oo + 16 * m + 16].split(bytes(1))[0]) for m in range(NORDS)]
+        tb = blob[oo + 16 * NORDS:oo + 16 * NORDS + 32]
+        self.types = {n for n in range(256) if tb[n >> 3] >> (n & 7) & 1}
 
     def w(self, o):
         return struct.unpack_from('>H', self.b, o)[0]
@@ -354,11 +497,13 @@ class Table:
 
     def variant(self, o):
         ox, oy, w, h, cols, nidx, xmax, ng, n = struct.unpack_from('>hhBBBBBBH', self.b, o)
+        omap, nidx = nidx >> 4, nidx & 15     # G5L3: el orden de los colores propios
         p = o + 12
         offs = [struct.unpack_from('>II', self.b, p + 8 * c) for c in range(cols)]
         groups = [struct.unpack_from('>BBHI', self.b, p + 8 * cols + 8 * j) for j in range(ng)]
         p += 8 * cols + 8 * ng
-        p += 2 * h * cols * ng                  # máscaras de píxeles (g5l_patch)
+        mblk, = struct.unpack_from('>I', self.b, p)
+        p += 4                                  # el bloque de máscaras (g5l_patch)
         runs = {}
         for _ in range(nidx):
             d, nr = self.b[p], self.b[p + 1]
@@ -366,7 +511,15 @@ class Table:
             p += 2 + 4 * nr
             p += 2 + 4 * self.b[p]              # cambios (solo el 68000)
         return dict(ox=ox, oy=oy, w=w, h=h, cols=cols, xmax=xmax, offs=offs, runs=runs, n=n,
-                    groups=[(d, c, m) for d, _, c, m in groups])
+                    own=self.ords[omap], omap=omap,
+                    groups=[(d, c, m) for d, _, c, m in groups], mblk=mblk,
+                    midx=[k for _, k, _, _ in groups])
+
+    def mask(self, v, g):
+        """las máscaras del grupo g de la variante v (alto x columnas .w)"""
+        n = v['h'] * v['cols']
+        o = v['mblk'] + 2 * n * v['midx'][g]
+        return list(struct.unpack_from('>%dH' % n, self.b, o))
 
     def tmask(self, gtile, row):
         return self.w(self.mo + 16 * gtile + 2 * row)
@@ -456,10 +609,13 @@ class Stats(collections.Counter):
     pass
 
 
-def plan_frame(photo, tab, colors, lst, st):
+def plan_frame(photo, tab, colors, lst, st, seen=None):
     """photo: pal, moam, mosz, ptrs, camx, camy, rex=[(slot, x, y, entries)]
     lst: nb[s], has_loads(s), walk(s) -> (last, free, J)
+    seen: lista a la que se agrega (slot, estado) de cada objeto (G4-B)
     Devuelve dict(rex=..., vbl=[(i, color)], segs={s: (forma, moves)}, chans=[...]) o None."""
+    if seen is None:
+        seen = []
     ents = mario_entries(photo['moam'], photo['mosz'])
     mrow, xm = mario_rows(tab, ents, photo['ptrs'])
     mruns = mario_runs(mrow)
@@ -470,15 +626,20 @@ def plan_frame(photo, tab, colors, lst, st):
         t4, pri = rex_key(entries, sx, sy)
         if pri is None:
             st['rex_prio_mixta'] += 1
+            seen.append((slot, 'prio_mixta'))
             continue
+        t4, mx, my = norm_key(t4)               # G5L-N (g5l_choose)
+        sx, sy = sx + mx, sy + my
         vs = tab.lookup(t4, pri)
         if vs is None:
             st['rex_sin_forma'] += 1
+            seen.append((slot, 'sin_forma'))
             continue
         v0 = tab.variant(vs[0])
         x0, r0 = sx + v0['ox'], sy + v0['oy'] + 1
         if not (r0 + v0['h'] > 0 and r0 < ROWS and x0 + v0['w'] > 0 and x0 < 256):
             continue
+        seen.append((slot, 'en_pantalla'))
         if best is None or (r0, slot) < (best[0], best[1]):
             best = (r0, slot, x0, vs)
     if best is None:
@@ -497,6 +658,7 @@ def plan_frame(photo, tab, colors, lst, st):
     if asg is None:
         st['sin_indice'] += 1
         st['sin_plan'] += 1
+        seen.append((slot, 'sin_indice'))
         return None
     groups, remaps = asg
     st['remap_%d' % len(remaps)] += 1
@@ -511,6 +673,7 @@ def plan_frame(photo, tab, colors, lst, st):
     if res is None:
         st['sin_plazo'] += 1
         st['sin_plan'] += 1
+        seen.append((slot, 'sin_plazo'))
         return None
     vbl, segs = res
     return dict(slot=slot, vo=vo, var=v, x0=x0, r0=r0, E=E, trans=trans, vbl=vbl, segs=segs,
@@ -561,11 +724,10 @@ def band_assign(v, r0, mrow, colors):
             groups[d, c] = m & vis
             occ[d] |= m & vis
     remaps = []
-    inv = {c: d for d, c in cmap.items()}
-    for c in REXC:
-        if c not in inv:
+    for ic in v['own']:                         # G4-B: REXC en el orden del mapa
+        if ic not in cmap:
             continue
-        ic = inv[c]
+        c = cmap[ic]
         if colors[ic] == c:
             continue
         rc = groups.get((ic, c), 0)
@@ -903,7 +1065,7 @@ def trace_photo(recs, ctx):
         k += 1
     rex = []
     for r in recs:
-        if r['num'] != 0xAB:
+        if r['num'] not in ctx['types']:         # G4-B: los tipos de la tabla
             continue
         ents = []
         for dx, dy, tile, size, fx, fy, pal in r['tiles']:
@@ -918,7 +1080,7 @@ def check_trace(p, recs, ctx, colors):
     """errores de color de cada píxel de Mario y del Rex elegido (g2t_ref.simulate)"""
     import g2t_ref as T
     import sprgfx_bank as B
-    chosen = [r for r in recs if r['num'] == 0xAB and r['slot'] == p['slot']][0]
+    chosen = [r for r in recs if r['num'] in ctx['types'] and r['slot'] == p['slot']][0]
     ram, recorded = chosen['ram'], chosen['recorded']
     mario, _, _, _ = T.mario_check(ram, recorded, ctx['gfx'])
     poses = ctx['poses']
@@ -944,11 +1106,311 @@ def check_trace(p, recs, ctx, colors):
     return len(env) + pix
 
 
+# ----------------------------------------------------------------------
+# G4-1: varios Rex por foto (solo la referencia; el 68000 sigue con
+# plan_frame hasta G4-2). docs/instrucciones-g4-1.md
+# ----------------------------------------------------------------------
+class EMap:
+    """Bordes por dueños: bit 0 Mario, bit j + 1 el Rex j. E[m] = el mayor
+    borde derecho + 1 de los dueños de m (0 sin dueños). Con un Rex es la
+    tupla (0, xm + 1, xr + 1, max + 1) de plan_frame."""
+    def __init__(self, xs):
+        self.x = list(xs)
+
+    def __getitem__(self, m):
+        if not m:
+            return 0
+        return max(self.x[k] for k in range(len(self.x)) if m >> k & 1) + 1
+
+
+def mario_occ(mrow, colors):
+    """ocupación de los índices por fila: occ[i][fila] = color (Mario)"""
+    occ = [dict() for _ in range(16)]
+    for r, m in mrow.items():
+        for i in range(1, 16):
+            if m >> i & 1:
+                occ[i][r] = colors[i]
+    return occ
+
+
+def occ_bad(occ, i, c, r0, h):
+    """filas (bits relativos a r0) en que otro usa el índice i con otro color"""
+    o, b = occ[i], 0
+    for r in range(h):
+        col = o.get(r0 + r)
+        if col is not None and col != c:
+            b |= 1 << r
+    return b
+
+
+def band_need_n(v, r0, occ):
+    """band_need con la ocupación de Mario y de los Rex ya ubicados"""
+    vis = sum(1 << r for r in range(v['h']) if 0 <= r0 + r < ROWS)
+    n = 0
+    for d, c, m in v['groups']:
+        if d in (1, 2):
+            continue
+        if occ_bad(occ, d, c, r0, v['h']) & m & vis:
+            n += 1
+    return n
+
+
+def band_assign_n(v, r0, occ):
+    """band_assign con la ocupación general (solo Mario: el mismo resultado)"""
+    h = v['h']
+    vis = sum(1 << r for r in range(h) if 0 <= r0 + r < ROWS)
+    groups = collections.OrderedDict()
+    own = [0] * 16
+    cmap = {}
+    for d, c, m in v['groups']:
+        cmap[d] = c
+        if m & vis:
+            groups[d, c] = m & vis
+            own[d] |= m & vis
+    remaps = []
+    for ic in v['own']:                         # G4-B: REXC en el orden del mapa
+        if ic not in cmap:
+            continue
+        c = cmap[ic]
+        rc = groups.get((ic, c), 0)
+        k = rc & occ_bad(occ, ic, c, r0, h)
+        if not k:
+            continue
+        lo = (k & -k).bit_length() - 1
+        hi = k.bit_length() - 1
+        f = None
+        for b in (rc, rc & ~((1 << lo) - 1), rc & ((1 << (hi + 1)) - 1) & ~((1 << lo) - 1)):
+            for g in BAND_PREF:
+                if g == ic or occ_bad(occ, g, c, r0, h) & b or own[g] & b:
+                    continue
+                f = g
+                break
+            if f is not None:
+                break
+        if f is None:
+            return None
+        groups[ic, c] &= ~b
+        if not groups[ic, c]:
+            del groups[ic, c]
+        groups[f, c] = groups.get((f, c), 0) | b
+        own[ic] &= ~b
+        own[f] |= b
+        remaps.append((ic, f, b, c))
+    return groups, remaps
+
+
+def sweep_n(objs, mruns, colors):
+    """sweep con varios Rex: objs = [(runs, r0)], dueño 2 << j. Mismo orden
+    de mezcla (Mario primero si empatan, después los Rex en su orden)."""
+    out = []
+    for i in range(1, 16):
+        rx = []
+        for j, (runs, r0) in enumerate(objs):
+            for a, b, c in runs.get(i, ()):
+                a, b = max(0, r0 + a), min(ROWS - 1, r0 + b)
+                if a <= b:
+                    rx.append((a, 1 + j, b, c, 2 << j))
+        if not any(c != colors[i] for _, _, _, c, _ in rx):
+            continue
+        ms = [(a, 0, b, colors[i], 1) for a, b in mruns.get(i, ())]
+        cur, last, own = colors[i], -1, 0
+        for a, _, b, c, o in sorted(ms + rx):
+            if c != cur:
+                if last >= a:
+                    return None
+                out.append((i, c, last, own, a))
+                cur = c
+            if b > last:
+                last, own = b, o
+            elif b == last:
+                own |= o
+    return out
+
+
+def occ_add(occ, groups, r0):
+    for (i, c), m in groups.items():
+        r = 0
+        while m >> r:
+            if m >> r & 1 and 0 <= r0 + r < ROWS:
+                occ[i][r0 + r] = c
+            r += 1
+
+
+G5L_MAXPL = 2                   # G4-2: Rex ubicados por foto (el búfer de cadena)
+CSTRIDE = 264                   # un flujo de cadena: 2 x 32 filas, POS/CTL, fin
+LBLK = 4 * (2 * RSTRIDE + CSTRIDE)  # por lista: bandas del Rex 0 y 1, cadena
+
+
+def plan_frame_n(photo, tab, colors, lst, st, maxrex=G5L_MAXPL):
+    """G4-1/G4-2: varios Rex por foto. Los visibles en orden (fila, ranura):
+    uno entra si está separado del último ubicado por una línea libre (los
+    pares 4-5 y 6-7 se reusan en vertical por encadenado DMA; así la columna
+    c va siempre al par c) y quedan menos de maxrex; si no, bob 'canal'. Los
+    colores, con la ocupación de Mario y de los ya ubicados (al no compartir
+    filas, la de Mario sola); si no hay variante, bob 'color'. Después las
+    transiciones de todos (sweep_n) y place; si no entra, el último ubicado
+    pasa a bob 'plazo' y se repite (el 68000, player/g5l.s g5l_render).
+    Devuelve dict(rex=[...], trans, vbl, segs, E, bobs) o None si no hay
+    ningún Rex visible."""
+    ents = mario_entries(photo['moam'], photo['mosz'])
+    mrow, xm = mario_rows(tab, ents, photo['ptrs'])
+    mruns = mario_runs(mrow)
+    cands = []
+    for slot, x, y, entries in photo['rex']:
+        sx, sy = s16(x - photo['camx']), s16(y - photo['camy'])
+        t4, pri = rex_key(entries, sx, sy)
+        if pri is None:
+            st['rex_prio_mixta'] += 1
+            continue
+        t4, mx, my = norm_key(t4)
+        sx, sy = sx + mx, sy + my
+        vs = tab.lookup(t4, pri)
+        if vs is None:
+            st['rex_sin_forma'] += 1
+            continue
+        v0 = tab.variant(vs[0])
+        x0, r0 = sx + v0['ox'], sy + v0['oy'] + 1
+        if not (r0 + v0['h'] > 0 and r0 < ROWS and x0 + v0['w'] > 0 and x0 < 256):
+            continue
+        cands.append((r0, slot, x0, vs))
+    if not cands:
+        return None
+    cands.sort(key=lambda t: (t[0], t[1]))
+    occ = mario_occ(mrow, colors)
+    placed, bobs = [], []
+    lastb = None
+    for r0, slot, x0, vs in cands:
+        v0 = tab.variant(vs[0])
+        a, b = max(r0, 0), min(ROWS, r0 + v0['h'])
+        if placed and (len(placed) >= maxrex or a <= lastb):
+            bobs.append((slot, 'canal'))
+            continue
+        order = sorted((band_need_n(tab.variant(vo), r0, occ), m, vo) for m, vo in enumerate(vs))
+        asg = None
+        for n, m, vo in order:
+            v = tab.variant(vo)
+            asg = band_assign_n(v, r0, occ)
+            if asg is not None:
+                break
+            st['reintento'] += 1
+        if asg is None:
+            bobs.append((slot, 'color'))
+            continue
+        groups, remaps = asg
+        placed.append(dict(slot=slot, vo=vo, var=v, x0=x0, r0=r0, groups=groups, remaps=remaps,
+                           mapa=m, pares=list(range(v0['cols']))))
+        occ_add(occ, groups, r0)
+        lastb = b
+    best = None
+    while placed:
+        objs = [(group_runs(q['groups']), q['r0']) for q in placed]
+        trans = sweep_n(objs, mruns, colors)
+        if trans is None:
+            raise AssertionError('A3 tras band_assign_n')
+        E = EMap([xm] + [min(255, q['x0'] + q['var']['xmax']) for q in placed])
+        res = place(trans, lst, E, collections.Counter())
+        if res is not None:
+            best = (trans, res, E)
+            break
+        bobs.append((placed.pop()['slot'], 'plazo'))
+    if not placed:
+        st['sin_plan'] += 1
+        return dict(rex=[], trans=[], vbl=[], segs={}, E=None, bobs=bobs)
+    trans, (vbl, segs), E = best
+    for q in placed:
+        st['remap_%d' % len(q['remaps'])] += 1
+        st['mapa_%d' % q['mapa']] += 1
+    return dict(rex=placed, trans=trans, vbl=vbl, segs=segs, E=E, bobs=bobs, slot=placed[0]['slot'])
+
+
+def channels_n(rex, cdma, lbase):
+    """G4-2: [(pt, pos, ctl)] de SPR4-7 (None = nulo) y las cadenas
+    {flujo: (dirección, [(filas, n), (pos, ctl), (filas, n)])}. El flujo s
+    = 2c + mitad lleva la columna c de cada Rex que la tiene en pantalla:
+    uno solo, desde su fuente (banco limpio o sus bandas en lbase + 4 x
+    RSTRIDE x k); dos, encadenados en lbase + 8 x RSTRIDE + CSTRIDE x s
+    (sus filas, POS/CTL del segundo, sus filas, fin)"""
+    out, chains = [None] * 4, {}
+    for s in range(4):
+        c, half = s >> 1, s & 1
+        pres = []
+        for k, q in enumerate(rex):
+            v, x0, r0 = q['var'], q['x0'], q['r0']
+            hx = x0 + 16 * c
+            if c >= v['cols'] or not -16 < hx < 256:
+                continue
+            clip = max(0, -r0)
+            pos, ctl = control(hx, V0 + max(r0, 0), V0 + r0 + v['h'], 4 + s)
+            if remap_halves(q['remaps']) >> half & 1:
+                src = lbase + 4 * RSTRIDE * k + RSTRIDE * s
+            else:
+                off = v['offs'][c][half]
+                assert off & CLEAN_FLAG
+                src = cdma + (off & ~CLEAN_FLAG)
+            pres.append((src + 4 + 4 * clip, pos, ctl, v['h'] - clip))
+        if len(pres) == 1:
+            out[s] = pres[0][:3]
+        elif pres:
+            (p1, pos1, ctl1, n1), (p2, pos2, ctl2, n2) = pres
+            C = lbase + 8 * RSTRIDE + CSTRIDE * s
+            chains[s] = (C, [(p1, n1), (pos2, ctl2), (p2, n2)])
+            out[s] = (C, pos1, ctl1)
+    return out, chains
+
+
+def check_trace_n(p, recs, ctx, colors):
+    """errores de color de cada píxel de Mario y de todos los Rex ubicados,
+    y píxeles de Rex que se tapan entre sí (prioridad: el primero ubicado)"""
+    import g2t_ref as T
+    chosen = [r for r in recs if r['num'] in ctx['types']][0]
+    ram, recorded = chosen['ram'], chosen['recorded']
+    mario, _, _, _ = T.mario_check(ram, recorded, ctx['gfx'])
+    uses = collections.defaultdict(dict)
+
+    def add(x, rr, i, color):
+        if not (0 <= x < 256 and 0 <= rr < ROWS):
+            return
+        u = uses[rr].get(i)
+        if u is None:
+            uses[rr][i] = dict(color=color, first=x, last=x, owners=set())
+        else:
+            if u['color'] != color:
+                raise AssertionError('índice con dos colores en la fila (A3)')
+            u['first'], u['last'] = min(u['first'], x), max(u['last'], x)
+    for (x, rr), i in mario.items():
+        add(x, rr, i, colors[i])
+    rexpix, tapados = {}, 0
+    for q in p['rex']:
+        n = q['var']['n']
+        pose = ctx['clean'][n & 0x7FFF] if n & 0x8000 else ctx['poses'][n]
+        pose = remap_pose(pose, q['remaps'])
+        for r, row in enumerate(pose['rows']):
+            cmap = {d: c for _, _, d, c in pose['row_maps'][r]}
+            for x, d in enumerate(row):
+                if not d:
+                    continue
+                gx, gy = q['x0'] + x, q['r0'] + r
+                add(gx, gy, d, cmap[d])
+                if 0 <= gx < 256 and 0 <= gy < ROWS:
+                    if (gx, gy) in rexpix:
+                        tapados += 1
+                    else:
+                        rexpix[gx, gy] = (d, cmap[d])
+    trans = [dict(indice=i, valor=c, segmento=-1, x=None) for i, c in p['vbl']]
+    for s, (form, ms) in p['segs'].items():
+        for (i, c, _), x in zip(ms, positions(s, form, ms)):
+            trans.append(dict(indice=i, valor=c, segmento=s, x=x))
+    env = T.simulate(uses, trans, colors)
+    pix, _ = T.pixel_errors(mario, rexpix, trans, colors)
+    return len(env) + pix, tapados
+
+
 def run_trace(a):
     import g2t_ref as T
     import g5ref as R
     import scrollprof as P
-    blob, ctx = build_table(a.bank)
+    types = parse_types(a.types)
+    blob, ctx = build_table(a.bank, types=types)
     tab = Table(blob)
     code, lst = P.assemble('player/scroll.s', ['VIS=256', 'SPRITES'])
     syms, local = P.listing(lst)
@@ -956,7 +1418,7 @@ def run_trace(a):
     summary = {}
     ok = True
     for name in a.traces:
-        records = list(R.read_trace('work/oam_%s.trace' % name, 'work/oracle_%s_oam.bin' % name))
+        records = list(R.read_trace('work/%s_%s.trace' % (a.prefix, name), 'work/oracle_%s_oam.bin' % name))
         groups = collections.defaultdict(list)
         for r in records:
             groups[r['frame']].append(r)
@@ -964,12 +1426,13 @@ def run_trace(a):
         sc.init()
         ldoff = None
         st = Stats()
+        tst = collections.defaultdict(Stats)
         for f in sorted(groups):
             recs = groups[f]
             ram = recs[0]['ram']
             sc.mem.w16(sc.vars + V['V_S'], ram[0x1a] | ram[0x1b] << 8)
             sc.call('scroll_frame')
-            if not any(r['num'] == 0xAB for r in recs):
+            if not any(r['num'] in ctx['types'] for r in recs):
                 continue
             base = sc.mem.r32(P.FAKE + 0x80)
             if ldoff is None:
@@ -979,10 +1442,20 @@ def run_trace(a):
             pi = R.palette_index(ram, ctx['pointers'])
             colors = struct.unpack_from('>16H', ctx['pals'], 32 * pi)
             st['fotos'] += 1
-            p = plan_frame(photo, tab, colors, sl, st)
+            num = {r['slot']: r['num'] for r in recs if r['num'] in ctx['types']}
+            if getattr(a, 'multi', False):
+                run_multi_photo(photo, tab, colors, sl, st, recs, ctx, tst, num)
+                continue
+            seen = []
+            p = plan_frame(photo, tab, colors, sl, st, seen)
+            for slot, why in seen:                  # G4-B: por tipo
+                tst['%02X' % num[slot]][why] += 1
+                if why == 'en_pantalla' and (p is None or p['slot'] != slot):
+                    tst['%02X' % num[slot]]['no_' + ('%02X' % num[p['slot']] if p else 'nada')] += 1
             if p is None:
                 st['sin_rex_dibujado'] += 1
                 continue
+            tst['%02X' % num[p['slot']]]['dibujados'] += 1
             st['dibujadas'] += 1
             st['trans'] += len(p['trans'])
             st['max_trans'] = max(st['max_trans'], len(p['trans']))
@@ -992,12 +1465,65 @@ def run_trace(a):
             st['errores'] += check_trace(p, recs, ctx, colors)
             st['remap_max'] = max(st['remap_max'], len(p['remaps']))
         summary[name] = dict(st)
-        print(name, json.dumps(dict(st), sort_keys=True), flush=True)
-        ok &= st['errores'] == 0 and st['sin_plan'] == 0
+        if types != (0xAB,):
+            summary[name]['tipos'] = {k: dict(v) for k, v in sorted(tst.items())}
+        print(name, json.dumps(summary[name], sort_keys=True), flush=True)
+        # G4-B: sin índice libre para las bandas es un motivo para no dibujar
+        # otro tipo (cuenta en 'tipos'); para el Rex sigue siendo un fallo
+        ok &= (st['errores'] == 0 and st['sin_plazo'] == 0 and st['distinto_de_uno'] == 0
+               and (st['sin_plan'] == 0 or types != (0xAB,)))
     OUT.mkdir(parents=True, exist_ok=True)
+    if getattr(a, 'multi', False):
+        (OUT / 'trace_multi.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
+        print('G4-1 TRACE: ' + ('OK' if ok else 'FALLA'))
+        return 0 if ok else 1
     (OUT / 'trace_summary.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
     print('G5L TRACE: ' + ('OK' if ok else 'FALLA'))
     return 0 if ok else 1
+
+
+def run_multi_photo(photo, tab, colors, sl, st, recs, ctx, tst=None, num=None):
+    """G4-1 en una foto de la traza: plan_frame_n, su comprobación y la
+    equivalencia con plan_frame cuando ubica un solo Rex (el mismo)"""
+    seen = []
+    p1 = plan_frame(photo, tab, colors, sl, Stats(), seen)
+    if tst is not None:
+        for slot, why in seen:
+            tst['%02X' % num[slot]][why] += 1
+    pn = plan_frame_n(photo, tab, colors, sl, st)
+    if pn is None:
+        st['sin_rex_visible'] += 1
+        return
+    n = len(pn['rex'])
+    st['visibles'] += n + len(pn['bobs'])
+    st['ubicados'] += n
+    if tst is not None:
+        for q in pn['rex']:
+            tst['%02X' % num[q['slot']]]['dibujados'] += 1
+    st['max_ubicados'] = max(st['max_ubicados'], n)
+    st['hoy'] += p1 is not None
+    for _, why in pn['bobs']:
+        st['bob_' + why] += 1
+    st['max_bobs'] = max(st['max_bobs'], len(pn['bobs']))
+    if not n:
+        return
+    for k, q in enumerate(pn['rex'][1:], 1):
+        a, b = q['r0'], q['r0'] + q['var']['h']
+        both = any(p['r0'] < b and a < p['r0'] + p['var']['h'] for p in pn['rex'][:k])
+        st['extra_comparte_filas' if both else 'extra_separado'] += 1
+        st['extra_%d_columnas' % q['var']['cols']] += 1
+    if n == 1 and p1 is not None and pn['rex'][0]['slot'] == p1['slot']:
+        same = (pn['trans'] == p1['trans'] and pn['vbl'] == p1['vbl'] and pn['segs'] == p1['segs']
+                and pn['rex'][0]['remaps'] == p1['remaps'])
+        st['igual_a_uno' if same else 'distinto_de_uno'] += 1
+    st['trans'] += len(pn['trans'])
+    st['max_trans'] = max(st['max_trans'], len(pn['trans']))
+    st['sufijos'] += len(pn['segs'])
+    st['max_sufijos'] = max(st['max_sufijos'], len(pn['segs']))
+    st['max_vbl'] = max(st['max_vbl'], len(pn['vbl']))
+    err, tap = check_trace_n(pn, recs, ctx, colors)
+    st['errores'] += err
+    st['pixeles_tapados'] += tap
 
 
 def sim_ldoff(mem, base, syms):
@@ -1090,10 +1616,11 @@ def read_photo(mem, rec, s):
                 pal=mem.r8(rec + s['R_PAL']))
 
 
-def expected_list(ml, p, s, dma, null, cdma, rbuf=0):
-    """con la limpieza ya aplicada: el bloque VBL y los sufijos del plan p"""
+def expected_list(ml, p, s, dma, null, cdma, rbuf=0, chans=None):
+    """con la limpieza ya aplicada: el bloque VBL y los sufijos del plan p
+    (chans: los canales ya calculados, G4-2 channels_n)"""
     vbl = ml.base + s['CL_VBL'] + 4
-    for n, ch in enumerate(channels(p, dma, cdma, rbuf)):
+    for n, ch in enumerate(chans if chans is not None else channels(p, dma, cdma, rbuf)):
         a = vbl + 16 * n
         pt, pos, ctl = ch if ch else (null, 0, 0)
         ml.w16(a + 2, pt >> 16)
@@ -1175,10 +1702,18 @@ class GameRun:
         self.fr = fr = G.Frames(cpu, B, s, Path('work/yi1_s_g5.dat').read_bytes())
         self.first, self.n = mem.r16(addr('replay') + 6), mem.r16(addr('replay') + 4)
         cpu.call(addr('game_step'), B)
+        self.cops = (G.COPA, G.COPB)
+        if 'V_COP3' in s:
+            self.cops += (0x140000,)
+            mem.w32(fr.vars + s['V_COP3'], self.cops[2])
+            # Estado solo de CPU para build_mid de la tercera lista.
+            mem.w32(fr.vars + s['V_LTC'], 0x160000 + 4 + s['GSZ'] * s['NGRP'])
         fr.init_scroll()
         _, _, sprs = G.layout(s)
         for i in range(3):
             mem.w32(addr('g_sbuf') + 4 * i, sprs + i * s['SPRBUF'])
+        if 'V_COP3' in s:
+            mem.w32(addr('g_sbuf') + 12, sprs + 3 * s['SPRBUF'] + 16)
         mem.w32(addr('g_null'), sprs + 3 * s['SPRBUF'])
         cpu.write(sprs + 3 * s['SPRBUF'], bytes(16))
         mem.w32(addr('g_data'), G.DATA)
@@ -1191,36 +1726,114 @@ class GameRun:
         return self.B + self.s[n]
 
 
+def step_call(fr, G, V, adr, a4, hist):
+    """Q: como Frames.call sin regiones, pero instrucción por instrucción
+    (execute(1)); acumula {pc: [veces, ciclos]} y devuelve los ciclos"""
+    R, cpu, mem, m = fr.M.Register, fr.cpu.cpu, fr.mem, fr.cpu.m
+    cpu.w_reg(R.A3, G.DATA)
+    cpu.w_reg(R.A4, a4)
+    cpu.w_reg(R.A5, fr.vars)
+    cpu.w_reg(R.A7, V.STACK - 4)
+    mem.w32(V.STACK - 4, V.RET)
+    cpu.w_pc(adr)
+    tot = 0
+    while True:
+        pc = cpu.r_pc()
+        if pc == V.RET:
+            return tot
+        c = m.execute(1).cycles
+        e = hist.get(pc)
+        if e:
+            e[0] += 1
+            e[1] += c
+        else:
+            hist[pc] = [1, c]
+        tot += c
+
+
 def run_game(a):
     gr = GameRun(a.bin, a.lst, a.bank)
     G, s, cpu, mem, fr, addr = gr.G, gr.s, gr.cpu, gr.mem, gr.fr, gr.addr
-    tab = Table(Path('work/g5l/g5l.bin').read_bytes())
-    _, cctx = build_table(a.bank)
+    # G4-B: la tabla del binario (con sus tipos), no la última de g5l.py mk
+    tab = Table(cpu.read(addr('g5l_table'), addr('g5l_cdma_src') - addr('g5l_table')))
+    _, cctx = build_table(a.bank, types=tuple(sorted(tab.types)))
     pals = cpu.read(addr('mario_pals'), 256)
     gv, dc, nb = addr('g5l_v'), gr.dc, gr.nb
     R = cpu.M.Register
     st = Stats()
     cycles, caps, frames = [], [], []
     prof = {}
+    prof_n, ciclos_n = {}, {}
     regions = {addr(n): n for n in ('g5l_clean', 'g5l_mario', 'g5l_mfill', 'g5l_choose', 'g5l_plan', 'g5l_fast', 'g5l_need', 'g5l_mrow', 'g5l_mwall', 'g5l_mrowba', 'g5l_mba',
-                                    'g5l_sweep', 'g5l_patch', 'g5l_place', 'g5l_emit', 'g5l_vblnull')}
+                                    'g5l_sweep', 'g5l_patch', 'g5l_place', 'g5l_emit', 'g5l_vblnull', 'g5l_sweepn', 'g5l_emitn', 'g5l_picksel',
+                                    'g5l_rxsave', 'g5l_edges', 'g5l_rexmw', 'g5l_rxload', 'g5l_geo')}   # (g5l_place_e y g5l_emitc: se entra cayendo)
     nlim = a.frames or gr.n
     last_key = None
     keys = []
+    logic = 0
+    pcprof = {'build_mid': {}, 'render': {}, 'logic': {}, 'scroll': {}}
+    pcframes = set()
+    for r_ in (a.pcframes or '').split(','):
+        if r_:
+            lo_, _, hi_ = r_.partition('-')
+            pcframes.update(range(int(lo_), int(hi_ or lo_) + 1))
+    pclogic = set()                             # L: fotos con la lógica paso a paso
+    for r_ in (a.pclogic or '').split(','):
+        if r_:
+            lo_, _, hi_ = r_.partition('-')
+            pclogic.update(range(int(lo_), int(hi_ or lo_) + 1))
+    dumpset = {int(x) for x in (a.dump_lines or '').split(',') if x}
+    rlist = None                                # M1: R_FRAME de las fotos que dibujó la Amiga
+    if a.render_list:
+        rlist = {r_['frame'] for r_ in json.loads(Path(a.render_list).read_text())['rows']}
+        pcprof['m1'] = {}
     for k in range(min(gr.n, nlim)):
-        if k:
+        if k and k in pclogic:                  # L: la lógica paso a paso (con la captura)
+            h_ = {}
+            logic = step_call(fr, G, gr.V, addr('dc_cop'), G.FAKE, h_)
+            caps.append(0)
+            pcprof['logic'][k] = {'%x' % (pc_ - gr.B): v_ for pc_, v_ in h_.items()}
+        elif k:
             cap = fr.call(addr('dc_cop'), G.FAKE, 'x', {addr('g5l_capture'): 'cap'})
             caps.append(cap.get('cap', 0))
+            logic = cap.get('x', 0)             # T2: la lógica de la interrupción
+        if k % a.render_every:
+            continue                            # avanza la lógica sin dibujar esta foto
         photo = mem.r16(dc + s['DC_NEW'])
         rec = addr('dc_rec') + photo * s['DC_REC']
+        if rlist is not None and mem.r16(rec + s['R_FRAME']) not in rlist:
+            continue                            # M1: la Amiga no dibujó esta foto
         mem.w16(dc + s['DC_REND'], photo)
         mem.w16(fr.vars + s['V_S'], mem.r16(rec + s['R_S']))
+        dumpk = a.dump_lines and k in dumpset
+        if dumpk:                               # S11: linetab de la lista de atrás, antes
+            back_ = mem.r32(fr.vars + s['V_BACK'])
+            lt_ = {gr.cops[0]: addr('linetab_a'), gr.cops[1]: addr('linetab_b')}.get(back_)
+            if lt_ is None:
+                lt_ = mem.r32(fr.vars + s['V_LTC'])
+            before_ = cpu.read(lt_, 32 * 224)
+        pre = {}                                # T2: coste del render previo, por foto
         for n in ('columns', 'apply_colors', 'set_pointers', 'build_mid'):
-            fr.call(addr(n), G.FAKE)
+            if a.pcprof and (not pcframes or k in pcframes) and (n == 'build_mid' or a.pcscroll):
+                h_ = {}
+                pre[n] = step_call(fr, G, gr.V, addr(n), G.FAKE, h_)
+                hist_ = {'%x' % (pc_ - gr.B): v_ for pc_, v_ in h_.items()}
+                if n == 'build_mid' and (pcframes or pre[n] > 10000):
+                    pcprof[n][k] = hist_
+                if a.pcscroll:
+                    pcprof['scroll'].setdefault(k, {})[n] = hist_
+            else:
+                pre[n] = sum(fr.call(addr(n), G.FAKE).values())
+        if dumpk:
+            pcprof.setdefault('lines', {})[k] = {'s': mem.r16(fr.vars + s['V_S']), 'lt': lt_,
+                                                'before': bytes(before_).hex(), 'after': bytes(cpu.read(lt_, 32 * 224)).hex()}
+        if rlist is not None:
+            pcprof['m1'][k] = [mem.r16(rec + s['R_FRAME']), mem.r16(rec + s['R_S']), pre['build_mid']]
         back = mem.r32(fr.vars + s['V_BACK'])
         size = s['CL_SIZE']
         snap = bytearray(cpu.read(back, size))
-        recs = gv + (s['GV_RECA'] if back == mem.r32(fr.vars + s['V_COP']) else s['GV_RECB'])
+        list_index = gr.cops.index(back)
+        recs = gv + s[('GV_RECA', 'GV_RECB', 'GV_RECC')[list_index]]
         ml = MemList(snap, back, s, nb)
         for j in range(mem.r16(recs)):
             J, w0, w1, sg = struct.unpack('>IIIH', cpu.read(recs + 2 + 16 * j, 14))
@@ -1228,21 +1841,37 @@ def run_game(a):
                 ml.put_jump(J, sg)
         ph = read_photo(mem, rec, s)
         colors = struct.unpack_from('>16H', pals, 32 * ph['pal'])
-        p = plan_frame(ph, tab, colors, ml, st)
-        rbuf = gr.RBUF + (0 if back == mem.r32(fr.vars + s['V_COP']) else 4 * RSTRIDE)
-        expected_list(ml, p, s, gr.DMA, gr.null, gr.cdma, rbuf)
+        p = plan_frame_n(ph, tab, colors, ml, st, s.get("G5L_MAXPL", G5L_MAXPL))  # G4-2 (con un Rex: plan_frame)
+        if p is not None and not p['rex']:
+            p = None
+        rbuf = gr.RBUF + list_index * s.get('G5L_LBLK', LBLK)
+        chans, chains = channels_n(p['rex'] if p else [], gr.cdma, rbuf)
+        expected_list(ml, p, s, gr.DMA, gr.null, gr.cdma, rbuf, chans)
+        if p:
+            st['rex_%d' % len(p['rex'])] += 1
+            for q in p['rex']:                  # G4-B: por familia de mapas (no por tipo)
+                st['familia_%02X' % cctx['ctype'][q['var']['n'] & 0x7FFF]] += 1
         poison = {R.D2: 0x12345602, R.D3: 0x12345603, R.D4: 0x12345604, R.D5: 0x12345605,
                   R.D6: 0x12345606, R.D7: 0x12345607, R.A2: 0x00012342, R.A6: 0x00012346}
         for r_, v_ in poison.items():
             cpu.cpu.w_reg(r_, v_)
         cpu.cpu.w_reg(R.A0, rec)
-        parts = fr.call(addr('g5l_render'), G.FAKE, 'render', regions)
+        if a.pcprof and (not pcframes or k in pcframes):
+            h_ = {}
+            parts = {'render': step_call(fr, G, gr.V, addr('g5l_render'), G.FAKE, h_)}
+            if parts['render'] > 3000:
+                pcprof['render'][k] = {'%x' % (pc_ - gr.B): v_ for pc_, v_ in h_.items()}
+        else:
+            parts = fr.call(addr('g5l_render'), G.FAKE, 'render', regions)
         c = sum(parts.values())
+        nrx = len(p['rex']) if p else 0         # G4-2o: partes por Rex ubicados
         for kk, vv in parts.items():
-            pp = prof.setdefault(kk, [0, 0, 0])
-            pp[0] += vv
-            pp[1] = max(pp[1], vv)
-            pp[2] += 1
+            for pr_ in (prof, prof_n.setdefault(nrx, {})):
+                pp = pr_.setdefault(kk, [0, 0, 0])
+                pp[0] += vv
+                pp[1] = max(pp[1], vv)
+                pp[2] += 1
+        ciclos_n.setdefault(nrx, []).append(sum(parts.values()))
         for r_, v_ in poison.items():
             if cpu.cpu.r_reg(r_) != v_:
                 st['abi'] += 1
@@ -1250,7 +1879,16 @@ def run_game(a):
             st['abi'] += 1
         cycles.append((c, gr.first + mem.r16(rec + s['R_FRAME'])))
         frames.append(dict(k=k, c=c, parts=parts, ntr=len(p['trans']) if p else -1,
-                           nseg=len(p['segs']) if p else 0))
+                           nseg=len(p['segs']) if p else 0, pre=pre,
+                           cap=caps[-1] if k else 0, logic=logic, f=cycles[-1][1],
+                           pk=cpu.read(gv + s['GV_PK'], 64).hex(),    # T2: clave del plan
+                           sc=mem.r16(rec + s['R_S']),                # la s del scroll
+                           plan=dict(rex=[dict(vo=q['vo'], r0=q['r0'], x0=q['x0'],   # Pa: el plan de Python
+                                               slot=q['slot'],   # G9: el tipo, por la traza
+                                               familia=cctx['ctype'][q['var']['n'] & 0x7FFF],
+                                               groups=[[i, c_, m_] for (i, c_), m_ in q['groups'].items()],
+                                               remaps=[list(r_) for r_ in q['remaps']]) for q in p['rex']],
+                                     trans=[list(t_) for t_ in p['trans']]) if p else None))
         got = cpu.read(back, size)
         dslot = mem.r16(gv + s['GV_DSLOT'])
         want_slot = p['slot'] if p else 0xFFFF
@@ -1267,26 +1905,37 @@ def run_game(a):
             ents = mario_entries(ph['moam'], ph['mosz']) or []
             bx = min((e[0] for e in ents), default=0)
             by = min((e[1] for e in ents), default=0)
-            key = (p['vo'], p['r0'], ph['pal'], tuple((e[0] - bx, e[1] - by) + tuple(e[2:]) for e in ents),
-                   tuple(ph['ptrs']) if ents else (), p['r0'] - by)
+            q0 = p['rex'][0]
+            key = (q0['vo'], q0['r0'], ph['pal'], tuple((e[0] - bx, e[1] - by) + tuple(e[2:]) for e in ents),
+                   tuple(ph['ptrs']) if ents else (), q0['r0'] - by, len(p['rex']))
             st['plan_igual'] += key == last_key
             last_key = key
             keys.append(repr(key))
         else:
             last_key = None
-        if p and p['remaps']:
+        for kq, q in enumerate(p['rex'] if p else []):
+            if not q['remaps']:
+                continue
             st['con_bandas'] += 1
-            pose = cctx['clean'][p['var']['n'] & 0x7FFF]
-            hm = remap_halves(p['remaps'])
-            for j, want in enumerate(rbuf_streams(pose, p['remaps'])):
+            pose = cctx['clean'][q['var']['n'] & 0x7FFF]
+            hm = remap_halves(q['remaps'])
+            for j, want in enumerate(rbuf_streams(pose, q['remaps'])):
                 if not hm >> (j & 1) & 1:
                     continue
-                n_ = 4 * p['var']['h'] + 8
-                if cpu.read(rbuf + RSTRIDE * j, n_) != want[:n_]:
+                n_ = 4 * q['var']['h'] + 8
+                if cpu.read(rbuf + 4 * RSTRIDE * kq + RSTRIDE * j, n_) != want[:n_]:
                     st['bufer_distinto'] += 1
                     if st['bufer_distinto'] <= 3:
-                        print('foto k=%d: flujo %d del búfer distinto' % (k, j))
+                        print('foto k=%d: Rex %d, flujo %d del búfer distinto' % (k, kq, j))
                     break
+        for sj, (C, ((p1, n1), (pos2, ctl2), (p2, n2))) in chains.items():
+            st['cadenas'] += 1                  # G4-2: el flujo encadenado
+            want = (bytes(cpu.read(p1, 4 * n1)) + struct.pack('>HH', pos2, ctl2)
+                    + bytes(cpu.read(p2, 4 * n2)) + bytes(4))
+            if bytes(cpu.read(C, len(want))) != want:
+                st['cadena_distinta'] += 1
+                if st['cadena_distinta'] <= 3:
+                    print('foto k=%d: cadena del flujo %d distinta' % (k, sj))
         planned = set(p['segs']) if p else set()
         st['restos'] += stale_check(mem, back, s, nb, planned)
         st['fotos'] += 1
@@ -1296,7 +1945,9 @@ def run_game(a):
         mem.w32(dc + s['DC_PLIST'], back)
         mem.w16(dc + s['DC_FRONT'], photo)
         mem.w16(dc + s['DC_REND'], 0xFFFF)
-        other = mem.r32(fr.vars + (s['V_COP2'] if back == mem.r32(fr.vars + s['V_COP']) else s['V_COP']))
+        if 'DC_FLIST' in s:
+            mem.w32(dc + s['DC_FLIST'], back)
+        other = gr.cops[(list_index + 1) % len(gr.cops)]
         mem.w32(fr.vars + s['V_BACK'], other)
         if k % 500 == 0:
             print('k=%d %s' % (k, json.dumps(dict(st), sort_keys=True)), flush=True)
@@ -1305,14 +1956,25 @@ def run_game(a):
                ciclos_max=worst[0], ciclos_max_frame=worst[1],
                captura_max=max(caps) if caps else 0,
                captura_media=round(sum(caps) / max(1, len(caps)), 1),
-               partes={kk: dict(media=round(v[0] / v[2]), max=v[1], n=v[2]) for kk, v in prof.items()})
+               partes={kk: dict(media=round(v[0] / v[2]), max=v[1], n=v[2]) for kk, v in prof.items()},
+               partes_rex={nr: {kk: dict(media=round(v[0] / v[2]), max=v[1], n=v[2]) for kk, v in pr_.items()} for nr, pr_ in prof_n.items()},
+               mediana_rex={nr: sorted(cs)[len(cs) // 2] for nr, cs in ciclos_n.items()})
+    if a.pcprof:                                # Q: no pisa la corrida normal
+        pcprof['tot'] = {x['k']: [x['c'], x['pre']['build_mid']] for x in frames}
+        pcprof['logic_tot'] = {x['k']: x['logic'] for x in frames if x['k'] in pclogic}
+        pcprof['scroll_tot'] = {x['k']: x['pre'] for x in frames}
+        Path(a.pcprof).write_text(json.dumps(pcprof), encoding='utf-8')
+        print(json.dumps(dict(st), sort_keys=True))
+        ok = not st['distintas'] and not st['abi'] and not st['restos'] and not st['sin_plan'] and not st['bufer_distinto'] and not st['cadena_distinta'] and not st['cadena_distinta']
+        print('G5L GAME (pcprof): ' + ('OK' if ok else 'FALLA'))
+        return 0 if ok else 1
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / 'game_summary.json').write_text(json.dumps(res, indent=2), encoding='utf-8')
     (OUT / 'game_cycles.json').write_text(json.dumps(cycles), encoding='utf-8')
     (OUT / 'game_frames.json').write_text(json.dumps(frames), encoding='utf-8')
     (OUT / 'game_keys.json').write_text(json.dumps(keys), encoding='utf-8')
     print(json.dumps(res, sort_keys=True))
-    ok = not st['distintas'] and not st['abi'] and not st['restos'] and not st['sin_plan'] and not st['bufer_distinto']
+    ok = not st['distintas'] and not st['abi'] and not st['restos'] and not st['sin_plan'] and not st['bufer_distinto'] and not st['cadena_distinta']
     print('G5L GAME: ' + ('OK' if ok else 'FALLA'))
     return 0 if ok else 1
 
@@ -1354,8 +2016,9 @@ def run_shot(a):
     import g2t_ref as T
     gr = GameRun(a.bin, a.lst, a.bank)
     G, s, cpu, mem, fr, addr = gr.G, gr.s, gr.cpu, gr.mem, gr.fr, gr.addr
-    tab = Table(Path('work/g5l/g5l.bin').read_bytes())
-    _, cctx = build_table(a.bank)
+    # G4-B: la tabla del binario (con sus tipos), no la última de g5l.py mk
+    tab = Table(cpu.read(addr('g5l_table'), addr('g5l_cdma_src') - addr('g5l_table')))
+    _, cctx = build_table(a.bank, types=tuple(sorted(tab.types)))
     pals = cpu.read(addr('mario_pals'), 256)
     gfx = cpu.read(addr('gfx32'), 23808)
     R = cpu.M.Register
@@ -1375,7 +2038,9 @@ def run_shot(a):
             ml = MemList(bytearray(cpu.read(back, s['CL_SIZE'])), back, s, gr.nb)
             ph = read_photo(mem, rec, s)
             colors = struct.unpack_from('>16H', pals, 32 * ph['pal'])
-            p = plan_frame(ph, tab, colors, ml, st)
+            p = plan_frame_n(ph, tab, colors, ml, st, s.get("G5L_MAXPL", G5L_MAXPL))   # G4-2
+            if p is not None and not p['rex']:
+                p = None
         cpu.cpu.w_reg(R.A0, rec)
         fr.call(addr('g5l_render'), G.FAKE)
         back = mem.r32(fr.vars + s['V_BACK'])
@@ -1389,25 +2054,26 @@ def run_shot(a):
     if p is None:
         raise SystemExit('la foto %d no tiene Rex dibujado' % a.frame)
     ctx = T.load_context(a.bank)
-    blob, cctx = build_table(a.bank)
-    v = p['var']
-    pose = cctx['clean'][v['n'] & 0x7FFF] if v['n'] & 0x8000 else ctx['poses'][v['n']]
     mario = mario_pixels(tab, ph, gfx)
     ctrl = Image.open(a.control).convert('RGB').crop(SHOT_BOX)
     shot = Image.open(a.shot).convert('RGB').crop(SHOT_BOX)
     want = ctrl.copy()
     rex = 0
-    for r, row in enumerate(pose['rows']):
-        cmap = {d: c for _, _, d, c in pose['row_maps'][r]}
-        for x, d in enumerate(row):
-            gx, gy = p['x0'] + x, p['r0'] + r
-            if not d or not (0 <= gx < 256 and 0 <= gy < ROWS) or (gx, gy) in mario:
-                continue
-            rex += 1
-            col = rgb12(cmap[d])
-            for yy in range(2):
-                for xx in range(2):
-                    want.putpixel((2 * (gx + SHOT_DX) + xx, 2 * gy + yy), col)
+    only = [int(x) for x in a.only.split(',')] if a.only else range(len(p['rex']))
+    for q in (p['rex'][j] for j in only):      # G4-2: los Rex que el control no dibuja
+        v = q['var']
+        pose = cctx['clean'][v['n'] & 0x7FFF] if v['n'] & 0x8000 else ctx['poses'][v['n']]
+        for r, row in enumerate(pose['rows']):
+            cmap = {d: c for _, _, d, c in pose['row_maps'][r]}
+            for x, d in enumerate(row):
+                gx, gy = q['x0'] + x, q['r0'] + r
+                if not d or not (0 <= gx < 256 and 0 <= gy < ROWS) or (gx, gy) in mario:
+                    continue
+                rex += 1
+                col = rgb12(cmap[d])
+                for yy in range(2):
+                    for xx in range(2):
+                        want.putpixel((2 * (gx + SHOT_DX) + xx, 2 * gy + yy), col)
     bad = sum(1 for q, w in zip(shot.getdata(), want.getdata()) if q != w)
     sheet = Image.new('RGB', (640, 1536))
     sheet.paste(ctrl, (0, 0))
@@ -1415,7 +2081,8 @@ def run_shot(a):
     sheet.paste(shot, (0, 1024))
     out = Path(a.shot).with_name('check.png')
     sheet.save(out)
-    res = dict(foto=a.frame, variante=v['n'], limpia=bool(v['n'] & 0x8000), x0=p['x0'], r0=p['r0'],
+    res = dict(foto=a.frame, rex=[dict(variante=q['var']['n'], x0=q['x0'], r0=q['r0'], bandas=len(q['remaps']))
+                                  for q in p['rex']], dibujados=list(only),
                pixeles_rex=rex, pixeles_distintos=bad, de=640 * 512, transiciones=len(p['trans']),
                sufijos=len(p['segs']), vbl=len(p['vbl']))
     print(json.dumps(res))
@@ -1423,8 +2090,16 @@ def run_shot(a):
     return 0 if bad == 0 else 1
 
 
+def parse_types(s):
+    """G4-B: 'AB' (el Rex, el defecto), 'all' (el Rex y G5L_OTHER) o una lista
+    hexadecimal separada por comas"""
+    if s == 'all':
+        return (0xAB,) + G5L_OTHER
+    return tuple(int(x, 16) for x in s.split(','))
+
+
 def run_mk(a):
-    blob, ctx = build_table(a.bank)
+    blob, ctx = build_table(a.bank, types=parse_types(a.types))
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / 'g5l.bin').write_bytes(blob)
     (OUT / 'g5l_clean.dma').write_bytes(bytes(ctx['cdma']))
@@ -1444,14 +2119,25 @@ def main():
     sub = ap.add_subparsers(dest='cmd', required=True)
     m = sub.add_parser('mk')
     m.add_argument('--bank', default='work/g3/bank')
+    m.add_argument('--types', default='all', help="G4-B: 'AB', 'all' (el defecto) o hex separados por comas")
     t = sub.add_parser('trace')
     t.add_argument('--bank', default='work/g3/bank')
+    t.add_argument('--types', default='AB', help="G4-B: 'AB', 'all' o hex separados por comas")
+    t.add_argument('--prefix', default='oam', help="G4-B: 'oamb' = trazas con todos los tipos")
     t.add_argument('--traces', nargs='+', default=['yi1', 'normal', 'spin_kill'])
+    t.add_argument('--multi', action='store_true', help='G4-1: varios Rex por foto (plan_frame_n)')
     g = sub.add_parser('game')
     g.add_argument('--bin', default='work/g5l/rep/game.bin')
     g.add_argument('--lst', default='work/g5l/rep/game.lst')
     g.add_argument('--bank', default='work/g3/bank')
     g.add_argument('--frames', type=int, default=0)
+    g.add_argument('--dump-lines', help='S11: con --pcprof, fotos k cuyo linetab (antes/después de build_mid) se vuelca')
+    g.add_argument('--render-list', help='M1: JSON de tools/m1_read.py; dibujar solo las fotos (R_FRAME) que dibujó la Amiga')
+    g.add_argument('--render-every', type=int, default=1, help='Dibujar cada N fotos; ejercita el scroll y las cachés con fotos omitidas')
+    g.add_argument('--pcprof', help='Q: histograma por PC de g5l_render y build_mid (json)')
+    g.add_argument('--pcscroll', action='store_true', help='Con --pcprof: incluir columns, apply_colors y set_pointers')
+    g.add_argument('--pcframes', help='Con --pcprof: limitar el paso a paso del render/scroll a fotos k, p.ej. 10-20,40')
+    g.add_argument('--pclogic', help="L: con --pcprof, fotos con la lógica (dc_cop) paso a paso: '3290-3370,1000-1050'")
     h = sub.add_parser('shot')
     h.add_argument('--bin', default='work/g5l/rep/game.bin')
     h.add_argument('--lst', default='work/g5l/rep/game.lst')
@@ -1459,7 +2145,10 @@ def main():
     h.add_argument('--frame', type=int, required=True)
     h.add_argument('--shot', required=True)
     h.add_argument('--control', required=True)
+    h.add_argument('--only', help='G4-2: los Rex del plan que se suman al control (p.ej. 1); todos si no')
     a = ap.parse_args()
+    if a.cmd == 'game' and a.render_every < 1:
+        ap.error('--render-every debe ser >= 1')
     return {'mk': run_mk, 'trace': run_trace, 'game': run_game, 'shot': run_shot}[a.cmd](a)
 
 

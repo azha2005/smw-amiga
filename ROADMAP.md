@@ -31,7 +31,7 @@
 2. Trabajar **un paso por vez**; no se empieza el siguiente con el anterior
    en rojo. Commit `Etapa N.x: <qué>`. Trampa nueva: `Pnn` en
    `docs/pitfalls.md` y en el índice de `AGENTS.md` §8 (la próxima es
-   **P117**).
+   **P124**).
 3. **Al cerrar la sesión: §7** (obligatorio: reescribir `PROXIMO.md`).
 
 **Reglas del proceso (no negociables, vienen de lo que ya costó caro):**
@@ -48,29 +48,26 @@
 
 ---
 
-## 1. Estado por etapa (al 2026-10-09)
+## 1. Estado por etapa (al 2026-10-10)
 
-**Avance T/V/BM1 (2026-10-09, rama g2t-b2bis, sin integrar):**
-T detenida tras dos candidatos: 66 fotos BENCH, racha 1 (base 67; control
-con colchón 9); máscara especializada 65/racha 2 retirada. VBTRACE sin
-BENCH 25 saltos; D1 roja. V opt-in con tres listas/reinicio/diagnóstico
-verificados y 40 ms desde tick de entrada a publicación; teclado real y
-defecto pendientes. BM1 MFM/fijo KS1.2/A501: datos/imagen exactos, Z1,
-18920 B chip recuperados; KS1.3 y tiempo trackdisk comparable pendientes.
-Commits `5461b8a`, `a728ddc`, `a41da43`, `c30ff27`; informes T/V/BM1 de 2026-10-09.
-Chip vivo normal 495336 B, slow 437896 B; fijo 499432/454072 B, incluidas
-reservas de vectores/loader. No se cambiaron los cinco builds normales.
+**P123 y perfil del estrés (2026-10-10, rama g2t-b2bis):** corregido
+el Guru: `columns` destruía a2, `dc_loop` leía una foto falsa y
+`g5l_choose` escribía sobre GV_TAB. Prueba nueva del bucle real en
+`regress.py --g5l`; reconstrucción e7234ab + arreglo, 150 s cycle-exact
+sin excepción. Perfil de diez picos: 712.440 ciclos en bm_left frente a
+82.444 en bm_share. Dos recortes exactos y más baratos en CPU se
+retiraron por BENCH peor: back 387 → 389, sprites 98 → 104. Final con
+P123 corregida: back **387/4126 (9,38 %, racha 5)**, sprites
+**98/1914 (5,12 %, racha 3)**. Normal: VBTRACE 2 omitidas; BENCH
+14/6312 (0,22 %, racha 1). **D1 roja**.
+`docs/informe-p123-scroll-1010.md`; speedcode no implementado, nueva
+tarjeta de prototipo con puerta de coste/tamaño. Sin merge/push.
 
-**Entrega B2bis/Cpre (2026-10-08):** rama g2t-b2bis, sin merge/push.
-B2bis d3e431c: G5ENV/lint/regress --level/OAM68K/hashes verdes; 3404 frames,
-762496 filas y 258 bordes exactos. Cache 554/11910, captura 270; O5 Musashi
-0 > PAL. WinUAE baja de 98 a 92 fotos perdidas (1,46 %, racha 2), control
-27; D1 roja. Vista 0/327680 píxeles distintos. Margen slow vivo G3 con
-reservas: 272 B. Cpre C2a exacta en 2288 fotos; sonda C2b sin emitir
-máximo 28680 ciclos contra parada 4000, C3/C4 pendientes. B35 fuera del vivo.
-Informes: `docs/informe-g2t-b2bis-rendimiento-1008.md` y
-`docs/informe-g2t-cpre-1008.md`.
-
+**L2 lote 1 está hecha (222fb64):** lógica caliente en asm, conservando
+el C como referencia. Su VBTRACE 0 y BENCH 10 fueron medidos antes de
+corregir P123 y no son el control vigente. R1/S9, V/BM1 y los informes
+anteriores conservan sus evidencias fechadas; resúmenes anteriores de
+esta sección archivados textualmente en `docs/archivo/sesiones.md`.
 
 Cifras medidas, con su fuente. Lo que no dice emulador es del PC o de
 Musashi. Los números de regresión completos están en
@@ -83,15 +80,15 @@ copian acá.
 | 3-4 | Esqueleto Amiga y viabilidad | **hecho**; D1, D8 y D9 cerrados | `player/boot.s`, `bench*.s`, `copbench.s` |
 | 5 | Conversor del nivel al formato (d) | **hecho**; falta compararlo contra la referencia en la PC (→ 7) | `tools/mkbg.py`, `mkd8in.py`, `mkleveld.py`, `render_d.py` |
 | 6.1-6.3 | Scroll a 256 px, ida y vuelta | **hecho** (P59 arreglada) | `player/scroll.s`, `tools/mkscroll.py` |
-| 6.4 | Scroll en el peor frame | **NO hecha**. S1a+S2 y SX/SX2 integradas; S4 descartada (P89); P51 arreglada (+6,7 % en `build_mid`). `build_mid` máx. **89,16 %** en WinUAE (ida, replay YI1, s ≈ 4576; `docs/medida-oam-o5.md`). Vuelta solo en Musashi (94,8 % en s = 2832, ×~1,3 en la Amiga). Falta S5 (EDF), S3/S6 y S8 (cámara vertical) | `player/scroll.s`; `docs/validacion-sx.md` |
+| 6.4 | Scroll en el peor frame | **no cerrada**. S9 comparte líneas; S5 probado y descartado. P123 corregida. WinUAE BENCH final: build_mid normal 83,2 %, vuelta/back **180,4 %** (s=4581); back 387 fotos perdidas, racha 5. Perfil: bm_left domina, pero el bucle por carga es solo el 30,6 %. Speedcode S10 descartado por su puerta (118 KB, −6,2 % de CPU). M1: ≈ 2,8× = fotos omitidas ≈ 1,6× × DMA de 6 planos ≈ 1,6×; picos = espiral de la vuelta (\|Δs\| > 16 en la misma lista). S11: en la vuelta ≈ 90 líneas reescritas por foto con ventanas de ≈ 13 px; probablemente no entra en D1 solo con CPU del scroll. L3: perfil de la lógica plano, ningún recorte la mueve | `docs/informe-g5l-r-m1-1010.md`, `docs/informe-g5l-r-s10-1010.md`, `docs/informe-p123-scroll-1010.md`, `docs/informe-g5l-r-s9-1010.md` |
 | 7 | Capa 2 contra la referencia | pendiente (solo PC, U2) | — |
 | 8a/8b/8c | Física, colisión, pendientes | **hecho**: `full` 6510/6547 en `oracle_yi1`; pendientes 2154/2154 (`oracle_hills`) | `player/mario.c`, `mcoll.c`, `manim.c` |
 | 8 (gfx, cámara) | Gráficos de Mario y cámara | **hecho**; `gfx` 100 % en los oráculos (P69 arreglada) | `player/mgfx.c`, `mcam.c` |
 | 8.1 | Grabaciones | **32 oráculos** con snesorc sin usuario (`tools/snesorc/*.orc`), entre ellos `stress_back`, `stress_sprites`, `stress_vert`, `pipe`, `goal`/`goal_low`/`goal_miss`, `pw_*` (seta, flor, estrella, 1-UP, `$C7`, bloques, medio, monedas de Yoshi) y los de R10. Faltan: luna 3-UP, R7 (contadores del HUD), R8/A0 (audio) | `tools/snesorc/`, `work/oracle_*.txt` |
-| 8.2 | Lógica ≤ 40 % | **hecha para el alcance anterior; L-OAM no cerrada**. Ambas rutinas en asm (`e8ec165`, `bbdf201`, `cd5001c`, fusión `cb8ba8f`), RAM PC=68000 exacta. WinUAE l4: YI1 con `SPR_OAM` **41,2 %** (antes 43,1 %), back 73,9 %; fotos back 295 contra 145 del control, sprites 32 contra 0. Parada explícita tras ambas asm; nueva tarjeta pendiente | `player/logic68k.s`; `docs/informe-loam-1007.md`, `docs/informe-coordinacion-1007.md` |
+| 8.2 | Lógica ≤ 40 % | **normal pasa; estrés no** con L2 y P123 corregida. WinUAE BENCH level_frame: YI1 **29,2 %**, back **60,4 %**, sprites **57,5 %**. PC=68000/regresión verdes; no implica cerrar D1. Lógica caliente en asm, C de referencia | `player/logic68k.s`; `docs/informe-g5l-r-l2-1010.md`, `docs/informe-p123-scroll-1010.md` |
 | 9.1 | Sprites: lógica | **casi hecha**: Rex, `$83`, `$B9`, `$BD`, `$02`, `$9F`, `$4F`, `$8E`, `$C7`, Chuck `$95`, caparazones, meta `$7B`, power-ups (P6), Mario crecer/encoger/morir/estrella (P8); `game` 0 resincronizaciones. Faltan P7 (bolas de fuego), P9 (monedas de Yoshi, puntos), P10 (reserva) | `player/msprite.c`, `spr_*.c` |
-| 9.2 | Sprites: dibujo | Mario hecho; G0/G1/G3a/G8 y G8b opt-in verificadas. G3 acotada hecha (64528 B DMA, 72724 B tablas, loader replay/vivo). G5a fallida y revertida (`652b23c`). **G5a-bis parcial en rama** `8fe712d`: A2 y variantes exactas; 59318 ventanas vacías + 18 fallos de capacidad, B/C detenidas. Coordinador reproduce el resumen y revisa las PNG. G2T revisión entregada. **G2T-A hecha (2026-10-07): contrato fijado con medidas y puerta A-T verde** en 3404 frames (0 sin plazo, 0 errores de color/capa 1/prioridad; 69 293 transiciones; 56 casos exactos + 27 negativos en WinUAE). El candidato era inviable: el hueco entre filas admite 12 − nb MOVE (P111); codo 231→243 (P110). **B35 parcial en rama `g2t-b35` (2026-10-08, `213ba3c`/`06e777f`)**: B4/B5 exactas en 3404 frames, ABI intacta, paso 4c/regress/hashes verdes; único intento en C agotado, máximo 2 405 022 ciclos sin DMA frente a 8000. No integrada; informe `docs/informe-g2t-b35-1008.md`. Primer microbench B35-asm entregado (`a9b44fe`): transiciones exactas en 3404 frames, máximo 18 794 ciclos solo en ese núcleo; no hay ruta medida al presupuesto, integración detenida (`docs/informe-g2t-b35-asm-1008.md`). El rendimiento de B2bis, C y un nuevo diseño viable del plan, más cobertura global/G4-G7/G9, pendientes. **G5L-R (2026-10-09, `052dac2`): el Rex se ve en la Amiga** por sprites 4-7 con 4 mapas limpios, caché del plan y colchón; 67 fotos perdidas (WinUAE, replay) contra 27 del control; vivo opt-in en a728ddc; T parada en 66 fotos BENCH, control con colchón9; defecto pendiente de teclado real. B2bis/Cpre/B35 aparcadas |  `docs/informe-g3-final.md`, `docs/informe-g5bis-1007.md`, `docs/informe-coordinacion-1007.md`, `docs/informe-g2t-1007.md`, `docs/informe-g2t-a-1007.md` |
-| 6b | Integración | ADF en vivo y replay, O5 por defecto y diagnóstico. Con banco G3 y L-OAM asm, memmap replay/vivo: chip 455728/467256 B, slow 287712/323944 B; 0 violaciones. Gamecheck replay integrado 6313 frames, 0 distintos; Mario 6184/6184. Falta vlink C2, compresión C3 y loader C4 | `player/game.s`; `docs/informe-coordinacion-1007.md` |
+| 9.2 | Sprites: dibujo | **Mario y Rex G5L funcionan**; G5L+CUSHION+SPR_OAM por defecto, P123 corregida. G5L-N: tabla G5L2 (el Rex aplastado ya se dibuja, −84 KB de slow); G4-1 (Python) ubica hasta 2 Rex sin errores de color; G4-2 lo lleva al 68000, exacto, con encadenado DMA (**activado por el usuario el 2026-10-10**, `G5L_MAXPL` = 2, pese a D1); G4-2o lo abarató (52 k de mediana con 2 Rex) sin llegar al ruido. G4-B: los demás enemigos de YI1 (piraña, Chuck, Koopa, caparazón, caja, cinta, `$02`) por G5L con la tabla G5L3, exactos, **activados por el usuario el 2026-10-10** (`G5L_TYPES=AB` los apaga) aunque D1 empeora (normal 11 → 27) y el replay con Exec ya no entra en chip (P126: en WinUAE, `tools/bm_build.sh`). G9: el dibujo de los sprites es exacto contra la OAM de la SNES (10 capturas, 8 tipos y Mario, 0 px); la lógica de unas pocas instancias se desvía (Rex yi1 70 %, piraña 74 %). Sigue L-DER. R1/S9/L2 integradas en rama. D1 todavía roja (tanda actual en §2); demás enemigos/bobs y cobertura global G4-G7/G9 pendientes. G2T-A verificada; B35/B2bis/Cpre aparcadas con informes y puertas históricas | `docs/informe-cierre-v-bm1-1009.md`, `docs/informe-g5l-r-l2-1010.md`, `docs/informe-p123-scroll-1010.md`, `docs/informe-g4-2-1010.md`, `docs/informe-g4-2o-1010.md`, `docs/informe-g4-b-1010.md`, `docs/informe-g9-1010.md`; historia textual en `docs/archivo/sesiones.md` |
+| 6b | Integración | ADF replay y vivo; G5L+CUSHION+SPR_OAM por defecto, boot BM1 en vivo KS1.2/1.3, A501 obligatoria. Memmap actual: replay normal **chip 483808/slow 410152 B**; vivo BM1 **499432/463000 B**, 0 violaciones. Regresión G5L/retorno/BM1 verde. Reubicar tablas de CPU en chip (135468 B) requiere espacio slow | `player/game.s`; `docs/informe-cierre-v-bm1-1009.md`, `docs/informe-p123-scroll-1010.md` |
 | 10-12 | HUD, audio, pulido | **Z1** hecho (muerte normal y reinicio; `docs/validacion-z1.md`). **H1** medido conservadoramente (`docs/medida-hud.md`; falta la alineación exacta PPU). **A1**: conversor verificado, 20 muestras / 50560 B PCM (`docs/informe-a1.md`); audio reproducido y R8 pendientes. HUD visible, punto medio, meta, game over: pendientes | — |
 | Experimental E11-E14 | Técnicas de juegos de referencia | E11a hecha: 0 cargas PF1 en franjas aptas de 15.755 frames; E11b descartada para `build_mid`. E12 descartada: 0/7 índices sin conflicto en 1.016.785 cámaras. E13 sin caso. E14a hecha; E14 descartada para estrés: 0/202 frames con las 64 filas libres (Banzai solo: 16/331). No cambia el presupuesto ni la compuerta D1 | `docs/experimentos-e11-e14.md` |
 
@@ -105,10 +102,10 @@ no entra es la **imagen** de ese VBL. Medidas WinUAE al 2026-10-05; la fila G8b 
 
 | componente | medido (peor frame) | objetivo | fuente |
 |---|---|---|---|
-| lógica `level_frame` con sprites y OAM | **37,24 %** (WinUAE, replay YI1) | ≤ 40 % | `docs/medida-oam-o5.md` |
+| lógica `level_frame` con sprites y OAM | WinUAE BENCH final: normal **29,2 %**, back **60,4 %**, sprites **57,5 %** | ≤ 40 %; normal verde, estrés rojo | `docs/informe-p123-scroll-1010.md` |
 | lógica con OAM ampliada G8b (opt-in) | **41,2 %** (WinUAE l4, YI1 entero, L-OAM asm); antes 43,1 % tras paso 1 | ≤ 40 % real; **puerta roja**, parada tras Rex y Finish en asm | `docs/informe-loam-1007.md`; revisión independiente `docs/informe-coordinacion-1007.md` |
 | interrupción lógica + foto | 46,40 % (WinUAE) | — | ídem |
-| scroll: `build_mid` + columna + lista | ida **89,16 %** (WinUAE, s ≈ 4576, con P51); vuelta 94,8 % en Musashi (s = 2832; ×~1,3 en la Amiga, **sin medir en WinUAE**). Media de la ida ~15 % | repartir los picos (S5) | ídem; `scrollprof.py` |
+| scroll: build_mid | WinUAE BENCH con P123 corregida: normal **83,2 %**; back **180,4 %** (s=4581). El peor total hasta blitter libre de back es 329,3 % en otra foto; los máximos no se suman | bajar picos con semántica exacta; S5 descartada | `docs/informe-p123-scroll-1010.md` |
 | Mario en sprites de hardware (`mspr_draw`) | máx. 7 750 ciclos, media 4 169 (Musashi, tras MA1) | ≤ 3 % de media | `baseline_pc.json` |
 | dibujo de los sprites del nivel (G5) | juego sin hacer; G2T mide solo sufijo sintético: ocho recargas exactas y cruce255 con barrera única,0 px. Sin coste integrado medido | ≤ 8 % (asignación, DMA y copper) | `docs/diseno-9.2.md`, `docs/informe-g2t-1007.md` |
 | plan temporal del Rex (B35, rama) | 2 405 022 ciclos máx., 0 planes distintos/ABI en 3404 frames; Musashi sin DMA, no coste integrado | ≤ 8000 ciclos máx. para el plan | `docs/informe-g2t-b35-1008.md` |
@@ -118,14 +115,15 @@ no entra es la **imagen** de ese VBL. Medidas WinUAE al 2026-10-05; la fila G8b 
 | audio | sin hacer | ≤ 3 % (D5) | — |
 | estrés D1 (`stress_back`/`stress_sprites`, con `SPR_OAM`) | WinUAE l4 sin traza, L-OAM asm: 295/4126 (7,15 %, racha 6) y 32/1914 (1,67 %, racha 2); antes del asm 616/4126 y 56/1914 | **roja**; controles de la misma tanda: 145/4126 (3,51 %, racha 3) y 0/1914 | `docs/informe-loam-1007.md`; segunda tanda `docs/informe-coordinacion-1007.md` |
 | G5L-R + colchón (rama, replay BENCH) | **66/6312 = 1,05 %**, racha1, contra9 del control con colchón; base67. VBTRACE sin BENCH25 saltos, coste distinto. Musashi máximo93752 ciclos | T parada tras dos candidatos; D1 roja | `docs/informe-g5l-r-tirones-1009.md` |
+| P123 corregida, G5L+CUSHION, BENCH+ADRTRAP | back **387/4126 = 9,38 %, racha 5**; sprites **98/1914 = 5,12 %, racha 3**; Normal: VBTRACE 2 omitidas; BENCH 14/6312 (0,22 %, racha 1) | **D1 roja**; recortes de CPU retirados (389/104) | `docs/informe-p123-scroll-1010.md` |
 | **fotos omitidas** | **14 de 6312 = 0,22 %**, racha máx. 1 (WinUAE, replay YI1, sin G5/HUD/audio) | ver la compuerta | `docs/medida-oam-o5.md` |
 
-**Lectura:** el problema es de **picos**, no de media. El coste de
-`build_mid` depende de la posición de scroll, que es conocida de antemano:
-repartir el trabajo entre frames (S5) es la palanca principal, antes que
-más asm a mano. Lo que falta sumar al render (G5, HUD, audio y el Banzai)
-cae justo en los picos; G5 además escribe en la misma lista del copper que
-`build_mid`, por eso S5 va inmediatamente después de G5.
+**Lectura vigente (2026-10-10):** el estrés mantiene picos de scroll.
+S5 se probó y descartó; S9 comparte líneas entre listas. El perfil de
+la vuelta señala decisiones en bm_left, pero Musashi no mide esperas
+de DMA. Los pequeños recortes locales no pasaron el A/B real y fueron
+retirados. No se declara el speedcode viable antes de medir tamaño,
+semántica y WinUAE; HUD/audio y otros enemigos todavía sumarán coste.
 
 **Compuerta D1 [usuario, redefinida el 2026-10-05]:** lo que mide la
 fluidez son las **fotos omitidas** (VBL sin imagen nueva). "Peor frame
@@ -139,7 +137,7 @@ vea lo más fluido posible.**
 
 Se mide en WinUAE cycle-exact con el juego integrado: G5, HUD y audio
 incluidos en cuanto existan; antes, el número vale solo para lo que haya.
-**Hoy no pasa** (0,22 % sin OAM ampliada y 0,43 % con ella en YI1; WinUAE l4). Un frame omitido a 4 px/frame
+**Hoy no pasa** (tanda P123 corregida arriba; cifras antiguas son históricas). Un frame omitido a 4 px/frame
 de scroll es un salto de 8 px: por eso la racha y la ventana importan tanto
 como el porcentaje.
 
@@ -233,21 +231,31 @@ cambiable en un solo lugar (una tabla).
 
 ---
 
-## 4. Olas y sesiones (revisado el 2026-10-09)
+## 4. Olas y sesiones (revisado el 2026-10-10)
 
-2026-10-09: T llegó a su parada (dos candidatos, 66/65 BENCH; segundo
-retirado por racha2). V ya funciona opt-in: falta teclado real y defecto.
-BM1 MFM/fijo KS1.2 entregado WIP: falta KS1.3 y control de carga comparable.
-Quedan **1-2 sesiones estimadas**, condicionadas a ROM/helper, para cerrar
-esas puertas; bajar los tirones requiere revisar la parada antes de otra
-ronda. Resto de ola3 (L-OAM, A2, R7) sin cambios. Total restante estimado
-**10-13**, con incertidumbre por D1 y los enemigos aún sin dibujar.
+2026-10-10 (G4-A): todos los enemigos caben en pares acoplados (≤ 15
+colores). La tabla G5L de todos entra en slow solo con la clave
+normalizada y las máscaras compartidas. El Banzai como bob (+59 KB) y el
+audio no caben en chip hasta C2/C4, que además necesitan compresión (C3).
+El estimado no cambia; G5L-N es parte de la ola 4.
 
-B2bis tiene puertas locales verdes en d3e431c; coste real 92 fotos
-perdidas contra 27 del control, D1 roja. Cpre C2a exacta; sonda C2b
-detenida en 28680 ciclos contra 4000, C3/C4 pendientes.
-El avance no cierra D1 ni B35; informe y pasos en PROXIMO.
+2026-10-10 (L3): la ola 3 deja de tener palancas de CPU con margen
+medido (S10, S11, L3). Empieza la ola 4 con G4-A, que mide el coste en
+memoria de llevar todos los enemigos al copper. El estimado no cambia.
 
+2026-10-10 (S10): el speedcode no pasa la puerta de tamaño/coste
+(`docs/informe-g5l-r-s10-1010.md`). El estimado no cambia: **9-12
+sesiones (ESTIMADO)**; la medida M1 (1 sesión) decide la siguiente
+palanca de D1, que sigue siendo la mayor incertidumbre.
+
+2026-10-10 (P123/perfil): la corrección de memoria está cerrada, el
+estrés sigue rojo y los recortes locales se retiraron por su A/B. Falta
+la puerta de tamaño/coste del speedcode y su integración si resulta
+viable. No se descuenta una sesión de D1 por una mejora de CPU que no
+pasa WinUAE. Restante **9-12 sesiones (ESTIMADO)**, con incertidumbre
+en D1; 1-2 para el prototipo/medida son una estimación, no una promesa de
+cerrar el estrés. Estimaciones anteriores archivadas textualmente en
+`docs/archivo/sesiones.md`.
 
 Una sesión agrupa coordinación, agentes en worktrees, revisión e integración.
 Tarjetas y estados: `SUBAGENTES.md` §4. La sesión L-OAM/G5a-bis del
@@ -265,7 +273,7 @@ pero detenida por coste; primer microbench asm medido (18 794 ciclos solo en tra
 | 1. Medir y preparar | — | **cerrada** | 0 |
 | 2. 50 Hz (1) | — (S4 descartada, P89) | **cerrada** | 0 |
 | 3. 50 Hz (2) + diseños | G2/G3 acotadas y traza D1 integradas; L-OAM asm parcial (41,2 % YI1, estrés rojo), G5a-bis detenida fase A (ventanas vacías). G2T-A hecha (contrato fijado, A-T verde); B35 exacta en rama pero inviable (2,41 M ciclos máx.); primer microbench asm entregado y detenido (18 794 ciclos solo en transiciones); faltan nuevo diseño viable, rendimiento de B2bis, resolver coste Cpre/C y la ruta OAM de piraña; A2 y R7. A1/G8b adelantadas | **B35 parcial por coste; L-OAM roja** | **3 estimadas** (nuevo diseño viable de B35 + B2bis/C + L-OAM; el microbench no reduce la ruta crítica) |
-| 4. Motores y estructura | G4 + G6, G5 + G9, C2 (vlink), S8 (cámara vertical), A0 + A2, P7/P9/P10, T1, I/E sueltas | pendiente | 2-3 |
+| 4. Motores y estructura | G4-A hecha (medida), G5L-N hecha, G4-1 hecha (Python), G4-2 hecha (68000, apagada: D1), G4-2o hecha (sigue apagado), G4-B hecha (los demás enemigos; apagada: D1 y chip), G9 hecha (dibujo exacto), L-DER (deriva de la lógica de sprites, siguiente), G4-3 (aparcada), G4 + G6, G5, C2 (vlink), S8 (cámara vertical), A0 + A2, P7/P9/P10, T1, I/E sueltas | **en curso** | 2-3 |
 | 5. Integraciones y 50 Hz con sprites | S5 (+ S3/S6) con G5 ya hecho, C3/C4/C5 (loader), segundo PF1 + G7 (bobs), H2-H4 (HUD), A3/A4 (música) | pendiente | 2-3 |
 | 6. El juego completo | Z2-Z6 (punto medio, meta, tiempo, fundidos, poste), T2/T3 (tubería), A5-A8 (efectos, comparación), H5, R7 | pendiente | 2 |
 | 7. Segunda ronda de 50 Hz | todo junto contra la compuerta D1 en estrés | pendiente | 1 |
@@ -336,6 +344,72 @@ O5 es el modo por defecto (`-DNODECOUPLE` = bucle viejo); si cambia
 ---
 
 ## 7. Cierre de sesión (obligatorio)
+
+2026-10-10 (G9): `sprshot_cmp.py`; dibujo exacto contra la SNES, deriva
+de lógica medida. Sigue L-DER (PROXIMO §1). PROXIMO archivado y
+reescrito; P127.
+
+2026-10-10 (G4-B): los demás enemigos por G5L (G5L3), exactos y
+apagados por defecto (A/B y chip en el informe). Sigue G9 (PROXIMO §1).
+PROXIMO archivado y reescrito; P126.
+
+2026-10-10 (G4-2o): camino de varios Rex más barato y exacto; el A/B
+sigue sobre el ruido, apagado. Sigue G4-B (PROXIMO §1). PROXIMO archivado
+y reescrito.
+
+2026-10-10 (G4-2): 2 Rex por foto en el 68000, exacto; apagado por
+defecto (D1 empeora, A/B en el informe). Sigue G4-2o (PROXIMO §1).
+PROXIMO archivado y reescrito; P125.
+
+2026-10-10 (G4-1): referencia multi-Rex hecha; sigue G4-2 (PROXIMO §1).
+PROXIMO archivado y reescrito.
+
+2026-10-10 (G5L-N): tabla G5L2 integrada en la rama; sigue G4-1 (PROXIMO
+§1). PROXIMO archivado y reescrito; P124.
+
+2026-10-10 (G4-A): medida hecha; sigue G5L-N (PROXIMO §1). PROXIMO
+archivado y reescrito.
+
+2026-10-10 (L3): perfil de la lógica plano; tarjeta cerrada sin integrar.
+Empieza la ola 4 por G4-A (medida). PROXIMO archivado y reescrito.
+
+2026-10-10 (S11): fase 1 medida y tarjeta cerrada sin integrar; sigue L3
+(PROXIMO §1). Estados actualizados.
+
+2026-10-10 (M1): medida hecha; reparto del ≈ 2,8× y espiral de la vuelta.
+PROXIMO archivado y reescrito; nueva tarjeta S11; estados actualizados.
+
+2026-10-10 (S10): prototipo de speedcode medido offline y cerrado por su
+puerta (118 KB, −6,2 % de CPU, no cabe en el vivo); nada integrado. PROXIMO
+archivado y reescrito; nueva tarjeta de medida M1; estados actualizados.
+
+2026-10-10 (P123/perfil): PROXIMO anterior y resúmenes antiguos de §1/§4
+archivados textualmente. Corrección y test del bucle real; recortes
+retirados por BENCH peor, perfiles/evidencia conservados. PROXIMO y
+tarjetas S10/L3 escritos con sus pasos y puertas; estados actualizados.
+
+2026-10-10 (2): G5L-R-L paso 1 (medida de la lógica). PROXIMO con la
+elección A/B/C para el usuario.
+
+2026-10-10: G5L-R-R1 y S9 hechas (autorizadas). P121, P122. Archivado
+PROXIMO; nueva tarjeta G5L-R-L (`docs/instrucciones-g5l-r-l.md`), bajo la
+autorización de optimizar.
+
+2026-10-09 (noche, 4): G5L-R-Q hecha (autorizada). Archivado PROXIMO;
+nueva tarjeta G5L-R-R1 pendiente de autorización
+(`docs/instrucciones-g5l-r-r1.md`).
+
+2026-10-09 (noche, 3): G5L-R-Pa hecha (autorizada; puerta no cumplida).
+Archivado PROXIMO; nueva tarjeta G5L-R-Q pendiente de autorización
+(`docs/instrucciones-g5l-r-q.md`).
+
+2026-10-09 (noche, 2): G5L-R-T2 hecha (solo medida, herramientas). P120.
+Archivado PROXIMO; nueva tarjeta G5L-R-Pa pendiente de autorización
+(`docs/instrucciones-g5l-r-pa.md`).
+
+2026-10-09 (noche): cierre V/BM1 (`1cab075`, `143c9ea`, `53e6453`),
+defectos nuevos, P117-P119, 9 worktrees borrados. Archivado PROXIMO;
+nueva tarjeta G5L-R-T2 (`docs/instrucciones-g5l-r-t2.md`).
 
 2026-10-09: G5L-R (`9c84534`, `c90e961`, `052dac2`), colchón aceptado por
 el usuario, tirones diagnosticados (P115/P116), 67 fotos. Archivado

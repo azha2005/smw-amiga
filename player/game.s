@@ -85,9 +85,6 @@ SPR_G5      equ 1                           ; solo el layout de la lista
         ifnd    DECOUPLE
         fail    "CUSHION requiere O5 (DECOUPLE)"
         endc
-        ifnd    REPLAY
-        fail    "CUSHION (prueba) solo en el replay"
-        endc
         ifd     HZ25
         fail    "CUSHION y HZ25 no van juntos"
         endc
@@ -180,9 +177,7 @@ cdata1:
         cnop    0,4
         include "work/cc/mario.code.s"
         include "work/cc/mcoll.code.s"
-        ifd     SPR_OAM
-        include "player/pic68k.s"          ; puente PIC cercano al C (P102)
-        endc
+        include "player/pic68k.s"          ; puente PIC cercano al C (P102; G5L-R-L2: siempre)
         include "work/cc/manim.code.s"
         include "work/cc/mgfx.code.s"
         include "work/cc/mcam.code.s"
@@ -287,19 +282,55 @@ DF_REPLAY   equ 1                           ;        binario -DREPLAY
 ;----------------------------------------------------------------------
 ; Arranque. Desde boot.s: a0 = base (chip), a1 = IOStdReq, a6 = ExecBase
 ;----------------------------------------------------------------------
+
+; GALLOC: mismas reservas del juego; BM1 usa arenas fijas, sin Exec.
+GALLOC macro
+        ifd     BM_FIXED
+        GETBASE a0
+        add.l   #bm_alloc-binstart,a0
+        jsr     (a0)
+        else
+        jsr     _LVOAllocMem(a6)
+        endc
+        endm
+        ifd     BM_FIXED
+        ifnd    G5L
+        fail    "BM_FIXED requiere el camino G5L sin banco"
+        endc
+        ifd     MEMPROBE
+        fail    "MEMPROBE mide Exec: incompatible con BM_FIXED"
+        endc
+        include "work/bm_boot.i"
+        endc
+
 entry:
         move.l  4.w,a6
+        ifd     MEMPROBE
+        GETBASE a0
+        add.l   #mp_entry-binstart,a0
+        jsr     (a0)
+        endc
         move.l  a1,a2                       ; a2 = IOStdReq
         lea     CUSTOM,a4
         move.w  #$0f80,COLOR00(a4)
 
+        ifd     BM_FIXED
+        GETBASE a0
+        add.l   #binend-binstart+7,a0
+        move.l  a0,d0
+        and.l   #$fffffff8,d0
+        GETBASE a0
+        add.l   #bm_slowcur-binstart,a0
+        move.l  d0,(a0)
+        move.w  #$8240,DMACON(a4)           ; blitter para scroll_init, sin lectores
+        else
         ;--- el binario a la slow RAM (si la hay) ----------------------
         GETBASE a0                          ; = a0 de boot.s
         lea     old_base(pc),a1             ; (antes de copiar: la copia
         move.l  a0,(a1)                     ; lo lleva)
         move.l  #binend-binstart,d0
         move.l  #MEMF_FAST,d1
-        jsr     _LVOAllocMem(a6)
+        GALLOC
         tst.l   d0
         beq.s   .stay                       ; solo 512 KB: se queda en chip
         move.l  d0,a1
@@ -316,6 +347,15 @@ entry:
         move.l  #(binend-binstart+511)&-512,d0  ; redondeada a 512)
         jsr     _LVOFreeMem(a6)
 .stay:
+        endc
+        ifd     LOADTIME
+        ifd     BM_FIXED
+        fail    "LOADTIME mide el boot trackdisk; BM_FIXED tiene su propio BMLOAD"
+        endc
+        lea     lt_sig+8(pc),a0             ; d7/d6 de boot.s -DLOADTIME
+        move.l  d7,(a0)+                    ; (ya en la copia que queda)
+        move.l  d6,(a0)
+        endc
         bsr     build_sign                  ; antes de que corra nada
         lea     CUSTOM,a4
         lea     vars(pc),a5
@@ -328,10 +368,22 @@ entry:
         and.l   #$fffffe00,d2
         move.l  d2,d0
         move.l  #MEMF_CHIP,d1
-        jsr     _LVOAllocMem(a6)
+        GALLOC
         tst.l   d0
         beq     gfail
         move.l  d0,a3
+        ifd     BM_FIXED
+        GETBASE a0
+        move.l  hdr_data_off-binstart(a0),d0
+        lsr.l   #8,d0
+        lsr.l   #1,d0
+        move.l  d2,d1
+        lsr.l   #8,d1
+        lsr.l   #1,d1
+        move.l  a3,a0
+        move.l  #BM_READ_ADDR,a1
+        jsr     (a1)
+        else
         move.l  a2,a1
         move.w  #CMD_READ,IO_COMMAND(a1)
         move.l  d2,IO_LENGTH(a1)
@@ -339,6 +391,7 @@ entry:
         GETBASE a0
         move.l  hdr_data_off-binstart(a0),IO_OFFSET(a1)
         jsr     _LVODoIO(a6)
+        endc
         tst.l   d0
         bne     gfail
         ifd     SPR_BANK
@@ -349,39 +402,50 @@ entry:
         tst.l   d0
         bne     gfail
         endc
+        ifd     BM_FIXED
+        move.l  #BM_MOTOR_ADDR,a1
+        jsr     (a1)
+        else
         move.l  a2,a1
         move.w  #TD_MOTOR,IO_COMMAND(a1)
         clr.l   IO_LENGTH(a1)
         jsr     _LVODoIO(a6)
+        ifd     LOADTIME
+        bsr     lt_tod                      ; datos leidos (= bm_motoroff)
+        lea     lt_sig+16(pc),a0
+        move.l  d0,(a0)
+        endc
+
+        endc
 
         move.l  #BUF1,d0
         move.l  #MEMF_CHIP|MEMF_CLEAR,d1
-        jsr     _LVOAllocMem(a6)
+        GALLOC
         tst.l   d0
         beq     gfail
         move.l  d0,V_BUF1(a5)
         move.l  #CL_SIZE+CL_TAIL,d0         ; (+ la cola del diagnostico)
         move.l  #MEMF_CHIP|MEMF_CLEAR,d1
-        jsr     _LVOAllocMem(a6)
+        GALLOC
         tst.l   d0
         beq     gfail
         move.l  d0,V_COP(a5)
         move.l  #CL_SIZE+CL_TAIL,d0
         move.l  #MEMF_CHIP|MEMF_CLEAR,d1
-        jsr     _LVOAllocMem(a6)
+        GALLOC
         tst.l   d0
         beq     gfail
         move.l  d0,V_COP2(a5)
         ifd     CUSHION
         move.l  #CL_SIZE+CL_TAIL,d0         ; la tercera (el colchon)
         move.l  #MEMF_CHIP|MEMF_CLEAR,d1
-        jsr     _LVOAllocMem(a6)
+        GALLOC
         tst.l   d0
         beq     gfail
         move.l  d0,V_COP3(a5)
         move.l  #LTC_SIZE,d0                ; su estado en build_mid (CPU)
         move.l  #MEMF_CLEAR,d1
-        jsr     _LVOAllocMem(a6)
+        GALLOC
         tst.l   d0
         beq     gfail
         add.l   #4+GSZ*NGRP,d0
@@ -393,7 +457,7 @@ entry:
         endc
         move.l  #VT_CAP*4,d0                ; la traza por VBL (tools: la lee
         move.l  #MEMF_CLEAR,d1              ; de la memoria de WinUAE)
-        jsr     _LVOAllocMem(a6)
+        GALLOC
         lea     vt_ptr(pc),a0
         move.l  d0,(a0)
         lea     vt_sig(pc),a1
@@ -403,7 +467,7 @@ entry:
         ifd     G5L
         move.l  #G5L_CDMA_SIZE+G5L_RBUF_SIZE,d0 ; flujos de las variantes limpias
         move.l  #MEMF_CHIP,d1               ; del Rex (g5l.py) y el bufer de las
-        jsr     _LVOAllocMem(a6)            ; bandas: los lee el DMA
+        GALLOC            ; bandas: los lee el DMA
         tst.l   d0
         beq     gfail
         GETBASE a0
@@ -424,7 +488,7 @@ entry:
         move.l  #2*SPRBUF+12,d0             ; Mario (una por lista) + nulo
         endc
         move.l  #MEMF_CHIP|MEMF_CLEAR,d1
-        jsr     _LVOAllocMem(a6)
+        GALLOC
         tst.l   d0
         beq     gfail
         ifd     DECOUPLE
@@ -455,7 +519,7 @@ entry:
         ifd     DIAG
         move.l  #DG_SIZE,d0                 ; las pantallas del diagnostico
         move.l  #MEMF_CHIP|MEMF_CLEAR,d1
-        jsr     _LVOAllocMem(a6)
+        GALLOC
         tst.l   d0
         beq     gfail
         lea     g_dmem(pc),a0
@@ -502,7 +566,14 @@ entry:
         move.l  (sp)+,V_BACK(a5)
         endc
 
+        ifd     MEMPROBE
+        GETBASE a0
+        add.l   #mp_final-binstart,a0
+        jsr     (a0)
+        endc
+
         ;--- tomar el hardware (como scroll.s) ------------------------
+        ifnd    BM_FIXED
         jsr     _LVOForbid(a6)
         lea     gfxname(pc),a1
         moveq   #0,d0
@@ -514,7 +585,30 @@ entry:
         jsr     _LVOLoadView(a6)
         jsr     _LVOWaitTOF(a6)
         jsr     _LVOWaitTOF(a6)
+        endc
 .nogfx:
+        ifd     BM_SUPERVISOR
+        ; TRAP retorna con S=1. El demo no vuelve al SO: pila propia
+        ; en el binario (slow), no la SSP que conserva Exec.
+        GETBASE a0
+        add.l   #bm_trap-binstart,a0
+        move.l  a0,$80.w
+        trap    #0
+        GETBASE a0
+        add.l   #bm_stacktop-binstart,a0
+        move.l  a0,sp
+        GETBASE a0
+        add.l   #bm_sig-binstart,a0
+        move.l  a0,8(a0)
+        move.w  sr,12(a0)
+        endc
+        ifd     BM_FIXED
+        GETBASE a0
+        add.l   #bm_fixedsig-binstart,a0
+        move.l  a0,8(a0)
+        move.l  a3,12(a0)
+        move.w  sr,24(a0)
+        endc
         move.l  4.w,a6
         lea     CUSTOM,a4
         move.w  #$7fff,INTENA(a4)
@@ -523,6 +617,16 @@ entry:
         move.l  V_COP(a5),COP1LC(a4)
         move.w  #0,COPJMP1(a4)
         move.w  #$83e0,DMACON(a4)           ; MASTER|BPLEN|COPEN|BLTEN|SPREN
+        ifd     ADRTRAP
+        GETBASE a0                          ; (al final del binario: lejos)
+        add.l   #at_g0-binstart,a0          ; bus y direccion: marco del grupo 0
+        move.l  a0,$08.w
+        move.l  a0,$0c.w
+        add.l   #at_g1-at_g0,a0             ; ilegal, line A/F: marco corto
+        move.l  a0,$10.w
+        move.l  a0,$28.w
+        move.l  a0,$2c.w
+        endc
         ifd     BENCH
         bsr     gb_init                     ; timer, calibracion
         ifd     D1TIMER
@@ -549,6 +653,12 @@ entry:
         move.w  #$0030,INTREQ(a4)
         move.w  #$0030,INTREQ(a4)
         move.w  #$c030,INTENA(a4)           ; INTEN|VERTB|COPER
+        ifd     BM_FIXED
+        move.w  #$2000,sr                   ; vectores y pilas propios ya instalados
+        GETBASE a0
+        add.l   #bm_fixedsig-binstart,a0
+        move.w  sr,24(a0)
+        endc
         bra     dc_loop                     ; el render (no vuelve)
         endc
 
@@ -851,7 +961,7 @@ live_init:
         move.l  4.w,a6
         move.l  #(cdata1-cdata0)+MAPHALF*2,d0
         moveq   #MEMF_PUBLIC,d1
-        jsr     _LVOAllocMem(a6)
+        GALLOC
         tst.l   d0
         beq     gfail
         lea     g_save(pc),a0
@@ -1245,7 +1355,13 @@ loadstate:
         dbf     d2,.k2b
         dbf     d1,.k2
         move.b  #$07,$1931(a2)              ; wm_LvHeadTileset (no se graba)
+        ifd     CUSHION
+        GETBASE a1                          ; el vivo crece mas alla de 32 KB
+        add.l   #spr_lv-binstart,a1
+        move.b  (a1),d0
+        else
         move.b  spr_lv(pc),d0               ; wm_SpriteMemory
+        endc
         and.b   #$3f,d0
         move.b  d0,$1692(a2)
         move.b  #$ff,$1430(a2)              ; Lowest/HighestSolidSprTile
@@ -2114,9 +2230,15 @@ dc_loop:
         FBSR    set_pointers
         ifd     BENCH
         GBR     8
+        ifd     M1POS
+        bsr     m1_pre
+        endc
         endc
         ifnd    NOMID
         bsr     build_mid
+        endc
+        ifd     M1POS
+        bsr     m1_post
         endc
         ifd     DELAYR
         move.w  #DELAYR-1,d0                ; calibracion: DELAYR x 10 ciclos
@@ -2130,6 +2252,7 @@ dc_loop:
         GBR     16
         endc
         ifd     G5L
+        lea     dc_st(pc),a2                ; columns destruye a2: recuperar el estado
         move.w  DC_REND(a2),d0
         bsr     dc_recp
         GETBASE a1
@@ -2214,11 +2337,27 @@ dc_restart:
         bsr     bwait
         move.w  #$01a0,DMACON(a4)           ; parar lectores de listas/PF/sprites
         move.w  #0,COLOR00(a4)
+        ifd     CUSHION
+        move.w  g_restart(pc),d0
+        cmp.w   #2,d0
+        bne.s   .death
+        bsr     live_restart                ; salir del diagnostico: juego nuevo
+        bra.s   .loaded
+.death:
+        endc
         bsr     live_death_restart
+        ifd     CUSHION
+.loaded:
+        endc
         bsr     cam_to_s
         bsr     scroll_init                 ; reconstruir ambas listas y ventana
+        ifd     CUSHION
+        lea     g_lpal3(pc),a0
+        move.l  #$ffffff00,(a0)              ; invalidar las tres paletas
+        else
         lea     g_lpal(pc),a0
         move.w  #$ffff,(a0)                 ; invalidar paletas de las dos listas
+        endc
         bsr     dc_init                     ; fotos/punteros/colas nuevos
         bsr     bwait
         move.l  V_COP(a5),COP1LC(a4)
@@ -2876,6 +3015,75 @@ gb_isrmax: dc.w 0                           ; peor interrupcion con logica
 gl_done: dc.b   0                           ; el replay se acabo
         even
         endc
+
+        ifd     M1POS
+        ifnd    DECOUPLE
+        fail    "-DM1POS necesita el render desacoplado (G5L)"
+        endc
+;----------------------------------------------------------------------
+; --- m1_pre / m1_post --- (G5L-R-M1, solo medida) una fila por foto
+; dibujada en m1_buf: .w R_FRAME, V_S, V_BACK (palabra baja), ticks del
+; timer A durante build_mid (con la interrupcion), ticks de la
+; interrupcion en ese tramo, linea de pantalla al entrar y al salir,
+; gb_frn. tools/m1_read.py lo lee de la memoria de WinUAE (firma).
+; registros destruidos: ninguno
+;----------------------------------------------------------------------
+m1_pre:
+        movem.l d0-d2/a0-a1,-(sp)
+        lea     CUSTOM,a1
+        move.l  VPOSR(a1),d0
+        lsr.l   #8,d0
+        and.w   #$1ff,d0
+        lea     m1_tmp(pc),a0
+        move.w  d0,4(a0)                    ; linea al entrar
+        move.w  gb_isr(pc),2(a0)
+        bsr     gb_rt
+        move.w  d0,(a0)                     ; timer al entrar (cuenta abajo)
+        ifd     M1NOBPL
+        move.w  #$0100,DMACON(a1)           ; sin DMA de planos (solo medida:
+        endc                                ; la imagen no vale)
+        movem.l (sp)+,d0-d2/a0-a1
+        rts
+
+m1_post:
+        movem.l d0-d3/a0-a2,-(sp)
+        bsr     gb_rt
+        move.w  d0,d3                       ; timer al salir
+        lea     CUSTOM,a1
+        ifd     M1NOBPL
+        move.w  #$8100,DMACON(a1)           ; planos otra vez
+        endc
+        move.l  VPOSR(a1),d2
+        lsr.l   #8,d2
+        and.w   #$1ff,d2                    ; linea al salir
+        GETBASE a2
+        add.l   #m1_n-binstart,a2
+        move.l  (a2),d0
+        cmp.l   #M1N,d0
+        bhs.s   .x                          ; lleno
+        addq.l  #1,(a2)
+        lsl.l   #4,d0
+        lea     8(a2,d0.l),a2               ; a2 = fila
+        move.w  d2,12(a2)
+        lea     m1_tmp(pc),a0
+        move.w  (a0),d0
+        sub.w   d3,d0
+        move.w  d0,6(a2)                    ; ticks (con la interrupcion)
+        move.w  gb_isr(pc),d0
+        sub.w   2(a0),d0
+        move.w  d0,8(a2)                    ; de ellos, en la interrupcion
+        move.w  4(a0),10(a2)
+        move.w  V_S(a5),2(a2)
+        move.w  V_BACK+2(a5),4(a2)
+        move.w  gb_frn(pc),14(a2)
+        lea     dc_st(pc),a0
+        move.w  DC_REND(a0),d0
+        bsr     dc_recp
+        move.w  R_FRAME(a0),(a2)
+.x:     movem.l (sp)+,d0-d3/a0-a2
+        rts
+m1_tmp: ds.w    3
+        endc
         endc
 
 ;----------------------------------------------------------------------
@@ -3133,10 +3341,14 @@ m16_at:
 ; la franja en la lista que se ve y las dos pantallas dibujadas
 diag_enter:
         movem.l d2-d7/a2-a6,-(sp)
+        ifd     CUSHION
+        move.l  dc_st+DC_FLIST(pc),d0        ; la visible, no adivinar entre tres
+        else
         move.l  V_COP(a5),d0                ; la lista que se ve desde el
         cmp.l   V_BACK(a5),d0               ; frame siguiente: la que no es
         bne.s   .l                          ; V_BACK
         move.l  V_COP2(a5),d0
+        endc
 .l:     lea     g_dlist(pc),a0
         move.l  d0,(a0)
         bsr     diag_render
@@ -3213,7 +3425,13 @@ diag_exit:
         endc
         lea     g_diag(pc),a0
         clr.w   (a0)
+        ifd     CUSHION
+        lea     g_restart(pc),a0            ; reconstruir en el bucle, no en IRQ
+        move.w  #2,(a0)
+        rts
+        else
         bra     live_restart
+        endc
         endc
 
 ; --- diag_frame --- un frame congelado: teclas y tiempo
@@ -3572,6 +3790,23 @@ gfail:  lea     CUSTOM,a4
 
 old_base:
         dc.l    0                           ; lo pone entry (a0 de boot.s)
+        ifd     LOADTIME
+; --- lt_tod --- TOD de CIA-A (VBL PAL), solo lectura, como bb_tod
+; entrada: ninguna; salida: d0 = TOD de 24 bits
+; registros destruidos: d0; ciclos: carga, no frame
+lt_tod:
+        moveq   #0,d0
+        move.b  $bfea01,d0
+        lsl.l   #8,d0
+        move.b  $bfe901,d0
+        lsl.l   #8,d0
+        move.b  $bfe801,d0
+        rts
+; BM1 paso 4 (control trackdisk): TOD al entrar al boot, stage2 leido y
+; datos leidos con el motor apagado. Lo lee tools/load_probe.py.
+lt_sig: dc.b    "TDLOAD!!"
+        dc.l    0,0,0
+        endc
 gfxname: dc.b   "graphics.library",0
         even
 vars:   ds.b    V_SIZE
@@ -3631,4 +3866,189 @@ g5env_view:  ds.b 1292                     ; prefijo B2, hasta G5B_REX
         include "work/g5_pre.i"
         endc
         endc
+
+        ifd     MEMPROBE
+        ifnd    REPLAY
+        fail    "MEMPROBE solo en replay"
+        endc
+; --- mp_entry/mp_final --- AvailMem y MemList, antes/despues de la carga
+; entrada: a6 = ExecBase
+; salida: bloque MEMPROB1 con firma y direccion propia
+; registros destruidos: ninguno
+; ciclos: solo al cargar, sin coste por frame
+mp_entry:
+        movem.l d0-d7/a0-a6,-(sp)
+        GETBASE a2
+        add.l   #mp_sig-binstart,a2
+        move.l  a2,8(a2)
+        GETBASE a0
+        move.l  a0,12(a2)
+        move.l  #(binend-binstart+511)&-512,16(a2)
+        lea     24(a2),a3
+        bsr     mp_avail
+        ; ExecBase.MemList (+322): MemHeader atributos +14, lower/upper
+        ; +20/+24 y free +28. Guardar encabezados y sumas, sin adivinar
+        ; quien posee cada asignacion (Exec no lleva ese registro).
+        move.l  322(a6),a0
+        lea     56(a2),a1
+        moveq   #8-1,d2
+.mh:    tst.l   (a0)
+        beq.s   .done
+        move.w  14(a0),(a1)+
+        clr.w   (a1)+
+        move.l  20(a0),(a1)+
+        move.l  24(a0),(a1)+
+        move.l  28(a0),(a1)+
+        addq.w  #1,20(a2)
+        move.l  (a0),a0
+        dbf     d2,.mh
+.done:  movem.l (sp)+,d0-d7/a0-a6
+        rts
+mp_final:
+        movem.l d0-d7/a0-a6,-(sp)
+        move.l  4.w,a6
+        GETBASE a2
+        add.l   #mp_sig-binstart,a2
+        move.l  a2,8(a2)                  ; la firma se copio a slow
+        lea     40(a2),a3
+        bsr     mp_avail
+        move.w  #1,22(a2)                 ; lectura final completa
+        movem.l (sp)+,d0-d7/a0-a6
+        rts
+; --- mp_avail --- cuatro consultas (KS 1.2: no usar MEMF_TOTAL)
+; entrada: a3 = destino, a6 = ExecBase
+; registros destruidos: d0-d1/a0-a1/a3
+; ciclos: solo al cargar
+mp_avail:
+        moveq   #MEMF_CHIP,d1
+        jsr     _LVOAvailMem(a6)
+        move.l  d0,(a3)+
+        move.l  #MEMF_CHIP|MEMF_LARGEST,d1
+        jsr     _LVOAvailMem(a6)
+        move.l  d0,(a3)+
+        moveq   #MEMF_FAST,d1
+        jsr     _LVOAvailMem(a6)
+        move.l  d0,(a3)+
+        move.l  #MEMF_FAST|MEMF_LARGEST,d1
+        jsr     _LVOAvailMem(a6)
+        move.l  d0,(a3)+
+        rts
+        cnop    0,4
+mp_sig: dc.b    "MEMPROB1"
+        ds.b    48+8*16
+        endc
+
+
+        ifd     BM_SUPERVISOR
+; --- bm_trap --- entrar una vez a supervisor, antes del DMA del juego
+; entrada: marco de excepcion 68000 en SSP
+; salida: S=1 en el retorno; la entrada instala despues su pila propia
+; registros destruidos: ninguno
+; ciclos: solo al cargar (TRAP + OR + RTE)
+bm_trap:
+        or.w    #$2000,(sp)
+        rte
+        cnop    0,4
+bm_sig: dc.b    "BMSUPER!"
+        dc.l    0
+        dc.w    0,0
+        ds.b    4096
+bm_stacktop:
+        endc
+
+
+        ifd     BM_FIXED
+; --- bm_alloc --- arena chip 1000..80000 y CPU tras el binario..C7C000
+; El scratch MFM 7A000 queda libre antes de las reservas de PF/listas.
+; entrada: d0 = bytes, d1 = MEMF_CHIP/MEMF_CLEAR (como AllocMem)
+; salida: d0 = direccion, 0 si no cabe; alineacion de 8 bytes
+; registros destruidos: d0-d1/a0-a1 (preserva d2-d7/a2-a6)
+; ciclos: solo carga; no hay liberaciones durante el juego
+bm_alloc:
+        movem.l d2-d3/a2,-(sp)
+        move.l  d0,d2
+        addq.l  #7,d2
+        and.l   #$fffffff8,d2
+        lea     bm_slowcur(pc),a2
+        move.l  #$c7c000,d3
+        btst    #1,d1
+        beq.s   .arena
+        lea     bm_chipcur(pc),a2
+        move.l  #$80000,d3
+.arena: move.l  (a2),d0
+        add.l   d0,d2
+        cmp.l   d3,d2
+        bhi.s   .fail
+        move.l  d2,(a2)
+        btst    #16,d1
+        beq.s   .done
+        move.l  d0,a0
+.clear: cmp.l   d2,a0
+        bhs.s   .done
+        clr.l   (a0)+
+        bra.s   .clear
+.done:  movem.l (sp)+,d2-d3/a2
+        rts
+.fail:  moveq   #0,d0
+        bra.s   .done
+        cnop    0,4
+bm_fixedsig: dc.b "BMFIXED!"
+        dc.l    0,0
+bm_chipcur: dc.l $1000
+bm_slowcur: dc.l 0
+        dc.w    0,0                        ; SR y reserva
+        endc
+
+        ifd     ADRTRAP
+; --- at_g0 / at_g1 --- (-DADRTRAP, diagnostico) excepcion de la CPU con el
+; juego en marcha: guarda el marco, los registros y USP detras de 'ADRTRAP!'
+; (tools/adrtrap.py lo lee de la memoria de WinUAE) y se queda en rojo.
+; En vez de la Guru de Exec, que no dice el PC.
+; entrada:  marco de excepcion del 68000 en la pila de supervisor
+; salida:   no vuelve
+; registros destruidos: todos
+; ciclos:   (no vuelve)
+at_g0:  move.w  #$2700,sr
+        movem.l d0-d7/a0-a7,-(sp)
+        moveq   #0,d1                       ; grupo 0: fc, direccion, IR, SR, PC
+        bra.s   at_save
+at_g1:  move.w  #$2700,sr
+        movem.l d0-d7/a0-a7,-(sp)
+        moveq   #1,d1                       ; grupo 1/2: SR, PC
+at_save:
+        GETBASE a1
+        move.l  a1,d0
+        add.l   #at_sig-binstart,a1
+        move.l  a1,8(a1)                    ; at_self
+        move.l  d0,12(a1)                   ; binstart
+        move.w  d1,16(a1)                   ; tipo de marco
+        lea     64(sp),a0
+        lea     18(a1),a2
+        moveq   #6,d0                       ; 7 palabras del marco (14 B)
+.f:     move.w  (a0)+,(a2)+
+        dbf     d0,.f
+        move.l  sp,a0
+        lea     32(a1),a2
+        moveq   #15,d0                      ; d0-d7/a0-a7 (a7 = SSP tras movem)
+.r:     move.l  (a0)+,(a2)+
+        dbf     d0,.r
+        move.l  usp,a0
+        move.l  a0,96(a1)
+.red:   move.w  #$0f00,$dff180
+        bra.s   .red
+        even
+at_sig: dc.b    'ADRTRAP!'
+        dcb.b   92,0                        ; self, base, tipo, marco, regs, usp
+        cnop    0,4                         ; la copia a la slow RAM va por .l
+        endc
+
+        ifd     M1POS
+M1N     equ     4400                        ; filas (G5L-R-M1, m1_post)
+m1_sig: dc.b    'M1POSBUF'
+m1_n:   dc.l    0
+        dc.l    M1N
+m1_buf: dcb.b   16*M1N,0
+        cnop    0,4
+        endc
+
 binend:

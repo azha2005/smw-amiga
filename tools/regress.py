@@ -496,7 +496,7 @@ def game_checks(r):
         r.note("game (Musashi)", False, "no encuentro vbcc (VBCC=...): sin game.bin")
         return
     out_dir = "work/rg_game"
-    env = dict(os.environ, VBCC=v, NOCC="1", OUT=out_dir)
+    env = dict(os.environ, VBCC=v, NOCC="1", OUT=out_dir, PROFILE="legacy")   # control historico, sin G5L
     code, out = sh(["sh", "tools/game_build.sh"], env=env, timeout=1800)
     r.logs["game_build"] = out
     if code:
@@ -531,6 +531,51 @@ def game_checks(r):
         r.put("scroll.%s.media" % key, t[0], "min", TOL["cyc"])
         r.put("scroll.%s.max" % key, t[1], "min", TOL["cyc"])
         r.put("scroll.%s.max_s" % key, t[2], "info")
+
+
+def g5l_live_checks(r):
+    """Puerta opt-in G5L/CUSHION: listas reales A/B/C y reinicio vivo."""
+    env = dict(os.environ, VBCC=vbcc_dir(), CDEFS='-DNOOAM -DSPR_OAM', SPR_BANK='work/g3/bank')
+    env.pop('NOCC', None)
+    for mode, flags in [('replay', '-DREPLAY -DG5L -DCUSHION'), ('live', '-DG5L -DCUSHION')]:
+        out_dir = 'work/rg_g5l_' + mode
+        code, out = sh(['sh', 'tools/game_build.sh'], env=dict(env, GDEFS=flags, OUT=out_dir), timeout=1800)
+        r.logs['g5l_build_' + mode] = out
+        r.note('G5L build ' + mode, code == 0, out_dir)
+        if code:
+            return
+        commands = [([PY, 'tools/memmap.py', out_dir + '/game.lst', '--data', 'work/yi1_s_g5.dat'], 'memmap: 0 violaciones')]
+        if mode == 'replay':
+            commands.append(([PY, 'tools/dc_loop_verify.py', '--bin', out_dir + '/game.bin', '--lst', out_dir + '/game.lst'], 'DC LOOP: OK'))
+            commands.append(([PY, 'tools/g5l.py', 'game', '--bin', out_dir + '/game.bin', '--lst', out_dir + '/game.lst'], 'G5L GAME: OK'))
+        else:
+            commands.append(([PY, 'tools/restart_verify.py', '--dir', out_dir], 'CUSHION vivo: tres listas, diagnostico/retorno OK'))
+        for args, expected in commands:
+            code, out = sh(args, timeout=1800, env=dict(os.environ, PYTHONIOENCODING='utf-8'))
+            key = 'g5l_' + mode + '_' + os.path.basename(args[1])
+            r.logs[key] = out
+            r.note(key, code == 0 and expected in out, out[-1000:])
+
+
+def bm1_checks(r):
+    """BM1 opt-in: compilar boot MFM real y validar decoder/mapa fijo."""
+    out_dir = 'work/rg_bm1'
+    env = dict(os.environ, VBCC=vbcc_dir(), GDEFS='', OUT=out_dir, PYTHONIOENCODING='utf-8')
+    env.pop('NOCC', None)
+    code, out = sh(['sh', 'tools/bm_build.sh'], env=env, timeout=1800)
+    r.logs['bm1_build'] = out
+    r.note('BM1 build vivo', code == 0, out_dir)
+    if code:
+        return
+    for args, expected in [
+        ([PY, 'tools/mfm_verify.py', '--bin', out_dir + '/boot_bm.bin', '--lst', out_dir + '/boot_bm.lst'], 'MFM: OK'),
+        ([PY, 'tools/memmap.py', '--selftest'], 'selftest: OK'),
+        ([PY, 'tools/memmap.py', out_dir + '/game.lst', '--data', 'work/yi1_s_g5.dat'], 'memmap: 0 violaciones'),
+        ([PY, 'tools/restart_verify.py', '--dir', out_dir], 'CUSHION vivo: tres listas, diagnostico/retorno OK')]:
+        code, out = sh(args, env=env, timeout=1800)
+        key = 'bm1_' + os.path.basename(args[1]) + ('_selftest' if '--selftest' in args else '')
+        r.logs[key] = out
+        r.note(key, code == 0 and expected in out, out[-1000:])
 
 
 def memmap_checks(r):
@@ -668,6 +713,8 @@ def main():
     ap.add_argument("--quick", action="store_true", help="PC + autoprueba de graficos, sin 68000")
     ap.add_argument("--no-build", action="store_true", help="no recompilar (NO recomendado)")
     ap.add_argument("--level", action="store_true", help="tambien la cadena del nivel (etapa 5)")
+    ap.add_argument('--g5l', action='store_true', help='G5L/CUSHION replay y vivo: tres listas, DMA y reinicios')
+    ap.add_argument('--bm1', action='store_true', help='BM1 opt-in: MFM sintetico, mapa fijo y reinicios')
     ap.add_argument("--emu", default="", help="logic,scrollbench,scrollimg (FS-UAE, minutos)")
     ap.add_argument("--scroll-x", default=",".join(str(x) for x in SCROLL_X),
                     help="x de las capturas de scrollimg")
@@ -704,6 +751,10 @@ def main():
         memmap_checks(r)
     if a.level:
         level_checks(r)
+    if a.g5l:
+        g5l_live_checks(r)
+    if a.bm1:
+        bm1_checks(r)
     if a.emu:
         emu_checks(r, set(a.emu.split(",")), [int(x) for x in a.scroll_x.split(",")])
     if a.shots:
