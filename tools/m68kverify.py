@@ -147,6 +147,10 @@ def main():
                     help="loop: el C del PC (gcc -shared -DNOOAM, p. ej. work/libport.so) en "
                          "paralelo: antes de cada llamada se le copia la RAM y el mapa del 68000 y "
                          "despues se comparan enteros (P38: un fallo de vbcc o de logic68k.s)")
+    ap.add_argument("--dumpall", default=None, metavar="FICHERO",
+                    help="loop: ram[] entera antes de cada --dumpstep level_frame, seguidas "
+                         "(las semillas de tools/fuzzcall.py --seedram)")
+    ap.add_argument("--dumpstep", type=int, default=4)
     ap.add_argument("--show", default="",
                     help="loop: imprimir los ciclos de cada frame en este rango (F0-F1)")
     ap.add_argument("--spr", default=os.path.join(HERE, "..", "..", "smw-src-master", "project",
@@ -392,6 +396,7 @@ def run_loop(a, cpu, call, rec, orc, n, RAM, MAP, map0, syms):
                 cpu.write(RAM + 0x1938 + idx, b"\x01")    # wm_SprLoadStatus
             y += 3
             idx += 1
+    dumpall = open(a.dumpall, "wb") if a.dumpall else None
     synced = False
     costs = []
     prev = None
@@ -446,6 +451,8 @@ def run_loop(a, cpu, call, rec, orc, n, RAM, MAP, map0, syms):
             open(os.path.join(WORK, "cc", "worst_map.bin"), "wb").write(cpu.read(MAP, len(map0)))
             c0, c1 = BASE + syms["cdata0"], BASE + syms["cdata1"]
             open(os.path.join(WORK, "cc", "worst_cdata.bin"), "wb").write(cpu.read(c0, c1 - c0))
+        if dumpall is not None and frames % a.dumpstep == 0:
+            dumpall.write(cpu.read(RAM, 0x2000))    # G5L-R-L2: semillas de fuzzcall.py
         costs.append((call("_level_frame"), r[0]))
         if a.dump is not None and r[0] == a.dump:
             c0, c1 = BASE + syms["cdata0"], BASE + syms["cdata1"]

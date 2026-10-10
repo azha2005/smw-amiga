@@ -14,6 +14,525 @@
 ; work/cc/smwram.i (lo genera logicbench_build.sh desde gen/smwram.h).
 ;----------------------------------------------------------------------
         include "player/picmacros.i"       ; tambien visible al verificador ABI
+
+;----------------------------------------------------------------------
+; G5L-R-L2: GetDrawInfoBnk1 (msprite.c) y las rutinas de graficos de
+; player/spr_gfx.c (salvo chuck_gfx y shell_gfx, que siguen en C). Al
+; principio del fichero: el C de msprite.c / spr_*.c que las llama queda
+; a menos de 32 KB (P102). Las internas (sg_*) reciben d2.w = x (alto en
+; 0) y a3 = ram + x; lo global de ram[] va por a4.
+;----------------------------------------------------------------------
+
+; --- get_draw_info1 ---
+; entrada:  pila vbcc = u8 x; a4 = datos del C
+; salida:   d0.l = 1 cerca / 0 lejos (get_draw_info1 de msprite.c)
+; registros destruidos: d0-d1/a1
+; ciclos:   tools/l_funcs.py
+        public  _get_draw_info1
+_get_draw_info1:
+        moveq   #0,d0
+        move.b  7(sp),d0
+        lea     _ram(a4),a1
+        add.w   d0,a1
+        ; sigue en sg_di1
+
+; --- sg_di1 ---
+; entrada:  a1 = ram + x; a4 = datos del C
+; salida:   d0.l = 1 cerca / 0 lejos, con Z; OffscreenHorz/Vert y SpriteOffTbl
+; registros destruidos: d0-d1
+; ciclos:   tools/l_funcs.py
+sg_di1:
+        move.b  wm_SpriteXHi(a1),d0
+        lsl.w   #8,d0
+        move.b  wm_SpriteXLo(a1),d0
+        move.w  _ram+wm_Bg1HOfs(a4),d1
+        ror.w   #8,d1
+        sub.w   d1,d0                       ; d = sx - camara X
+        move.w  d0,d1
+        lsr.w   #8,d1
+        sne     d1
+        neg.b   d1
+        move.b  d1,wm_OffscreenHorz(a1)
+        add.w   #$40,d0
+        cmp.w   #$180,d0
+        bhs.s   .far
+        clr.b   wm_SpriteOffTbl(a1)
+        move.b  wm_SpriteYHi(a1),d0
+        lsl.w   #8,d0
+        move.b  wm_SpriteYLo(a1),d0
+        move.w  _ram+wm_Bg1VOfs(a4),d1
+        ror.w   #8,d1
+        sub.w   d1,d0                       ; d = sy - camara Y
+        moveq   #0,d1                       ; v
+        cmp.b   #$09,wm_SpriteStatus(a1)
+        beq.s   .v1
+        btst    #5,wm_Tweaker190F(a1)
+        beq.s   .v1
+        add.w   #$20,d0
+        cmp.w   #$100,d0
+        blo.s   .v0
+        moveq   #2,d1
+.v0:    sub.w   #$10,d0                     ; d + $10
+        bra.s   .v2
+.v1:    add.w   #$10,d0
+.v2:    cmp.w   #$100,d0
+        blo.s   .w
+        addq.b  #1,d1
+.w:     move.b  d1,wm_OffscreenVert(a1)
+        moveq   #1,d0
+        rts
+.far:   clr.b   wm_OffscreenVert(a1)
+        move.b  #1,wm_SpriteOffTbl(a1)
+        moveq   #0,d0
+        rts
+
+        ifd     SPR_OAM
+; --- spr_oam_index ---
+; entrada:  pila vbcc = u8 x; a4 = datos del C
+; salida:   d0.l = indice OAM de la ranura (CODE_0180D2), tambien en SprOAMIndex
+; registros destruidos: d0-d1/a0
+; ciclos:   tools/l_funcs.py
+        public  _spr_oam_index
+_spr_oam_index:
+        moveq   #0,d1
+        move.b  7(sp),d1
+        ; sigue en sg_index
+
+; --- sg_index ---
+; entrada:  d1.w = x; a4 = datos del C
+; salida:   d0.l = indice OAM (alto en 0), escrito en SprOAMIndex
+; registros destruidos: d0/a0
+; ciclos:   tools/l_funcs.py
+sg_index:
+        moveq   #0,d0
+        move.b  _ram+wm_SpriteMemory(a4),d0
+        lea     tg2_07F0B4(pc),a0
+        move.b  (a0,d0.w),d0
+        add.b   d1,d0                       ; i = x + DATA_07F0B4[mem], 8 bits
+        lea     tg2_07F000(pc),a0           ; DATA_07F0B4 va detras (i >= 180)
+        move.b  (a0,d0.w),d0
+        lea     _ram+wm_SprOAMIndex(a4),a0
+        move.b  d0,(a0,d1.w)
+        rts
+
+; --- sg_g2z ---
+; entrada:  d2.w = x; a3 = ram + x; a4 = datos del C
+; salida:   d0.l = 1 / 0 como sub_spr_gfx2(x, 0)
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+sg_g2z:
+        move.w  d2,d1
+        bsr.s   sg_index
+        moveq   #0,d0
+        ; sigue en sg_g2at
+
+; --- sg_g2at ---
+; entrada:  d0.b = m4 (atributos extra); d2.w = x; a3 = ram + x; a4 = datos del C
+; salida:   d0.l = 1 / 0 (lejos) como sub_spr_gfx2_at de spr_gfx.c
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+sg_g2at:
+        move.b  d0,_ram+m4(a4)
+        move.l  a3,a1
+        bsr     sg_di1
+        move.b  wm_SpriteXLo(a3),d1
+        sub.b   _ram+wm_Bg1HOfs(a4),d1
+        move.b  d1,_ram+m0(a4)
+        move.b  wm_SpriteYLo(a3),d1
+        sub.b   _ram+wm_Bg1VOfs(a4),d1
+        move.b  d1,_ram+m1(a4)
+        tst.b   d0
+        beq     .ret                        ; lejos: d0 = 0
+        move.b  wm_SpriteDir(a3),_ram+m2(a4)
+        moveq   #0,d0
+        move.b  wm_SpriteNum(a3),d0
+        cmp.b   #tg2_SprTilemapOffset_len,d0
+        bhs.s   .t0
+        lea     tg2_SprTilemapOffset(pc),a0
+        move.b  (a0,d0.w),d0
+        add.b   wm_SpriteGfxTbl(a3),d0      ; k, 8 bits
+        cmp.b   #tg2_SprTilemap_len,d0
+        bhs.s   .t0
+        lea     tg2_SprTilemap(pc),a0
+        move.b  (a0,d0.w),d0
+        bra.s   .t
+.t0:    moveq   #0,d0
+.t:     moveq   #0,d1
+        move.b  wm_SprOAMIndex(a3),d1       ; y
+        lea     _ram+wm_OamSlot(a4),a0
+        add.w   d1,a0                       ; la ficha (sin wrap, como el C)
+        move.b  d0,2(a0)                    ; tile
+        move.b  _ram+m0(a4),(a0)
+        move.b  _ram+m1(a4),1(a0)
+        move.b  wm_SpritePal(a3),d0
+        btst    #0,wm_SpriteDir(a3)
+        bne.s   .nf
+        eor.b   #$40,d0
+.nf:    or.b    _ram+m4(a4),d0
+        or.b    _ram+wm_SpriteProp(a4),d0
+        move.b  d0,3(a0)
+        lsr.w   #2,d1                       ; i = y / 4
+        lea     _ram+wm_OamSize(a4),a1
+        add.w   d1,a1
+        moveq   #2,d0
+        or.b    wm_OffscreenHorz(a3),d0
+        move.b  d0,(a1)
+        move.b  wm_OffscreenVert(a3),d0     ; CODE_01A3DF (oam_offscreen_vert)
+        beq.s   .mk
+        lea     _ram+wm_OamSlot(a4),a0
+        add.w   d1,d1
+        add.w   d1,d1
+        add.w   d1,a0                       ; (u8)(i << 2) = y & $FC
+        btst    #0,d0
+        beq.s   .b1
+        move.b  #$01,(a1)
+        move.b  #$80,(a0)
+.b1:    btst    #1,d0
+        beq.s   .mk
+        move.b  #$01,1(a1)
+        move.b  #$80,4(a0)                  ; (u8)(i << 2) + 4, sin wrap
+.mk:    cmp.w   #12,d2                      ; oam_mark(x, y, 1)
+        bhs.s   .one
+        lea     _spr_oam_first(a4),a0
+        move.b  wm_SprOAMIndex(a3),(a0,d2.w)
+        lea     _spr_oam_n(a4),a0
+        move.b  #1,(a0,d2.w)
+.one:   moveq   #1,d0
+.ret:   rts
+
+; --- sub_spr_gfx2 ---
+; entrada:  pila vbcc = u8 x, u8 m4v; a4 = datos del C
+; salida:   d0.l = 1 / 0 como sub_spr_gfx2 de spr_gfx.c
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+        public  _sub_spr_gfx2
+_sub_spr_gfx2:
+        movem.l d2/a3,-(sp)
+        moveq   #0,d2
+        move.b  8+7(sp),d2
+        lea     _ram(a4),a3
+        add.w   d2,a3
+        move.w  d2,d1
+        bsr     sg_index
+        move.b  8+11(sp),d0
+        bsr     sg_g2at
+        movem.l (sp)+,d2/a3
+        rts
+
+; --- spr_gfx2_tile ---
+; entrada:  pila vbcc = u8 x, u8 t; a4 = datos del C
+; salida:   como spr_gfx2_tile de spr_gfx.c (SubSprGfx2Entry1 + tile fijo)
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+        public  _spr_gfx2_tile
+_spr_gfx2_tile:
+        movem.l d2/a3,-(sp)
+        moveq   #0,d2
+        move.b  8+7(sp),d2
+        lea     _ram(a4),a3
+        add.w   d2,a3
+        bsr     sg_g2z
+        moveq   #0,d0
+        move.b  wm_SprOAMIndex(a3),d0
+        lea     _ram+wm_OamSlot+2(a4),a0
+        move.b  8+11(sp),(a0,d0.w)
+        movem.l (sp)+,d2/a3
+        rts
+
+; --- spin_jump_gfx ---
+; entrada:  pila vbcc = u8 x; a4 = datos del C
+; salida:   como spin_jump_gfx de spr_gfx.c (la nube del salto con giro)
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+        public  _spin_jump_gfx
+_spin_jump_gfx:
+        movem.l d2/a3,-(sp)
+        moveq   #0,d2
+        move.b  8+7(sp),d2
+        lea     _ram(a4),a3
+        add.w   d2,a3
+        bsr     sg_g2z
+        moveq   #0,d1
+        move.b  wm_SprOAMIndex(a3),d1
+        lea     _ram+wm_OamSlot(a4),a0
+        add.w   d1,a0
+        move.b  wm_SpriteDecTbl1(a3),d0
+        lsr.b   #3,d0
+        and.w   #3,d0
+        lea     tg2_SpinSmoke(pc),a1
+        move.b  (a1,d0.w),d0
+        move.b  d0,2(a0)
+        and.b   #$30,d0
+        move.b  d0,3(a0)
+        movem.l (sp)+,d2/a3
+        rts
+
+; --- spr013_gfx ---
+; entrada:  pila vbcc = u8 x; a4 = datos del C
+; salida:   como spr013_gfx de spr_gfx.c (_Spr0to13Gfx de una ficha)
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+        public  _spr013_gfx
+_spr013_gfx:
+        movem.l d2-d3/a3,-(sp)
+        moveq   #0,d2
+        move.b  12+7(sp),d2
+        lea     _ram(a4),a3
+        add.w   d2,a3
+        move.b  wm_SpriteDir(a3),d3         ; d
+        move.b  wm_SpriteDecTbl5(a3),d0
+        beq.s   .g
+        move.b  #2,wm_SpriteGfxTbl(a3)
+        cmp.b   #5,d0
+        blo.s   .g
+        eor.b   #1,wm_SpriteDir(a3)
+.g:     bsr     sg_g2z
+        move.b  d3,wm_SpriteDir(a3)
+        movem.l (sp)+,d2-d3/a3
+        rts
+
+; --- banzai_gfx ---
+; entrada:  pila vbcc = u8 x; a4 = datos del C
+; salida:   como banzai_gfx de spr_gfx.c (CODE_02D5E4, 16 fichas)
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+; Las cuatro tablas de 16 van seguidas en smwtabx_gfx.i (comprobado abajo).
+        public  _banzai_gfx
+_banzai_gfx:
+        movem.l d2-d5/a3,-(sp)
+        moveq   #0,d2
+        move.b  20+7(sp),d2
+        lea     _ram(a4),a3
+        add.w   d2,a3
+        move.w  d2,d1
+        bsr     sg_index
+        move.l  d2,-(sp)
+        bsr     _get_draw_info_asm
+        addq.l  #4,sp
+        tst.l   d0
+        beq.s   .ret
+        moveq   #0,d1
+        move.b  wm_SprOAMIndex(a3),d1       ; y
+        move.b  wm_SpriteXLo(a3),d3
+        sub.b   _ram+wm_Bg1HOfs(a4),d3
+        move.b  d3,_ram+m0(a4)
+        move.b  wm_SpriteYLo(a3),d4
+        sub.b   _ram+wm_Bg1VOfs(a4),d4
+        move.b  d4,_ram+m1(a4)
+        lea     _ram+wm_OamSlot(a4),a1
+        lea     tg2_DATA_02D5A4(pc),a0
+        moveq   #15,d0                      ; i = 15..0
+.lp:    move.b  (a0,d0.w),d5
+        add.b   d3,d5
+        move.b  d5,(a1,d1.w)
+        move.b  16(a0,d0.w),d5              ; DATA_02D5B4
+        add.b   d4,d5
+        move.b  d5,1(a1,d1.w)
+        move.b  32(a0,d0.w),2(a1,d1.w)      ; BanzaiBillTiles
+        move.b  48(a0,d0.w),3(a1,d1.w)      ; DATA_02D5D4
+        addq.b  #4,d1                       ; wrap de 8 bits
+        dbf     d0,.lp
+        pea     2.w
+        pea     15.w
+        move.l  d2,-(sp)
+        bsr     _finish_oam_write_asm
+        lea     12(sp),sp
+.ret:   movem.l (sp)+,d2-d5/a3
+        rts
+
+; --- sg_g0 ---
+; entrada:  d0.b = flip; d2.w = x; a3 = ram + x; a4 = datos del C
+; salida:   como sub_spr_gfx0 de spr_gfx.c (cuatro fichas de 8x8)
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+SG0T    macro                               ; \1 = i
+        move.b  tg2_GeneralSprDispX+\1(pc),d0
+        add.b   d3,d0
+        move.b  d0,(a1,d1.w)
+        move.b  tg2_GeneralSprDispY+\1(pc),d0
+        add.b   d4,d0
+        move.b  d0,1(a1,d1.w)
+        moveq   #\1,d0
+        add.b   d5,d0                       ; (u8)(m2 + i)
+        move.b  (a0,d0.w),2(a1,d1.w)
+        moveq   #\1,d0
+        add.b   d6,d0                       ; (u8)((flip << 2) + i)
+        move.b  (a2,d0.w),d0
+        or.b    d7,d0
+        move.b  d0,3(a1,d1.w)
+        addq.b  #4,d1
+        endm
+sg_g0:
+        movem.l d3-d7/a2,-(sp)
+        moveq   #0,d6
+        move.b  d0,d6
+        move.b  d0,_ram+m5(a4)
+        clr.b   _ram+m15(a4)
+        move.l  a3,a1
+        bsr     sg_di1
+        beq     .ret
+        move.b  wm_SpriteXLo(a3),d3
+        sub.b   _ram+wm_Bg1HOfs(a4),d3
+        move.b  d3,_ram+m0(a4)
+        move.b  wm_SpriteYLo(a3),d4
+        sub.b   _ram+wm_Bg1VOfs(a4),d4
+        move.b  d4,_ram+m1(a4)
+        moveq   #0,d0
+        move.b  wm_SpriteNum(a3),d0
+        lea     tg2_SprTilemapOffset(pc),a0
+        move.b  (a0,d0.w),d5
+        move.b  wm_SpriteGfxTbl(a3),d0
+        add.b   d0,d0
+        add.b   d0,d0
+        add.b   d0,d5                       ; m2, 8 bits
+        move.b  d5,_ram+m2(a4)
+        move.b  wm_SpritePal(a3),d7
+        or.b    _ram+wm_SpriteProp(a4),d7
+        move.b  d7,_ram+m3(a4)
+        add.b   d6,d6
+        add.b   d6,d6                       ; (u8)(flip << 2)
+        moveq   #0,d1
+        move.b  wm_SprOAMIndex(a3),d1       ; y
+        lea     _ram+wm_OamSlot(a4),a1
+        lea     tg2_SprTilemap(pc),a0
+        lea     tg2_GeneralSprGfxProp(pc),a2
+        SG0T    3
+        SG0T    2
+        SG0T    1
+        SG0T    0
+        st      _ram+m4(a4)                 ; m4 = $FF (la ultima vuelta)
+        pea     0.w
+        pea     3.w
+        moveq   #0,d0
+        move.w  d2,d0
+        move.l  d0,-(sp)
+        bsr     _finish_oam_write_asm
+        lea     12(sp),sp
+.ret:   movem.l (sp)+,d3-d7/a2
+        rts
+
+; --- piranha_gfx ---
+; entrada:  pila vbcc = u8 x; a4 = datos del C
+; salida:   como piranha_gfx de spr_gfx.c (CODE_02E0CD: cabeza y tallo)
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+; d3 = Y del sprite, d4 = primer indice OAM, d5 = SpriteProp, d6 =
+; spr_oam_n[x] despues de la cabeza (puede venir de un frame anterior).
+        public  _piranha_gfx
+_piranha_gfx:
+        movem.l d2-d6/a3,-(sp)
+        moveq   #0,d2
+        move.b  24+7(sp),d2
+        lea     _ram(a4),a3
+        add.w   d2,a3
+        move.w  d2,d1
+        bsr     sg_index
+        move.b  d0,d4                       ; first
+        move.b  _ram+wm_SpriteProp(a4),d5
+        move.b  wm_SpriteYHi(a3),d3
+        lsl.w   #8,d3
+        move.b  wm_SpriteYLo(a3),d3         ; sy
+        move.b  #$10,_ram+wm_SpriteProp(a4)
+        moveq   #8,d0
+        and.b   wm_SpriteMiscTbl6(a3),d0
+        lsr.b   #2,d0
+        eor.b   #2,d0
+        move.b  d0,wm_SpriteGfxTbl(a3)
+        moveq   #0,d0
+        bsr     sg_g2at                     ; la cabeza
+        lea     _spr_oam_n(a4),a0
+        move.b  (a0,d2.w),d6                ; n
+        move.b  d4,d0
+        addq.b  #4,d0
+        move.b  d0,wm_SprOAMIndex(a3)
+        moveq   #4,d0
+        and.b   wm_SpriteMiscTbl3(a3),d0
+        lsr.b   #2,d0
+        addq.b  #1,d0
+        move.b  d0,wm_SpriteGfxTbl(a3)
+        move.w  d3,d0
+        addq.w  #8,d0
+        move.b  d0,wm_SpriteYLo(a3)
+        lsr.w   #8,d0
+        move.b  d0,wm_SpriteYHi(a3)
+        move.b  #$0a,wm_SpritePal(a3)
+        moveq   #1,d0
+        bsr     sg_g0                       ; el tallo
+        lea     _spr_oam_n(a4),a0
+        moveq   #5,d1
+        cmp.b   #4,(a0,d2.w)
+        beq.s   .mk
+        moveq   #1,d1
+        tst.b   d6
+        beq.s   .y
+.mk:    cmp.w   #12,d2                      ; oam_mark(x, first, d1)
+        bhs.s   .y
+        lea     _spr_oam_first(a4),a1
+        move.b  d4,(a1,d2.w)
+        move.b  d1,(a0,d2.w)
+.y:     move.b  d3,wm_SpriteYLo(a3)
+        move.w  d3,d0
+        lsr.w   #8,d0
+        move.b  d0,wm_SpriteYHi(a3)
+        move.b  d5,_ram+wm_SpriteProp(a4)
+        movem.l (sp)+,d2-d6/a3
+        rts
+
+; --- goal_gfx ---
+; entrada:  pila vbcc = u8 x; a4 = datos del C
+; salida:   como goal_gfx de spr_gfx.c (CODE_01C12D: la cinta, tres fichas)
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+        public  _goal_gfx
+_goal_gfx:
+        movem.l d2-d5/a3,-(sp)
+        moveq   #0,d2
+        move.b  20+7(sp),d2
+        lea     _ram(a4),a3
+        add.w   d2,a3
+        move.w  d2,d1
+        bsr     sg_index
+        move.l  a3,a1
+        bsr     sg_di1
+        beq.s   .ret
+        moveq   #0,d1
+        move.b  wm_SprOAMIndex(a3),d1       ; y
+        move.b  wm_SpriteXLo(a3),d3
+        sub.b   _ram+wm_Bg1HOfs(a4),d3
+        move.b  d3,_ram+m0(a4)
+        move.b  wm_SpriteYLo(a3),d4
+        sub.b   _ram+wm_Bg1VOfs(a4),d4
+        move.b  d4,_ram+m1(a4)
+        subq.b  #8,d3                       ; m0 - 8 + 8 i
+        addq.b  #8,d4                       ; m1 + 8
+        lea     _ram+wm_OamSlot(a4),a1
+        moveq   #-$2c,d0                    ; tile $D4
+        moveq   #2,d5
+.lp:    move.b  d3,(a1,d1.w)
+        move.b  d4,1(a1,d1.w)
+        move.b  d0,2(a1,d1.w)
+        move.b  #$32,3(a1,d1.w)
+        addq.b  #4,d1
+        addq.b  #8,d3
+        moveq   #-$2b,d0                    ; despues $D5
+        dbf     d5,.lp
+        pea     0.w
+        pea     2.w
+        move.l  d2,-(sp)
+        bsr     _finish_oam_write_asm
+        lea     12(sp),sp
+.ret:   movem.l (sp)+,d2-d5/a3
+        rts
+
+; tablas tg2_ de smwtabx.h (GENERADO por logicbench_build.sh, no versionado: R9)
+        include "work/cc/smwtabx_gfx.i"
+        if      (tg2_07F0B4-tg2_07F000)<>180
+        fail    "smwtabx_gfx.i: DATA_07F0B4 tiene que ir detras de DATA_07F000"
+        endif
+        if      (tg2_DATA_02D5D4-tg2_DATA_02D5A4)<>48
+        fail    "smwtabx_gfx.i: las tablas de Banzai tienen que ir seguidas"
+        endif
+        endc
 ;----------------------------------------------------------------------
 ; u8 spr_tile_asm(u8 x, u8 y) = spr_tile de msprite.c (CODE_019441 /
 ; _01944D / CODE_0194BF): el bloque bajo el punto de choque y del sprite x.

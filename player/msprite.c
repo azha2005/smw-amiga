@@ -646,6 +646,7 @@ int get_draw_info(u8 x)
    OJO: con un puntero u8 *p = &RX8(wm_SpriteXLo, x) y p[t - wm_SpriteXLo]
    vbcc -O=991 cargo en el puntero la base de OTRA tabla (XHi) y leyo mal
    todo (el PC, bien): se queda con SPR(). */
+#ifndef LOGIC68K            /* con LOGIC68K: player/logic68k.s (G5L-R-L2) */
 MSX int get_draw_info1(u8 x)
 {
     u16 d;
@@ -667,6 +668,7 @@ MSX int get_draw_info1(u8 x)
     SETSPR(wm_OffscreenVert, x, v);
     return 1;
 }
+#endif
 
 /* para spr_shell.c: GetDrawInfoBnk1 */
 int spr_draw_info1(u8 x) { return get_draw_info1(x); }
