@@ -34,4 +34,7 @@ _mario_E2BD_bridge:
         public  _sprite_run_bridge
 _sprite_run_bridge:
         PICJUMP _sprite_run
+        public  _mario_collide_bridge
+_mario_collide_bridge:                      ; G5L-R-L2: mario_player_c -> logic68k.s
+        PICJUMP _mario_collide
         endif

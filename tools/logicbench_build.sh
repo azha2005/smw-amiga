@@ -73,6 +73,7 @@ case " $LBDEFS " in
         sed -i -E 's/^([[:space:]]*jsr[[:space:]]+)_powerup_from_block([[:space:]]*)$/\1_powerup_from_block_bridge\2/' "$CC/mcoll.code.s"
         sed -i -E 's/^([[:space:]]*jsr[[:space:]]+)_mario_E2BD([[:space:]]*)$/\1_mario_E2BD_bridge\2/' "$CC/manim.code.s"
         sed -i -E 's/^([[:space:]]*jsr[[:space:]]+)_sprite_run([[:space:]]*)$/\1_sprite_run_bridge\2/' "$CC/manim.code.s"
+        sed -i -E 's/^([[:space:]]*jsr[[:space:]]+)_mario_collide([[:space:]]*)$/\1_mario_collide_bridge\2/' "$CC/manim.code.s"
         sed -i -E 's/^([[:space:]]*jsr[[:space:]]+)_mario_hurt([[:space:]]*)$/\1_mario_hurt_rex_bridge\2/' "$CC/spr_rex.code.s"
         ;;
 esac

@@ -344,7 +344,12 @@ static void anim_death(void)
 
 /* ------------------------------------------------------------------ */
 /* CODE_00C500 ... _00C58F, sin el ojo de cerradura ni los modos
-   especiales: un frame del jugador. */
+   especiales: un frame del jugador. G5L-R-L2: en la Amiga, _mario_player
+   de logic68k.s; este C (mario_player_c) queda para las animaciones de $71. */
+#ifdef LOGIC68K
+void mario_player_c(void);
+#define mario_player mario_player_c
+#endif
 void mario_player(void)
 {
 
@@ -410,6 +415,9 @@ l_tail:
         mario_events |= MEV_SPRITE;
     W8(wm_NoteBlkBounceFlag, 0);            /* _00C58F */
 }
+#ifdef LOGIC68K
+#undef mario_player
+#endif
 
 /* ------------------------------------------------------------------ */
 /* CODE_01808C, solo el principio (el motor de sprites es la etapa 9):
@@ -431,6 +439,7 @@ void sprites_begin(void)
    bloques que rebotan. */
 u8 level_sprites;          /* 1: level_frame corre tambien los sprites (etapa 9) */
 
+#ifndef LOGIC68K           /* G5L-R-L2: en la Amiga, _level_frame de logic68k.s */
 void level_frame(void)
 {
 #if !defined(NOOAM) || defined(SPR_OAM)
@@ -468,6 +477,7 @@ void level_frame(void)
     if (level_sprites)
         sprite_load_level();                /* al final de CODE_028AB1 */
 }
+#endif
 
 /* CODE_01808C: las ranuras 11..0 (sin el principio, sprites_begin) */
 void sprites_all(void)

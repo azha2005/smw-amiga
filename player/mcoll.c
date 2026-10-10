@@ -171,7 +171,7 @@ static u8 f461(void) { return f461_xy(R16(wm_BlockYPos), R16(wm_BlockXPos)); }
    en tablas nativas de 16 bits que se arman una vez desde la ROM: leerlos
    de rom00 byte a byte costaba ~50 ciclos por valor en el 68000. */
 MCS u16 probe_dx[64], probe_dy[64];
-static u8 probe_ok;
+MCS u8 probe_ok;
 /* La posicion de Mario para las sondas: eb77 la carga al empezar y la
    actualiza donde la cambia antes de otra sonda (CODE_00ED28). Asi F44D
    no relee MarioXPos/YPos de ram[] (4 bytes) en cada una de las 6. */
@@ -1298,6 +1298,27 @@ static void f595(void)
     /* _00F60A: se cayo por abajo */
     kill_start();
 }
+
+#ifdef LOGIC68K
+/* G5L-R-L2: en la Amiga, mario_collide es la de logic68k.s; sus ramas raras
+   (GenerateTile, sprites de rebote, HurtMario, tablas del C) vuelven aca */
+void mc_f17f(u8 a, u8 y);
+void mc_f17f(u8 a, u8 y) { f17f(a, y); }
+void mc_f127(u8 a, u8 y);
+void mc_f127(u8 a, u8 y) { f127(a, y); }
+void mc_f2c9(u8 a);
+void mc_f2c9(u8 a) { f2c9(a); }
+void mc_f309(void);
+void mc_f309(void) { f309(); }
+void mc_f28c(void);
+void mc_f28c(void) { f28c(); }
+int mc_f005(void);
+int mc_f005(void) { return f005(); }
+int mc_f04d(u8 a);
+int mc_f04d(u8 a) { return f04d(a); }
+void mario_collide_c(void);
+#define mario_collide mario_collide_c
+#endif
 
 /* ------------------------------------------------------------------ */
 /* CODE_00CD24 ... CODE_00CD82: un frame de Mario en un nivel normal

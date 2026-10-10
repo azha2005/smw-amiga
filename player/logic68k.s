@@ -1690,3 +1690,1446 @@ f636n   set     f636n+1
         endr
         even
         endc
+
+;----------------------------------------------------------------------
+; --- level_frame --- (G5L-R-L2: manim.c level_frame, CODE_00A295 sin la
+; barra de estado; el C queda de referencia en el PC)
+; entrada:  a4 = datos del C
+; salida:   como level_frame() de manim.c (FrameA, ClearOam, camara,
+;           graficos y frame de Mario, sprites, bloques, cargador)
+; registros destruidos: d0-d1/a0-a1 (ABI de vbcc)
+; ciclos:   tools/l_funcs.py (Musashi, sin DMA)
+; sprites_begin va en linea; sprites_all en _sprites_all_asm. Las
+; funciones en C lejanas van con PICCALL (P102).
+;----------------------------------------------------------------------
+        public  _level_frame
+_level_frame:
+        addq.b  #1,_ram+wm_FrameA(a4)
+        ifd     SPR_OAM
+        lea     _ram+$0201(a4),a0           ; wm_ClearOam: la Y de las 128
+        moveq   #-16,d0                     ; $F0
+lfo     set     0
+        rept    128
+        move.b  d0,lfo(a0)
+lfo     set     lfo+4
+        endr
+        lea     _spr_oam_n(a4),a0
+        moveq   #0,d0
+lfo     set     0
+        rept    12
+        move.b  d0,lfo(a0)
+lfo     set     lfo+1
+        endr
+        endc
+        clr.l   _mario_unsupported(a4)      ; MARIO_OK
+        bsr     _camera_F6DB
+        tst.l   _mario_unsupported(a4)
+        bne.s   .e2
+        PICCALL _mario_E2BD
+.e2:    move.b  _ram+wm_MarioXPos(a4),_ram+wm_PlayerXPosLv(a4)    ; CODE_00A2F3
+        move.b  _ram+wm_MarioXPos+1(a4),_ram+wm_PlayerXPosLv+1(a4)
+        move.b  _ram+wm_MarioYPos(a4),_ram+wm_PlayerYPosLv(a4)
+        move.b  _ram+wm_MarioYPos+1(a4),_ram+wm_PlayerYPosLv+1(a4)
+        tst.l   _mario_unsupported(a4)
+        bne.s   .x
+        PICCALL _mario_player
+        tst.l   _mario_unsupported(a4)
+        bne.s   .x
+        move.b  _ram+wm_IsCarrying2(a4),_ram+wm_IsCarrying(a4)    ; sprites_begin
+        clr.b   _ram+wm_IsCarrying2(a4)
+        clr.b   _ram+wm_IsOnSolidSpr(a4)
+        clr.b   _ram+wm_IsInLakituCloud(a4)
+        move.b  _ram+wm_YoshiSlot(a4),_ram+wm_LooseYoshiFlag(a4)
+        clr.b   _ram+wm_YoshiSlot(a4)
+        tst.b   _level_sprites(a4)
+        beq.s   .b
+        bsr     _sprites_all_asm
+.b:     PICCALL _blocks_update
+        tst.b   _level_sprites(a4)
+        beq.s   .x
+        PICCALL _sprite_load_level
+.x:     rts
+
+;----------------------------------------------------------------------
+; --- sprites_all_asm --- (manim.c sprites_all, CODE_01808C: las ranuras
+; 11..0 sin sprites_begin)
+; entrada:  a4 = datos del C
+; salida:   como sprites_all()
+; registros destruidos: d0-d1/a0-a1
+; se conservan d2/a2-a3
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+        public  _sprites_all_asm
+_sprites_all_asm:
+        movem.l d2/a2-a3,-(sp)
+        PICCALL _logic68k_init              ; punteros de logic68k.s
+        lea     _ram+wm_SpriteStatus(a4),a2
+        lea     _ram+wm_SprIndexInLvl(a4),a3
+        moveq   #11,d2
+.l:     tst.b   (a2,d2.w)
+        beq.s   .e
+        move.l  d2,-(sp)                    ; sprite_run(k): u8 en el byte +3
+        bsr     _sprite_run
+        addq.l  #4,sp
+        clr.l   _mario_unsupported(a4)      ; un sprite sin portar no para el frame
+        dbf     d2,.l
+        bra.s   .x
+.e:     move.b  d2,_ram+wm_SprProcessIndex(a4)  ; ranura vacia (EraseSprite)
+        st      (a3,d2.w)
+        dbf     d2,.l
+.x:     movem.l (sp)+,d2/a2-a3
+        rts
+
+;----------------------------------------------------------------------
+; --- mario_player --- (G5L-R-L2: manim.c mario_player, CODE_00C500 ...
+; _00C58F). Con una animacion de $71 (casos raros, rutinas static del C)
+; salta a mario_player_c, el C de siempre.
+; entrada:  a4 = datos del C
+; salida:   como mario_player()
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+MPDEC   macro                               ; DEC1(p + \1): baja si no es 0
+        tst.b   \1(a0)
+        beq.s   .d\@
+        subq.b  #1,\1(a0)
+.d\@:
+        endm
+MPDEC4  macro                               ; NZ32(p + \1) -> DEC4(p + \1)
+        tst.l   \1(a0)
+        beq.s   .g\@
+        MPDEC   \1
+        MPDEC   \1+1
+        MPDEC   \1+2
+        MPDEC   \1+3
+.g\@:
+        endm
+
+        public  _mario_player
+_mario_player:
+        tst.b   _ram+wm_MarioAnimation(a4)
+        beq.s   .n
+        PICJUMP _mario_player_c             ; ExecutePtr != 0: el C
+.n:     clr.l   _mario_unsupported(a4)
+        clr.l   _mario_events(a4)
+        tst.b   _ram+wm_SpritesLocked(a4)
+        bne     .an
+        addq.b  #1,_ram+wm_FrameB(a4)
+        lea     _ram+wm_PlayerAnimTimer(a4),a0      ; $1496: par
+        MPDEC4  0
+        MPDEC4  4
+        MPDEC4  8
+        MPDEC4  12
+        tst.w   16(a0)
+        beq.s   .t16
+        MPDEC   16
+        MPDEC   17
+.t16:   MPDEC   18                          ; $14A8
+        moveq   #3,d0
+        and.b   _ram+wm_FrameB(a4),d0
+        bne.s   .an
+        MPDEC   19                          ; $14A9
+        MPDEC4  20                          ; $14AA-$14AD
+        MPDEC   24                          ; $14AE
+.an:    tst.b   _ram+wm_EndLevelTimer(a4)   ; CODE_00C915
+        beq.s   .cc
+        moveq   #MARIO_UNSUP_TILE,d0
+        move.l  d0,_mario_unsupported(a4)
+        rts
+.cc:    bsr     cddd_asm                    ; CODE_00CCC3
+        tst.b   _ram+wm_SpritesLocked(a4)
+        bne     .tail
+        clr.b   _ram+wm_CapeCanHurt(a4)
+        clr.b   _ram+wm_OWCreditsPose(a4)
+        tst.b   _ram+wm_LockMarioTimer(a4)
+        beq.s   .lm
+        subq.b  #1,_ram+wm_LockMarioTimer(a4)
+        clr.b   _ram+wm_MarioSpeedX(a4)
+        move.b  #$0f,_ram+wm_MarioFrame(a4)
+        bra.s   .tail
+.lm:    move.b  _ram+wm_LevelMode(a4),d0
+        bpl.s   .col
+        btst    #0,d0
+        bne.s   .col
+        moveq   #MARIO_UNSUP_LAYER,d0       ; capa 2 que mueve a Mario
+        move.l  d0,_mario_unsupported(a4)
+        rts
+.col:   bsr     _mario_collide              ; CODE_00CD24 + _00CD39
+        tst.l   _mario_unsupported(a4)
+        bne.s   .r
+        PICCALL _mario_D5F2                 ; CODE_00CD82
+        tst.l   _mario_unsupported(a4)
+        bne.s   .r
+        PICCALL _mario_D062
+        tst.l   _mario_unsupported(a4)
+        bne.s   .r
+        PICCALL _mario_D7E4
+        tst.l   _mario_unsupported(a4)
+        bne.s   .r
+        PICCALL _mario_CEB1
+        tst.b   _ram+wm_OnYoshi(a4)
+        beq.s   .tail
+        tst.l   _mario_unsupported(a4)      ; unsup_anim: solo si no habia
+        bne.s   .r
+        moveq   #MARIO_UNSUP_YOSHI,d0
+        move.l  d0,_mario_unsupported(a4)
+.r:     rts
+.tail:  btst    #5,_ram+wm_JoyFrameA(a4)    ; SELECT: el item de reserva
+        beq.s   .t2
+        or.w    #1024,_mario_events+2(a4)   ; MEV_SPRITE (unsigned de 32 bits)
+.t2:    clr.b   _ram+wm_NoteBlkBounceFlag(a4)   ; _00C58F
+        rts
+
+;----------------------------------------------------------------------
+; --- cddd_asm --- (manim.c cddd, CODE_00CDDD: la camara con L/R)
+; entrada:  a4 = datos del C
+; salida:   como cddd()
+; registros destruidos: d0-d1/a0
+; se conservan d2-d3
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+cddd_asm:
+        tst.b   _ram+wm_HorzScrollHead(a4)
+        bne.s   .go
+        rts
+.go:    movem.l d2-d3,-(sp)
+        moveq   #0,d2
+        move.b  _ram+wm_LRScrollDir(a4),d2  ; y
+        move.b  _ram+wm_LRScrollFlag(a4),d0
+        move.b  d0,_ram+wm_SpritesLocked(a4)
+        bne     .ce4c
+        move.b  _ram+wm_LRMoveCamera(a4),d0
+        beq.s   .f6
+        clr.b   _ram+wm_LRScrollDir(a4)
+        move.b  d0,d2                       ; _00CE48: TAY
+        bra     .pp
+.f6:    move.b  _ram+wm_JoyPadB(a4),d0      ; CODE_00CDF6
+        and.b   #$cf,d0
+        or.b    _ram+wm_JoyPadA(a4),d0
+        bne     .pp
+        moveq   #$30,d3
+        and.b   _ram+wm_JoyPadB(a4),d3
+        beq     .pp
+        cmp.b   #$30,d3
+        beq     .pp
+        lsr.b   #3,d3                       ; x (2 o 4)
+        addq.b  #1,_ram+wm_LRFrameTimer(a4)
+        cmp.b   #$10,_ram+wm_LRFrameTimer(a4)
+        blo     .ce4c
+        lea     _rom00+(DATA_00F6CB-ROM00_BASE)(a4),a0
+        move.b  1(a0,d3.w),d0
+        lsl.w   #8,d0
+        move.b  (a0,d3.w),d0                ; T16X(DATA_00F6CB, x)
+        move.b  _ram+wm_PosToScrollScreen+1(a4),d1
+        lsl.w   #8,d1
+        move.b  _ram+wm_PosToScrollScreen(a4),d1
+        cmp.w   d0,d1
+        beq.s   .ce4c
+        and.b   #$fe,_ram+wm_PosToScrollScreen(a4)
+        addq.b  #1,_ram+wm_LRScrollFlag(a4)
+        moveq   #0,d0
+        cmp.b   #2,d3
+        bne.s   .a0
+        move.b  _ram+wm_LastScreenHorz(a4),d0
+        subq.b  #1,d0
+.a0:    tst.b   _ram+wm_Bg1HOfs(a4)         ; (a << 8) != R16(Bg1HOfs)
+        bne.s   .snd
+        cmp.b   _ram+wm_Bg1HOfs+1(a4),d0
+        beq.s   .ns
+.snd:   move.b  #$0e,_ram+wm_SoundCh3(a4)
+.ns:    move.b  d3,_ram+wm_LRScrollDir(a4)
+        move.b  d3,d2
+.pp:    clr.b   _ram+wm_LRFrameTimer(a4)
+.ce4c:  moveq   #0,d0
+        move.b  _ram+wm_MarioDirection(a4),d0
+        add.b   d0,d0
+        move.b  d0,_ram+wm_LRScrollStop(a4)
+        move.b  _ram+wm_PosToScrollScreen+1(a4),d1
+        lsl.w   #8,d1
+        move.b  _ram+wm_PosToScrollScreen(a4),d1    ; w
+        lea     _rom00+(DATA_00F6CB-ROM00_BASE)(a4),a0
+        move.b  1(a0,d2.w),d3
+        lsl.w   #8,d3
+        move.b  (a0,d2.w),d3
+        cmp.w   d3,d1
+        beq.s   .clrf
+        lea     _rom00+(DATA_00F6BF-ROM00_BASE)(a4),a0
+        move.b  1(a0,d2.w),d3
+        lsl.w   #8,d3
+        move.b  (a0,d2.w),d3
+        add.w   d3,d1
+        lea     _rom00+(DATA_00F6B3-ROM00_BASE)(a4),a0
+        move.b  1(a0,d0.w),d3
+        lsl.w   #8,d3
+        move.b  (a0,d0.w),d3
+        cmp.w   d3,d1
+        bne.s   .st
+        clr.b   _ram+wm_LRScrollDir(a4)
+.clrf:  clr.b   _ram+wm_LRScrollFlag(a4)
+.st:    move.b  d1,_ram+wm_PosToScrollScreen(a4)
+        lsr.w   #8,d1
+        move.b  d1,_ram+wm_PosToScrollScreen+1(a4)
+        clr.b   _ram+wm_LRMoveCamera(a4)
+        movem.l (sp)+,d2-d3
+        rts
+
+;----------------------------------------------------------------------
+; --- mario_collide --- (G5L-R-L2: mcoll.c mario_collide, CODE_00CD24 +
+; _00CD39: DC2D, E92B con EB77 y sus seis sondas, F595)
+; entrada:  a4 = datos del C
+; salida:   como mario_collide()
+; registros destruidos: d0-d1/a0-a1 (ABI de vbcc)
+; se conservan d2-d7/a2-a3
+; ciclos:   tools/l_funcs.py
+; Dentro (mc_*): a2 = map16_lo, a3 = map16_hi, d7 = rX, d6 = rY (bytes
+; con los 24 bits altos en 0), d4 = probe_mx, d5 = probe_my. rX/rY/
+; probe_* no se escriben en sus globales: solo f44d los lee y eb77 los
+; arma de nuevo. Las ramas que llaman a GenerateTile, a los sprites de
+; rebote, a HurtMario o a tablas del C van al C (mc_* de mcoll.c).
+; Verificacion: tools/fuzzcall.py --func mario_collide (las ramas que el
+; oraculo no recorre) y el cruce de regress.py.
+;----------------------------------------------------------------------
+MC_TILESET      equ     $1931               ; wm_LvHeadTileset (mcoll.c TILESET)
+
+MCUNS   macro                               ; unsup(\1): solo si no habia
+        tst.l   _mario_unsupported(a4)
+        bne.s   .u\@
+        moveq   #\1,d0
+        move.l  d0,_mario_unsupported(a4)
+.u\@:
+        endm
+
+        public  _mario_collide
+_mario_collide:
+        movem.l d2-d7/a2-a3,-(sp)
+        clr.l   _mario_unsupported(a4)
+        clr.l   _mario_events(a4)
+        tst.b   _ram+wm_MarioSpeedY(a4)
+        bpl.s   .s0
+        btst    #3,_ram+wm_MarioObjStatus(a4)
+        beq.s   .s0
+        clr.b   _ram+wm_MarioSpeedY(a4)
+.s0:    bsr     mc_dc2d
+        bsr     mc_e92b
+        tst.l   _mario_unsupported(a4)
+        bne     .x
+        ; CODE_00F595: techo del nivel y caida por abajo
+        move.w  _ram+wm_Bg1VOfs(a4),d0
+        ror.w   #8,d0
+        add.w   #$ff80,d0                   ; t
+        move.w  _ram+wm_MarioYPos(a4),d1
+        ror.w   #8,d1
+        move.w  d0,d2
+        sub.w   d1,d2
+        bmi.s   .f1
+        ror.w   #8,d0
+        move.w  d0,_ram+wm_MarioYPos(a4)
+.f1:    move.b  _ram+wm_MarioScrPosY+1(a4),d0
+        subq.b  #1,d0
+        bmi.s   .cd39
+        tst.b   _ram+wm_YoshiWingsAboveGrnd(a4)
+        beq.s   .f2
+        MCUNS   MARIO_UNSUP_YOSHI
+        bra.s   .cd39
+.f2:    bsr     mc_kill_start               ; _00F60A: se cayo por abajo
+.cd39:  clr.b   _ram+wm_PlayerTurningPose(a4)
+        tst.b   _ram+wm_PBalloonFrame(a4)
+        beq.s   .c1
+        MCUNS   MARIO_UNSUP_TILE
+        bra.s   .x
+.c1:    tst.b   _ram+wm_CanClimbAir(a4)
+        beq.s   .c2
+        move.b  #$1f,_ram+wm_8B(a4)
+.c2:    tst.b   _ram+wm_IsClimbing(a4)
+        bne.s   .cl
+        move.b  _ram+wm_IsCarrying2(a4),d0
+        or.b    _ram+wm_OnYoshi(a4),d0
+        bne.s   .sw
+        moveq   #$1b,d0
+        and.b   _ram+wm_8B(a4),d0
+        cmp.b   #$1b,d0
+        bne.s   .sw
+        moveq   #$0c,d0
+        and.b   _ram+wm_JoyPadA(a4),d0
+        beq.s   .sw
+        tst.b   _ram+wm_IsFlying(a4)
+        bne.s   .cl
+        btst    #3,_ram+wm_JoyPadA(a4)
+        bne.s   .cl
+        btst    #2,_ram+wm_8B(a4)
+        beq.s   .sw
+.cl:    MCUNS   MARIO_UNSUP_CLIMB
+        bra.s   .x
+.sw:    tst.b   _ram+wm_IsSwimming(a4)
+        beq.s   .x
+        MCUNS   MARIO_UNSUP_WATER
+.x:     movem.l (sp)+,d2-d7/a2-a3
+        rts
+
+;----------------------------------------------------------------------
+; --- mc_dc2d --- (mcoll.c mario_DC2D + dc4f: velocidad 4.4 a posicion)
+; entrada:  a4 = datos del C
+; salida:   MarioXPos/YPos, PlayerXAccFixed/YAcc, 8A como el C
+; registros destruidos: d0-d2
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+MCDC4F  macro                               ; dc4f(\1): addx = el acarreo de la fraccion
+        move.b  _ram+wm_MarioSpeedX+\1(a4),d0
+        move.b  d0,d1
+        asr.b   #4,d0
+        ext.w   d0                          ; (v >> 4) con signo
+        lsl.b   #4,d1                       ; (u8)(v << 4)
+        move.w  _ram+wm_MarioXPos+\1(a4),d2
+        ror.w   #8,d2                       ; ror no toca X
+        add.b   d1,_ram+wm_PlayerXAccFixed+\1(a4)
+        addx.w  d0,d2
+        ror.w   #8,d2
+        move.w  d2,_ram+wm_MarioXPos+\1(a4)
+        endm
+
+mc_dc2d:
+        move.b  _ram+wm_MarioSpeedY(a4),_ram+wm_8A(a4)
+        move.b  _ram+wm_WallWalkStatus(a4),d1
+        beq.s   .n
+        move.b  _ram+wm_MarioSpeedX(a4),d0
+        btst    #0,d1
+        beq.s   .p
+        neg.b   d0
+.p:     move.b  d0,_ram+wm_MarioSpeedY(a4)
+.n:     MCDC4F  0
+        MCDC4F  2
+        move.b  _ram+wm_8A(a4),_ram+wm_MarioSpeedY(a4)
+        rts
+
+;----------------------------------------------------------------------
+; --- mc_f629 --- (mcoll.c f629: KillMario)
+; entrada:  a4 = datos del C
+; salida:   la animacion de morir como el C
+; registros destruidos: ninguno
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_f629:
+        move.b  #$90,_ram+wm_MarioSpeedY(a4)
+        bsr.s   mc_kill_start
+        clr.b   _ram+wm_JoyPadA(a4)         ; no_buttons
+        clr.b   _ram+wm_JoyFrameA(a4)
+        clr.b   _ram+wm_JoyPadB(a4)
+        clr.b   _ram+wm_JoyFrameB(a4)
+        rts
+;----------------------------------------------------------------------
+; --- mc_kill_start ---
+; entrada:  a4 = datos del C
+; salida:   la animacion de morir (kill_start)
+; registros destruidos: ninguno
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_kill_start:
+        move.b  #$09,_ram+wm_MusicCh1(a4)
+        st      _ram+wm_LevelMusicMod(a4)
+        move.b  #$09,_ram+wm_MarioAnimation(a4)
+        clr.b   _ram+wm_IsSpinJump(a4)
+        move.b  #$30,_ram+wm_PlayerAnimTimer(a4)
+        move.b  #$30,_ram+wm_SpritesLocked(a4)
+        clr.b   _ram+wm_CapeGlidePhase(a4)
+        clr.b   _ram+wm_188A(a4)
+        or.b    #8,_mario_events+3(a4)      ; MEV_DEATH
+        rts
+
+;----------------------------------------------------------------------
+; --- mc_e92b --- (mcoll.c e92b + eaa6 + eadb: CODE_00E92B)
+; entrada:  a4 = datos del C
+; salida:   como e92b()
+; registros destruidos: d0-d7/a0-a3 (los guarda mario_collide)
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_e92b:
+        clr.b   _ram+wm_PlayerFrameIndex(a4)        ; eaa6
+        clr.b   _ram+wm_MarioObjStatus(a4)
+        clr.b   _ram+wm_OnSlopeTypeB(a4)
+        clr.b   _ram+wm_OnSlopeTypeA(a4)
+        clr.b   _ram+wm_8A(a4)
+        clr.b   _ram+wm_8B(a4)
+        clr.b   _ram+wm_IsTouchLayer2(a4)
+        tst.b   _ram+wm_FallThroughFlag(a4)
+        beq.s   .nf
+        bsr     mc_ee1d
+        bra.s   .e98c
+.nf:    move.b  _ram+wm_IsOnGround(a4),_ram+wm_8D(a4)
+        clr.b   _ram+wm_IsOnGround(a4)      ; (y el << 1 del C deja 0)
+        move.b  _ram+wm_IsFlying(a4),_ram+wm_8F(a4)
+        move.b  _ram+wm_IsVerticalLvl(a4),d0
+        bpl.s   .nv
+        MCUNS   MARIO_UNSUP_LAYER           ; capa 2 interactiva
+        rts
+.nv:    and.b   #$41,d0
+        move.b  d0,_ram+wm_8E(a4)
+        add.b   d0,d0
+        bmi.s   .e98c
+        clr.b   _ram+wm_LayerInProcess(a4)
+        move.b  _ram+wm_8D(a4),d0
+        add.b   d0,d0
+        move.b  d0,_ram+wm_8D(a4)
+        moveq   #$0f,d0                     ; eadb
+        and.b   _ram+wm_MarioYPos(a4),d0
+        move.b  d0,_ram+wm_PlayerBlkPosY(a4)
+        tst.b   _ram+wm_WallWalkStatus(a4)
+        beq.s   .eb
+        MCUNS   MARIO_UNSUP_WALL
+        bra.s   .e98c
+.eb:    bsr     mc_eb77
+.e98c:  tst.b   _ram+wm_SideExitFlag(a4)
+        beq.s   .e9a1
+        MCUNS   MARIO_UNSUP_LAYER
+        rts
+.e9a1:  cmp.b   #$f0,_ram+wm_MarioScrPosX(a4)
+        blo.s   .e1
+        bsr     mc_f629
+        bra     .ea32
+.e1:    moveq   #3,d0
+        and.b   _ram+wm_MarioObjStatus(a4),d0
+        bne.s   .e9fb
+        move.w  _ram+wm_L1NextPosX(a4),d1
+        ror.w   #8,d1
+        move.w  _ram+wm_MarioXPos(a4),d2
+        ror.w   #8,d2
+        moveq   #0,d3                       ; y
+        move.w  d1,d0
+        add.w   #$00e8,d0
+        sub.w   d2,d0
+        tst.w   d0                          ; el signo del valor, sin V
+        ble.s   .ck
+        moveq   #1,d3
+        move.w  d2,d0
+        subq.w  #8,d0
+        sub.w   d1,d0
+        tst.w   d0
+.ck:    bpl.s   .e9fb                       ; _00E9C8: n == 0 o n > 0
+        tst.b   _ram+wm_HorzScrollHead(a4)
+        bne.s   .or
+        or.b    #$80,_ram+wm_MarioObjStatus(a4)
+        move.w  _ram+wm_ScrollSpeedL1X(a4),d0
+        ror.w   #8,d0
+        lsr.w   #4,d0                       ; sp
+        move.b  d0,d1
+        sub.b   _ram+wm_MarioSpeedX(a4),d1
+        lea     _rom00+(DATA_00E90D+1-ROM00_BASE)(a4),a0
+        move.b  (a0,d3.w),d2
+        eor.b   d2,d1
+        bmi.s   .or
+        move.b  d0,_ram+wm_MarioSpeedX(a4)
+        move.b  _ram+wm_SprScrollL1X(a4),_ram+wm_PlayerXAccFixed(a4)
+.or:    lea     _rom00+(DATA_00E90A-ROM00_BASE)(a4),a0
+        move.b  (a0,d3.w),d0
+        or.b    d0,_ram+wm_MarioObjStatus(a4)
+.e9fb:  moveq   #$1c,d0
+        and.b   _ram+wm_MarioObjStatus(a4),d0
+        cmp.b   #$1c,d0
+        bne.s   .ea0d
+        tst.b   _ram+wm_IsOnSolidSpr(a4)
+        bne.s   .ea0d
+        bsr     mc_f629                     ; aplastado
+        bra.s   .ea32
+.ea0d:  moveq   #3,d0
+        and.b   _ram+wm_MarioObjStatus(a4),d0
+        beq.s   .ea34
+        and.w   #2,d0                       ; y
+        lea     _rom00+(DATA_00E90D-ROM00_BASE)(a4),a0
+        move.b  1(a0,d0.w),d1               ; P40 ok
+        lsl.w   #8,d1
+        move.b  (a0,d0.w),d1
+        move.w  _ram+wm_MarioXPos(a4),d2
+        ror.w   #8,d2
+        add.w   d1,d2
+        ror.w   #8,d2
+        move.w  d2,_ram+wm_MarioXPos(a4)
+        tst.b   _ram+wm_MarioObjStatus(a4)
+        bmi.s   .ea34
+        move.b  #$03,_ram+wm_PlayerFrameIndex(a4)
+        move.b  (a0,d0.w),d1
+        move.b  _ram+wm_MarioSpeedX(a4),d2
+        eor.b   d1,d2
+        bpl.s   .ea34
+.ea32:  clr.b   _ram+wm_MarioSpeedX(a4)
+.ea34:  cmp.b   #$01,_ram+wm_IsBehindScenery(a4)
+        bne.s   .b1
+        tst.b   _ram+wm_8B(a4)
+        bne.s   .b1
+        clr.b   _ram+wm_IsBehindScenery(a4)
+.b1:    clr.b   _ram+wm_IsOnWaterTop(a4)
+        tst.b   _ram+wm_IsWaterLevel(a4)
+        bne.s   .w
+        btst    #0,_ram+wm_8A(a4)
+        bne.s   .w
+        clr.b   _ram+wm_IsSwimming(a4)      ; _00EAA3
+        rts
+.w:     MCUNS   MARIO_UNSUP_WATER
+        rts
+
+;----------------------------------------------------------------------
+; --- mc_eb77 --- (mcoll.c eb77, CODE_00EB77: las seis sondas de la capa 1)
+; entrada:  a4 = datos del C
+; salida:   como eb77()
+; registros destruidos: d0-d7/a0-a3 (los guarda mario_collide)
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_eb77:
+        tst.b   _probe_ok(a4)
+        bne.s   .pk
+        PICCALL _mcoll_init                 ; probe_init, una vez
+.pk:    move.l  _map16_lo(a4),a2
+        move.l  _map16_hi(a4),a3
+        move.w  _ram+wm_MarioXPos(a4),d4
+        ror.w   #8,d4                       ; probe_mx
+        move.w  _ram+wm_MarioYPos(a4),d5
+        ror.w   #8,d5                       ; probe_my
+        moveq   #0,d6
+        moveq   #0,d7                       ; rX
+        tst.b   _ram+wm_MarioPowerUp(a4)
+        beq.s   .r1
+        tst.b   _ram+wm_IsDucking(a4)
+        bne.s   .r1
+        moveq   #$18,d7
+.r1:    tst.b   _ram+wm_OnYoshi(a4)
+        beq.s   .r2
+        add.b   #$30,d7
+.r2:    moveq   #$0f,d0
+        and.b   d4,d0                       ; y = MarioXPos & $0F
+        moveq   #8,d1
+        add.b   d0,d1
+        and.b   #$0f,d1
+        move.b  d1,_ram+wm_PlayerBlkPosX(a4)
+        clr.b   _ram+wm_PlayerBlkSide(a4)
+        cmp.b   #8,d0
+        blo.s   .r3
+        add.b   #$0c,d7                     ; TXA / ADC #$0B con acarreo
+        move.b  #1,_ram+wm_PlayerBlkSide(a4)
+.r3:    lea     _rom00+(DATA_00E89C+8-ROM00_BASE)(a4),a0
+        move.b  (a0,d7.w),d0
+        add.b   _ram+wm_PlayerBlkPosY(a4),d0
+        and.b   #$0f,d0
+        move.b  d0,_ram+wm_PlayerExitBlkPos(a4)
+
+        ; --- sonda 1: el costado, a la altura de la cabeza
+        bsr     mc_probe
+        beq.s   .ebdd
+        cmp.b   #$11,d6
+        blo     .ec24
+        cmp.b   #$6e,d6
+        blo.s   .ebc9
+        move.l  d6,-(sp)                    ; f04d(rY): agua (tabla del C)
+        PICCALL _mc_f04d
+        addq.l  #4,sp
+        tst.l   d0
+        beq     .ec24
+        or.b    #$01,_ram+wm_8A(a4)
+        bra     .ec24
+.ebc9:  addq.b  #4,d7
+        cmp.b   #$1e,d6
+        beq.s   .z0
+        cmp.b   #$52,d6
+        beq.s   .z0
+        moveq   #2,d6
+        bra     .ec6f
+.z0:    moveq   #0,d6
+        bra     .ec6f
+
+.ebdd:  cmp.b   #$9c,d6
+        bne.s   .d1
+        cmp.b   #$01,_ram+MC_TILESET(a4)
+        beq.s   .door3
+.d1:    cmp.b   #$20,d6
+        beq.s   .door2
+        cmp.b   #$1f,d6
+        beq.s   .d1f
+        tst.b   _ram+wm_BluePowTimer(a4)
+        beq.s   .ec21
+        cmp.b   #$28,d6
+        beq.s   .door2
+        cmp.b   #$27,d6
+        bne.s   .ec21
+.d1f:   tst.b   _ram+wm_MarioPowerUp(a4)
+        bne.s   .ec24
+.door2: moveq   #4,d0                       ; f443
+        add.b   d4,d0
+        and.b   #$0f,d0
+        cmp.b   #8,d0
+        bhs.s   .ec24
+.door3: tst.b   _ram+wm_8F(a4)
+        bne.s   .ec24
+        btst    #3,_ram+wm_JoyFrameA(a4)
+        beq.s   .ec24
+        or.b    #32,_mario_events+3(a4)     ; MEV_PIPE: puerta
+        MCUNS   MARIO_UNSUP_PIPE
+        rts
+.ec21:  move.b  d6,d0                       ; f28c
+        sub.b   #$6f,d0
+        cmp.b   #4,d0
+        bhs.s   .f2c0
+        move.b  d6,_rY(a4)                  ; 1-UP invisible: el C
+        PICCALL _mc_f28c
+        bra.s   .ec24
+.f2c0:  moveq   #$01,d0
+        bsr     mc_f2c2
+
+        ; --- sonda 2: el costado, a la altura del cuerpo
+.ec24:  bsr     mc_probe
+        bne.s   .s2
+        moveq   #$10,d0
+        bsr     mc_f2c9                     ; CODE_00EC35
+        bra.s   .ec3a
+.s2:    cmp.b   #$11,d6
+        blo.s   .ec3a
+        cmp.b   #$6e,d6
+        bhs.s   .ec3a
+        addq.b  #2,d7
+        bra.s   .ec4e
+
+        ; --- sonda 3: el costado, a la altura de los pies
+.ec3a:  bsr     mc_probe
+        bne.s   .s3
+        moveq   #$08,d0
+        bsr     mc_f2c9
+        bra     .ec8a
+.s3:    cmp.b   #$11,d6
+        blo     .ec8a
+        cmp.b   #$6e,d6
+        bhs     .ec8a
+.ec4e:  move.b  _ram+wm_MarioDirection(a4),d0
+        cmp.b   _ram+wm_PlayerBlkSide(a4),d0
+        beq.s   .c4f
+        cmp.b   #$3f,d6                     ; f3c4: tuberia horizontal
+        bne.s   .c67
+        tst.b   _ram+wm_8F(a4)
+        bne.s   .c4r
+        moveq   #$02,d1
+        tst.b   d0
+        beq.s   .c4a
+        moveq   #$01,d1
+.c4a:   and.b   _ram+wm_JoyPadA(a4),d1
+        beq.s   .c4r
+        or.b    #32,_mario_events+3(a4)     ; MEV_PIPE
+        MCUNS   MARIO_UNSUP_PIPE
+.c4r:   move.b  _ram+wm_Map16NumLo(a4),d6
+.c67:   bsr     mc_f267
+        move.b  _ram+wm_Map16NumLo(a4),d6
+.c4f:   move.b  #$03,_ram+wm_PlayerFrameIndex(a4)
+        moveq   #0,d0
+        move.b  _ram+wm_PlayerBlkSide(a4),d0
+        lea     _rom00+(DATA_00E911-ROM00_BASE)(a4),a0
+        moveq   #$0f,d1
+        and.b   _ram+wm_MarioXPos(a4),d1
+        cmp.b   (a0,d0.w),d1
+        beq.s   .ec8a
+        move.b  d0,d6
+.ec6f:  tst.b   _ram+wm_NoteBlkBounceFlag(a4)
+        beq.s   .n6f
+        cmp.b   #$52,_ram+wm_Map16NumLo(a4)
+        beq.s   .ec8a
+.n6f:   lea     _rom00+(DATA_00E90A-ROM00_BASE)(a4),a0
+        move.b  (a0,d6.w),d0
+        or.b    d0,_ram+wm_MarioObjStatus(a4)
+        and.b   #$03,d0
+        move.b  d0,d6
+        move.b  d6,d1
+        move.b  _ram+wm_Map16NumLo(a4),d0
+        bsr     mc_f127
+
+        ; --- sonda 4: la cabeza (techo)
+.ec8a:  bsr     mc_probe
+        bne.s   .ecb1
+        moveq   #$02,d0
+        bsr     mc_f2c2
+        tst.b   _ram+wm_MarioSpeedY(a4)
+        bpl     .ed4a
+        move.b  _ram+wm_Map16NumLo(a4),d0
+        cmp.b   #$21,d0
+        blo     .ed4a
+        cmp.b   #$25,d0
+        bhs     .ed4a
+        subq.b  #4,d0                       ; CODE_00ECA6: bloque de nota...
+        moveq   #0,d1
+        bsr     mc_f17f
+        move.b  #$f0,d0
+        bra.s   .ed0f
+.ecb1:  cmp.b   #$11,d6
+        blo     .ed4a
+        cmp.b   #$6e,d6
+        blo.s   .ecfa
+        cmp.b   #$d8,d6
+        blo.s   .sl4
+        move.w  _ram+wm_BlockXPos(a4),d1
+        ror.w   #8,d1
+        add.w   #$0010,d1
+        move.w  d1,d0
+        ror.w   #8,d0
+        move.w  d0,_ram+wm_BlockXPos(a4)
+        move.w  _ram+wm_BlockYPos(a4),d2
+        ror.w   #8,d2
+        bsr     mc_pxy                      ; f461
+        beq     .ed4a
+        cmp.b   #$6e,d6
+        blo     .ed4a
+        cmp.b   #$d8,d6
+        bhs     .ed4a
+        sub.b   #$10,_ram+wm_PlayerExitBlkPos(a4)   ; SBC #$0F, C=0
+.sl4:   bsr     mc_slope
+        tst.b   d1
+        bmi.s   .ed0f2
+        bra     .ed4a
+.ed0f2: move.b  d1,d0
+        bra.s   .ed0f
+.ecfa:  moveq   #$02,d0
+        bsr     mc_f3e9
+        move.b  d6,d0
+        moveq   #0,d6
+        moveq   #0,d1
+        bsr     mc_f127
+        cmp.b   #$1e,_ram+wm_Map16NumLo(a4)
+        beq.s   .ed3b
+        move.b  #$f0,d0                     ; _00ED0D
+.ed0f:  add.b   _ram+wm_PlayerExitBlkPos(a4),d0
+        bpl.s   .ed4a
+        cmp.b   #$f9,d0
+        bhs.s   .ed28
+        tst.b   _ram+wm_IsFlying(a4)
+        bne.s   .ed28
+        move.b  _ram+wm_MarioObjStatus(a4),d1
+        and.b   #$fc,d1
+        or.b    #$09,d1
+        move.b  d1,_ram+wm_MarioObjStatus(a4)
+        clr.b   _ram+wm_MarioSpeedX(a4)
+        bra.s   .ed3b
+.ed28:  tst.b   _ram+wm_IsFlying(a4)        ; CODE_00ED28
+        beq.s   .e8
+        not.b   d0
+        and.w   #$00ff,d0
+        add.w   d0,d5                       ; probe_my
+        move.w  d5,d1
+        ror.w   #8,d1
+        move.w  d1,_ram+wm_MarioYPos(a4)
+.e8:    or.b    #$08,_ram+wm_MarioObjStatus(a4)
+.ed3b:  tst.b   _ram+wm_MarioSpeedY(a4)
+        bpl.s   .ed4a
+        clr.b   _ram+wm_MarioSpeedY(a4)
+        tst.b   _ram+wm_SoundCh1(a4)
+        bne.s   .ed4a
+        move.b  #$01,_ram+wm_SoundCh1(a4)
+
+        ; --- sonda 5: los pies (suelo)
+.ed4a:  bsr     mc_probe
+        beq     .eddb
+        cmp.b   #$6e,d6
+        bhs.s   .s5
+        moveq   #$03,d0
+        bsr     mc_f3e9
+        bra     .edf7
+.s5:    cmp.b   #$d8,d6
+        blo.s   .ed86
+        cmp.b   #$fb,d6
+        blo.s   .ed69
+        bra     mc_f629
+.ed69:  move.w  _ram+wm_BlockXPos(a4),d1    ; CODE_00ED69
+        ror.w   #8,d1
+        sub.w   #$0010,d1
+        move.w  d1,d0
+        ror.w   #8,d0
+        move.w  d0,_ram+wm_BlockXPos(a4)
+        move.w  _ram+wm_BlockYPos(a4),d2
+        ror.w   #8,d2
+        bsr     mc_pxy                      ; f461
+        beq     .ede9
+        cmp.b   #$6e,d6
+        blo     .ede9
+        cmp.b   #$d8,d6
+        bhs     .ede9
+        add.b   #$10,_ram+wm_PlayerBlkPosY(a4)      ; ADC #$10, C=0
+.ed86:  move.b  _ram+MC_TILESET(a4),d0
+        cmp.b   #$03,d0
+        beq.s   .t3
+        cmp.b   #$0e,d0
+        bne.s   .t0
+.t3:    cmp.b   #$d2,d6
+        bhs     .ede9
+.t0:    bsr     mc_slope                    ; d0 = t, d1 = DATA_00E632[...]
+        move.b  _ram+wm_PlayerBlkPosY(a4),d2
+        sub.b   d1,d2                       ; a
+        bpl.s   .g1
+        addq.b  #1,_ram+wm_IsOnGround(a4)
+.g1:    move.b  d0,d6                       ; rY = t
+        lea     _rom00+(DATA_00E51C-ROM00_BASE)(a4),a0
+        cmp.b   (a0,d6.w),d2
+        bhs     .ede9
+        move.b  d2,_ram+wm_PlayerExitBlkPos(a4)
+        clr.b   _ram+wm_PlayerBlkPosY(a4)
+        move.b  d6,d0                       ; f005: solo con $0E/$0F
+        sub.b   #$0e,d0
+        cmp.b   #2,d0
+        bhs.s   .n5
+        move.b  d6,_rY(a4)
+        PICCALL _mc_f005
+        tst.l   d0
+        beq.s   .n5
+        move.b  #$24,_ram+wm_IsFlying(a4)   ; PLA/PLA/JMP _00EE35
+        rts
+.n5:    cmp.b   #$1c,d6
+        blo.s   .n6
+        move.b  #$08,_ram+wm_SlideImgTimer(a4)
+        move.b  d6,d0
+        bra     mc_eed1
+.n6:    bsr     mc_efbc                     ; CODE_00EDD5
+        move.b  d6,d0
+        bra     mc_ee85
+
+.eddb:  cmp.b   #$05,d6
+        bne.s   .e2
+        bsr     mc_f629
+        bra.s   .ede9
+.e2:    moveq   #$04,d0
+        bsr     mc_f2c2
+
+        ; --- sonda 6: los pies, segundo punto
+.ede9:  bsr     mc_probe
+        bne.s   .s6
+        bsr     mc_f309
+        bra     mc_ee1d
+.s6:    cmp.b   #$6e,d6
+        bhs     mc_ee1d
+.edf7:  tst.b   _ram+wm_MarioSpeedY(a4)
+        bmi     .rts
+        move.b  _ram+MC_TILESET(a4),d3      ; t
+        cmp.b   #$03,d3
+        beq.s   .u3
+        cmp.b   #$0e,d3
+        bne.s   .u0
+.u3:    move.b  _ram+wm_Map16NumLo(a4),d0
+        cmp.b   #$59,d0
+        blo.s   .u0
+        cmp.b   #$5c,d0
+        blo     mc_ee1d
+.u0:    moveq   #$0f,d0
+        and.b   _ram+wm_PlayerBlkPosY(a4),d0
+        clr.b   _ram+wm_PlayerBlkPosY(a4)
+        move.b  d0,_ram+wm_PlayerExitBlkPos(a4)
+        cmp.b   #8,d0
+        bhs     mc_ee1d
+        move.b  _ram+wm_Map16NumLo(a4),d6   ; CODE_00EE3A
+        cmp.b   #$02,d3
+        beq.s   .cv
+        cmp.b   #$08,d3
+        bne.s   .e57
+.cv:    move.b  d6,d0
+        sub.b   #$0c,d0
+        cmp.b   #2,d0
+        bhs.s   .e57
+        add.b   d0,d0
+        bsr     mc_efcd
+        moveq   #$20,d0
+        bra     mc_ee85
+.e57:   bsr     mc_f267                     ; CODE_00EE57
+        moveq   #$03,d6
+        move.b  _ram+wm_Map16NumLo(a4),d0
+        cmp.b   #$1e,d0
+        bne.s   .n1e
+        tst.b   _ram+wm_8F(a4)
+        beq.s   .ee83
+        tst.b   _ram+wm_MarioPowerUp(a4)
+        beq.s   .ee83
+        tst.b   _ram+wm_IsSpinJump(a4)
+        beq.s   .ee83
+        moveq   #$21,d0                     ; romper el bloque giratorio
+        moveq   #$03,d1
+        bsr     mc_f17f
+        bra     mc_ee1d
+.n1e:   cmp.b   #$32,d0
+        bne.s   .n32
+        clr.b   _ram+wm_RunEaterBlock(a4)
+.n32:   move.b  d6,d1
+        bsr     mc_f120
+.ee83:  moveq   #$20,d0
+        bra     mc_ee85
+.rts:   rts
+
+;----------------------------------------------------------------------
+; --- mc_probe --- (mcoll.c f44d / f461_xy: CODE_00F44D, F465)
+; entrada:  mc_probe: d7 = rX, d4/d5 = probe_mx/my; mc_pxy: d2 = x
+;           (BlockYPos), d1 = y (BlockXPos); a2/a3 = map16_lo/hi
+; salida:   d0.b = pagina con los flags (beq = 0), d6 = rY, d7 = rX + 2;
+;           Map16NumLo y BlockYPos/XPos (mc_probe) como el C
+; registros destruidos: d0-d2/a0-a1
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_probe:
+        addq.b  #2,d7
+        moveq   #$7e,d1
+        and.b   d7,d1                       ; k = 2 * ((rX >> 1) & 63)
+        lea     _probe_dx(a4),a0
+        move.w  (a0,d1.w),d2
+        add.w   d4,d2                       ; x
+        lea     _probe_dy(a4),a0
+        move.w  (a0,d1.w),d1
+        add.w   d5,d1                       ; y
+        move.w  d2,d0
+        ror.w   #8,d0
+        move.w  d0,_ram+wm_BlockYPos(a4)    ; (el ROM pone x en BlockYPos)
+        move.w  d1,d0
+        ror.w   #8,d0
+        move.w  d0,_ram+wm_BlockXPos(a4)
+;----------------------------------------------------------------------
+; --- mc_pxy ---
+; entrada:  d2 = x (BlockYPos), d1 = y (BlockXPos); a2/a3 = map16_lo/hi
+; salida:   d0.b = pagina con flags, d6 = rY (f461_xy)
+; registros destruidos: d0-d2/a0-a1
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_pxy:
+        clr.b   _ram+wm_WhichSwitchPressed(a4)
+        tst.b   _ram+wm_8E(a4)
+        bne     .l2
+        cmp.w   #$1b0,d1
+        bhs     .off
+        move.w  d2,d0
+        lsr.w   #8,d0                       ; pantalla
+        cmp.b   _ram+wm_ScreensInLvl(a4),d0
+        bhs.s   .off
+        and.w   #$1f,d0
+        add.w   d0,d0
+        lea     _scr_ofs(a4),a0
+        move.w  (a0,d0.w),d0
+        and.w   #$1f0,d1
+        add.w   d1,d0
+        moveq   #0,d1
+        move.b  d2,d1
+        lsr.b   #4,d1
+        add.w   d1,d0                       ; o (< $3600)
+        move.b  (a2,d0.w),d6                ; lo = rY
+        move.b  d6,_ram+wm_Map16NumLo(a4)
+        move.b  (a3,d0.w),d0                ; pagina
+        beq.s   .p0
+        cmp.b   #$32,d6
+        beq.s   .sw
+        cmp.b   #$2f,d6
+        beq.s   .sw
+        rts                                 ; d0.b != 0, flags de move.b
+.p0:    cmp.b   #$29,d6
+        beq.s   .sw
+        cmp.b   #$2b,d6
+        beq.s   .sw
+        move.b  d6,d1
+        sub.b   #$ec,d1
+        cmp.b   #$10,d1
+        bhs.s   .z
+.sw:    moveq   #0,d1                       ; interruptores P: f545 en C
+        move.b  d0,d1
+        move.l  d1,-(sp)
+        PICCALL _f44d_tail
+        addq.l  #4,sp
+        move.b  _ram+wm_Map16NumLo(a4),d6
+        tst.b   d0
+        rts
+.z:     moveq   #0,d0
+        rts
+.l2:    MCUNS   MARIO_UNSUP_LAYER
+.off:   moveq   #$25,d6                     ; CODE_00F4A0: fuera del nivel
+        moveq   #0,d0
+        rts
+
+;----------------------------------------------------------------------
+; --- mc_slope --- (eb77: la pendiente bajo la sonda, DATA_00E632)
+; entrada:  d6 = rY (>= $6E)
+; salida:   d0.b = t = T8V(SlopeSteepness + rY - $6E),
+;           d1.b = DATA_00E632[(t << 4) | PlayerBlkPosX]
+; registros destruidos: d0-d1/a0
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_slope:
+        move.w  _ram+wm_SlopeSteepness(a4),d0
+        ror.w   #8,d0
+        moveq   #0,d1
+        move.b  d6,d1
+        sub.b   #$6e,d1
+        add.w   d1,d0
+        sub.w   #ROM00_BASE,d0
+        and.l   #$ffff,d0                   ; T8V: indice de 16 bits sin signo
+        lea     _rom00(a4),a0
+        move.b  (a0,d0.l),d0
+        moveq   #0,d1
+        move.b  d0,d1
+        lsl.w   #4,d1
+        or.b    _ram+wm_PlayerBlkPosX(a4),d1
+        lea     _rom00+(DATA_00E632-ROM00_BASE)(a4),a0
+        move.b  (a0,d1.w),d1
+        rts
+
+;----------------------------------------------------------------------
+; --- mc_f3e9 --- (mcoll.c f3e9: tuberia vertical)
+; entrada:  d0 = direccion (2/3, f3e9); d6 = rY
+; salida:   d6 = rY (Map16NumLo si es una tuberia), como el C
+; registros destruidos: d0-d2/a0
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_f3e9:
+        moveq   #0,d1
+        move.b  d6,d1
+        sub.b   #$37,d1
+        cmp.b   #2,d1
+        bhs.s   .r
+        lea     _rom00+(DATA_00F3E3-ROM00_BASE)(a4),a0
+        move.b  _ram+wm_PlayerBlkPosX(a4),d2
+        sub.b   (a0,d1.w),d2
+        subq.b  #1,d2
+        cmp.b   #5,d2
+        bhs.s   .m
+        moveq   #$08,d1                     ; PIPE_BUTTONS
+        cmp.b   #2,d0
+        beq.s   .b
+        moveq   #$04,d1
+.b:     and.b   _ram+wm_JoyPadA(a4),d1
+        beq.s   .m
+        or.b    #32,_mario_events+3(a4)     ; MEV_PIPE
+        MCUNS   MARIO_UNSUP_PIPE
+.m:     move.b  _ram+wm_Map16NumLo(a4),d6
+.r:     rts
+
+;----------------------------------------------------------------------
+; --- mc_f267 ---
+; entrada:  d6 = rY
+; salida:   como f267 (el bloque para tirar)
+; registros destruidos: d0
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_f267:
+        cmp.b   #$2e,d6
+        bne.s   .r
+        btst    #6,_ram+wm_JoyFrameA(a4)
+        beq.s   .r
+        move.b  _ram+wm_IsCarrying2(a4),d0
+        or.b    _ram+wm_OnYoshi(a4),d0
+        bne.s   .r
+        or.b    #4,_mario_events+2(a4)      ; MEV_SPRITE
+        MCUNS   MARIO_UNSUP_TILE
+.r:     rts
+
+;----------------------------------------------------------------------
+; --- mc_f2c2 --- (mcoll.c: el bloque que toca la sonda; monedas,
+; cinta y luna van al C: GenerateTile)
+; entrada:  d0 = a (f2c2/f2c9); d6 = rY
+; salida:   como el C
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_f2c2:
+        cmp.b   #$06,d6
+        bhs.s   mc_f2c9
+        or.b    d0,_ram+wm_8A(a4)
+        rts
+;----------------------------------------------------------------------
+; --- mc_f2c9 ---
+; entrada:  d0 = a; d6 = rY
+; salida:   como f2c9
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_f2c9:
+        cmp.b   #$38,d6
+        beq.s   .c
+        cmp.b   #$06,d6
+        beq.s   .s
+        cmp.b   #$07,d6
+        blo.s   mc_f309
+        cmp.b   #$1d,d6
+        bhs.s   mc_f309
+        or.b    #$80,d0
+.s:     cmp.b   #$01,d0
+        bne.s   .o
+        or.b    #$18,d0
+.o:     or.b    d0,_ram+wm_8B(a4)
+        move.b  _ram+wm_PlayerBlkSide(a4),_ram+wm_8C(a4)
+        rts
+.c:     and.l   #$ff,d0                     ; cinta del punto medio: el C
+        move.b  d6,_rY(a4)
+        move.l  d0,-(sp)
+        PICCALL _mc_f2c9
+        addq.l  #4,sp
+        rts
+;----------------------------------------------------------------------
+; --- mc_f309 ---
+; entrada:  d6 = rY
+; salida:   como f309 (monedas y luna: el C)
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_f309:
+        move.b  d6,d0
+        sub.b   #$2a,d0
+        cmp.b   #5,d0
+        blo.s   .c
+        cmp.b   #$6e,d6
+        beq.s   .c
+        rts
+.c:     move.b  d6,_rY(a4)                  ; monedas y luna: el C
+        PICCALL _mc_f309
+        rts
+
+;----------------------------------------------------------------------
+; --- mc_f120 --- (mcoll.c: el bloque toca a Mario; los bloques que
+; danian y los de rebote van al C)
+; entrada:  d0 = a (numero de bloque), d1 = y
+; salida:   como el C
+; registros destruidos: d0-d2/a0-a1
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_f120:
+        tst.b   _ram+wm_OnYoshi(a4)
+        bne.s   mc_f160
+;----------------------------------------------------------------------
+; --- mc_f127 ---
+; entrada:  d0 = a, d1 = y
+; salida:   como f127
+; registros destruidos: d0-d2/a0-a1
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_f127:
+        cmp.b   #$2f,d0
+        beq.s   .c
+        cmp.b   #$59,d0
+        blo.s   mc_f160                     ; pp: a < $66 -> f160
+.c:     and.l   #$ff,d0
+        and.l   #$ff,d1
+        move.l  d1,-(sp)
+        move.l  d0,-(sp)
+        PICCALL _mc_f127
+        addq.l  #8,sp
+        rts
+;----------------------------------------------------------------------
+; --- mc_f160 ---
+; entrada:  d0 = a, d1 = y
+; salida:   como f160
+; registros destruidos: d0-d2/a0-a1
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_f160:
+        move.b  d0,d2
+        sub.b   #$11,d2
+        cmp.b   #$1d,d2
+        blo.s   .f
+        cmp.b   #$07,_ram+MC_TILESET(a4)
+        bne.s   .u
+        sub.b   #$59,d2                     ; CODE_00F176, carry = 1
+        cmp.b   #2,d2
+        bhs.s   .r
+        add.b   #$22,d2
+.f:     move.b  d2,d0
+        bra.s   mc_f17f
+.u:     MCUNS   MARIO_UNSUP_TILE
+.r:     rts
+;----------------------------------------------------------------------
+; --- mc_f17f ---
+; entrada:  d0 = a, d1 = y
+; salida:   como f17f (sprites de rebote: el C)
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_f17f:
+        and.l   #$ff,d0                     ; sprites de rebote: el C
+        and.l   #$ff,d1
+        move.l  d1,-(sp)
+        move.l  d0,-(sp)
+        PICCALL _mc_f17f
+        addq.l  #8,sp
+        rts
+
+;----------------------------------------------------------------------
+; --- mc_ee1d --- (mcoll.c: apoyar a Mario en el suelo)
+; entrada:  d0 = y (tipo de pendiente) en ee85/eed1/eee1
+; salida:   como el C
+; registros destruidos: d0-d3/a0-a1
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_ee1d:
+        tst.b   _ram+wm_IsOnSolidSpr(a4)
+        beq.s   .n
+        tst.b   _ram+wm_MarioSpeedY(a4)
+        bmi.s   .n
+        clr.b   _ram+wm_8E(a4)
+        moveq   #$20,d0
+        bra.s   mc_eee1
+.n:     btst    #2,_ram+wm_MarioObjStatus(a4)
+        bne.s   .r
+        tst.b   _ram+wm_IsFlying(a4)
+        bne.s   .r
+        move.b  #$24,_ram+wm_IsFlying(a4)
+.r:     rts
+
+;----------------------------------------------------------------------
+; --- mc_ee85 ---
+; entrada:  d0 = y
+; salida:   como ee85
+; registros destruidos: d0-d3/a0-a1
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_ee85:
+        tst.b   _ram+wm_MarioSpeedY(a4)
+        bpl.s   .a
+        cmp.b   #2,_ram+wm_8D(a4)
+        blo.s   .r
+.a:     tst.b   _ram+wm_WhichSwitchPressed(a4)
+        beq.s   mc_eed1
+        or.b    #2,_mario_events+2(a4)      ; MEV_SWITCH: interruptor de palacio
+        MCUNS   MARIO_UNSUP_TILE
+.r:     rts
+
+;----------------------------------------------------------------------
+; --- mc_eed1 ---
+; entrada:  d0 = y
+; salida:   como eed1
+; registros destruidos: d0-d3/a0-a1
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_eed1:
+        addq.b  #1,_ram+wm_IsOnGround(a4)
+        move.w  _ram+wm_PlayerBlkPosY(a4),d1    ; (BlkPosY << 8) | ExitBlkPos ($90/$91)
+        move.w  _ram+wm_MarioYPos(a4),d2
+        ror.w   #8,d2
+        sub.w   d1,d2
+        ror.w   #8,d2
+        move.w  d2,_ram+wm_MarioYPos(a4)
+;----------------------------------------------------------------------
+; --- mc_eee1 ---
+; entrada:  d0 = y (tipo de pendiente)
+; salida:   como eee1
+; registros destruidos: d0-d3/a0-a1
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_eee1:
+        moveq   #0,d3
+        move.b  d0,d3                       ; y
+        lea     _rom00+(DATA_00E53D-ROM00_BASE)(a4),a0
+        move.b  (a0,d3.w),d0                ; a
+        bne.s   .p1
+        move.b  _ram+wm_PlayerSlopePose(a4),d1
+        beq.s   .p3
+        move.b  _ram+wm_MarioSpeedX(a4),d1
+        beq.s   .p2
+.p1:    move.b  d0,_ram+wm_OnSlopeTypeA(a4)
+        btst    #2,_ram+wm_JoyPadA(a4)
+        beq.s   .p3
+        move.b  _ram+wm_IsCarrying2(a4),d1
+        or.b    _ram+wm_PlayerSlopePose(a4),d1
+        bne.s   .p3
+        moveq   #$1c,d1
+.p2:    move.b  d1,_ram+wm_PlayerSlopePose(a4)
+.p3:    lea     _rom00+(DATA_00E4B9-ROM00_BASE)(a4),a1
+        move.b  (a1,d3.w),d1                ; x
+        move.b  d1,_ram+wm_OnSlopeTypeB(a4)
+        cmp.b   #$1c,d3
+        bhs.s   .ef38
+        move.b  _ram+wm_MarioSpeedX(a4),d2
+        beq.s   .ef31
+        move.b  (a0,d3.w),d0
+        beq.s   .ef31
+        eor.b   d2,d0
+        bpl.s   .ef31
+        move.b  d1,_ram+wm_PlayerFrameIndex(a4)
+        move.b  d2,d0
+        bpl.s   .ab
+        neg.b   d0
+.ab:    cmp.b   #$28,d0
+        blo.s   .y20
+        lea     _rom00+(DATA_00E4FB-ROM00_BASE)(a4),a1
+        move.b  (a1,d3.w),d0
+        bra.s   .ef60
+.y20:   moveq   #$20,d3                     ; CODE_00EF2F
+.ef31:  lea     _rom00+(DATA_00E4DA-ROM00_BASE)(a4),a1
+        move.b  _ram+wm_MarioSpeedY(a4),d0
+        cmp.b   (a1,d3.w),d0
+        blo.s   .ef3b
+        bra.s   .ef39
+.ef38:  lea     _rom00+(DATA_00E4DA-ROM00_BASE)(a4),a1
+.ef39:  move.b  (a1,d3.w),d0
+.ef3b:  tst.b   _ram+wm_8E(a4)
+        bpl.s   .ef60
+        MCUNS   MARIO_UNSUP_LAYER
+        rts
+.ef60:  move.b  d0,_ram+wm_MarioSpeedY(a4)
+        bpl.s   .g
+        addq.b  #1,_ram+wm_IsOnGround(a4)
+.g:     clr.b   _ram+wm_FollowCage(a4)
+        clr.b   _ram+wm_IsFlying(a4)
+        clr.b   _ram+wm_IsClimbing(a4)
+        clr.b   _ram+wm_BouncingWithYoshi(a4)
+        clr.b   _ram+wm_IsSpinJump(a4)
+        or.b    #$04,_ram+wm_MarioObjStatus(a4)
+        move.b  _ram+wm_CapeGlidePhase(a4),d1
+        beq.s   .ny
+        clr.b   _ram+wm_SprChainStomped(a4) ; CODE_00EF99
+        clr.b   _ram+wm_CapeGlidePhase(a4)
+        cmp.b   #5,d1
+        blo.s   .cp
+        tst.b   _ram+wm_8F(a4)
+        beq.s   .r
+        or.b    #1,_mario_events+2(a4)      ; MEV_POUND
+        rts
+.cp:    cmp.b   #2,_ram+wm_MarioPowerUp(a4)
+        bne.s   .r
+        move.b  _ram+wm_PlayerSlopePose(a4),d0
+        lsr.b   #1,d0
+        or.b    #$80,d0
+        move.b  d0,_ram+wm_PlayerSlopePose(a4)
+        rts
+.ny:    tst.b   _ram+wm_OnYoshi(a4)
+        beq.s   .s
+        tst.b   _ram+wm_8F(a4)
+        beq.s   .s
+        tst.b   _ram+wm_YoshiHasStomp(a4)
+        beq.s   .s
+        or.b    #1,_mario_events+2(a4)      ; MEV_POUND
+.s:     clr.b   _ram+wm_SprChainStomped(a4)
+.r:     rts
+
+;----------------------------------------------------------------------
+; --- mc_efbc --- (mcoll.c: cintas transportadoras)
+; entrada:  mc_efcd: d0 = x (indice de 16 bits de las tablas)
+; salida:   como el C
+; registros destruidos: d0-d2/a0
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_efbc:
+        move.b  _ram+wm_Map16NumLo(a4),d0
+        sub.b   #$ce,d0
+        cmp.b   #4,d0
+        bhs.s   .r
+        addq.b  #2,d0
+        add.b   d0,d0                       ; (x - $CC) << 1
+        bra.s   mc_efcd
+.r:     rts
+;----------------------------------------------------------------------
+; --- mc_efcd ---
+; entrada:  d0 = x (indice de las tablas)
+; salida:   como efcd
+; registros destruidos: d0-d2/a0
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mc_efcd:
+        moveq   #3,d1
+        and.b   _ram+wm_FrameA(a4),d1
+        bne.s   .r
+        and.w   #$ff,d0
+        lea     _rom00+(DATA_00E913-ROM00_BASE)(a4),a0
+        move.b  1(a0,d0.w),d1               ; P40 ok
+        lsl.w   #8,d1
+        move.b  (a0,d0.w),d1
+        move.w  _ram+wm_MarioXPos(a4),d2
+        ror.w   #8,d2
+        add.w   d1,d2
+        ror.w   #8,d2
+        move.w  d2,_ram+wm_MarioXPos(a4)
+        lea     _rom00+(DATA_00E91F-ROM00_BASE)(a4),a0
+        move.b  1(a0,d0.w),d1               ; P40 ok
+        lsl.w   #8,d1
+        move.b  (a0,d0.w),d1
+        move.w  _ram+wm_MarioYPos(a4),d2
+        ror.w   #8,d2
+        add.w   d1,d2
+        ror.w   #8,d2
+        move.w  d2,_ram+wm_MarioYPos(a4)
+.r:     rts
