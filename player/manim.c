@@ -510,13 +510,24 @@ void sprites_all(void)
    CODE_02A751 al cargar el nivel (sprite_level_start + una pasada de
    CODE_01808C, que inicializa los sprites creados) y la parte de sprites
    de ese primer frame (las ranuras y el cargador), que el estado grabado
-   ya trae hecha para Mario. */
+   ya trae hecha para Mario.
+   -DLSS_SNESORC (L-DER, 2026-10-10), solo para verificar contra trazas de
+   snesorc: su replay_hook copia de la grabacion dp y $13C0-$14FF, y las
+   tablas de sprites ($1500+) quedan las de su propia emulacion, que llega
+   al primer frame con UNA pasada mas (el Koopa deslizante: $1540 = 4 al
+   iniciarse, 2 al terminar el primer frame; en la grabacion de yi1 y en
+   el vivo, 3). Sin ella, en esas trazas el Koopa caia 1 px atras. */
 void level_start_sprites(void)
 {
     mcoll_init();
     sprite_level_start();
     sprites_begin();                        /* CODE_02A751 -> CODE_01808C */
     sprites_all();
+#ifdef LSS_SNESORC
+    sprites_begin();                        /* la pasada de mas de snesorc */
+    sprites_all();
+    sprite_load_level();
+#endif
     sprites_begin();                        /* el primer frame */
     sprites_all();
     sprite_load_level();

@@ -118,6 +118,7 @@
 | `informe-g9-1010.md` | 2026-10-10 | G9: dibujo exacto contra la SNES (10 capturas); deriva de lógica medida |
 | `informe-sw1-1010.md` | 2026-10-10 | SW1: pantalla entera contra la SNES, una foto por segundo (yi1, 126 fotos); 9 clases de diferencias, 7 nuevas |
 | `instrucciones-l-der.md` | 2026-10-10 | L-DER: la deriva de la lógica de sprites contra la SNES |
+| `informe-l-der-1010.md` | 2026-10-10 | L-DER cerrada: la deriva era el replay (P130); `--logic` OK en 10 trazas |
 | `instrucciones-sw-a.md` | 2026-10-10 | SW-A: tiles animados de la capa 1 (los postes del punto medio) |
 | `instrucciones-sw-p.md` | 2026-10-10 | SW-P: prioridad sprite/capa 1 por franja (la piraña) |
 | `instrucciones-sw-m.md` | 2026-10-10 | SW-M: la animación de paleta de la moneda de Yoshi |

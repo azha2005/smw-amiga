@@ -1255,3 +1255,42 @@ de Exec/trackdisk, con la cola CPU de `yi1_s.dat` todavía en chip.
 vivo arranca con BM1). Un build con flags explícitos tiene que repetir lo
 que el perfil por defecto agrega; comparar su `memmap` con el de
 `work/live`.
+
+**P130 — El replay saltaba el frame en que se bloquea el juego, y la deriva de la lógica venía de ahí (L-DER).**
+
+**Síntoma:** G9 veía Rex corridos 1-3 px u "otra pose" durante cientos de
+fotos (yi1 desde f7552/f7601, stress_piranha, chuck), y `lder.py` mostraba
+la RAM de la ranura de un frame atrás para siempre.
+
+**Causa:** el estado del oráculo es el de DESPUÉS del frame.
+`m68kverify.py` marcaba SKIP todo frame con `$71` o `$9D` distinto de 0,
+incluido el primero: el que la SNES corrió entero y en el que el Rex tocó
+a Mario (movimiento, `$154C = 8`, `HurtMario`). El SYNC de después no toca
+las tablas de los sprites (son del port), así que esa diferencia quedaba.
+Además, encoger, crecer, la flor y morir (`$71` = 1, 2, 4, 9) ya están
+portados (manim.c, P8) y se saltaban igual.
+
+**Arreglo:** `--lock run` (por defecto; `REPLAY_LOCK=skip|first|run`):
+corre el primer frame bloqueado siempre y los siguientes si la animación
+está portada. yi1 pasa de 2 SYNC + 129 SKIP a 0 SYNC + 32 SKIP (solo la
+tubería final, `$71` = 6), y el tramo continuo de 3824 a 6183 frames.
+
+**Otras dos cosas que parecían deriva y no lo eran:**
+- **El Koopa deslizante cae 1 px atrás en las trazas de snesorc**: su
+  `replay_hook` copia de la grabación solo dp y `$13C0-$14FF`; las tablas
+  de sprites (`$1500+`) son las de su propia emulación, que llega con una
+  pasada más (`$1540` = 2 al terminar el primer frame; en la grabación de
+  yi1 y en el vivo, 3). Para verificar esas trazas:
+  `XCDEFS=-DLSS_SNESORC tools/bm_build.sh`. El juego no cambia.
+- **`poke` del guion (P101)**: la estrella de `pw_estrella` aparecía en el
+  port 9 frames tarde, en la primera resincronización por Mario. Ahora
+  `$1490` está en `FIELDS` y se resincroniza en el frame del poke.
+- **Comparador**: la ficha fija `$0C` de Mario (8×8, al derrapar) no es
+  dinámica; `sprshot_cmp.py` la descartaba en la SNES y contaba al port
+  como distinto. Ahora cada ficha del port tiene que estar en la OAM
+  grabada.
+
+**Cómo evitarlo:** para una diferencia de lógica, `tools/lder.py --key f`
+(el port en la clave f contra el despacho de f; `mejor` puede esconder un
+frame de atraso). Antes de corregir un sprite, mirar qué op del replay
+cae en el primer frame distinto.

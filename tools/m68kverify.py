@@ -122,8 +122,13 @@ FIELDS = [
     ("MarioFrame $13E0", 0x13E0, 1), ("WalkPose $13DB", 0x13DB, 1),
     ("AnimTimer $1496", 0x1496, 1), ("CapeImage $13DF", 0x13DF, 1),
     ("CapeWave $14A2", 0x14A2, 1), ("FrameIndex $13E5", 0x13E5, 1),
+    # L-DER: la estrella; un `poke` del guion de snesorc (P101, pw_estrella)
+    # se resincroniza en el frame en que aparece, no cuando Mario ya difiere
+    ("StarTimer $1490", 0x1490, 1),
 ]
 ANIM, LOCKED, ONGROUND_SPR = 0x71, 0x9D, 0x1471
+# animaciones de Mario portadas (manim.c, P8): encoger, crecer, flor, morir
+PORTED_ANIM = (0, 1, 2, 4, 9)
 
 
 def symbols(lst):
@@ -165,6 +170,12 @@ def main():
                     help="loop: ram[] entera antes de cada --dumpstep level_frame, seguidas "
                          "(las semillas de tools/fuzzcall.py --seedram)")
     ap.add_argument("--dumpstep", type=int, default=4)
+    ap.add_argument("--lock", choices=("skip", "first", "run"),
+                    default=os.environ.get("REPLAY_LOCK", "run"),
+                    help="frames con Mario en animacion o el juego bloqueado ($71/$9D): "
+                         "(por defecto run, L-DER 2026-10-10) skip = nada (SKIP); first = correr el primero, el que los pone "
+                         "(el SNES lo corrio entero: contacto, temporizadores; L-DER); "
+                         "run = correrlos todos si la animacion esta portada (1, 2, 4, 9)")
     ap.add_argument("--odd", action="store_true",
                     help="Unicorn: listar los accesos .w/.l a direcciones impares (en el 68000, "
                          "Guru 3); sale con 1 si hay alguno")
@@ -448,12 +459,20 @@ def run_loop(a, cpu, call, rec, orc, n, RAM, MAP, map0, syms):
                 sprinit = cpu.read(RAM + 0x1938, 128)
                 seglvl = lvl
             synced = False
-        if orc(r, ANIM) or orc(r, LOCKED):
+        locked = orc(r, ANIM) or orc(r, LOCKED)
+        # L-DER: el estado del oraculo es el de DESPUES del frame. El primer
+        # frame bloqueado lo corrio el SNES entero (el Rex se movio, el
+        # contacto puso $154C y llamo a HurtMario); con SKIP los sprites del
+        # port quedaban un frame atras para siempre (SYNC no los toca).
+        # Con "run", ademas, los que siguen si la animacion esta portada
+        # (Mario sigue en sincronia: se compara al terminar el bloqueo)
+        run_locked = locked and spr is not None and synced and a.lock != "skip"
+        if locked and not run_locked:
             synced = False
             if inseg:
                 ops.append((REP_SKIP, r[2][0x15:0x19]))
             continue
-        if not synced:
+        if not synced and not run_locked:
             sync(r, cpu.read(RAM, 0x2000))
             synced = True
             longest = max(longest, cur)
@@ -479,6 +498,11 @@ def run_loop(a, cpu, call, rec, orc, n, RAM, MAP, map0, syms):
             print("estado del frame %d guardado (work/cc/worst_*.bin); level_frame: %d ciclos"
                   % (r[0], costs[-1][0]))
         frames += 1
+        if run_locked:
+            synced = a.lock == "run" and orc(r, ANIM) in PORTED_ANIM
+            if inseg:
+                ops.append((REP_RUN, r[2][0x15:0x19]))
+            continue
         ram = cpu.read(RAM, 0x2000)
         ok = all(bytes(ram[adr:adr + w]) == bytes(orc(r, adr + t) for t in range(w))
                  for _, adr, w in FIELDS + LOOP_FIELDS)

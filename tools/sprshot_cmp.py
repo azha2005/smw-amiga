@@ -291,13 +291,19 @@ def run_logic(a):
             mw = [(x, y, tl, at) for x, y, tl, at, hi in recorded
                   if not ((at >> 1) & 7 or at & 1 or tl not in dyn or y == 0xF0)][:4]
             mp = [tuple(ph['moam'][4 * i:4 * i + 4]) for i in range(4) if ph['moam'][4 * i + 1] != 0xF0]
+            # L-DER: las fichas fijas de Mario (la $0C de 8x8 al derrapar) no
+            # son dinamicas y el filtro de arriba las descarta en la SNES;
+            # cada ficha del port tiene que estar en la OAM grabada y cada
+            # dinamica de la SNES en la del port
+            allrec = {(x, y, tl, at) for x, y, tl, at, hi in recorded}
+            mok = set(mw) <= set(mp) and all(e in allrec for e in mp)
             st['Mario']['snes'] += 1
-            st['Mario']['igual' if sorted(mw) == sorted(mp) else 'distinto'] += 1
-            if sorted(mw) != sorted(mp) and len(ejemplos['Mario']) < 6:
-                ejemplos['Mario'].append(dict(k=k, f=f, snes=sorted(mw)[:2], port=sorted(mp)[:2]))
+            st['Mario']['igual' if mok else 'distinto'] += 1
+            if not mok and len(ejemplos['Mario']) < 6:
+                ejemplos['Mario'].append(dict(k=k, f=f, snes=sorted(mw), port=sorted(mp)))
         # foto en sincronía: Mario igual a la SNES. Si no (SKIP/SYNC del
         # replay: el port repite la foto anterior), los objetos no se cuentan
-        if not allf or sorted(mw) != sorted(mp):
+        if not allf or not mok:
             st['?']['fotos_desincronizadas'] += 1
             desinc.append(k)
             snes = []

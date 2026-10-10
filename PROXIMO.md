@@ -1,37 +1,32 @@
 # PRÓXIMO — lo que sigue
 
-2026-10-10, noche. **Las tarjetas de SW1 abandonadas por el límite de uso
-están retomadas e integradas a master** (sin push). Cada una se mezcló con
-master, se repitieron lint, la regresión completa y memmap, y se midió
-D1 en WinUAE donde hacía falta.
+2026-10-10, noche. **Las cuatro opciones de SW1 están activadas por defecto**
+(usuario: "la idea es 1:1, después vemos cómo optimizar"; costes en la base
+de la regresión y en P129). **SW-D cerrada sin cambio. L-DER cerrada: la
+deriva de la lógica venía del replay, no del 68000** (P130,
+`docs/informe-l-der-1010.md`): `sprshot_cmp.py --logic` da OK en las 10
+trazas con oamb.
 
 | tarjeta | estado | por defecto | informe |
 |---|---|---|---|
-| SW-Q | integrada: `$83` (con alas y usado) y power-ups en OAM/G5L; capturas 1199/1249/1299 a 0 px | **activa** | `docs/informe-sw-q-recuperacion-1010.md` |
-| SW-A | hecha: postes del punto medio, VRAM exacta (42/42), fase 0 congelada | opcional, `SW_ANIM_POSTS=0` | `docs/informe-sw-ap-1010.md` |
-| SW-P | hecha: piraña detrás de la tubería; SW1: sus 8 fotos a 0 px | opcional, `-DG5L_PRIORITY` | `docs/informe-sw-ap-1010.md` |
-| SW-M | hecha: la moneda de Yoshi, 8 pasos; SW1: 13 fotos mejores, 0 peores | opcional, `-DCOINANIM` | `docs/informe-sw-m-retoma-1010.md` |
-| SW-B | hecha: bloques rotos/usados en pantalla; 33/33 exactos | opcional, `SW_TILES=1` | `docs/informe-sw-b-1010.md` |
-| SW-D | investigada: los píxeles BG1 son derrames del asignador; sin arreglo | — | `docs/informe-sw-d-retoma-1010.md` |
-| SW-S | no empezada | — | `docs/instrucciones-sw-s.md` |
+| SW-Q | integrada | activa | `docs/informe-sw-q-recuperacion-1010.md` |
+| SW-A, SW-P, SW-M, SW-B | hechas | **activas** (`SW_ANIM_POSTS=off`, `-DG5L_NOPRIORITY`, `-DCOINCONTROL`, `SW_TILES=0` las apagan) | `docs/informe-sw-ap-1010.md`, `-sw-m-retoma-`, `-sw-b-` |
+| SW-D | cerrada, sin cambio (límite de 7 registros de PF1) | — | `docs/informe-sw-d-retoma-1010.md` |
+| L-DER | **cerrada**: replay `--lock run`, `$1490` en `FIELDS`, `-DLSS_SNESORC` para verificar snesorc, comparador de Mario | replay `run` | `docs/informe-l-der-1010.md` |
+| SW-S | **siguiente** | — | `docs/instrucciones-sw-s.md` |
 
-**Por qué cuatro opcionales:** las cuatro mejoran la imagen y las cuatro
-cuestan frame; sus puertas de D1 piden "dentro del ruido" y no lo están
-(costes en §2). Activarlas es decisión del usuario. Con los defaults el
-juego es el de antes más SW-Q.
-
-**D1 sigue roja** (normal BENCH 103/6312 en el control de SW-M; back,
-sprites y hills2 como en la tanda anterior). 50 Hz y colchón aceptados.
+**D1 sigue roja**, y más con las cuatro opciones (BENCH: SW-P 113 → 124,
+SW-M 103 → 148 fotos perdidas). 50 Hz y colchón aceptados; optimizar
+después.
 
 ## 1. La próxima sesión, en orden
 
 | tarjeta | responsable | ficheros / puerta | instrucciones |
 |---|---|---|---|
-| **L-DER** | coordinador; **siguiente** | la deriva de la lógica de sprites en el 68000 (Rex yi1 70 %, piraña 74 %). Incluye el Rex 3770 de `pw_flor` que deja roja la puerta global de SW-Q. Puerta: `sprshot_cmp.py --logic` ≥ 99 % por tipo en yi1, stress_piranha, chuck y hills2; regresión; A/B si cambia la CPU | `docs/instrucciones-l-der.md` |
-| SW-S | después de L-DER | puntos, estrellas, humo y trozos: primero el volcado de RAM de los tres motores (`snesorc --ram`, ya existe), después la lógica en asm. El dibujo por G5L compite con los enemigos: decisión del usuario o esperar G7 | `docs/instrucciones-sw-s.md` |
-| SW-Q, resto | cuando haya grabaciones | una estrella real y flor/1-UP con más de una foto; A/B BENCH (`work/swq_*_yi1_oam`, en el worktree); SW1 k 1199-1449 | `docs/informe-sw-q-recuperacion-1010.md` §"Qué sigue" |
-| SW-B, resto | si se activa | barrida de `turn_block` con `HOLDEVERY=10` y A/B BENCH en WinUAE | `docs/informe-sw-b-1010.md` §"Continuación" |
-| SW-D, arreglo | si se decide | reasignar los registros de PF1 sin desplazar el error (`mkscroll`/`dpfsplit`); también reduciría el derrame de SW-A | `docs/informe-sw-d-retoma-1010.md` |
+| **SW-S** | coordinador; **siguiente** | puntos, estrellas, humo y trozos: primero el volcado de RAM de los tres motores (`snesorc --ram`, ya existe), después la lógica en asm. Por la directiva 1:1, activa por defecto si pasa; el dibujo por G5L compite con los enemigos (o esperar G7) | `docs/instrucciones-sw-s.md` |
+| D1, optimizar | después de SW-S | con todo activado: `build_mid.max` 95 756, `total.max` 126 958; SW-P y SW-M en el BENCH. Primero lo que más pesa (perfil de los tramos tarde, P115) | `docs/plan-tecnico.md` |
+| SW-Q, resto | cuando haya grabaciones | una estrella real y flor/1-UP con más de una foto; A/B BENCH; el Rex 3770 de `pw_flor` probablemente era P130 (la flor es una animación que el replay saltaba; sin traza oamb, no verificado) | `docs/informe-sw-q-recuperacion-1010.md` §"Qué sigue" |
+| SW-B, resto | — | barrida de `turn_block` con `HOLDEVERY=10` y A/B BENCH en WinUAE | `docs/informe-sw-b-1010.md` §"Continuación" |
 | G4-3 | aparcada | Rex en los pares de Mario | `docs/instrucciones-g4-3.md` |
 
 Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
@@ -46,34 +41,16 @@ regenerar `shapes.json` como dice el informe de SW-Q (`g4a.py traceall
 
 ## 2. Pendiente del usuario
 
-- **Qué opciones de SW1 activar.** Costes medidos:
-
-  | opción | arregla | cuesta |
-  |---|---|---|
-  | SW-P `-DG5L_PRIORITY` | la piraña detrás de la tubería (8 fotos de SW1) | BENCH 113 → 124 fotos perdidas |
-  | SW-M `-DCOINANIM` | el color de la moneda de Yoshi (13 fotos) | BENCH 103 → 148 fotos perdidas |
-  | SW-A `SW_ANIM_POSTS=0` | los postes visibles (9 fotos; quedan las rayas, que giran) | `build_mid.max` 81 244 → 93 746 ciclos; 1-4 px de derrame |
-  | SW-B `SW_TILES=1` | bloques rotos y usados en pantalla | `build_mid.max` +836 ciclos; falta medirla en WinUAE |
-
-  Propuesta: SW-P (lo que más se ve, el coste más chico). Para probarlas
-  todas juntas en la Amiga: `work/live_fid/game.adf` (vivo, BM1, A501;
-  arranca a 49,9 FPS en WinUAE; chip con 42 KB de margen, slow con 10 KB).
-  Se arma así (y después regenerar los datos sin las variables):
-
-  ```
-  for s in mkbg mkd8in mkleveld; do SW_ANIM_POSTS=0 python tools/$s.py; done
-  SW_ANIM_POSTS=0 SW_TILES=1 python tools/mkscroll.py --g5
-  GDEFS='-DG5L_PRIORITY -DCOINANIM' OUT=work/live_fid sh tools/game_build.sh
-  ```
+- Para probar en la Amiga el vivo con todo: `GDEFS=" " OUT=work/live sh
+  tools/game_build.sh` → `work/live/game.adf` (BM1, A501; chip con 42 KB
+  de margen, slow con 10 KB).
 - **La regla de prioridad** (qué objetos se dibujan cuando no entran
   todos): hoy, de arriba abajo, hasta 2. Con SW-Q compiten también el
   bloque volador y los power-ups (en k 1299 la seta deja fuera el
   bloque). Alternativas: el más cercano a Mario, enemigos antes que la
   caja y la cinta, mantener la elección de la foto anterior. El arreglo
   de fondo es la cola de bobs (G7).
-- Probar en la Amiga real el ADF del vivo por defecto: `GDEFS=" "
-  OUT=work/live sh tools/game_build.sh` → `work/live/game.adf` (A500 con
-  A501). Sin input, el Koopa mata a Mario hasta el game over, que no está
+- En el vivo por defecto, sin input, el Koopa mata a Mario hasta el game over, que no está
   portado (congela; GameMode `$15`).
 - **Worktrees:** los de SW (`wt-sw-ap-1010`, `wt-sw-b-1010`,
   `wt-sw-qs-1010`) y `wt-p123-1010` ya están integrados; se pueden borrar.
