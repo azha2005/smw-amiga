@@ -81,7 +81,9 @@
 | `informe-g5l-r-t2-1009.md` | 2026-10-09 | T2: los saltos son atraso acumulado; camino lento de G5L + picos de `build_mid`; propuesta G5L-R-P |
 | `instrucciones-g5l-r-pa.md` | 2026-10-09 | Medida offline: ¿el plan de G5L se reutiliza corrido a otra altura? (hecha) |
 | `informe-g5l-r-pa-1009.md` | 2026-10-09 | Pa: el plan corrido no se reutiliza (puerta no cumplida); reparto del coste y palancas |
-| `instrucciones-g5l-r-q.md` | 2026-10-09 | Medida: histograma por PC y recortes posibles en G5L y `build_mid` (pendiente de autorización) |
+| `instrucciones-g5l-r-q.md` | 2026-10-09 | Medida: histograma por PC y recortes posibles en G5L y `build_mid` (hecha) |
+| `informe-g5l-r-q-1009.md` | 2026-10-09 | Q: perfil por PC plano; reescrituras concretas −8 %; qué metas son alcanzables |
+| `instrucciones-g5l-r-r1.md` | 2026-10-09 | Reescrituras concretas del render G5L y primera medida en WinUAE (pendiente de autorización) |
 | `instrucciones-g2t-cpre.md` | 2026-10-08 | G2T-Cpre: emisor `g5_emit` y capturas WinUAE (0/57 344 px) con el plan precalculado en el replay, antes de terminar B |
 | `instrucciones-revision-1007.md` | 2026-10-07 | revisión propuesta tras las dos paradas: diagnóstico de coste OAM y contrato temporal, antes de nueva implementación |
 | `informe-revision-loam-1007.md` | 2026-10-07 | revisión L-OAM: coste de OAM por función en YI1 y estrés (Musashi y WinUAE), por qué el estrés sale peor, y una tarjeta (ruta de la piraña en asm) |

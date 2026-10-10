@@ -50,6 +50,13 @@
 
 ## 1. Estado por etapa (al 2026-10-09)
 
+**G5L-R-Q (2026-10-09 noche, rama g2t-b2bis, solo medida):** histograma
+por PC en Musashi (`g5l.py game --pcprof`, totales idénticos en 6313
+fotos). Render G5L plano (máx. bucle 5,1 % en las ventanas); `build_mid` en
+las ventanas 84 % `bm_left`. Reescrituras concretas: −8 % render, −8 %
+`build_mid` (ESTIMADO) → modelo 14-16 saltos (10-11 con S5). ≤ 5 pide −10 %
+general más S5, o el patch por blitter. `docs/informe-g5l-r-q-1009.md`.
+
 **G5L-R-Pa (2026-10-09 noche, rama g2t-b2bis, solo medida):** reutilizar
 el plan de G5L corrido no sirve: sin `R0` es igual al 100 % pero acierta 0
 con N = 4; sin `R0`/`MSH`, 8 % de iguales (`pa_shift.py`). Un fallo cuesta
@@ -264,6 +271,11 @@ cambiable en un solo lugar (una tabla).
 
 ## 4. Olas y sesiones (revisado el 2026-10-09)
 
+2026-10-09 (noche, Q): R1 (1 sesión) da la primera medida real del
+recorte; llegar a ≤ 5 saltos estimado en 3-5 sesiones más con resultado
+incierto (S5, ajuste general, blitter). Restante: **10-13**, más ese
+riesgo en D1.
+
 2026-10-09 (noche, Pa): la vía de la caché queda descartada. Quedan Q
 (media sesión, medida) y después recortes de asm en G5L + S5 (2-4
 sesiones, ESTIMADO, según lo que diga Q). Restante sin cambios:
@@ -379,6 +391,10 @@ O5 es el modo por defecto (`-DNODECOUPLE` = bucle viejo); si cambia
 ---
 
 ## 7. Cierre de sesión (obligatorio)
+
+2026-10-09 (noche, 4): G5L-R-Q hecha (autorizada). Archivado PROXIMO;
+nueva tarjeta G5L-R-R1 pendiente de autorización
+(`docs/instrucciones-g5l-r-r1.md`).
 
 2026-10-09 (noche, 3): G5L-R-Pa hecha (autorizada; puerta no cumplida).
 Archivado PROXIMO; nueva tarjeta G5L-R-Q pendiente de autorización

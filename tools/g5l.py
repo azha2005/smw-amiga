@@ -1199,6 +1199,31 @@ class GameRun:
         return self.B + self.s[n]
 
 
+def step_call(fr, G, V, adr, a4, hist):
+    """Q: como Frames.call sin regiones, pero instrucción por instrucción
+    (execute(1)); acumula {pc: [veces, ciclos]} y devuelve los ciclos"""
+    R, cpu, mem, m = fr.M.Register, fr.cpu.cpu, fr.mem, fr.cpu.m
+    cpu.w_reg(R.A3, G.DATA)
+    cpu.w_reg(R.A4, a4)
+    cpu.w_reg(R.A5, fr.vars)
+    cpu.w_reg(R.A7, V.STACK - 4)
+    mem.w32(V.STACK - 4, V.RET)
+    cpu.w_pc(adr)
+    tot = 0
+    while True:
+        pc = cpu.r_pc()
+        if pc == V.RET:
+            return tot
+        c = m.execute(1).cycles
+        e = hist.get(pc)
+        if e:
+            e[0] += 1
+            e[1] += c
+        else:
+            hist[pc] = [1, c]
+        tot += c
+
+
 def run_game(a):
     gr = GameRun(a.bin, a.lst, a.bank)
     G, s, cpu, mem, fr, addr = gr.G, gr.s, gr.cpu, gr.mem, gr.fr, gr.addr
@@ -1216,6 +1241,7 @@ def run_game(a):
     last_key = None
     keys = []
     logic = 0
+    pcprof = {'build_mid': {}, 'render': {}}   # Q: {k: {offset: [veces, ciclos]}}
     for k in range(min(gr.n, nlim)):
         if k:
             cap = fr.call(addr('dc_cop'), G.FAKE, 'x', {addr('g5l_capture'): 'cap'})
@@ -1227,7 +1253,13 @@ def run_game(a):
         mem.w16(fr.vars + s['V_S'], mem.r16(rec + s['R_S']))
         pre = {}                                # T2: coste del render previo, por foto
         for n in ('columns', 'apply_colors', 'set_pointers', 'build_mid'):
-            pre[n] = sum(fr.call(addr(n), G.FAKE).values())
+            if a.pcprof and n == 'build_mid':
+                h_ = {}
+                pre[n] = step_call(fr, G, gr.V, addr(n), G.FAKE, h_)
+                if pre[n] > 10000:
+                    pcprof[n][k] = {'%x' % (pc_ - gr.B): v_ for pc_, v_ in h_.items()}
+            else:
+                pre[n] = sum(fr.call(addr(n), G.FAKE).values())
         back = mem.r32(fr.vars + s['V_BACK'])
         size = s['CL_SIZE']
         snap = bytearray(cpu.read(back, size))
@@ -1248,7 +1280,13 @@ def run_game(a):
         for r_, v_ in poison.items():
             cpu.cpu.w_reg(r_, v_)
         cpu.cpu.w_reg(R.A0, rec)
-        parts = fr.call(addr('g5l_render'), G.FAKE, 'render', regions)
+        if a.pcprof:
+            h_ = {}
+            parts = {'render': step_call(fr, G, gr.V, addr('g5l_render'), G.FAKE, h_)}
+            if parts['render'] > 3000:
+                pcprof['render'][k] = {'%x' % (pc_ - gr.B): v_ for pc_, v_ in h_.items()}
+        else:
+            parts = fr.call(addr('g5l_render'), G.FAKE, 'render', regions)
         c = sum(parts.values())
         for kk, vv in parts.items():
             pp = prof.setdefault(kk, [0, 0, 0])
@@ -1327,6 +1365,13 @@ def run_game(a):
                captura_max=max(caps) if caps else 0,
                captura_media=round(sum(caps) / max(1, len(caps)), 1),
                partes={kk: dict(media=round(v[0] / v[2]), max=v[1], n=v[2]) for kk, v in prof.items()})
+    if a.pcprof:                                # Q: no pisa la corrida normal
+        pcprof['tot'] = {x['k']: [x['c'], x['pre']['build_mid']] for x in frames}
+        Path(a.pcprof).write_text(json.dumps(pcprof), encoding='utf-8')
+        print(json.dumps(dict(st), sort_keys=True))
+        ok = not st['distintas'] and not st['abi'] and not st['restos'] and not st['sin_plan'] and not st['bufer_distinto']
+        print('G5L GAME (pcprof): ' + ('OK' if ok else 'FALLA'))
+        return 0 if ok else 1
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / 'game_summary.json').write_text(json.dumps(res, indent=2), encoding='utf-8')
     (OUT / 'game_cycles.json').write_text(json.dumps(cycles), encoding='utf-8')
@@ -1473,6 +1518,7 @@ def main():
     g.add_argument('--lst', default='work/g5l/rep/game.lst')
     g.add_argument('--bank', default='work/g3/bank')
     g.add_argument('--frames', type=int, default=0)
+    g.add_argument('--pcprof', help='Q: histograma por PC de g5l_render y build_mid (json)')
     h = sub.add_parser('shot')
     h.add_argument('--bin', default='work/g5l/rep/game.bin')
     h.add_argument('--lst', default='work/g5l/rep/game.lst')
