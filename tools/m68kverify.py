@@ -34,7 +34,7 @@ PAL_FRAME = PAL_CPU_HZ / 50.0           # ciclos de CPU por frame a 50 Hz
 
 
 class UnicornCPU:
-    def __init__(self, count):
+    def __init__(self, count, odd=False):
         from unicorn import Uc, UC_ARCH_M68K, UC_MODE_BIG_ENDIAN, UC_HOOK_CODE
         from unicorn.m68k_const import UC_CPU_M68K_M68000, UC_M68K_REG_A4, UC_M68K_REG_A7
         self.A4, self.A7 = UC_M68K_REG_A4, UC_M68K_REG_A7
@@ -45,9 +45,23 @@ class UnicornCPU:
         self.n = 0
         if count:
             self.uc.hook_add(UC_HOOK_CODE, self._hook)
+        # --odd: el 68000 da error de direccion (Guru 3) con .w/.l en una
+        # direccion impar; Unicorn y Musashi lo aceptan sin avisar
+        self.odd = {}
+        if odd:
+            from unicorn import UC_HOOK_MEM_READ, UC_HOOK_MEM_WRITE
+            from unicorn.m68k_const import UC_M68K_REG_PC
+            self.PC = UC_M68K_REG_PC
+            self.uc.hook_add(UC_HOOK_MEM_READ | UC_HOOK_MEM_WRITE, self._odd)
 
     def _hook(self, u, addr, size, ud):
         self.n += 1
+
+    def _odd(self, u, access, addr, size, value, ud):
+        if size > 1 and addr & 1:
+            k = (u.reg_read(self.PC), size)
+            if k not in self.odd:
+                self.odd[k] = addr
 
     def write(self, adr, data):
         self.uc.mem_write(adr, bytes(data))
@@ -151,6 +165,9 @@ def main():
                     help="loop: ram[] entera antes de cada --dumpstep level_frame, seguidas "
                          "(las semillas de tools/fuzzcall.py --seedram)")
     ap.add_argument("--dumpstep", type=int, default=4)
+    ap.add_argument("--odd", action="store_true",
+                    help="Unicorn: listar los accesos .w/.l a direcciones impares (en el 68000, "
+                         "Guru 3); sale con 1 si hay alguno")
     ap.add_argument("--show", default="",
                     help="loop: imprimir los ciclos de cada frame en este rango (F0-F1)")
     ap.add_argument("--spr", default=os.path.join(HERE, "..", "..", "smw-src-master", "project",
@@ -170,7 +187,9 @@ def main():
     db = open(a.oracle, "rb").read()
     n = len(db) // REC
 
-    cpu = MusashiCPU() if a.engine == "musashi" else UnicornCPU(a.count)
+    if a.odd and a.engine != "unicorn":
+        sys.exit("--odd solo con --engine unicorn")
+    cpu = MusashiCPU() if a.engine == "musashi" else UnicornCPU(a.count, a.odd)
     measure = a.engine == "musashi" or a.count
     unit = "ciclos 68000 (sin DMA)" if a.engine == "musashi" else "instrucciones 68000"
     cpu.write(BASE, code)
@@ -501,6 +520,22 @@ def run_loop(a, cpu, call, rec, orc, n, RAM, MAP, map0, syms):
               " = media %.1f %%, max %.1f %% de un frame PAL"
               % (mean, c[int(len(c) * 0.99)], worst[0], worst[1],
                  100 * mean / PAL_FRAME, 100 * worst[0] / PAL_FRAME))
+    if a.odd:
+        names = sorted((v, k) for k, v in syms.items())
+        def where(pc):
+            off = pc - BASE
+            best = None
+            for v, k in names:
+                if v > off:
+                    break
+                best = (k, off - v)
+            return "%s+$%X" % best if best else "$%X" % pc
+        for (pcx, sz), adr in sorted(cpu.odd.items()):
+            print("  IMPAR: pc $%X (%s) .%s en $%X" % (pcx - BASE, where(pcx), "?bwlll"[sz]
+                                                       if sz < 6 else sz, adr - BASE))
+        print("accesos .w/.l a direccion impar: %d instrucciones" % len(cpu.odd))
+        if cpu.odd:
+            sys.exit(1)
 
 
 # replay (--replay) para player/game.s -DREPLAY. Lo que hace el lazo cerrado

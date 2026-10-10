@@ -88,6 +88,7 @@
 | `informe-g5l-r-s9-1010.md` | 2026-10-10 | S5 descartado; S9 (compartir líneas entre listas): BENCH 36, VBTRACE 12 |
 | `instrucciones-g5l-r-l.md` | 2026-10-10 | El racimo 3305-3364: lógica, camino lento de G5L, primer pico de `bm_left` |
 | `informe-g5l-r-l1-1010.md` | 2026-10-10 | L paso 1: la lógica por función es plana; qué pide llegar a ≤ 5 omitidas |
+| `informe-g5l-r-l2-1010.md` | 2026-10-10 | L2 lote 1: lógica a asm; YI1 VBTRACE 0 omitidas; estrés rojo; Guru 3 latente (P123) |
 | `instrucciones-g5l-r-l2.md` | 2026-10-10 | Opción A: la lógica en C a asm, por partes (si el usuario la elige) |
 | `instrucciones-g2t-cpre.md` | 2026-10-08 | G2T-Cpre: emisor `g5_emit` y capturas WinUAE (0/57 344 px) con el plan precalculado en el replay, antes de terminar B |
 | `instrucciones-revision-1007.md` | 2026-10-07 | revisión propuesta tras las dos paradas: diagnóstico de coste OAM y contrato temporal, antes de nueva implementación |

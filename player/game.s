@@ -617,6 +617,16 @@ entry:
         move.l  V_COP(a5),COP1LC(a4)
         move.w  #0,COPJMP1(a4)
         move.w  #$83e0,DMACON(a4)           ; MASTER|BPLEN|COPEN|BLTEN|SPREN
+        ifd     ADRTRAP
+        GETBASE a0                          ; (al final del binario: lejos)
+        add.l   #at_g0-binstart,a0          ; bus y direccion: marco del grupo 0
+        move.l  a0,$08.w
+        move.l  a0,$0c.w
+        add.l   #at_g1-at_g0,a0             ; ilegal, line A/F: marco corto
+        move.l  a0,$10.w
+        move.l  a0,$28.w
+        move.l  a0,$2c.w
+        endc
         ifd     BENCH
         bsr     gb_init                     ; timer, calibracion
         ifd     D1TIMER
@@ -3911,6 +3921,49 @@ bm_fixedsig: dc.b "BMFIXED!"
 bm_chipcur: dc.l $1000
 bm_slowcur: dc.l 0
         dc.w    0,0                        ; SR y reserva
+        endc
+
+        ifd     ADRTRAP
+; --- at_g0 / at_g1 --- (-DADRTRAP, diagnostico) excepcion de la CPU con el
+; juego en marcha: guarda el marco, los registros y USP detras de 'ADRTRAP!'
+; (tools/adrtrap.py lo lee de la memoria de WinUAE) y se queda en rojo.
+; En vez de la Guru de Exec, que no dice el PC.
+; entrada:  marco de excepcion del 68000 en la pila de supervisor
+; salida:   no vuelve
+; registros destruidos: todos
+; ciclos:   (no vuelve)
+at_g0:  move.w  #$2700,sr
+        movem.l d0-d7/a0-a7,-(sp)
+        moveq   #0,d1                       ; grupo 0: fc, direccion, IR, SR, PC
+        bra.s   at_save
+at_g1:  move.w  #$2700,sr
+        movem.l d0-d7/a0-a7,-(sp)
+        moveq   #1,d1                       ; grupo 1/2: SR, PC
+at_save:
+        GETBASE a1
+        move.l  a1,d0
+        add.l   #at_sig-binstart,a1
+        move.l  a1,8(a1)                    ; at_self
+        move.l  d0,12(a1)                   ; binstart
+        move.w  d1,16(a1)                   ; tipo de marco
+        lea     64(sp),a0
+        lea     18(a1),a2
+        moveq   #6,d0                       ; 7 palabras del marco (14 B)
+.f:     move.w  (a0)+,(a2)+
+        dbf     d0,.f
+        move.l  sp,a0
+        lea     32(a1),a2
+        moveq   #15,d0                      ; d0-d7/a0-a7 (a7 = SSP tras movem)
+.r:     move.l  (a0)+,(a2)+
+        dbf     d0,.r
+        move.l  usp,a0
+        move.l  a0,96(a1)
+.red:   move.w  #$0f00,$dff180
+        bra.s   .red
+        even
+at_sig: dc.b    'ADRTRAP!'
+        dcb.b   92,0                        ; self, base, tipo, marco, regs, usp
+        cnop    0,4                         ; la copia a la slow RAM va por .l
         endc
 
 binend:

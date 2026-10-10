@@ -1090,3 +1090,23 @@ a ella con `blt bm_left`. Una cabecera nueva en medio la convierte en otra
 rutina y salen errores de pila y de registros "en `build_mid`" que no son
 reales. Las rutinas nuevas van después de `bm_left`. Un `jmp` calculado
 (`jmp .x(pc,d1.w)`) necesita `; lint: targets .x`.
+
+### P123 — Guru 3 en el juego: Exec no da el PC, y los emuladores del PC no fallan
+
+**Síntoma (2026-10-10):** el build BENCH de `stress_back` en el commit
+`e7234ab` (antes de G5L-R-L2) muestra siempre "Guru Meditation
+#00000003.00C01570" en WinUAE; el segundo número es la tarea, no el PC.
+Musashi (`g5l.py game`) y Unicorn (`m68kverify`) no tienen error de
+dirección: un `.w`/`.l` en dirección impar pasa sin avisar.
+
+**Herramientas:** `GDEFS="-DREPLAY -DBENCH -DADRTRAP"` instala vectores
+propios de bus/dirección/ilegal (al final del binario, P102) que guardan
+el marco y los registros tras `ADRTRAP!`; `python tools/adrtrap.py ADF LST
+[s]` corre WinUAE cycle-exact y los traduce. `m68kverify.py --odd`
+(Unicorn) lista los accesos impares de la lógica.
+
+**Caso:** `g5l.s:1248` (`move.w 16(a3,d7.w),d0`, `g5l_render`) con
+`a3 = GV_TAB(a6) = $31FA0031`: algo pisó `GV_TAB`, que va justo detrás de
+`GV_W` (224 × 8 B); candidato: `g5l_wcache` con un segmento ≥ 224. La
+lógica de ese build no hace accesos impares (`--odd`: 0). Abierto: ver
+`docs/informe-g5l-r-l2-1010.md` §4.
