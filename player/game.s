@@ -15,6 +15,10 @@
 ;   -DSTOPF=n: se para despues del frame n del replay (0 = el primero) y
 ;   se queda quieto (para capturar: la pantalla es la de la camara del
 ;   oraculo en el frame primero + n).
+;   -DHOLDEVERY=n (SW1, tools/sweep_cmp.py): cada n frames del replay la
+;   logica se detiene HOLDLEN ticks (como al final del replay: la foto se
+;   repite) y sw_hold dice que frame se ve; el PC la lee de la memoria de
+;   WinUAE y captura mientras tanto.
 ;
 ; En vivo (sin -DREPLAY): teclado + joystick -> $15-$18 como el
 ; ControllerUpdate de SMW (P55) -> level_frame. Cuando el port no puede
@@ -781,6 +785,14 @@ OP_RUNSYNC  equ 3
 OP_LEVEL    equ 4                           ; principio del nivel (levelstart)
 
 game_step:
+        ifd     HOLDEVERY
+        lea     sw_hold(pc),a0              ; SW1: retenido, la foto se repite
+        tst.w   SWH_LEFT(a0)
+        beq.s   .nhold
+        subq.w  #1,SWH_LEFT(a0)
+        rts
+.nhold:
+        endc
         ifd     DIAG
         lea     g_frame(pc),a0              ; frame del replay (0 = el primero)
         addq.l  #1,(a0)
@@ -789,6 +801,19 @@ game_step:
         tst.w   (a0)
         beq     .done                       ; fin del replay: quieto
         subq.w  #1,(a0)
+        ifd     HOLDEVERY
+        lea     sw_hold(pc),a0              ; frames consumidos; cada
+        addq.w  #1,SWH_N(a0)                ; HOLDEVERY, retener despues de
+        subq.w  #1,SWH_CNT(a0)              ; este (k = su indice, 0 = el
+        bne.s   .nh2                        ; primero, como -DSTOPF)
+        move.w  #HOLDEVERY,SWH_CNT(a0)
+        move.w  SWH_N(a0),d0
+        subq.w  #1,d0
+        move.w  d0,SWH_K(a0)
+        move.w  #HOLDLEN,SWH_LEFT(a0)
+        addq.w  #1,SWH_SEQ(a0)
+.nh2:
+        endc
         move.l  g_op(pc),a1
         lea     g_op(pc),a0
         addq.l  #6,(a0)
@@ -908,6 +933,10 @@ levelstart:
 ; vivo solo se usa el primer estado (el del principio de la partida)
 replay_init:
         movem.l d2/a2,-(sp)
+        ifd     HOLDEVERY
+        lea     sw_hold+7(pc),a0
+        move.b  #'!',(a0)
+        endc
         GETBASE a0
         add.l   #replay-binstart,a0
         move.w  4(a0),d0                    ; frames
@@ -944,6 +973,26 @@ replay_init:
 g_left: dc.w    0                           ; frames que faltan
 g_op:   dc.l    0                           ; siguiente op
 g_sts:  dc.l    0                           ; siguiente estado
+
+        ifd     HOLDEVERY
+        ifnd    REPLAY
+        fail    "-DHOLDEVERY es solo del replay"
+        endc
+        ifd     BENCH
+        fail    "-DHOLDEVERY no se lleva con -DBENCH (cambia los tiempos)"
+        endc
+        ifnd    HOLDLEN
+HOLDLEN     equ 150                         ; ticks retenido (3 s a 50 Hz)
+        endc
+SWH_N       equ 8                           ; .w frames del replay consumidos
+SWH_K       equ 10                          ; .w indice del frame retenido
+SWH_LEFT    equ 12                          ; .w ticks de retencion que faltan
+SWH_CNT     equ 14                          ; .w frames hasta la proxima
+SWH_SEQ     equ 16                          ; .w retenciones hechas
+        cnop    0,2
+sw_hold:    dc.b    'SW1HOLD?'              ; '!' al arrancar (el ADF dice '?')
+            dc.w    0,0,0,HOLDEVERY,0
+        endc
 
         ifnd    REPLAY
 ;----------------------------------------------------------------------
@@ -1610,6 +1659,12 @@ dc_vbl:
 ; registros destruidos: d0/d7
 dc_act:
         moveq   #1,d7
+        ifd     HOLDEVERY
+        move.w  sw_hold+SWH_LEFT(pc),d0
+        beq.s   .nhold
+        moveq   #0,d7                       ; SW1: retenido
+.nhold:
+        endc
         ifnd    REPLAY
         move.w  g_restart(pc),d0
         beq.s   .nr

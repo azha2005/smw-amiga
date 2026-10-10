@@ -33,6 +33,9 @@
  *   work/snesorc --script tools/snesorc/diagpipe.orc --out work/oracle_diagpipe.txt
  *   work/snesorc --script ... --trace 1          (una linea de estado por frame, a stderr)
  *   work/snesorc --script tools/snesorc/boot_yi1.orc --replay work/oracle_yi1.txt
+ *   ... --shots LISTA.txt --shotdir DIR   (SW1: la pantalla de esos frames,
+ *                        DIR/snes_<frame>.ppm, 256x224; LISTA = un frame por
+ *                        linea, con la numeracion del registro)
  *
  * Guion (.orc), una orden por linea, '#' comenta:
  *   N BOTONES           mantiene BOTONES N frames. BOTONES = '-' (nada) o
@@ -277,6 +280,63 @@ static void status(const char *txt)
 
 static long mismatch_frames;
 
+/* --shots (SW1, tools/sweep_cmp.py): la PPU de snesrev dibuja la pantalla
+   despues del NMI del frame (la OAM y la VRAM que la logica de ese frame
+   dejo). Dibujar corre el IRQ de la barra de estado y el HDMA en C: se
+   guardan y restauran la RAM, la PPU y el DMA, asi el oraculo no cambia. */
+static char *shot_want;                 /* [frame] != 0: dibujarlo */
+static long shot_max;
+static const char *shot_dir;
+static uint8 shot_px[256 * 240 * 4];
+static long shots_done;
+
+static void shot_frame(long fno)
+{
+    static uint8 ram_bak[0x20000];
+    static Ppu ppu_bak;
+    static Dma dma_bak;
+    char path[1024];
+    FILE *f;
+    int x, y;
+    bool irq = g_snes->vIrqEnabled, hirq = g_snes->hIrqEnabled;
+    uint16 vt = g_snes->vTimer;
+    memcpy(ram_bak, g_snes->ram, sizeof ram_bak);
+    ppu_bak = *g_snes->ppu;
+    dma_bak = *g_snes->dma;
+    PpuBeginDrawing(g_snes->ppu, shot_px, 256 * 4, 0);
+    g_rtl_game_info->draw_ppu_frame();
+    *g_snes->ppu = ppu_bak;
+    *g_snes->dma = dma_bak;
+    memcpy(g_snes->ram, ram_bak, sizeof ram_bak);
+    g_snes->vIrqEnabled = irq;
+    g_snes->hIrqEnabled = hirq;
+    g_snes->vTimer = vt;
+    snprintf(path, sizeof path, "%s/snes_%ld.ppm", shot_dir, fno);
+    if (!(f = fopen(path, "wb"))) fail("no se puede escribir %s", path);
+    fprintf(f, "P6\n256 224\n255\n");
+    for (y = 0; y < 224; y++)
+        for (x = 0; x < 256; x++) {
+            const uint8 *q = shot_px + (y * 256 + x) * 4;   /* XRGB: B, G, R */
+            fputc(q[2], f); fputc(q[1], f); fputc(q[0], f);
+        }
+    fclose(f);
+    shots_done++;
+}
+
+static void load_shots(const char *path)
+{
+    size_t len;
+    char *text = (char *)read_file(path, &len), *s = text, *e;
+    shot_max = 1 << 20;
+    shot_want = calloc(shot_max, 1);
+    for (;;) {
+        long v = strtol(s, &e, 10);
+        if (e == s) break;
+        if (v >= 0 && v < shot_max) shot_want[v] = 1;
+        s = e;
+    }
+}
+
 static uint16 swap16bits(uint16 x)
 {
     uint16 r = 0;
@@ -296,6 +356,10 @@ static void step(uint16 snes)
     if (g_got_mismatch_count) mismatch_frames++;
     if (!pre_valid) fail("el frame %ld no paso por $8077", frame_no);
     frame_no++;
+    if (shot_want) {
+        long lab = rp_pos >= 0 ? rp[rp_pos].frame : frame_no;
+        if (lab >= 0 && lab < shot_max && shot_want[lab]) shot_frame(lab);
+    }
     if (out && (rec_mode == 2 || (rec_mode == 1 && rd(0x100) == 0x14))) {
         emit(pre, rp_pos >= 0 ? rp[rp_pos].frame : frame_no, out);
         recorded++;
@@ -612,7 +676,8 @@ static void usage(void)
 {
     fprintf(stderr,
         "uso: snesorc --script GUION.orc [--out ORACULO.txt] [--rom smw.sfc] [--assets smw_assets.dat]\n"
-        "             [--mode rom|both] [--trace N] [--replay GRABACION.txt [--replay-tl 29] [--replay-seg N]]\n");
+        "             [--mode rom|both] [--trace N] [--replay GRABACION.txt [--replay-tl 29] [--replay-seg N]]\n"
+        "             [--shots LISTA.txt --shotdir DIR]\n");
     exit(2);
 }
 
@@ -638,10 +703,13 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--replay") && i + 1 < argc) replay = argv[++i];
         else if (!strcmp(argv[i], "--replay-tl") && i + 1 < argc) rp_sync_tl = (int)strtol(argv[++i], NULL, 16);
         else if (!strcmp(argv[i], "--replay-seg") && i + 1 < argc) rp_seg = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--shots") && i + 1 < argc) load_shots(argv[++i]);
+        else if (!strcmp(argv[i], "--shotdir") && i + 1 < argc) shot_dir = argv[++i];
         else if (!strcmp(argv[i], "-v")) verbose = 1;
         else usage();
     }
     if (!script) usage();
+    if (shot_want && !shot_dir) usage();
     if (!strcmp(mode, "rom")) g_runmode = RM_THEIRS;
     else if (!strcmp(mode, "both")) g_runmode = RM_BOTH;
     else usage();
@@ -658,6 +726,7 @@ int main(int argc, char **argv)
     if (g_runmode == RM_THEIRS) restore_rom(rom, rom_len, verbose);
     memset(g_sram, 0, g_sram_size);     /* SRAM vacia: los tres ficheros nuevos */
 
+    if (shot_want) PpuBeginDrawing(g_snes->ppu, shot_px, 256 * 4, 0);
     if (outp && !(out = fopen(outp, "w"))) fail("no se puede escribir %s", outp);
     if (replay) {
         load_replay(replay);
@@ -680,6 +749,7 @@ int main(int argc, char **argv)
     if (out) fclose(out);
     fprintf(stderr, "snesorc: %ld frames corridos, %ld registros grabados%s%s", frame_no, recorded,
             outp ? " -> " : "", outp ? outp : "");
+    if (shot_want) fprintf(stderr, "; %ld pantallas en %s", shots_done, shot_dir);
     if (g_runmode == RM_BOTH) fprintf(stderr, "; frames en que el C de snesrev difiere de la ROM: %ld", mismatch_frames);
     fprintf(stderr, "\n");
     return 0;

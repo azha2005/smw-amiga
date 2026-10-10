@@ -1222,3 +1222,19 @@ Rex. El mapa (byte 7 de la variante, `ctype`) es la familia de colores.
 (`sprshot_cmp.py --logic`). Para saber el tipo, ir a la traza por
 (frame, ranura): `game_frames.json` guarda `slot`, y el contador se llama
 `familia_XX`.
+
+**P128 — La pantalla entera contra la SNES: fila Amiga = fila SNES − 1, y dibujar con la PPU de snesrev corre código que toca la RAM.**
+
+**Síntoma:** comparando sin desplazar, decenas de miles de píxeles
+distintos en fotos que a la vista son iguales. Y un `--shots` que cambia
+el oráculo.
+
+**Causa:** la PPU de snesrev escribe la línea L en la fila L − 1 del
+búfer, y la captura del port empieza una línea antes. Además,
+`SmwDrawPpuFrame` corre el IRQ de la barra de estado y el HDMA en C,
+sobre la RAM y la PPU del emulador.
+
+**Cómo evitarlo:** `sweep_cmp.py cmp` mide la alineación (−3..+3) y la
+informa; hoy da −1, sin ambigüedad. `orc.c` (`shot_frame`) guarda y
+restaura la RAM, la PPU, el DMA y el IRQ alrededor del dibujo. Comprobar
+siempre que el oráculo sale idéntico con y sin `--shots` (SW1: 6312/6312).

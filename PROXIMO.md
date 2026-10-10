@@ -37,7 +37,32 @@ aceptados.
 Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
 --baseline tools/baseline_pc.json --level --g5l --bm1`, en verde.
 
+## 1b. SW1: barrida de la pantalla entera (2026-10-10, a pedido del usuario)
+
+`docs/informe-sw1-1010.md`. Una foto por segundo de yi1 (126) contra la
+PPU de la SNES: fuera de la barra de estado, 50 exactas (44 de 98 en
+sincronía). Diferencias **nuevas**, candidatas a tarjeta:
+
+- la piraña se dibuja **delante** de la tubería: falta la prioridad
+  sprite/capa 1 (11 fotos);
+- los **postes del punto medio** no se ven: son capa 1; sospecha de
+  color/índice por línea (9 fotos);
+- los **bloques giratorios no se rompen**, ni salen los trozos (6 fotos,
+  también en sincronía);
+- **los puntos** (200/400/1000), las estrellas del pisotón, el **bloque
+  `?` volador `$83`** y su champiñón: sin dibujar;
+- la **moneda de Yoshi** en otro tono (animación de paleta, P22);
+- detalles de 1-6 px (esquina de cornisa, un píxel en la fila 185, el
+  pie del Koopa).
+
+Ya conocidas: la barra de estado (D11), el Banzai (G7) y los Rex que no
+entran por la regla de 2 por foto.
+
 ## 2. Pendiente del usuario
+
+- **Qué arreglar primero de SW1** (lista de arriba). Propuesta: la
+  prioridad de la piraña y los postes (se ven en todo el nivel y no
+  cuestan CPU), después los bloques giratorios (lógica + mapa).
 
 - **Todos los tipos y 2 por foto, activados** (usuario, 2026-10-10). Falta
   el A/B de D1 con los dos juntos (la tanda de controles de arriba es con
