@@ -129,6 +129,16 @@ def main():
         c.mem.w32(addr('g_sbuf') + 12, sprs + 3 * s['SPRBUF'] + 16)
     w32('g_null', sprs + 3 * s['SPRBUF'])
     w32('g_data', G.DATA)
+    tile_original = {}
+    if 'D_TCHG' in s:
+        tch = G.DATA + c.mem.r32(G.DATA + s['D_TCHG'])
+        mp = G.DATA + c.mem.r32(G.DATA + s['D_MAP'])
+        for k in range(c.mem.r16(tch)):
+            cell, _, block, old = struct.unpack('>HHBB', c.read(tch + 2 + 6 * k, 6))
+            tile_original[cell] = old
+            c.mem.w8(mp + cell, block)
+        c.mem.w16(addr('_tile_write'), 19)
+        c.mem.w16(addr('_tile_read'), 17)
     call('cam_to_s', True)
     call('scroll_init', True)
     call('dc_init', True)
@@ -137,6 +147,10 @@ def main():
     call('dc_cop', True)
     assert c.mem.r32(addr('g_frame')) == oldframe, 'COPER durante carga hizo un tick'
     cycles = call('dc_restart', True)
+    if tile_original:
+        assert c.mem.r16(addr('_tile_write')) == c.mem.r16(addr('_tile_read')) == 0
+        for cell, old in tile_original.items():
+            assert c.mem.r8(mp + cell) == old, ('D_MAP tras muerte', cell)
     assert c.mem.r16(G.FAKE + s['INTENA']) == 0xC030
     for off, data in persist.items():
         assert c.read(ram + off, len(data)) == data, hex(off)

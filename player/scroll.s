@@ -184,6 +184,7 @@ D_MLX   equ 40
 D_MLD   equ 44
 D_LNS   equ 48
 D_COIN  equ 52                  ; SW-M: colores, offsets de origen y filas
+D_TCHG  equ 56                  ; SW-B: reemplazos Map16 exactos por celda
 
 ; build_mid, LNS por grupos de 16 lineas (tools/mkscroll.py: NGRP, GSZ):
 ; el estado de cada grupo va justo ANTES de linetab_a/b, en
@@ -458,6 +459,11 @@ scroll_frame:
         ; en el borrado vertical el blitter tiene todo el bus, y la ultima
         ; copia (672 filas) corre mientras la CPU hace build_mid
         bsr     columns
+        ifd     SCROLL_LIB
+        ifnd    DECOUPLE
+        bsr     tile_current                ; SW-B: mismo orden que dc_loop
+        endc
+        endc
         bsr     apply_colors
         bsr     set_pointers
         ifnd    NOMID

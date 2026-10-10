@@ -76,6 +76,7 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import render_d                                 # noqa: E402
+import tilechange                               # noqa: E402
 import coinpal                                  # noqa: E402
 
 WORK = os.path.join(HERE, "..", "work")
@@ -134,6 +135,26 @@ def main():
     if g5:
         SEG = SEG_G5
     d = render_d.load(os.path.join(WORK, "yi1_d.dat"))
+    # SW-B es opcional (SW_TILES=1): sus reservas de color alargan el plan
+    # del copper (build_mid.max +836 ciclos, informe-sw-b-1010.md). Sin
+    # ella, D_TCHG queda vacia y tile_apply solo consume el diario.
+    tch = bytearray(struct.pack(">H", 0))
+    if os.environ.get("SW_TILES") == "1":
+        blocks, _, _, bad = tilechange.inventory(d)
+        added, rejected = tilechange.reserve_colors(d, bad)
+        blocks, replacements, _, bad = tilechange.inventory(d)
+        if bad or rejected or len(blocks) > 256:
+            raise SystemExit("SW-B: reemplazos sin representacion exacta: %r / %r; bloques=%d"
+                             % (bad, rejected, len(blocks)))
+        d["blocks"], d["nblk"] = blocks, len(blocks)
+        tch = bytearray(struct.pack(">H", len(replacements)))
+        for cell, result, block in replacements:
+            col, row = divmod(cell, 15)
+            old = int(d["map"][row + Y0 // 16, col])
+            tch += struct.pack(">HHBB", cell, result, block, old)
+        print("SW-B: %d reemplazos, %d reservas de color exactas" % (len(replacements), len(added)))
+    else:
+        print("SW-B: apagada (SW_TILES=1 la activa); D_TCHG vacia")
     W, cols = d["W"], d["cols"]
     ini = np.zeros((LINES, 7), np.int32)
     chg = []
@@ -229,7 +250,7 @@ def main():
     chgb = (struct.pack(">HHHH", 0, 0, 0, 0)
             + b"".join(struct.pack(">HHHH", *c) for c in chg) + struct.pack(">HHHH", 0xFFFF, 0, 0, 0))
     secs = [bytes(blk), bytes(mp), inib, chgb, bytes(l2), l2p,
-            struct.pack(">%dH" % len(mlx), *mlx), bytes(mldb), lns]
+            struct.pack(">%dH" % len(mlx), *mlx), bytes(mldb), lns, bytes(tch)]
     # El bit 15 conserva el origen animado en las copias de las listas;
     # COLORxx del OCS sólo usa los bits 11..0. No buscar por igualdad RGB.
     for section, start, stride in ((2, 0, 2), (3, 4, 8), (3, 6, 8), (7, 6, 12)):
@@ -242,12 +263,13 @@ def main():
                 elif section == 3:
                     coin_initial.add(struct.unpack_from('>H', secs[section], pos // 8 * 8 + 2)[0])
     head = b"SMWS" + struct.pack(">HHHHH", W, cols, d["nblk"], d["sky"], len(chg))
-    off = len(head) + 2 + 4 * 10
+    off = len(head) + 2 + 4 * 11
     offs = []
     for s in secs:
         off = (off + 7) & ~7
         offs.append(off)
         off += len(s)
+    # +52 D_COIN (SW-M) y +56 D_TCHG (SW-B), al final de la cabecera.
     from palette import COIN_ANIM, snes_to_amiga12
     coin = struct.pack('>8H4H', *[snes_to_amiga12(c) | 0x8000 for c in COIN_ANIM],
                        len(coin_data), len(coin_initial), len(set(coin_rows)), 0)
@@ -255,7 +277,7 @@ def main():
     coin += b''.join(struct.pack('>I', offset) for offset in sorted(coin_initial))
     coin += b''.join(struct.pack('>H', L * 32) for L in sorted(set(coin_rows)))
     coin_off = (off + 7) & ~7
-    out = bytearray(head + b"\0\0" + struct.pack(">10I", *offs, coin_off))
+    out = bytearray(head + b"\0\0" + struct.pack(">11I", *offs[:9], coin_off, offs[9]))
     for o, s in zip(offs, secs):
         out += bytes(o - len(out)) + s
     out += bytes(coin_off - len(out)) + coin

@@ -814,6 +814,10 @@ game_step:
         move.w  #HOLDEVERY,SWH_CNT(a0)
         move.w  SWH_N(a0),d0
         subq.w  #1,d0
+        ifd     HOLDSTART
+        cmp.w   #HOLDSTART,d0               ; barrida acotada sin retener el tramo previo
+        blo.s   .nh2
+        endc
         move.w  d0,SWH_K(a0)
         move.w  #HOLDLEN,SWH_LEFT(a0)
         addq.w  #1,SWH_SEQ(a0)
@@ -1031,6 +1035,7 @@ live_init:
         move.w  #MAPHALF-1,d0               ; (MAPHALF*2 bytes)
 .c2:    move.w  (a0)+,(a1)+
         dbf     d0,.c2
+        bsr     tile_reset                  ; SW-B: mapa visible original, diario vacio
         movem.l (sp)+,d2/a2/a6
         bra.s   live_start
 
@@ -1060,6 +1065,7 @@ live_restart:
         move.w  #MAPHALF-1,d0
 .c2:    move.w  (a0)+,(a1)+
         dbf     d0,.c2
+        bsr     tile_reset                  ; SW-B: restaurar tambien el mapa del scroll
         bsr     replay_init                 ; wm_SprLoadStatus, g_sts, historial
 ; live_start: el estado del primer frame de la partida (lo llama tambien
 ; tools/diag_read.py --repro, despues de replay_init)
@@ -1584,16 +1590,16 @@ R_G5HAS     equ 8                           ; .w clave MA1 valida
 R_G5KEY     equ 10                          ; 40 B de pose, permutados y alineados
         ifd     G5L
 R_G5L       equ 8                           ; G5F_SIZE (g5l.s) = 194 B
-R_COIN      equ 8+194                       ; .b FrameB de la foto (SW-M)
-DC_REC      equ R_COIN+2
+DC_REC0     equ 8+194
         else
-R_COIN      equ 50
-DC_REC      equ R_COIN+2
+DC_REC0     equ 50
         endc
         else
-R_COIN      equ 8
-DC_REC      equ R_COIN+2
+DC_REC0     equ 8
         endc
+R_COIN      equ DC_REC0                     ; .b FrameB de la foto (SW-M)
+R_TSEQ      equ DC_REC0+2                   ; .w limite de cambios de esta foto (SW-B)
+DC_REC      equ DC_REC0+4
 ; estado (dc_st), palabras; -1 = ninguna
 DC_FRONT    equ 0                           ; foto de la lista que se ve
 DC_PEND     equ 2                           ; publicada, se ve desde el VBL
@@ -2035,6 +2041,7 @@ dc_g5copy_end equ *
         move.b  d0,R_PAL(a1)
         move.b  _ram+$14(a4),R_COIN(a1)     ; FrameB de esta foto, no la RAM futura
         move.w  DC_NLOG(a2),R_FRAME(a1)
+        move.w  _tile_write(a4),R_TSEQ(a1)   ; SW-B: incluye todos los cambios de k
         ifd     BENCH
         move.b  gb_rs(pc),R_RS(a1)          ; (st: el byte alto)
         endc
@@ -2290,6 +2297,11 @@ dc_loop:
         move.b  R_COIN(a0),d0
         bsr     coin_prepare
         FBSR    columns
+        lea     dc_st(pc),a2
+        move.w  DC_REND(a2),d0
+        bsr     dc_recp
+        move.w  R_TSEQ(a0),d7
+        bsr     tile_apply                  ; hasta la foto elegida, incluso si salto otras
         ifd     BENCH
         GBR     7
         endc
@@ -2546,6 +2558,7 @@ dc_rec:  ds.b   DC_REC*NSPRB
 dc_stk:  ds.b   8192                        ; pila de la interrupcion
 dc_stktop:
         endc                                ; DECOUPLE
+        include "tilechange.s"              ; tambien vivo/replay NODECOUPLE
 
         ifd     BENCH
 ;----------------------------------------------------------------------
@@ -2672,6 +2685,7 @@ gb_begin:
 gb_scroll_frame:
         GBS     6
         FBSR    columns
+        bsr     tile_current
         GBS     7
         FBSR    apply_colors
         FBSR    set_pointers

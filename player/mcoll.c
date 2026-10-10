@@ -30,6 +30,27 @@ u8 *map16_lo;               /* $7E:C800: byte bajo del indice Map16 */
 u8 *map16_hi;               /* $7F:C800: pagina */
 unsigned mario_events;
 
+/* SW-B: diario productor/consumidor; cada foto toma tile_write como limite.
+   El render avanza tile_read, incluso cuando descarta fotos intermedias.
+   Indices monotonos u16: 256 registros, dos palabras por registro. */
+volatile u16 tile_write, tile_read;
+u16 tile_changes[256 * 2];
+
+static void tile_changed(u16 x, u16 y, u16 o)
+{
+    u16 slot, row = y >> 4;
+    if (row < 12 || row >= 26 || x >= 5120)
+        return;
+    if ((u16)(tile_write - tile_read) >= 256) {
+        if (!mario_unsupported) mario_unsupported = MARIO_UNSUP_TILE;
+        return;
+    }
+    slot = (tile_write & 255) << 1;
+    tile_changes[slot] = (u16)((x >> 4) * 15 + row - 12);
+    tile_changes[slot + 1] = (u16)(map16_lo[o] | ((map16_hi[o] & 1) << 8));
+    tile_write++;                     /* publicar despues de las dos palabras */
+}
+
 /* build de la Amiga (vbcc sin NOASM): lo que player/logic68k.s lee o escribe
    deja de ser static (MCS); en el PC todo sigue static */
 #if defined(__VBCC__) && !defined(NOASM)
@@ -84,6 +105,9 @@ static void generate_tile(void)
     } else {
         unsup(MARIO_UNSUP_TILE);
     }
+    tile_changed(x, y, o);
+    if (id == 0x18)
+        tile_changed(x, y + 16, o + 0x10);
 }
 
 /* ------------------------------------------------------------------ */
@@ -496,7 +520,7 @@ static void f17f(u8 a, u8 y)
             v = R8(wm_GreenStarCoins) ? 0x06 : 0x05;
             goto l_F1D0;
         }
-        /* CODE_00F1AE: el contenido alterna segun la fila */
+        /* CODE_00F1AE: el contenido alterna segun la columna (P33). */
         c = v & 1;
         v = (u8)(((c << 7) | (R8(wm_BlockYPos) >> 1)) >> 3);
         v = T8X(DATA_00F100, v);
