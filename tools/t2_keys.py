@@ -18,7 +18,10 @@ import json
 
 from t2_model import simulate
 
-F = {'pose': (0, 26), 'ptrs': (26, 52), 'R0': (52, 54), 'MSH': (54, 56), 'COL': (56, 60), 'VLIST': (60, 64)}
+# Orden de GV_PK desde R1 (g5l_pckey: lo que cambia primero). Los volcados
+# anteriores a R1 (work/t2/frames.json de T2/Pa) usan F_T2.
+F = {'VLIST': (0, 4), 'R0': (4, 6), 'MSH': (6, 8), 'COL': (8, 12), 'pose': (12, 38), 'ptrs': (38, 64)}
+F_T2 = {'pose': (0, 26), 'ptrs': (26, 52), 'R0': (52, 54), 'MSH': (54, 56), 'COL': (56, 60), 'VLIST': (60, 64)}
 FITS = [(102000, 65000), (103000, 60000), (105000, 50000), (100000, 80000), (96000, 105000)]
 SLOW = ('g5l_sweep', 'g5l_plan', 'g5l_fast', 'g5l_need')
 

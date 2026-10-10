@@ -676,9 +676,9 @@ g5l_pcget:
         move.w  PC_NREM(a2),GV_NREM(a6)
         lea     PC_REM(a2),a0
         lea     GV_REM(a6),a1
-        moveq   #2*G5L_NREM-1,d1
-.r:     move.l  (a0)+,(a1)+
-        dbf     d1,.r
+        rept    2*G5L_NREM                  ; R1: desenrollado
+        move.l  (a0)+,(a1)+
+        endr
         lea     PC_LEN(a2),a3               ; las cubetas
         lea     PC_TRB(a2),a0
         lea     GV_BS(a6),a4
@@ -715,7 +715,7 @@ g5l_pcput:
         addq.l  #4,a0
         dbf     d1,.s
         cmp.l   #8*PC_NTR,d0
-        bhi.s   .x
+        bhi     .x
         lea     GV_PC(a6),a2
         move.w  GV_PCNX(a6),d0
         add.w   d0,a2
@@ -726,16 +726,16 @@ g5l_pcput:
 .w:     move.w  d0,GV_PCNX(a6)
         lea     GV_PK(a6),a0
         move.l  a2,a1
-        moveq   #16-1,d1
-.k:     move.l  (a0)+,(a1)+
-        dbf     d1,.k
+        rept    16                          ; R1: desenrollado
+        move.l  (a0)+,(a1)+
+        endr
         move.l  GV_VAR(a6),PC_VAR(a2)
         move.w  GV_NREM(a6),PC_NREM(a2)
         lea     GV_REM(a6),a0
         lea     PC_REM(a2),a1
-        moveq   #2*G5L_NREM-1,d1
-.r:     move.l  (a0)+,(a1)+
-        dbf     d1,.r
+        rept    2*G5L_NREM
+        move.l  (a0)+,(a1)+
+        endr
         lea     PC_LEN(a2),a3
         lea     PC_TRB(a2),a1
         lea     GV_BP(a6),a4
@@ -752,19 +752,21 @@ g5l_pcput:
 .be:    dbf     d3,.b
 .x:     rts
 
-; --- g5l_pckey --- GV_PK = GV_KBUF (52 B), .w GV_R0, .w GV_MSH, .l GV_COL,
-; .l GV_VLIST
-; registros destruidos: d1/a0-a1
+; --- g5l_pckey --- GV_PK = .l GV_VLIST, .w GV_R0, .w GV_MSH, .l GV_COL,
+; GV_KBUF (52 B). Lo que cambia de una foto a otra va primero: g5l_pcget
+; falla en la primera .l en vez de la ~7a (R1). La primera palabra nunca
+; es -1 (la entrada vacia): VLIST es una direccion absoluta.
+; registros destruidos: a0-a1
 g5l_pckey:
-        lea     GV_KBUF(a6),a0
         lea     GV_PK(a6),a1
-        moveq   #13-1,d1
-.k:     move.l  (a0)+,(a1)+
-        dbf     d1,.k
+        move.l  GV_VLIST(a6),(a1)+
         move.w  GV_R0(a6),(a1)+
         move.w  GV_MSH(a6),(a1)+
         move.l  GV_COL(a6),(a1)+
-        move.l  GV_VLIST(a6),(a1)
+        lea     GV_KBUF(a6),a0
+        rept    13
+        move.l  (a0)+,(a1)+
+        endr
         rts
 
 ;----------------------------------------------------------------------
@@ -878,9 +880,10 @@ g5l_mario:
         move.w  d2,GV_BX(a6)
         ; la clave: n, entradas relativas, punteros
         lea     GV_KBUF(a6),a0
-        moveq   #13-1,d0
-.kz:    clr.l   (a0)+
-        dbf     d0,.kz
+        moveq   #0,d0                       ; R1: 12 ciclos por .l (clr.l 20 + dbf)
+        rept    13
+        move.l  d0,(a0)+
+        endr
         lea     GV_KBUF(a6),a0
         move.w  d7,(a0)+
         lea     GV_ENT(a6),a1
@@ -2302,17 +2305,17 @@ g5l_patch:
         move.l  a0,a1
         move.l  GV_VAR(a6),d0
         cmp.l   (a1)+,d0
-        bne.s   .sharedmiss
+        bne     .sharedmiss
         move.w  GV_NREM(a6),d1
         cmp.w   (a1)+,d1
-        bne.s   .sharedmiss
+        bne     .sharedmiss
         lea     GV_REM(a6),a4
         subq.w  #1,d1
 .sharedkey:
         cmpm.l  (a4)+,(a1)+
-        bne.s   .sharedmiss
+        bne     .sharedmiss
         cmpm.l  (a4)+,(a1)+
-        bne.s   .sharedmiss
+        bne     .sharedmiss
         dbf     d1,.sharedkey
         move.l  GV_RSBUF(a6),a0
         move.l  GV_RBUF(a6),a1
@@ -2325,11 +2328,14 @@ g5l_patch:
         beq.s   .sharednext
         move.l  a0,a2
         move.l  a1,a4
-        move.w  d7,d1
-        addq.w  #1,d1
-.sharedlong:
+        move.w  d7,d1                       ; d7 + 2 .l (alto <= 32), desenrollado
+        add.w   d1,d1                       ; (R1: 20 ciclos por .l, no 30)
+        neg.w   d1
+        jmp     .sharedend-4(pc,d1.w)       ; P40 ok: indice negativo a proposito
+        rept    G5L_RSTR/4
         move.l  (a2)+,(a4)+
-        dbf     d1,.sharedlong
+        endr
+.sharedend:
 .sharednext:
         lea     G5L_RSTR(a0),a0
         lea     G5L_RSTR(a1),a1
@@ -2360,10 +2366,14 @@ g5l_patch:
         add.l   g5l_cdma(pc),d0
         move.l  d0,a0
         move.l  a1,a4
-        move.w  d7,d1                       ; POS/CTL, alto filas, fin
-        addq.w  #1,d1
-.cl:    move.l  (a0)+,(a4)+
-        dbf     d1,.cl
+        move.w  d7,d1                       ; POS/CTL, alto filas, fin: d7 + 2 .l,
+        add.w   d1,d1                       ; desenrollado (R1)
+        neg.w   d1
+        jmp     .cle-4(pc,d1.w)             ; P40 ok: indice negativo a proposito
+.cl:    rept    G5L_RSTR/4
+        move.l  (a0)+,(a4)+
+        endr
+.cle:
 .cn:    lea     G5L_RSTR(a1),a1
         eor.w   #1,d3
         dbf     d5,.cs
@@ -2499,16 +2509,45 @@ g5l_place:
         move.w  d4,d2
         sub.w   d3,d2                       ; filas - 1
         bmi     .miss
-        ; el segmento abierto con lugar mas tardio de [lo, hi]
-        lea     GV_ROOM+1(a6),a0
+        ; el segmento abierto con lugar mas tardio de [lo, hi]. R1: por
+        ; las entradas del pool (GV_ROOM solo es <> 0 en sus filas, ver
+        ; g5l_unpool) si son menos de la mitad de las filas (~40 ciclos
+        ; por entrada contra ~20 por fila); si no, fila por fila
+        move.w  GV_NP(a6),d1
+        beq     .f2
+        add.w   d1,d1
+        cmp.w   d2,d1
+        bhi.s   .fs
+        move.w  GV_NP(a6),d2
+        subq.w  #1,d2
+        lea     GV_POOL+P_S(a6),a2
+        lea     GV_ROOM(a6),a0
+        moveq   #-1,d0                      ; d0 = s (ninguno)
+.f1:    move.w  (a2),d1
+        cmp.w   d3,d1
+        blt.s   .f1n
+        cmp.w   d4,d1
+        bgt.s   .f1n
+        cmp.w   d0,d1
+        ble.s   .f1n
+        tst.b   (a0,d1.w)                   ; P40 ok: 0 <= s < LINES
+        beq.s   .f1n
+        move.w  d1,d0
+.f1n:   lea     PSZ(a2),a2
+        dbf     d2,.f1
+        tst.w   d0
+        bmi.s   .f2
+        bra.s   .fh
+.fs:    lea     GV_ROOM+1(a6),a0            ; fila por fila (d2 = filas - 1)
         add.w   d4,a0
-.f1:    tst.b   -(a0)
-        dbne    d2,.f1
+.fsl:   tst.b   -(a0)
+        dbne    d2,.fsl
         beq.s   .f2
-        subq.b  #1,(a0)
         move.l  a0,d0
         sub.l   a6,d0
         sub.w   #GV_ROOM,d0                 ; d0 = s
+        lea     GV_ROOM(a6),a0
+.fh:    subq.b  #1,(a0,d0.w)                ; P40 ok
         lea     GV_SEGIX(a6),a0
         moveq   #0,d1
         move.b  (a0,d0.w),d1
