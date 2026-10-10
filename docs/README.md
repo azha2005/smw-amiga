@@ -110,6 +110,8 @@
 | `instrucciones-g4-b.md` | 2026-10-10 | G4-B: los demás enemigos de YI1 por G5L |
 | `informe-g4-b-1010.md` | 2026-10-10 | G4-B: los demás enemigos por G5L (tabla G5L3), exactos; apagados por defecto por D1 y la chip |
 | `instrucciones-g9.md` | 2026-10-10 | G9: la imagen de los sprites contra la OAM de la SNES |
+| `informe-g9-1010.md` | 2026-10-10 | G9: dibujo exacto contra la SNES (10 capturas); deriva de lógica medida |
+| `instrucciones-l-der.md` | 2026-10-10 | L-DER: la deriva de la lógica de sprites contra la SNES |
 | `instrucciones-g5l-r-s11.md` | 2026-10-10 | Cortar la espiral de la vuelta en `build_mid`, sin cambiar la imagen |
 | `instrucciones-g5l-r-m1.md` | 2026-10-10 | Medir por qué `build_mid` cuesta ≈ 2,8× en el hardware: pares por foto, VHPOSR, variantes opt-in |
 | `investigacion-demoscene-1010.md` | 2026-10-10 | fuentes de demos: speedcode, código automodificable, cadenas copper-blitter y carga/descompresión; §11 reordena tras L2: speedcode en `build_mid` según el perfil de estrés |

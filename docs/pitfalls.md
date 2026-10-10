@@ -1203,3 +1203,22 @@ en el vivo el margen es real.
 o usar `tools/bm_build.sh`. Margen de chip real del replay: el de
 `memmap.py` menos 23.016 B. Con todos los tipos y un objeto quedan
 26.280 − 23.016 ≈ 3,3 KB (`docs/informe-g4-b-1010.md` §4).
+
+**P127 — La foto del port: la x/y de la ranura es posterior al movimiento y la OAM anterior; y el mapa de una variante es su familia, no su tipo.**
+
+**Síntoma (G9):** comparando la foto del port con la traza del oráculo
+por (x, y de la ranura − cámara), un Rex que camina salía "corrido +1/+2"
+en cientos de fotos que se veían bien. Y `g5l.py game` contaba como Rex
+al Koopa, a la caja y a `$02`.
+
+**Causa:** SMW dibuja la OAM de un sprite y después lo mueve.
+`g5l_capture` toma la x/y de la ranura al final del frame, con el
+movimiento ya hecho, pero las fichas son las de antes. Lo que se ve es la
+OAM absoluta. La segunda parte: todas las formas de `$BD`, `$B9` y `$02`
+ya estaban en el banco G3, y `build_table` las deja con los 4 mapas del
+Rex. El mapa (byte 7 de la variante, `ctype`) es la familia de colores.
+
+**Cómo evitarlo:** comparar entradas OAM absolutas
+(`sprshot_cmp.py --logic`). Para saber el tipo, ir a la traza por
+(frame, ranura): `game_frames.json` guarda `slot`, y el contador se llama
+`familia_XX`.

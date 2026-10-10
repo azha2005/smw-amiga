@@ -18,7 +18,12 @@ activar.
   colores propios, ordenados, en los índices de `BAND_PREF`. El Rex
   conserva sus 4 mapas.
 - Si una forma ya está en el banco (misma clave de fichas y prioridad),
-  se usa la del banco: son los mismos píxeles con la misma paleta.
+  se usa la del banco: son los mismos píxeles con la misma paleta. Así
+  quedan **todas** las formas del Koopa `$BD` (17), de la caja `$B9` (1)
+  y de `$02` (4): usan los 4 mapas del Rex. La piraña, el caparazón, la
+  cinta y el Chuck tienen mapa propio. Por eso el "tipo" que
+  `g5l.py game` sacaba de la variante era la familia de mapas, y G9 lo
+  renombró `familia` (el tipo sale de la traza por la ranura).
 - La cabecera pasa de `G5L2` a `G5L3`:
   - en los bytes 10-11 va `oo`, el desplazamiento de los **órdenes de
     colores propios** (16 × 16 B). Los mapas 0-3 son los del Rex (antes

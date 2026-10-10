@@ -347,7 +347,7 @@ def build_table(bank, clean=True, types=(0xAB,)):
     ctx['types'] = sorted(set(types))           # (sin el Rex: control de G4-B)
     ctx['omaps'] = omaps
     ctx['clean'], ctx['cdma'] = [], bytearray()
-    ctx['ctype'] = []                           # G4-B: el tipo de cada limpia
+    ctx['ctype'] = []                           # G4-B: la familia de mapas de cada limpia
     cindex = {}
     shapes = []
     seen = {}
@@ -398,6 +398,8 @@ def build_table(bank, clean=True, types=(0xAB,)):
                 offs = clean_streams(cp, ctx['cdma'], cindex)
                 ck = len(ctx['clean'])
                 ctx['clean'].append(cp)
+                # la familia de mapas, no el tipo: las formas que ya estaban
+                # en el banco G3 ($BD, $B9, $02) usan los 4 mapas del Rex
                 ctx['ctype'].append(G5L_OTHER[mbase - 4] if mbase else 0xAB)
                 if len(vblob) & 1:
                     vblob.append(0)
@@ -1847,8 +1849,8 @@ def run_game(a):
         expected_list(ml, p, s, gr.DMA, gr.null, gr.cdma, rbuf, chans)
         if p:
             st['rex_%d' % len(p['rex'])] += 1
-            for q in p['rex']:                  # G4-B: por tipo
-                st['tipo_%02X' % cctx['ctype'][q['var']['n'] & 0x7FFF]] += 1
+            for q in p['rex']:                  # G4-B: por familia de mapas (no por tipo)
+                st['familia_%02X' % cctx['ctype'][q['var']['n'] & 0x7FFF]] += 1
         poison = {R.D2: 0x12345602, R.D3: 0x12345603, R.D4: 0x12345604, R.D5: 0x12345605,
                   R.D6: 0x12345606, R.D7: 0x12345607, R.A2: 0x00012342, R.A6: 0x00012346}
         for r_, v_ in poison.items():
@@ -1882,7 +1884,8 @@ def run_game(a):
                            pk=cpu.read(gv + s['GV_PK'], 64).hex(),    # T2: clave del plan
                            sc=mem.r16(rec + s['R_S']),                # la s del scroll
                            plan=dict(rex=[dict(vo=q['vo'], r0=q['r0'], x0=q['x0'],   # Pa: el plan de Python
-                                               tipo=cctx['ctype'][q['var']['n'] & 0x7FFF],
+                                               slot=q['slot'],   # G9: el tipo, por la traza
+                                               familia=cctx['ctype'][q['var']['n'] & 0x7FFF],
                                                groups=[[i, c_, m_] for (i, c_), m_ in q['groups'].items()],
                                                remaps=[list(r_) for r_ in q['remaps']]) for q in p['rex']],
                                      trans=[list(t_) for t_ in p['trans']]) if p else None))
