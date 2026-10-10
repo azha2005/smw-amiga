@@ -77,6 +77,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import render_d                                 # noqa: E402
 import tilechange                               # noqa: E402
+import coinpal                                  # noqa: E402
 
 WORK = os.path.join(HERE, "..", "work")
 Y0, LINES = 192, 224
@@ -134,27 +135,41 @@ def main():
     if g5:
         SEG = SEG_G5
     d = render_d.load(os.path.join(WORK, "yi1_d.dat"))
-    blocks, _, _, bad = tilechange.inventory(d)
-    added, rejected = tilechange.reserve_colors(d, bad)
-    blocks, replacements, _, bad = tilechange.inventory(d)
-    if bad or rejected or len(blocks) > 256:
-        raise SystemExit("SW-B: reemplazos sin representacion exacta: %r / %r; bloques=%d"
-                         % (bad, rejected, len(blocks)))
-    d["blocks"], d["nblk"] = blocks, len(blocks)
-    tch = bytearray(struct.pack(">H", len(replacements)))
-    for cell, result, block in replacements:
-        col, row = divmod(cell, 15)
-        old = int(d["map"][row + Y0 // 16, col])
-        tch += struct.pack(">HHBB", cell, result, block, old)
-    print("SW-B: %d reemplazos, %d reservas de color exactas" % (len(replacements), len(added)))
+    # SW-B es opcional (SW_TILES=1): sus reservas de color alargan el plan
+    # del copper (build_mid.max +836 ciclos, informe-sw-b-1010.md). Sin
+    # ella, D_TCHG queda vacia y tile_apply solo consume el diario.
+    tch = bytearray(struct.pack(">H", 0))
+    if os.environ.get("SW_TILES") == "1":
+        blocks, _, _, bad = tilechange.inventory(d)
+        added, rejected = tilechange.reserve_colors(d, bad)
+        blocks, replacements, _, bad = tilechange.inventory(d)
+        if bad or rejected or len(blocks) > 256:
+            raise SystemExit("SW-B: reemplazos sin representacion exacta: %r / %r; bloques=%d"
+                             % (bad, rejected, len(blocks)))
+        d["blocks"], d["nblk"] = blocks, len(blocks)
+        tch = bytearray(struct.pack(">H", len(replacements)))
+        for cell, result, block in replacements:
+            col, row = divmod(cell, 15)
+            old = int(d["map"][row + Y0 // 16, col])
+            tch += struct.pack(">HHBB", cell, result, block, old)
+        print("SW-B: %d reemplazos, %d reservas de color exactas" % (len(replacements), len(added)))
+    else:
+        print("SW-B: apagada (SW_TILES=1 la activa); D_TCHG vacia")
     W, cols = d["W"], d["cols"]
     ini = np.zeros((LINES, 7), np.int32)
     chg = []
     mld = [[] for _ in range(LINES)]
     idx = render_d.l1_index(d)
+    coin_flags = coinpal.event_origins(d, coinpal.origin_mask())
+    coin_rows = []
+    coin_data = []
+    coin_initial = set()
     for L in range(LINES):
         by_reg = {}
-        for ev in d["events"][Y0 + L]:
+        for ev, animated in zip(d["events"][Y0 + L], coin_flags[Y0 + L]):
+            if animated:
+                coin_rows.append(L)
+                ev = (*ev[:3], ev[3] | 0x8000)
             by_reg.setdefault(ev[2], []).append(ev)
         row = idx[Y0 + L]
         for r, lst in by_reg.items():
@@ -236,6 +251,17 @@ def main():
             + b"".join(struct.pack(">HHHH", *c) for c in chg) + struct.pack(">HHHH", 0xFFFF, 0, 0, 0))
     secs = [bytes(blk), bytes(mp), inib, chgb, bytes(l2), l2p,
             struct.pack(">%dH" % len(mlx), *mlx), bytes(mldb), lns, bytes(tch)]
+    # El bit 15 conserva el origen animado en las copias de las listas;
+    # COLORxx del OCS sólo usa los bits 11..0. No buscar por igualdad RGB.
+    for section, start, stride in ((2, 0, 2), (3, 4, 8), (3, 6, 8), (7, 6, 12)):
+        for pos in range(start, len(secs[section]) - 1, stride):
+            if struct.unpack_from('>H', secs[section], pos)[0] & 0x8000:
+                coin_data.append((section, pos))
+                if section == 2:
+                    line, reg = divmod(pos // 2, 7)
+                    coin_initial.add(line * SEG + 10 + 4 * reg)
+                elif section == 3:
+                    coin_initial.add(struct.unpack_from('>H', secs[section], pos // 8 * 8 + 2)[0])
     head = b"SMWS" + struct.pack(">HHHHH", W, cols, d["nblk"], d["sky"], len(chg))
     off = len(head) + 2 + 4 * 11
     offs = []
@@ -243,10 +269,20 @@ def main():
         off = (off + 7) & ~7
         offs.append(off)
         off += len(s)
-    # +52 reservado D_COIN; +56 D_TCHG, añadido al final de cabecera.
-    out = bytearray(head + b"\0\0" + struct.pack(">11I", *offs[:9], 0, offs[9]))
+    # +52 D_COIN (SW-M) y +56 D_TCHG (SW-B), al final de la cabecera.
+    from palette import COIN_ANIM, snes_to_amiga12
+    coin = struct.pack('>8H4H', *[snes_to_amiga12(c) | 0x8000 for c in COIN_ANIM],
+                       len(coin_data), len(coin_initial), len(set(coin_rows)), 0)
+    coin += b''.join(struct.pack('>I', offs[section] + pos) for section, pos in coin_data)
+    coin += b''.join(struct.pack('>I', offset) for offset in sorted(coin_initial))
+    coin += b''.join(struct.pack('>H', L * 32) for L in sorted(set(coin_rows)))
+    coin_off = (off + 7) & ~7
+    out = bytearray(head + b"\0\0" + struct.pack(">11I", *offs[:9], coin_off, offs[9]))
     for o, s in zip(offs, secs):
         out += bytes(o - len(out)) + s
+    out += bytes(coin_off - len(out)) + coin
+    print('SW-M: %d palabras de origen CGRAM $64, %d filas, tabla %d B'
+          % (len(coin_data), len(set(coin_rows)), len(coin)))
     name = "yi1_s_g5.dat" if g5 else "yi1_s.dat"
     open(os.path.join(WORK, name), "wb").write(out)
     print("%s: %d bytes, %d bloques, %d cambios de color (capa 1, borrado)"

@@ -114,6 +114,11 @@ WANT_POWERUP = [
 # Rutinas de graficos que escriben la OAM (G8, player/spr_gfx.c): bloque
 # #ifdef SMWTABX_GFX, igual que los de arriba (P36/P78).
 WANT_GFX = [
+    *[("sprite_1-1.s", lab, "tg2_" + lab) for lab in
+      ("PowerUpTiles", "StarPalValues", "DATA_01AE7F")],
+    *[("sprite_1-main.s", lab, "tg2_" + lab) for lab in
+      ("KoopaWingDispXLo", "KoopaWingDispXHi", "KoopaWingDispY",
+       "KoopaWingTiles", "KoopaWingGfxProp", "KoopaWingTileSize")],
     *[("sprite_2-2.s", lab, "tg2_" + lab) for lab in
       ("DATA_02D5A4", "DATA_02D5B4", "BanzaiBillTiles", "DATA_02D5D4")],
     *[("sprite_2-1.s", lab, "tg2_" + lab) for lab in

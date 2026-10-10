@@ -398,6 +398,11 @@ entry:
         endc
         tst.l   d0
         bne     gfail
+        ifd     BM_FIXED
+        FBSR    bm_cpu_tail                ; tablas CPU al A501 antes de reservar PF/listas
+        tst.l   d0
+        beq     gfail
+        endc
         ifd     SPR_BANK
         GETBASE a0
         move.l  hdr_data_off-binstart(a0),d7
@@ -1592,8 +1597,9 @@ DC_REC0     equ 50
         else
 DC_REC0     equ 8
         endc
-R_TSEQ      equ DC_REC0                     ; .w limite de cambios de esta foto
-DC_REC      equ DC_REC0+2
+R_COIN      equ DC_REC0                     ; .b FrameB de la foto (SW-M)
+R_TSEQ      equ DC_REC0+2                   ; .w limite de cambios de esta foto (SW-B)
+DC_REC      equ DC_REC0+4
 ; estado (dc_st), palabras; -1 = ninguna
 DC_FRONT    equ 0                           ; foto de la lista que se ve
 DC_PEND     equ 2                           ; publicada, se ve desde el VBL
@@ -2033,6 +2039,7 @@ dc_g5copy_end equ *
         move.b  _mario_pal(a4),d0
         and.b   #7,d0
         move.b  d0,R_PAL(a1)
+        move.b  _ram+$14(a4),R_COIN(a1)     ; FrameB de esta foto, no la RAM futura
         move.w  DC_NLOG(a2),R_FRAME(a1)
         move.w  _tile_write(a4),R_TSEQ(a1)   ; SW-B: incluye todos los cambios de k
         ifd     BENCH
@@ -2286,6 +2293,9 @@ dc_loop:
         move.w  DC_REND(a2),d0
         bsr     dc_recp
         move.w  R_S(a0),V_S(a5)
+        moveq   #0,d0
+        move.b  R_COIN(a0),d0
+        bsr     coin_prepare
         FBSR    columns
         lea     dc_st(pc),a2
         move.w  DC_REND(a2),d0
@@ -2306,6 +2316,7 @@ dc_loop:
         ifnd    NOMID
         bsr     build_mid
         endc
+        bsr     coin_list
         ifd     M1POS
         bsr     m1_post
         endc
@@ -2541,6 +2552,7 @@ g5l_capture_far:
         add.l   #g5l_capture-binstart,a0
         jmp     (a0)
         endc
+        include "player/coinpal.s"
 dc_rec:  ds.b   DC_REC*NSPRB
         even
 dc_stk:  ds.b   8192                        ; pila de la interrupcion
@@ -2679,7 +2691,7 @@ gb_scroll_frame:
         FBSR    set_pointers
         GBS     8
         ifnd    NOMID
-        FBSR    build_mid                    ; P102: las tablas SW-B alejan el arnes
+        FBSR    build_mid                   ; P102: BENCH también supera 32 KB
         endc
         GBS     9
         move.l  V_BACK(a5),COP1LC(a4)       ; se usa desde el proximo frame
@@ -4062,6 +4074,48 @@ bm_alloc:
         rts
 .fail:  moveq   #0,d0
         bra.s   .done
+
+; --- bm_cpu_tail --- sacar LNS y tablas finales de la chip (SW)
+; entrada: a3 = SMWS recién leído, d2 = longitud redondeada a sector
+; salida: d0 = 1; 0 sin slow suficiente. D_* apuntan a la copia CPU.
+; registros destruidos: d0-d1/a0-a1
+; ciclos: sólo al cargar; medidos por tools/cputail_verify.py
+bm_cpu_tail:
+        movem.l d2-d7/a2-a6,-(sp)
+        move.l  D_LNS(a3),d3               ; todo desde LNS es sólo de CPU
+        sub.l   d3,d2
+        move.l  d2,d0
+        move.l  #MEMF_FAST,d1
+        GALLOC                             ; lint: clobbers d0-d1/a0-a1
+        lea     g_cpu_tail(pc),a1
+        move.l  d0,(a1)
+        tst.l   d0
+        beq.s   .out
+        move.l  d0,a1
+        move.l  a3,a0
+        add.l   d3,a0
+        move.l  d0,d4
+        sub.l   a0,d4                      ; delta de la cola, chip -> slow
+        move.l  d2,d7
+        lsr.l   #2,d7
+        subq.l  #1,d7
+.copy:  move.l  (a0)+,(a1)+
+        subq.l  #1,d7
+        bpl.s   .copy
+        add.l   d4,D_LNS(a3)
+        add.l   d4,D_COIN(a3)
+        ifd     D_TCHG
+        add.l   d4,D_TCHG(a3)
+        endc
+        lea     bm_chipcur(pc),a0
+        move.l  a3,d0
+        add.l   d3,d0
+        move.l  d0,(a0)                    ; recuperar cola de la última reserva
+        moveq   #1,d0
+.out:   movem.l (sp)+,d2-d7/a2-a6
+        rts
+bm_tail_end:
+g_cpu_tail: dc.l 0
         cnop    0,4
 bm_fixedsig: dc.b "BMFIXED!"
         dc.l    0,0

@@ -962,8 +962,15 @@ MSX void spr_spr_interact(u8 y);
 
 MSS void flying_block(u8 x)
 {
+#ifdef SPR_OAM
+    flying_gfx(x, 0);
+#else
     get_draw_info1(x);                      /* SubSprGfx2Entry1: flags */
+#endif
     SETSPR(wm_SpriteMiscTbl4, x, 0);
+#ifdef SPR_OAM
+    if (!SPR(wm_SpriteState, x)) flying_gfx(x, 1);
+#endif
     if (!SPR(wm_SpriteState, x) && !R8(wm_SpritesLocked)) {
         if (!(R8(wm_FrameA) & 1)) {
             u8 y = SPR(wm_SpriteMiscTbl7, x) & 1, v;
@@ -998,6 +1005,9 @@ MSS void flying_block(u8 x)
                 SETSPR(wm_SpriteState, y, 0xFF);
         }
     }
+#ifdef SPR_OAM
+    flying_gfx(x, 2);
+#endif
 }
 
 /* InfoBox (sprite_3-1.s) */
@@ -1636,7 +1646,7 @@ static void sprite_main(u8 x, u8 n)
     if (n == 0xC7) { invis_mushroom(x); return; }
     if (n == 0x95) { chuck_main(x); return; }
     if (n == 0x7B) { goal_tape(x); return; }
-    if (n == 0x74) { powerup_main(x); return; }     /* la seta (spr_powerup.c) */
+    if (n == 0x74 || n == 0x75 || n == 0x76 || n == 0x78) { powerup_main(x); return; }
     spr_unsup();
 }
 
@@ -1688,7 +1698,7 @@ MSS void sprite_run_post(u8 x)
         }
         if (n == 0x95) { chuck_init(x); return; }   /* InitClappinChuck (spr_chuck.c) */
         if (n == 0x7B) { goal_init(x); return; }    /* InitGoalTape (spr_goal.c) */
-        if (n == 0x74) { powerup_init(x); return; } /* InitPowerUp (spr_powerup.c) */
+        if (n == 0x74 || n == 0x75 || n == 0x76 || n == 0x78) { powerup_init(x); return; }
         if (n == 0x9F) {                    /* InitBanzai: solo si Mario esta a la izquierda */
             SETSPR(wm_SpriteStatus, x, 0x08);
             if (!sub_horiz_pos(x))

@@ -97,3 +97,30 @@ completarla; no hay números nuevos de D1 ni se afirma estar dentro del ruido.
 Logs regenerables: work/sw-b-final-gates.log, work/regress.log,
 work/sw-b-turn-verify.log, work/sw-b-dynamic-scroll.log,
 work/sw-b-oam-gate.log y work/sw-b-sweep/{cmp.log,sweep.json,cmp/}.
+
+## Integración con master (2026-10-10, segunda retoma)
+
+**SW-B queda opcional**, como propone el punto 1 de "Continuación":
+
+- `mkscroll.py` solo hace el inventario y las reservas de color con
+  `SW_TILES=1`; sin eso, `D_TCHG` (+56) queda vacía y el plan del copper
+  es el de master.
+- `tile_apply` con `D_TCHG` vacía solo avanza `tile_read`: el diario del
+  C se consume, el mapa en pantalla queda como antes y no se marca
+  `MARIO_UNSUP_TILE` (no congela el vivo).
+- Convive con SW-M: `D_COIN` +52 y `D_TCHG` +56 en la cabecera;
+  `R_COIN` = `DC_REC0`, `R_TSEQ` = `DC_REC0+2`, `DC_REC` = `DC_REC0+4`.
+
+Puertas repetidas con master (SW-M, SW-Q) adentro:
+
+- defaults: `lint_port.py` OK y `regress.py --baseline
+  tools/baseline_pc.json --level --g5l --bm1` **OK** (`work/swb_int_*.log`);
+- `SW_TILES=1`: `tilechange_verify.py` 33/33 reemplazos, 50 688 px de
+  PF1 y 192 768 px de colores del copper, 0 diferencias; vacío 62
+  ciclos, cambio 902-3032, reinicio 1804 (sin DMA); memmap del replay
+  `turn_block` 0 violaciones, chip con 60 616 B de margen
+  (`work/swb_optin_*.log`).
+
+Activarla por defecto es decisión del usuario: cuesta `build_mid.max`
++836 ciclos y las medias de la tabla de arriba. Siguen pendientes la
+barrida de `turn_block` con `HOLDEVERY=10` y el A/B BENCH en WinUAE.

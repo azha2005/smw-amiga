@@ -225,6 +225,67 @@ u8 sub_spr_gfx2(u8 x, u8 m4v)
     return sub_spr_gfx2_at(x, m4v);
 }
 
+/* FlyingBlock: fases en el mismo orden que la ROM, antes/despues del
+   movimiento. CODE_019E95 dibuja dos alas y repone la posicion/indice. */
+void flying_gfx(u8 x, u8 phase)
+{
+    u8 y, j, first = SPR(wm_SprOAMIndex, x);
+    if (!phase) {
+        spr_oam_index(x);
+        if (SPR(wm_SpriteDecTbl6, x))
+            SETSPR(wm_SprOAMIndex, x, R8(wm_OnYoshi) ? 0 : 4);
+        sub_spr_gfx2_at(x, 0);
+        OAM_Y(SPR(wm_SprOAMIndex, x))--;
+        return;
+    }
+    if (phase == 2) {
+        y = SPR(wm_SprOAMIndex, x);
+        W8(m0, tg2_DATA_01AE7F[SPR(wm_SpriteDecTbl3, x) >> 1]);
+        OAM_Y(y) = (u8)(OAM_Y(y) - R8(m0));
+        OAM_TILE(y) = SPR(wm_SpriteState, x) ? 0x2E : 0x2A;
+        return;
+    }
+    for (j = 0; j < 2; j++) {
+        u8 k = (u8)(((SPR(wm_SpriteMiscTbl6, x) >> 3) & 1) + 2 * j);
+        u16 bx = (u16)(SPR(wm_SpriteXLo, x) | SPR(wm_SpriteXHi, x) << 8);
+        u16 wx = (u16)(bx + (j ? 2 : (u16)-2));
+        u16 wy = (u16)((SPR(wm_SpriteYLo, x) | SPR(wm_SpriteYHi, x) << 8) + 2);
+        y = (u8)(first + 4 + 4 * j);
+        if (j == 0) W8(m2, k);
+        if (SPR(wm_OffscreenVert, x)) continue;
+        W8(m0, (u8)(wx + tg2_KoopaWingDispXLo[k]));
+        W8(m1, (u8)wy); W8(m4, wx >> 8);
+        wx = (u16)(wx + (u16)(s16)(s8)tg2_KoopaWingDispXLo[k]);
+        if ((u16)(wx - R16(wm_Bg1HOfs)) >= 256) continue;
+        OAM_X(y) = (u8)(wx - R16(wm_Bg1HOfs));
+        OAM_Y(y) = (u8)(wy - R16(wm_Bg1VOfs) + tg2_KoopaWingDispY[k]);
+        OAM_TILE(y) = tg2_KoopaWingTiles[k];
+        OAM_PROP(y) = R8(wm_SpriteProp) | tg2_KoopaWingGfxProp[k];
+        OAM_SIZE(y >> 2) = tg2_KoopaWingTileSize[k];
+    }
+    if (spr_oam_n[x]) oam_mark(x, first, 3);
+}
+
+/* CODE_01C61A y PowerUpGfxRt; FinishOAMWrite conserva sus temporales. */
+void powerup_gfx(u8 x)
+{
+    u8 y, n = SPR(wm_SpriteNum, x), prop;
+    spr_oam_index(x);
+    if (!get_draw_info1(x)) return;
+    W8(m0, SPR(wm_SpriteXLo, x) - R8(wm_Bg1HOfs));
+    W8(m1, SPR(wm_SpriteYLo, x) - R8(wm_Bg1VOfs));
+    W8(m10, 0);
+    if (!R8(wm_ReznorSmokeFlag) && R8(wm_LevelMode) != 0xC1 && (R8(wm_LevelMode) & 0x40))
+        SETSPR(wm_SprOAMIndex, x, 0xD8);
+    y = SPR(wm_SprOAMIndex, x);
+    if (n == 0x76) W8(m10, tg2_StarPalValues[(R8(wm_FrameA) >> 1) & 3]);
+    OAM_X(y) = R8(m0); OAM_Y(y) = (u8)(R8(m1) - 1);
+    prop = (SPR(wm_SpriteDir, x) & 1) ? 0 : 0x40;
+    OAM_PROP(y) = (prop | R8(wm_SpriteProp) | SPR(wm_SpritePal, x)) ^ R8(m10);
+    OAM_TILE(y) = tg2_PowerUpTiles[(u8)(n - 0x74)];
+    finish_oam_write(x, 0, 2);
+}
+
 /* SubSprGfx2Entry1 y despues un tile fijo en la ficha (STA
    wm_OamSlot.1.Tile con Y = wm_SprOAMIndex): la caja de mensaje $B9
    ($C0) y el Koopa deslizante $BD ($86 / $E0). Lo escribe aunque el

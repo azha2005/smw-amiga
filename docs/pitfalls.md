@@ -150,9 +150,11 @@ TAY / LDA PALETTE_Flashing,Y / STA CGDATAW
 O sea: el color 4 de la paleta 6 **no** es el `$7C3F` (magenta) que carga
 `PALETTE_Objects` (palettes.a:58), sino que se **pisa cada frame** con un valor
 de `PALETTE_Flashing` (palettes.a:157, fila *Yellow*). Los 8 pasos son
-`$02DF $27FF $73FF $27FF $01BF $001B $0018 $001F`.
-La referencia de SNES capturó el paso 1 (`$27FF`). Sin esto la moneda sale
-**magenta**. Implementado en `palette.build_cgram(..., coin_frame=1)` →
+`$02DF $035F $27FF $5FFF $73FF $5FFF $27FF $035F`.
+Corregido al retomar SW-M (2026-10-10): antes se habían mezclado cuatro
+amarillos con cuatro rojos de la fila siguiente de `PALETTE_Flashing`.
+La referencia de SNES capturó el paso 2 (`$27FF`). Sin esto la moneda sale
+**magenta**. Implementado en `palette.build_cgram(..., coin_frame=2)` →
 `palette.COIN_ANIM` / `COIN_ANIM_REF`, así lo heredan todas las herramientas.
 Detectado con el barrido "colores de la referencia que no están en nuestro
 CGRAM": `$27FF` aparecía exactamente 400 px = 4 monedas × 100 px, en las

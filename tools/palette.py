@@ -125,11 +125,12 @@ DATA_00ABD3 = [0x00, 0x18, 0x30, 0x48, 0x60, 0x78, 0x90, 0xA8,
 # `PALETTE_Objects` (palettes.a:58, un magenta), sino un valor animado que
 # sale de `PALETTE_Flashing` (palettes.a:157, fila "Yellow").
 # Con Y = 0,2,4,...,14 los 8 pasos son:
-COIN_ANIM = [0x02DF, 0x27FF, 0x73FF, 0x27FF,
-             0x01BF, 0x001B, 0x0018, 0x001F]
+COIN_ANIM = [0x02DF, 0x035F, 0x27FF, 0x5FFF,
+             0x73FF, 0x5FFF, 0x27FF, 0x035F]
 # Paso que capturo la referencia de SNES (`SuperMarioWorldMap02.png`):
-# sus monedas tienen $27FF, o sea el paso 1 (o el 3, que es igual).
-COIN_ANIM_REF = 1
+# sus monedas tienen $27FF, o sea el paso 2 (o el 6, que es igual).
+# SW-M: los ocho amarillos son contiguos; la fila roja no pertenece al ciclo.
+COIN_ANIM_REF = 2
 
 
 def build_cgram(bank, labels, fgpal=0, bgpal=0, sprpal=0, bgcol=0,

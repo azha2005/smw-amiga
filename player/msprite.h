@@ -113,6 +113,8 @@ void piranha_gfx(u8 x);
 void chuck_gfx(u8 x);
 void goal_gfx(u8 x);
 void shell_gfx(u8 x, u8 kicked);
+void flying_gfx(u8 x, u8 phase);       /* FlyingBlock: base, alas, rebote */
+void powerup_gfx(u8 x);                /* CODE_01C61A + PowerUpGfxRt */
 #endif
 
 #endif

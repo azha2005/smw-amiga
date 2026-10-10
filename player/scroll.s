@@ -183,6 +183,7 @@ D_L2P   equ 36
 D_MLX   equ 40
 D_MLD   equ 44
 D_LNS   equ 48
+D_COIN  equ 52                  ; SW-M: colores, offsets de origen y filas
 D_TCHG  equ 56                  ; SW-B: reemplazos Map16 exactos por celda
 
 ; build_mid, LNS por grupos de 16 lineas (tools/mkscroll.py: NGRP, GSZ):
