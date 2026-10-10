@@ -34,6 +34,9 @@ _mario_E2BD_bridge:
         public  _sprite_run_bridge
 _sprite_run_bridge:
         PICJUMP _sprite_run
+        public  _banzai_bill_bridge
+_banzai_bill_bridge:                        ; sprite_main (msprite.c) -> banzai_bill (asm)
+        PICJUMP _banzai_bill
         endif
 
 ; --- _mario_collide_bridge / D5F2 / D062 / D7E4 / CEB1 (G5L-R-L2) ---
@@ -60,3 +63,12 @@ _mario_CEB1_bridge:
         public  _f7f4_bridge
 _f7f4_bridge:                               ; camera_F6DB_c (mcam.c) -> f7f4 (asm)
         PICJUMP _f7f4
+        public  _f8ab_bridge
+_f8ab_bridge:                               ; camera_F6DB_c (mcam.c) -> f8ab (asm)
+        PICJUMP _f8ab
+        public  _blocks_update_bridge
+_blocks_update_bridge:                      ; mario_player_c (manim.c) -> blocks_update (asm)
+        PICJUMP _blocks_update
+        public  _sprite_load_level_bridge
+_sprite_load_level_bridge:                  ; manim.c -> sprite_load_level (asm)
+        PICJUMP _sprite_load_level

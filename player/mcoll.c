@@ -416,6 +416,10 @@ found:
 static const u8 bnc_spd_y[4] = { 0x80, 0x80, 0x80, 0x00 };     /* DATA_0290D6 */
 static const u8 bnc_spd_x[4] = { 0x80, 0xE0, 0x20, 0x80 };     /* DATA_0290DA */
 
+#ifdef LOGIC68K
+#define blocks_update blocks_update_c   /* la referencia; el asm cae aca si hay bloques */
+void blocks_update_c(void);
+#endif
 void blocks_update(void)
 {
     int xi;
@@ -475,6 +479,7 @@ void blocks_update(void)
         (RX8(wm_BounceSprNum, x) = (u8)(0));
     }
 }
+#undef blocks_update
 
 /* _00F17F: golpear un bloque. Entra A = tipo (0..$23), y = lado. */
 static void f17f(u8 a, u8 y)

@@ -60,9 +60,17 @@ BLOCKS = (0x00, 0x05, 0x06, 0x0C, 0x0D, 0x0E, 0x0F, 0x11, 0x1E, 0x1F, 0x20, 0x21
           0xFB)
 
 
-def build_lib(out, cdefs):
+def build_lib(out, cdefs, export=None, func=None, nargs=0, ret=None):
     cc = shutil.which("gcc") or shutil.which("cc")
     src = [os.path.join(ROOT, f) for f in LIBSRC]
+    if export:                              # la funcion es static en el PC: un envoltorio
+        path = os.path.join(ROOT, "player", export)     # que incluye el fuente y la exporta
+        args = ", ".join("u8 a%d" % k for k in range(nargs)) or "void"
+        call = "%s(%s)" % (func, ", ".join("a%d" % k for k in range(nargs)))
+        w = os.path.join(os.path.dirname(out), "fz_" + export)
+        body = ("return %s;" % call) if ret else ("%s; return 0;" % call)
+        open(w, "w").write('#include "%s"\nint fz_%s(%s) { %s }\n' % (path.replace(os.sep, "/"), func, args, body))
+        src = [w if os.path.normpath(f) == os.path.normpath(path) else f for f in src]
     src += sorted(glob.glob(os.path.join(ROOT, "player", "spr_*.c")))
     src += [os.path.join(ROOT, "player", "gen", "smwrom00.c")]
     # cc1 busca sus DLL (gmp, mpfr...) en el PATH: con /mingw64/bin delante sale sin
@@ -116,6 +124,8 @@ def main():
                     help="la ranura del primer --arg junto a Mario (+-16 px), para las ramas de contacto")
     ap.add_argument("--dumpcase", type=int, default=None, metavar="N",
                     help="guardar la RAM de entrada de la prueba N en work/fz/case.bin (y los args)")
+    ap.add_argument("--export", metavar="FICHERO.c",
+                    help="la funcion es static en el PC: compilar ese fuente con un fz_FUNC publico")
     ap.add_argument("--seedram", help="semillas: ram[] enteras seguidas (m68kverify --dumpall)")
     ap.add_argument("--cdefs", default="-DNOOAM", help="opciones del C del PC (como CDEFS)")
     ap.add_argument("--n", type=int, default=5000)
@@ -131,7 +141,7 @@ def main():
 
     os.makedirs(os.path.dirname(a.lib), exist_ok=True)
     if not a.nobuild:
-        build_lib(a.lib, a.cdefs)
+        build_lib(a.lib, a.cdefs, a.export, a.func, len(a.arg), a.ret)
     lib = ctypes.CDLL(os.path.abspath(a.lib))
     pram = (ctypes.c_ubyte * 0x2000).in_dll(lib, "ram")
     map0 = open(os.path.join(ROOT, "work", "yi1_map16.bin"), "rb").read()
@@ -140,7 +150,7 @@ def main():
     ctypes.c_void_p.in_dll(lib, "map16_hi").value = ctypes.addressof(pmap) + len(map0) // 2
     punsup = ctypes.c_int.in_dll(lib, "mario_unsupported")
     pev = ctypes.c_uint.in_dll(lib, "mario_events")
-    pfunc = getattr(lib, a.func)
+    pfunc = getattr(lib, ("fz_" + a.func) if a.export else a.func)
     pfunc.argtypes = [ctypes.c_ubyte] * len(a.arg)
     pfunc.restype = ctypes.c_int
     argr = [tuple(int(v, 0) for v in s.split("-")) for s in a.arg]

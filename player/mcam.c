@@ -31,6 +31,7 @@ u16 f7f4(u16 limit, u16 bg1v);
 #define MCS static
 #endif
 
+#ifndef LOGIC68K            /* con LOGIC68K: player/logic68k.s (G5L-R-L2) */
 /* CODE_00F8AB: la zona muerta despues de mover la camara con L/R */
 MCS void f8ab(void)
 {
@@ -52,6 +53,7 @@ MCS void f8ab(void)
     W16(m2, a);
     W8(wm_LRMoveCamera, y);
 }
+#endif
 
 /* CODE_00F7F4 / CODE_00F7FA: scroll vertical. Entra y sale Bg1VOfs en una
    variable (nativo: en el 68000 cada valor de 16 bits de ram[] cuesta ~50

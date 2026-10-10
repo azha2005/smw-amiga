@@ -961,7 +961,7 @@ _get_draw_info_asm:
 ;----------------------------------------------------------------------
 ; void camera_F6DB(void) = camera_F6DB_c de mcam.c (CODE_00F6DB, nivel
 ; horizontal): Bg1/Bg2 a partir de L1/L2NextPos y de Mario respecto de la
-; zona muerta. f7f4 (scroll vertical) y f8ab (L/R) siguen en C. Nivel
+; zona muerta. f7f4 (scroll vertical) y f8ab (L/R) tambien son asm. Nivel
 ; vertical: el C (lo marca sin portar).
 ; d3 = pts  d4 = bg1h  d5 = bg1v  d6 = bg2h  d7 = bg2v  a2 = ram
 ;----------------------------------------------------------------------
@@ -1027,7 +1027,7 @@ _camera_F6DB:
         eor.b   d2,d0
         bpl     .l2
         WR16    m2,d1
-        PICCALL _f8ab                       ; C de mcam.c, lejos en el juego (P102)
+        bsr     _f8ab
         RD16    m2,d1                       ; v2
         add.w   d4,d1                       ; a = v2 + bg1h
         bpl.s   .pos
@@ -2392,10 +2392,10 @@ lfo     set     lfo+1
         tst.b   _level_sprites(a4)
         beq.s   .b
         bsr     _sprites_all_asm
-.b:     PICCALL _blocks_update
+.b:     bsr     _blocks_update
         tst.b   _level_sprites(a4)
         beq.s   .x
-        PICCALL _sprite_load_level
+        bsr     _sprite_load_level
 .x:     rts
 
 ;----------------------------------------------------------------------
@@ -4368,3 +4368,209 @@ _mario_CEB1:
 .f:     move.b  d0,_ram+wm_MarioFrame(a4)
 .ret:   movem.l (sp)+,d2-d3
         rts
+
+
+;----------------------------------------------------------------------
+; G5L-R-L2 (2): la carga de sprites por columna, los bloques que rebotan,
+; la zona muerta de L/R, los tweakers y la Banzai. Al final del fichero
+; para no alejar nada mas del C (P102): el C que las llama (raro) entra
+; por los puentes de pic68k.s.
+;----------------------------------------------------------------------
+
+; --- sprite_load_level ---
+; entrada:  a4 = datos del C
+; salida:   como sprite_load_level de msprite.c (LoadSprFromLevel, nivel
+;           horizontal): spr_spawned = 0 y, un frame si y otro no, la columna
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+; Recorre la pantalla que entra sin escribir nada; si hay un sprite que
+; crear (o hay que rearmar sll_y/sll_i) salta a load_column (C), que
+; vuelve a recorrer lo mismo desde el principio y lo crea.
+        public  _sprite_load_level
+_sprite_load_level:
+        clr.b   _spr_spawned(a4)
+        btst    #0,_ram+wm_FrameA(a4)
+        bne     .ret
+        movem.l d2-d5,-(sp)
+        moveq   #0,d1
+        move.b  _ram+wm_Layer1ScrollDir(a4),d1  ; d
+        lea     tx_02A7F6(pc),a0
+        moveq   #0,d0
+        move.b  (a0,d1.w),d0
+        moveq   #0,d2
+        move.b  _ram+wm_Bg1HOfs(a4),d2
+        add.w   d0,d2                       ; c = Bg1HOfs bajo + DATA_02A7F6[d]
+        moveq   #-$10,d3
+        and.b   d2,d3                       ; col
+        lsr.w   #8,d2                       ; el acarreo de c
+        lea     tx_02A7F9(pc),a0
+        add.b   (a0,d1.w),d2
+        add.b   _ram+wm_Bg1HOfs+1(a4),d2    ; scrn
+        bmi.s   .out
+        move.l  _spr_level(a4),a1
+        cmp.l   _sll_for(a4),a1
+        bne.s   .c                          ; sll_y/sll_i viejas: las rearma el C
+        moveq   #0,d0
+        move.b  d2,d0
+        cmp.b   #32,d0
+        bls.s   .s
+        moveq   #32,d0
+.s:     lea     _sll_y(a4),a0
+        moveq   #0,d1
+        move.b  (a0,d0.w),d1                ; y
+        lea     _sll_i(a4),a0
+        moveq   #0,d4
+        move.b  (a0,d0.w),d4                ; index
+        lea     _ram+wm_SprLoadStatus(a4),a0
+.lp:    move.b  (a1,d1.w),d0                ; b0
+        cmp.b   #$ff,d0
+        beq.s   .out
+        lsl.b   #3,d0
+        and.b   #$10,d0
+        moveq   #$0f,d5
+        and.b   1(a1,d1.w),d5
+        or.b    d5,d0                       ; scr
+        cmp.b   d2,d0
+        blo.s   .nx                         ; de una pantalla anterior
+        bne.s   .out                        ; ordenados por pantalla
+        moveq   #-$10,d0
+        and.b   1(a1,d1.w),d0
+        cmp.b   d3,d0
+        bne.s   .nx                         ; otra columna
+        tst.b   (a0,d4.w)
+        beq.s   .c                          ; sin cargar: lo crea el C
+.nx:    addq.b  #3,d1
+        addq.b  #1,d4
+        bra.s   .lp
+.c:     movem.l (sp)+,d2-d5
+        PICJUMP _load_column
+.out:   movem.l (sp)+,d2-d5
+.ret:   rts
+
+; --- blocks_update ---
+; entrada:  a4 = datos del C
+; salida:   como blocks_update de mcoll.c (CODE_02902D)
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+; Sin bloques que rebotan (lo normal) solo baja el temporizador de los
+; bloques de varias monedas; si no, todo lo hace el C (blocks_update_c).
+        public  _blocks_update
+_blocks_update:
+        lea     _ram+wm_BounceSprNum(a4),a0
+        move.b  (a0)+,d0
+        or.b    (a0)+,d0
+        or.b    (a0)+,d0
+        or.b    (a0),d0
+        beq.s   .t
+        PICJUMP _blocks_update_c
+.t:     cmp.b   #2,_ram+wm_MultiCoinBlkTimer(a4)
+        blo.s   .r
+        tst.b   _ram+wm_SpritesLocked(a4)
+        bne.s   .r
+        subq.b  #1,_ram+wm_MultiCoinBlkTimer(a4)
+.r:     rts
+
+; --- f8ab ---
+; entrada:  a4 = datos del C; m2 = desplazamiento de la camara (16 bits)
+; salida:   como f8ab de mcam.c (CODE_00F8AB): m2 y LRMoveCamera
+; registros destruidos: d0-d1/a0
+; ciclos:   tools/l_funcs.py
+        public  _f8ab
+_f8ab:
+        tst.b   _ram+wm_LRScrollFlag(a4)
+        bne.s   .ret
+        movem.l d2-d3,-(sp)
+        moveq   #0,d1
+        move.b  _ram+wm_LRScrollStop(a4),d1     ; x
+        lea     _rom00+(DATA_00F6B3-ROM00_BASE)(a4),a0
+        move.b  1(a0,d1.w),d0
+        lsl.w   #8,d0
+        move.b  (a0,d1.w),d0                ; T16X(DATA_00F6B3, x)
+        move.w  _ram+wm_PosToScrollScreen(a4),d2
+        ror.w   #8,d2
+        moveq   #8,d3                       ; y
+        sub.w   d0,d2
+        bpl.s   .y
+        moveq   #$0a,d3
+.y:     move.w  _ram+m2(a4),d2
+        ror.w   #8,d2                       ; v2
+        lea     _rom00+(DATA_00F6BF-ROM00_BASE)(a4),a0
+        move.b  1(a0,d3.w),d0
+        lsl.w   #8,d0
+        eor.w   d2,d0                       ; signos de T16X(F6BF, y) y v2
+        bpl.s   .out
+        move.b  1(a0,d1.w),d0
+        lsl.w   #8,d0
+        eor.w   d2,d0                       ; signos de T16X(F6BF, x) y v2
+        bpl.s   .out
+        lea     _rom00+(DATA_00F6CF-ROM00_BASE)(a4),a0
+        move.b  1(a0,d3.w),d0
+        lsl.w   #8,d0
+        move.b  (a0,d3.w),d0
+        add.w   d2,d0                       ; a = v2 + T16X(DATA_00F6CF, y)
+        beq.s   .out
+        ror.w   #8,d0
+        move.w  d0,_ram+m2(a4)
+        move.b  d3,_ram+wm_LRMoveCamera(a4)
+.out:   movem.l (sp)+,d2-d3
+.ret:   rts
+
+; --- sprite_tweakers ---
+; entrada:  pila vbcc = u8 x; a4 = datos del C
+; salida:   como sprite_tweakers de msprite.c (los seis Tweaker del numero)
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+        public  _sprite_tweakers
+_sprite_tweakers:
+        moveq   #0,d1
+        move.b  7(sp),d1
+        lea     _ram(a4),a1
+        add.w   d1,a1
+        moveq   #0,d0
+        move.b  wm_SpriteNum(a1),d0
+        lea     tx_1656(pc),a0
+        move.b  (a0,d0.w),wm_Tweaker1656(a1)
+        lea     tx_1662(pc),a0
+        move.b  (a0,d0.w),wm_Tweaker1662(a1)
+        lea     tx_166E(pc),a0
+        move.b  (a0,d0.w),wm_Tweaker166E(a1)
+        lea     tx_167A(pc),a0
+        move.b  (a0,d0.w),wm_Tweaker167A(a1)
+        lea     tx_1686(pc),a0
+        move.b  (a0,d0.w),wm_Tweaker1686(a1)
+        lea     tx_190F(pc),a0
+        move.b  (a0,d0.w),wm_Tweaker190F(a1)
+        rts
+
+; --- banzai_bill ---
+; entrada:  pila vbcc = u8 x; a4 = datos del C
+; salida:   como banzai_bill de msprite.c (BanzaiRotating, el $9F, con SPR_OAM)
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+; Las rutinas que llama son asm y no tocan su ranura de argumento: se
+; reusa la misma para todas.
+        ifd     SPR_OAM
+        public  _banzai_bill
+_banzai_bill:
+        move.l  d2,-(sp)
+        moveq   #0,d2
+        move.b  8+3(sp),d2                  ; x
+        move.l  d2,-(sp)
+        bsr     _banzai_gfx
+        lea     _ram+wm_SpriteStatus(a4),a0
+        cmp.b   #$02,(a0,d2.w)
+        beq.s   .ret
+        tst.b   _ram+wm_SpritesLocked(a4)
+        bne.s   .ret
+        bsr     _sub_offscreen3
+        lea     _ram+wm_SpriteSpeedX(a4),a0
+        move.b  #$e8,(a0,d2.w)
+        pea     $0c.w
+        move.l  d2,-(sp)
+        bsr     _spr_pos_axis_asm           ; UpdateXPosNoGrvty2
+        addq.l  #8,sp
+        bsr     _mario_spr_interact         ; DefaultInteractR
+.ret:   addq.l  #4,sp
+        move.l  (sp)+,d2
+        rts
+        endc
