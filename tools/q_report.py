@@ -14,8 +14,8 @@ import collections
 import json
 import re
 
-ADDR = re.compile(r'^([0-9A-F]{2}):([0-9A-F]{8}) [0-9A-F]*\s*\t\s*(\d+)(M|:) ?(.*)$')
-NOADDR = re.compile(r'^\s*\t\s*(\d+)(M|:) ?(.*)$')
+ADDR = re.compile(r'^([0-9A-F]{2}):([0-9A-F]{8}) [0-9A-F]*\s*\t\s*(\d+)(M|R|:) ?(.*)$')
+NOADDR = re.compile(r'^\s*\t\s*(\d+)(M|R|:) ?(.*)$')
 GLOB = re.compile(r'^([A-Za-z_]\w*):')
 LOC = re.compile(r'^(\.\w+):')
 
@@ -37,7 +37,7 @@ def parse_lst(path):
             if not m:
                 continue
             off, ln, sep, text = None, m.group(1), m.group(2), m.group(3)
-        if sep == ':':                          # 'nM' = línea n de una macro
+        if sep == ':':                          # 'nM'/'nR' = línea n de una macro o un rept
             line = int(ln)
         t = text.strip()
         mg, ml = GLOB.match(text), LOC.match(t)

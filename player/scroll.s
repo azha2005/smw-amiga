@@ -661,6 +661,8 @@ apply_colors:
 ;----------------------------------------------------------------------
 init_lines:
         lea     linetab_a(pc),a0
+        lea     prevlt(pc),a1               ; S9: ninguna vale todavia
+        move.l  a0,(a1)
         move.l  V_COP(a5),d4
         bsr     .tab
         lea     linetab_b(pc),a0
@@ -919,6 +921,14 @@ build_mid:
         cmp.w   14(a5,d0.w),d6
         blt.s   .pl                         ; s < vu: lo escrito vale
 .prw:   lea     (a5,d0.w),a4                ; a4 = linetab[L]
+        move.l  prevlt(pc),a1               ; S9: la de la ultima lista
+        add.w   d0,a1                       ; escrita, si vale en s, se
+        cmp.w   12(a1),d6                   ; copia (bm_share)
+        blt.s   .rw
+        cmp.w   14(a1),d6
+        bge.s   .rw
+        bsr     bm_share
+        bra     .pl
 .rw:    move.l  4(a4),a1                    ; a1 = lo (registros de 12 bytes:
 .lof:   cmp.w   2(a1),d6                    ; clase, x, MOVE, a, b)
         ble.s   .lob                        ; x < s: salio por la izquierda
@@ -1070,9 +1080,12 @@ build_mid:
 .ch6:   moveq   #3,d1                      ; 5 -> 6: un relleno
         bra     .td
         endc
-.jump:  move.l  18(a4),(a3)+                ; el salto al segmento siguiente
+.jump:  move.l  a3,d1                       ; S9: bytes de las cargas
+        sub.l   (a4),d1
+        move.w  d1,28(a4)
+        move.l  18(a4),(a3)+                ; el salto al segmento siguiente
         move.l  22(a4),(a3)+
-        move.l  26(a4),(a3)+
+        move.l  #$008a0000,(a3)+
         cmp.w   d6,d3                       ; no vale ni en s: la primera
         bgt.s   .late                       ; escrita es una tarde (fue por
         cmp.w   d6,d4                       ; .w con su a y b): como antes,
@@ -1083,7 +1096,9 @@ build_mid:
 .j2:    move.w  d3,12(a4)                   ; antes y la ida y la vuelta
         move.w  d4,14(a4)                   ; darian imagenes distintas: P50)
         bra     .pl
-.done:  movem.l (sp)+,d2-d7/a2-a6
+.done:  lea     prevlt(pc),a0               ; S9: la fuente de la proxima
+        move.l  a5,(a0)
+        movem.l (sp)+,d2-d7/a2-a6
         rts
 ; Una carga "tarde" (clase 4-7 en MLD: 4 + la clase de siempre; fija,
 ; tools/mkscroll.py, P71): con ninguna base cae en su ventana, asi que
@@ -1237,6 +1252,14 @@ bm_left:
         cmp.w   14(a5,d0.w),d6
         blt.s   .pl
 .prw:   lea     (a5,d0.w),a4
+        move.l  prevlt(pc),a1               ; S9: la de la ultima lista
+        add.w   d0,a1                       ; escrita, si vale en s, se
+        cmp.w   12(a1),d6                   ; copia (bm_share)
+        blt.s   .rw
+        cmp.w   14(a1),d6
+        bge.s   .rw
+        bsr     bm_share
+        bra     .pl
 .rw:    moveq   #0,d7                       ; d7 = pista (<= 0: ninguna)
         move.b  17(a4),d1
         cmp.b   EPO+1(a5),d1
@@ -1406,9 +1429,12 @@ bm_left:
         add.w   d0,d4
         move.w  d6,d5
         add.w   #LASTX,d5
-.jump:  move.l  18(a4),(a3)+
+.jump:  move.l  a3,d1                       ; S9: bytes de las cargas
+        sub.l   (a4),d1
+        move.w  d1,28(a4)
+        move.l  18(a4),(a3)+
         move.l  22(a4),(a3)+
-        move.l  26(a4),(a3)+
+        move.l  #$008a0000,(a3)+
         cmp.w   d6,d3
         bgt.s   .late
         cmp.w   d6,d4
@@ -1462,8 +1488,56 @@ bm_left:
         bge     .k2
         move.w  d1,d3
         bra     .k2
-.done:  movem.l (sp)+,d2-d7/a2-a6
+.done:  lea     prevlt(pc),a0               ; S9: la fuente de la proxima
+        move.l  a5,(a0)
+        movem.l (sp)+,d2-d7/a2-a6
         rts
+
+;----------------------------------------------------------------------
+; --- bm_share --- (S9, build_mid y bm_left en .prw)
+; Las tres listas (dos sin CUSHION) reescriben las mismas lineas una foto
+; despues de otra: los picos de build_mid vienen de a tres. Lo escrito en
+; una linea vale por su contenido, no por la lista ([vl, vu) en linetab,
+; P50/P71; las h salen de htab - s0 y las direcciones del salto son lo
+; unico propio de cada lista). Si la linea de la ultima lista escrita
+; (prevlt) vale en s, se copian sus cargas (28(a1) bytes, guardados en
+; .jump) y su estado, y se escribe el salto de esta lista. Lo que G5L
+; agrega va despues de las cargas (sufijos, g5l_clean): no se copia.
+; Quien llama ya comprobo que vale (vl <= s < vu en a1): 46 ciclos por
+; linea cuando no se copia.
+; entrada:  a1 = prevlt + linea * 32 (vale en s), a4 = linetab[L],
+;           a5 = linetab
+; salida:   la linea copiada, con el salto de esta lista
+; registros destruidos: d1/a0/a3
+; ciclos:   ~280 + 20 por palabra larga
+;----------------------------------------------------------------------
+bm_share:
+        move.l  (a1),a0
+        move.l  (a4),a3
+        move.w  28(a1),d1
+        lsr.w   #1,d1                       ; 2 B por move.l (a0)+,(a3)+
+        neg.w   d1
+        jmp     .ce(pc,d1.w)                ; P40 ok. lint: targets .ce
+        rept    (SEG-12)/4
+        move.l  (a0)+,(a3)+
+        endr
+.ce:    move.l  18(a4),(a3)+
+        move.l  22(a4),(a3)+
+        move.l  #$008a0000,(a3)+
+        move.l  4(a1),4(a4)                 ; lo, hi
+        move.l  8(a1),8(a4)
+        move.l  12(a1),12(a4)               ; vl, vu
+        move.w  28(a1),28(a4)
+        move.w  30(a1),30(a4)               ; pista (min b de las cargas)
+        move.l  prevlt(pc),a0               ; con la epoca de esta lista si
+        move.b  17(a1),d1                   ; era de la de aquella (bm_left)
+        cmp.b   EPO+1(a0),d1
+        bne.s   .e0
+        move.b  EPO+1(a5),17(a4)
+        rts
+.e0:    clr.b   17(a4)
+        rts
+prevlt: ds.l    1                           ; linetab de la ultima escrita
 
 ;----------------------------------------------------------------------
 ; --- draw_column ---
