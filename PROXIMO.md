@@ -27,7 +27,13 @@ cycle-exact: **VBTRACE 0 fotos omitidas** (S9: 12), BENCH 10 perdidas
 2. **Estrés: el render en la vuelta.** Perfil por PC de `build_mid` y
    `scroll_frame` sobre `stress_back` (`g5l.py game --pcprof`, P121) y
    bajar los picos de columnas al volver. Medir con BENCH en los dos
-   replays de estrés (comandos en el informe §3).
+   replays de estrés (comandos en el informe §3). El perfil decide la
+   técnica (`docs/investigacion-demoscene-1010.md` §11): si dominan las
+   decisiones, speedcode por línea generado por `mkscroll.py` + corte con
+   `RTS` parcheado; si domina la copia, escribir menos palabras; si
+   dominan las esperas del blitter, copper → blitter o cambiar cómo se
+   termina la columna al dar la vuelta. Puerta: lista del copper idéntica
+   byte a byte en Musashi en los tres replays.
 3. **Seguir la directiva asm** sobre lo caliente que queda
    (`finish_oam` costo fijo, `mario_E2BD`, `spr_tile`, `mc_pxy`,
    cámara, `mspr_draw`), cada cambio con `fuzzcall.py` + lint + regress.
