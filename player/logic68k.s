@@ -1857,16 +1857,16 @@ _mario_player:
 .col:   bsr     _mario_collide              ; CODE_00CD24 + _00CD39
         tst.l   _mario_unsupported(a4)
         bne.s   .r
-        PICCALL _mario_D5F2                 ; CODE_00CD82
+        bsr     _mario_D5F2                 ; CODE_00CD82
         tst.l   _mario_unsupported(a4)
         bne.s   .r
-        PICCALL _mario_D062
+        bsr     _mario_D062
         tst.l   _mario_unsupported(a4)
         bne.s   .r
-        PICCALL _mario_D7E4
+        bsr     _mario_D7E4
         tst.l   _mario_unsupported(a4)
         bne.s   .r
-        PICCALL _mario_CEB1
+        bsr     _mario_CEB1
         tst.b   _ram+wm_OnYoshi(a4)
         beq.s   .tail
         tst.l   _mario_unsupported(a4)      ; unsup_anim: solo si no habia
@@ -3133,3 +3133,590 @@ mc_efcd:
         ror.w   #8,d2
         move.w  d2,_ram+wm_MarioYPos(a4)
 .r:     rts
+
+;----------------------------------------------------------------------
+; --- mario_D5F2 --- (G5L-R-L2: mario.c mario_D5F2, CODE_00D5F2: velocidad
+; X, agacharse, saltar)
+; entrada:  a4 = datos del C
+; salida:   como mario_D5F2()
+; registros destruidos: d0-d1/a0-a1 (ABI de vbcc)
+; se conservan d2-d3
+; ciclos:   tools/l_funcs.py
+; x en d2 y y en d3 (indices de 16 bits, bytes con los bits altos en 0).
+;----------------------------------------------------------------------
+        public  _mario_D5F2
+_mario_D5F2:
+        movem.l d2-d3,-(sp)
+        clr.l   _mario_unsupported(a4)
+        tst.b   _ram+wm_IsFlying(a4)
+        bne     .d682
+        clr.b   _ram+wm_IsDucking(a4)       ; CODE_00D5F9
+        tst.b   _ram+wm_PlayerSlopePose(a4)
+        bne.s   .a1
+        moveq   #$04,d0
+        and.b   _ram+wm_JoyPadA(a4),d0
+        beq.s   .a1
+        move.b  d0,_ram+wm_IsDucking(a4)
+        clr.b   _ram+wm_CapeCanHurt(a4)
+.a1:    cmp.b   #$02,_ram+wm_IsOnSolidSpr(a4)
+        beq.s   .a2
+        btst    #3,_ram+wm_MarioObjStatus(a4)
+        bne.s   .a2
+        move.b  _ram+wm_JoyFrameA(a4),d0
+        or.b    _ram+wm_JoyFrameB(a4),d0
+        bmi.s   .d630
+.a2:    tst.b   _ram+wm_IsDucking(a4)
+        beq     .d682
+        tst.b   _ram+wm_MarioSpeedX(a4)
+        beq     .d764
+        tst.b   _ram+wm_IsSlipperyLevel(a4)
+        bne     .d764
+        bsr     mr_fe4a
+        bra     .d764
+
+.d630:  move.b  _ram+wm_MarioSpeedX(a4),d0 ; CODE_00D630: empieza el salto
+        bpl.s   .ab
+        neg.b   d0
+.ab:    lsr.b   #2,d0
+        and.b   #$fe,d0
+        moveq   #0,d2
+        move.b  d0,d2                       ; x
+        tst.b   _ram+wm_JoyFrameB(a4)
+        bpl.s   .d65e
+        tst.b   _ram+wm_IsCarrying2(a4)
+        bne.s   .d65e
+        move.b  #$01,_ram+wm_IsSpinJump(a4)
+        move.b  #$04,_ram+wm_SoundCh3(a4)
+        moveq   #0,d0
+        move.b  _ram+wm_MarioDirection(a4),d0
+        lea     _rom00+(DATA_00D5F0-ROM00_BASE)(a4),a0
+        move.b  (a0,d0.w),_ram+wm_SpinFireTimer(a4)
+        tst.b   _ram+wm_OnYoshi(a4)
+        bne.s   .d682
+        addq.b  #1,d2
+        bra.s   .d663
+.d65e:  move.b  #$01,_ram+wm_SoundCh2(a4)
+.d663:  lea     _rom00+(DATA_00D2BD-ROM00_BASE)(a4),a0
+        move.b  (a0,d2.w),_ram+wm_MarioSpeedY(a4)
+        moveq   #$0b,d0
+        cmp.b   #$70,_ram+wm_PlayerDashTimer(a4)
+        blo.s   .s
+        tst.b   _ram+wm_GlideTimer(a4)
+        bne.s   .g
+        move.b  #$50,_ram+wm_GlideTimer(a4)
+.g:     moveq   #$0c,d0
+.s:     move.b  d0,_ram+wm_IsFlying(a4)
+        clr.b   _ram+wm_PlayerSlopePose(a4)
+
+.d682:  tst.b   _ram+wm_PlayerSlopePose(a4) ; _00D682
+        bmi.s   .fe
+        moveq   #$03,d0
+        and.b   _ram+wm_JoyPadA(a4),d0
+        bne.s   .d6b1
+        tst.b   _ram+wm_PlayerSlopePose(a4)
+        beq     .d764
+.fe:    bsr     mr_fe4a
+        tst.b   _ram+wm_OnSlopeTypeA(a4)
+        beq     .d764
+        moveq   #0,d0
+        bsr     mr_d96a                     ; CODE_00D968
+        moveq   #0,d0
+        move.b  _ram+wm_OnSlopeTypeB(a4),d0
+        moveq   #2,d1
+        and.b   d0,d1
+        lsr.b   #1,d1                       ; c = acarreo del segundo LSR
+        lsr.b   #2,d0                       ; a = y
+        moveq   #0,d2
+        move.b  d0,d2
+        add.b   #$76,d2
+        add.b   d1,d2                       ; x = a + $76 + c
+        moveq   #1,d1
+        and.b   d0,d1                       ; c = y & 1
+        lsr.b   #1,d0
+        add.b   #$87,d0
+        add.b   d1,d0
+        moveq   #0,d3
+        move.b  d0,d3                       ; y = (y >> 1) + $87 + c
+        bra     .d742
+
+.d6b1:  clr.b   _ram+wm_PlayerSlopePose(a4) ; CODE_00D6B1
+        and.b   #$01,d0                     ; a
+        tst.b   _ram+wm_CapeGlidePhase(a4)
+        beq.s   .d6d5
+        moveq   #MARIO_UNSUP_CAPE,d0
+        move.l  d0,_mario_unsupported(a4)
+        bra     .x
+.d6d5:  cmp.b   _ram+wm_MarioDirection(a4),d0
+        beq.s   .pp
+        tst.b   _ram+wm_IsCarrying2(a4)
+        beq.s   .sd
+        tst.b   _ram+wm_FaceCamImgTimer(a4)
+        bne.s   .pp
+        move.b  #$08,_ram+wm_FaceCamImgTimer(a4)
+.sd:    move.b  d0,_ram+wm_MarioDirection(a4)
+.pp:    move.b  d0,_ram+m1(a4)
+        moveq   #0,d2
+        move.b  d0,d2
+        lsl.b   #2,d2
+        or.b    _ram+wm_OnSlopeTypeB(a4),d2 ; x
+        move.b  _ram+wm_MarioSpeedX(a4),d1
+        beq.s   .d713
+        lea     _rom00+(MarioAccel+1-ROM00_BASE)(a4),a0
+        move.b  (a0,d2.w),d0
+        eor.b   d1,d0
+        bpl.s   .d713
+        tst.b   _ram+wm_SlideImgTimer(a4)
+        bne.s   .d713
+        tst.b   _ram+wm_IsSlipperyLevel(a4)
+        bne.s   .x90
+        move.b  #$0d,_ram+wm_PlayerTurningPose(a4)
+        bsr     mr_fe4a
+.x90:   add.b   #$90,d2
+.d713:  moveq   #0,d0                       ; _00D713: y
+        btst    #6,_ram+wm_JoyPadA(a4)      ; BIT / BVC: Y = correr
+        beq.s   .d737
+        addq.b  #2,d2
+        addq.b  #1,d0
+        move.b  _ram+wm_MarioSpeedX(a4),d1
+        bpl.s   .ab2
+        neg.b   d1
+.ab2:   sub.b   #$23,d1
+        bmi.s   .d737
+        move.b  _ram+wm_IsFlying(a4),d1
+        bne.s   .fl
+        move.b  #$10,_ram+wm_RunCapeTimer(a4)
+        addq.b  #1,d0
+        bra.s   .d737
+.fl:    cmp.b   #$0c,d1
+        bne.s   .d737
+        addq.b  #1,d0
+.d737:  bsr     mr_d96a                     ; _00D737
+        add.b   d0,d0
+        or.b    _ram+wm_OnSlopeTypeB(a4),d0
+        or.b    _ram+m1(a4),d0
+        moveq   #0,d3
+        move.b  d0,d3                       ; y
+
+.d742:  lea     _rom00+(DATA_00D535-ROM00_BASE)(a4),a0  ; _00D742
+        move.b  _ram+wm_MarioSpeedX(a4),d0
+        move.b  (a0,d3.w),d1
+        sub.b   d1,d0
+        beq.s   .d76b
+        eor.b   d1,d0
+        bpl.s   .d76b
+        lea     _rom00+(MarioAccel-ROM00_BASE)(a4),a0
+        tst.b   _ram+wm_IsSlipperyLevel(a4)
+        beq.s   .ac
+        tst.b   _ram+wm_IsFlying(a4)
+        bne.s   .ac
+        lea     _rom00+(DATA_00D43D-ROM00_BASE)(a4),a0
+.ac:    move.b  1(a0,d2.w),d0               ; P40 ok
+        lsl.w   #8,d0
+        move.b  (a0,d2.w),d0                ; w
+        move.w  _ram+wm_MarioAccSpeedX(a4),d1
+        ror.w   #8,d1
+        add.w   d1,d0
+        ror.w   #8,d0
+        move.w  d0,_ram+wm_MarioAccSpeedX(a4)   ; _00D7A0
+        bra.s   .x
+
+.d764:  moveq   #0,d0                       ; CODE_00D764
+        bsr     mr_d96a
+        tst.b   _ram+wm_IsFlying(a4)
+        bne.s   .x
+.d76b:  moveq   #0,d3                       ; _00D76B
+        move.b  _ram+wm_OnSlopeTypeB(a4),d3
+        lsr.b   #1,d3                       ; y
+        moveq   #0,d2
+        move.b  d3,d2
+        lsr.b   #1,d2                       ; x
+        lea     _rom00+(DATA_00D5C9+1-ROM00_BASE)(a4),a0
+        move.b  _ram+wm_MarioSpeedX(a4),d0
+        sub.b   (a0,d2.w),d0
+        bpl.s   .n
+        addq.b  #2,d3
+.n:     lea     _rom00+(DATA_00D2CD-ROM00_BASE)(a4),a1
+        move.l  a1,a0
+        move.b  _ram+wm_EndLevelTimer(a4),d0
+        or.b    _ram+wm_IsFlying(a4),d0
+        bne.s   .w
+        tst.b   _ram+wm_IsWaterLevel+1(a4)  ; BIT con A de 16 bits: el byte siguiente
+        bpl.s   .w
+        lea     _rom00+(DATA_00D309-ROM00_BASE)(a4),a0
+.w:     move.b  1(a0,d3.w),d0               ; P40 ok
+        lsl.w   #8,d0
+        move.b  (a0,d3.w),d0
+        move.w  _ram+wm_MarioAccSpeedX(a4),d1
+        ror.w   #8,d1
+        add.w   d1,d0                       ; w
+        move.w  d0,d1
+        ror.w   #8,d1
+        move.w  d1,_ram+wm_MarioAccSpeedX(a4)
+        lea     _rom00+(DATA_00D5C9-ROM00_BASE)(a4),a0
+        move.b  1(a0,d2.w),d1               ; P40 ok
+        lsl.w   #8,d1
+        move.b  (a0,d2.w),d1                ; tope
+        sub.w   d1,d0
+        lsr.w   #8,d0
+        move.b  1(a1,d3.w),d3               ; P40 ok; byte alto de DATA_00D2CD[y]
+        eor.b   d3,d0
+        bmi.s   .x
+        ror.w   #8,d1
+        move.w  d1,_ram+wm_MarioAccSpeedX(a4)   ; _00D7A0
+.x:     movem.l (sp)+,d2-d3
+        rts
+
+;----------------------------------------------------------------------
+; --- mr_d96a --- (mario.c d96a, CODE_00D968/_00D96A: medidor de carrera)
+; entrada:  d0.b = y
+; salida:   d0 = y (+1 si el medidor llego a $70), de 16 bits
+; registros destruidos: d1/a0
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mr_d96a:
+        and.w   #$ff,d0
+        lea     _rom00+(DATA_00D5EB-ROM00_BASE)(a4),a0
+        move.b  _ram+wm_PlayerDashTimer(a4),d1
+        add.b   (a0,d0.w),d1
+        bpl.s   .p
+        moveq   #0,d1
+.p:     cmp.b   #$70,d1
+        blo.s   .s
+        addq.b  #1,d0
+        moveq   #$70,d1
+.s:     move.b  d1,_ram+wm_PlayerDashTimer(a4)
+        rts
+
+;----------------------------------------------------------------------
+; --- mr_fe4a --- (mario.c fe4a, CODE_00FE4A: humo al frenar)
+; entrada:  a4 = datos del C
+; salida:   las tablas de humo como el C
+; registros destruidos: d0-d1/a0
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+mr_fe4a:
+        moveq   #$03,d0
+        and.b   _ram+wm_FrameA(a4),d0
+        or.b    _ram+wm_IsFlying(a4),d0
+        or.b    _ram+wm_MarioScrPosX+1(a4),d0
+        or.b    _ram+wm_MarioScrPosY+1(a4),d0
+        or.b    _ram+wm_SpritesLocked(a4),d0
+        bne.s   .r
+        btst    #2,_ram+wm_JoyPadA(a4)
+        beq.s   .l
+        move.b  _ram+wm_MarioSpeedX(a4),d0
+        addq.b  #8,d0
+        cmp.b   #$10,d0
+        blo.s   .r
+.l:     lea     _ram+wm_SmokeSprite(a4),a0
+        moveq   #3,d1
+.lp:    tst.b   (a0,d1.w)
+        beq.s   .f
+        subq.b  #1,d1
+        bne.s   .lp
+.r:     rts
+.f:     move.b  #$03,(a0,d1.w)              ; CODE_00FE72
+        lea     _ram+wm_SmokeXPos(a4),a0
+        move.b  _ram+wm_MarioXPos(a4),d0
+        addq.b  #4,d0
+        move.b  d0,(a0,d1.w)
+        move.b  _ram+wm_MarioYPos(a4),d0
+        add.b   #$1a,d0
+        tst.b   _ram+wm_OnYoshi(a4)
+        beq.s   .y
+        add.b   #$10,d0
+.y:     lea     _ram+wm_SmokeYPos(a4),a0
+        move.b  d0,(a0,d1.w)
+        lea     _ram+wm_SmokeTimer(a4),a0
+        move.b  #$13,(a0,d1.w)
+        rts
+
+;----------------------------------------------------------------------
+; --- mario_D062 --- (mario.c mario_D062: capa (giro) y flor de fuego)
+; entrada:  a4 = datos del C
+; salida:   como mario_D062()
+; registros destruidos: d0 (ABI de vbcc)
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+        public  _mario_D062
+_mario_D062:
+        move.b  _ram+wm_MarioPowerUp(a4),d0
+        cmp.b   #$02,d0
+        bne.s   .f
+        btst    #6,_ram+wm_JoyFrameA(a4)
+        beq.s   .r
+        move.b  _ram+wm_IsDucking(a4),d0
+        or.b    _ram+wm_OnYoshi(a4),d0
+        or.b    _ram+wm_IsSpinJump(a4),d0
+        bne.s   .r
+        move.b  #$12,_ram+wm_CapeSpinTimer(a4)
+        move.b  #$04,_ram+wm_SoundCh3(a4)
+        rts
+.f:     cmp.b   #$03,d0
+        bne.s   .r
+        moveq   #MARIO_UNSUP_FIRE,d0        ; ShootFireball: sin portar
+        move.l  d0,_mario_unsupported(a4)
+.r:     rts
+
+;----------------------------------------------------------------------
+; --- mario_D7E4 --- (mario.c mario_D7E4, CODE_00D7E4: gravedad)
+; entrada:  a4 = datos del C
+; salida:   como mario_D7E4()
+; registros destruidos: d0-d1/a0 (ABI de vbcc)
+; ciclos:   tools/l_funcs.py
+;----------------------------------------------------------------------
+        public  _mario_D7E4
+_mario_D7E4:
+        tst.b   _ram+wm_CapeGlidePhase(a4)
+        bne.s   .cape                       ; CODE_00D824
+        tst.b   _ram+wm_IsFlying(a4)
+        beq.s   .d928
+        move.b  _ram+wm_IsCarrying2(a4),d0
+        or.b    _ram+wm_OnYoshi(a4),d0
+        or.b    _ram+wm_IsSpinJump(a4),d0
+        bne.s   .d8cd
+        move.b  _ram+wm_PlayerSlopePose(a4),d0
+        beq.s   .z
+        bpl.s   .d8cd
+.z:     clr.b   _ram+wm_PlayerSlopePose(a4)
+        cmp.b   #$02,_ram+wm_MarioPowerUp(a4)
+        bne.s   .d8cd
+        tst.b   _ram+wm_MarioSpeedY(a4)
+        bmi.s   .d8cd
+        tst.b   _ram+wm_GlideTimer(a4)
+        bne.s   .cape                       ; CODE_00D814
+.d8cd:  tst.b   _ram+wm_OnYoshi(a4)         ; CODE_00D8CD (IsFlying != 0)
+        beq.s   .e7
+        move.b  _ram+wm_YoshiHasWings(a4),d0
+        lsr.b   #1,d0
+        beq.s   .e7
+        moveq   #MARIO_UNSUP_YOSHI,d0
+        move.l  d0,_mario_unsupported(a4)
+        rts
+.e7:    cmp.b   #$02,_ram+wm_MarioPowerUp(a4)   ; CODE_00D8E7
+        bne.s   .d928
+.cape:  moveq   #MARIO_UNSUP_CAPE,d0
+        move.l  d0,_mario_unsupported(a4)
+        rts
+.d928:  moveq   #0,d1                       ; _00D928: B apretado, gravedad menor
+        tst.b   _ram+wm_JoyPadA(a4)
+        bpl.s   .y
+        moveq   #1,d1
+.y:     move.b  _ram+wm_MarioSpeedY(a4),d0
+        bmi.s   .d948
+        lea     _rom00+(DATA_00D7AF-ROM00_BASE)(a4),a0
+        cmp.b   (a0,d1.w),d0
+        blo.s   .c
+        move.b  (a0,d1.w),d0
+.c:     cmp.b   #$0b,_ram+wm_IsFlying(a4)
+        bne.s   .d948
+        move.b  #$24,_ram+wm_IsFlying(a4)
+.d948:  lea     _rom00+(DATA_00D7A5-ROM00_BASE)(a4),a0
+        add.b   (a0,d1.w),d0
+        move.b  d0,_ram+wm_MarioSpeedY(a4)
+        rts
+
+;----------------------------------------------------------------------
+; --- mario_CEB1 --- (G5L-R-L2: manim.c mario_CEB1, CODE_00CEB1: la capa
+; y la pose de Mario)
+; entrada:  a4 = datos del C
+; salida:   como mario_CEB1()
+; registros destruidos: d0-d1/a0 (ABI de vbcc)
+; se conservan d2-d3
+; ciclos:   tools/l_funcs.py
+; x en d2 y y en d3 (bytes con los bits altos en 0).
+;----------------------------------------------------------------------
+        public  _mario_CEB1
+_mario_CEB1:
+        movem.l d2-d3,-(sp)
+        tst.b   _ram+wm_CapeWaveTimer(a4)
+        bne     .w14a2
+        moveq   #0,d2
+        move.b  _ram+wm_CapeImage(a4),d2    ; x
+        moveq   #0,d3
+        move.b  _ram+wm_IsFlying(a4),d0
+        beq.s   .gr                         ; "MarioAnimAir"
+        moveq   #$04,d3                     ; y
+        tst.b   _ram+wm_MarioSpeedY(a4)
+        bmi.s   .neg
+        addq.b  #1,d2                       ; CODE_00CECD
+        cmp.b   #$05,d2
+        bhs.s   .h
+        moveq   #$05,d2
+        bra.s   .cf0a
+.h:     cmp.b   #$0b,d2
+        blo.s   .cf0a
+        moveq   #$07,d2
+        bra.s   .cf0a
+.neg:   cmp.b   #$0c,d0
+        beq.s   .cefd
+        tst.b   _ram+wm_IsSwimming(a4)
+        bne.s   .cefd
+        bra.s   .nw
+.gr:    move.b  _ram+wm_MarioSpeedX(a4),d0
+        bne.s   .cef0
+        moveq   #$08,d3
+.nw:    tst.b   d2
+        beq.s   .cf0a
+        subq.b  #1,d2
+        cmp.b   #$03,d2
+        blo.s   .cf0a
+        moveq   #$02,d2
+        bra.s   .cf0a
+.cef0:  bpl.s   .p
+        neg.b   d0
+.p:     moveq   #0,d1
+        move.b  d0,d1
+        lsr.b   #3,d1
+        lea     _rom00+(DATA_00DC7C-ROM00_BASE)(a4),a0
+        move.b  (a0,d1.w),d3
+.cefd:  addq.b  #1,d2
+        cmp.b   #$03,d2
+        bhs.s   .c1
+        moveq   #$05,d2
+.c1:    cmp.b   #$07,d2
+        blo.s   .cf0a
+        moveq   #$03,d2
+.cf0a:  move.b  d2,_ram+wm_CapeImage(a4)
+        move.b  d3,d0
+        tst.b   _ram+wm_IsSwimming(a4)
+        beq.s   .sw
+        add.b   d0,d0
+.sw:    move.b  d0,_ram+wm_CapeWaveTimer(a4)
+
+.w14a2: move.b  _ram+wm_IsSpinJump(a4),d0
+        or.b    _ram+wm_CapeSpinTimer(a4),d0
+        beq.s   .cf4e
+        clr.b   _ram+wm_IsDucking(a4)
+        moveq   #$06,d2
+        and.b   _ram+wm_FrameB(a4),d2       ; x
+        move.w  d2,d3                       ; y
+        tst.b   _ram+wm_IsFlying(a4)
+        beq.s   .y
+        tst.b   _ram+wm_MarioSpeedY(a4)
+        bmi.s   .y
+        addq.b  #1,d3
+.y:     lea     _rom00+(DATA_00CEA9-ROM00_BASE)(a4),a0
+        move.b  (a0,d3.w),_ram+wm_CapeImage(a4)
+        tst.b   _ram+wm_MarioPowerUp(a4)
+        beq.s   .x
+        addq.b  #1,d2
+.x:     lea     _rom00+(DATA_00CEA1-ROM00_BASE)(a4),a0
+        move.b  (a0,d2.w),_ram+wm_MarioDirection(a4)
+        cmp.b   #$02,_ram+wm_MarioPowerUp(a4)
+        bne.s   .ok
+        tst.l   _mario_unsupported(a4)      ; CODE_00D044: unsup_anim
+        bne     .ret
+        moveq   #MARIO_UNSUP_CAPE,d0
+        move.l  d0,_mario_unsupported(a4)
+        bra     .ret
+.ok:    lea     _rom00+(DATA_00CE99-ROM00_BASE)(a4),a0
+        move.b  (a0,d2.w),d0
+        bra     .d01a
+
+.cf4e:  move.b  _ram+wm_PlayerSlopePose(a4),d0  ; CODE_00CF4E
+        beq.s   .cf62
+        bpl     .d01a
+        moveq   #0,d1
+        move.b  _ram+wm_OnSlopeTypeB(a4),d1
+        lsr.b   #2,d1
+        or.b    _ram+wm_MarioDirection(a4),d1
+        lea     _rom00+(DATA_00CE79+6-ROM00_BASE)(a4),a0
+        move.b  (a0,d1.w),d0
+        bra     .d01a
+.cf62:  moveq   #$3c,d0                     ; CODE_00CF62
+        tst.b   _ram+wm_IsCarrying2(a4)
+        beq.s   .ca
+        moveq   #$1d,d0
+.ca:    tst.b   _ram+wm_IsDucking(a4)
+        bne     .d01a
+        tst.b   _ram+wm_FireballImgTimer(a4)
+        beq.s   .k
+        moveq   #$3f,d0
+        tst.b   _ram+wm_IsFlying(a4)
+        beq     .d01a
+        moveq   #$16,d0
+        bra     .d01a
+.k:     moveq   #$0e,d0                     ; CODE_00CF7E
+        tst.b   _ram+wm_KickImgTimer(a4)
+        bne     .d01a
+        moveq   #$1d,d0                     ; CODE_00CF88
+        tst.b   _ram+wm_PickUpImgTimer(a4)
+        bne     .d01a
+        moveq   #$0f,d0
+        tst.b   _ram+wm_FaceCamImgTimer(a4)
+        bne     .d01a
+        moveq   #0,d0
+        tst.b   _ram+wm_IsInLakituCloud(a4)
+        bne.s   .noabs
+        move.b  _ram+wm_IsFlying(a4),d0
+        beq.s   .cfb7
+        tst.b   _ram+wm_RunCapeTimer(a4)
+        bne.s   .cfbc
+        moveq   #0,d1
+        move.b  _ram+wm_CapeGlidePhase(a4),d1
+        beq.s   .c9
+        lea     _rom00+(DATA_00CE79-1-ROM00_BASE)(a4),a0
+        move.b  (a0,d1.w),d0
+.c9:    tst.b   _ram+wm_IsCarrying2(a4)
+        beq     .d01a
+        moveq   #$09,d0
+        bra     .d01a                       ; en el aire: la pose es $72
+.cfb7:  move.b  _ram+wm_PlayerTurningPose(a4),d0    ; CODE_00CFB7
+        bne     .d01a
+.cfbc:  move.b  _ram+wm_MarioSpeedX(a4),d0
+        bpl.s   .noabs
+        neg.b   d0
+.noabs: moveq   #0,d2
+        move.b  d0,d2                       ; x
+        bne.s   .cfd4
+        btst    #3,_ram+wm_JoyPadA(a4)      ; parado: mirar arriba
+        beq.s   .z
+        move.b  #$03,_ram+wm_OWCreditsPose(a4)
+.z:     moveq   #0,d0
+        bra.s   .pp
+.cfd4:  tst.b   _ram+wm_IsSlipperyLevel(a4) ; CODE_00CFD4
+        beq.s   .ns
+        moveq   #$03,d1
+        and.b   _ram+wm_JoyPadA(a4),d1
+        bne.s   .s68
+        moveq   #0,d0
+        bra.s   .pp
+.s68:   move.b  #$68,_ram+wm_PlayerFrameIndex(a4)
+.ns:    move.b  _ram+wm_PlayerWalkPose(a4),d0
+        tst.b   _ram+wm_PlayerAnimTimer(a4)
+        bne.s   .pp
+        subq.b  #1,d0
+        bpl.s   .b
+        moveq   #0,d1
+        move.b  _ram+wm_MarioPowerUp(a4),d1
+        lea     _rom00+(DATA_00DC7C-4-ROM00_BASE)(a4),a0    ; NumWalkingFrames
+        move.b  (a0,d1.w),d0
+.b:     moveq   #0,d1
+        move.b  d2,d1
+        lsr.b   #3,d1
+        or.b    _ram+wm_PlayerFrameIndex(a4),d1
+        lea     _rom00+(DATA_00DC7C-ROM00_BASE)(a4),a0
+        move.b  (a0,d1.w),_ram+wm_PlayerAnimTimer(a4)
+.pp:    move.b  d0,_ram+wm_PlayerWalkPose(a4)
+        add.b   _ram+wm_OWCreditsPose(a4),d0
+        tst.b   _ram+wm_IsCarrying2(a4)
+        beq.s   .nc
+        addq.b  #7,d0
+        bra.s   .d01a
+.nc:    cmp.b   #$2f,d2
+        blo.s   .d01a
+        addq.b  #4,d0                       ; ADC #$03 con acarreo
+.d01a:  move.b  _ram+wm_WallWalkStatus(a4),d1
+        beq.s   .f
+        moveq   #$01,d3
+        and.b   d1,d3
+        move.b  d3,_ram+wm_MarioDirection(a4)
+        moveq   #$10,d0
+        cmp.b   #$06,d1
+        blo.s   .f
+        move.b  _ram+wm_PlayerWalkPose(a4),d0
+        add.b   #$11,d0
+.f:     move.b  d0,_ram+wm_MarioFrame(a4)
+.ret:   movem.l (sp)+,d2-d3
+        rts

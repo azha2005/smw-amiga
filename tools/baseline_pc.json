@@ -1,6 +1,6 @@
 {
  "_meta": {
-  "commit": "f837262+cambios",
+  "commit": "ffdc7dd+cambios",
   "fecha": "2026-10-10",
   "nota": "tools/regress.py; las medidas emu.* dependen del emulador"
  },
@@ -34,11 +34,11 @@
  },
  "game.level_frame.max": {
   "how": "min",
-  "value": 39026
+  "value": 34002
  },
  "game.level_frame.media": {
   "how": "min",
-  "value": 28588
+  "value": 23801
  },
  "game.mspr_draw.max": {
   "how": "min",
@@ -58,11 +58,11 @@
  },
  "game.total.max": {
   "how": "min",
-  "value": 122096
+  "value": 116848
  },
  "game.total.media": {
   "how": "min",
-  "value": 38639
+  "value": 33950
  },
  "game.total.pasados": {
   "how": "min",
@@ -70,11 +70,11 @@
  },
  "m68k.full.ciclos_max": {
   "how": "min",
-  "value": 31992
+  "value": 27268
  },
  "m68k.full.ciclos_media": {
   "how": "min",
-  "value": 16174
+  "value": 11869
  },
  "m68k.full.ok": {
   "how": "max",
@@ -82,15 +82,15 @@
  },
  "m68k.loop.ciclos_max": {
   "how": "min",
-  "value": 35748
+  "value": 30912
  },
  "m68k.loop.ciclos_media": {
   "how": "min",
-  "value": 19714
+  "value": 15299
  },
  "m68k.loop.ciclos_p99": {
   "how": "min",
-  "value": 21486
+  "value": 16550
  },
  "m68k.loop.resync": {
   "how": "min",
@@ -102,15 +102,15 @@
  },
  "m68k.spr.ciclos_max": {
   "how": "min",
-  "value": 38996
+  "value": 33972
  },
  "m68k.spr.ciclos_media": {
   "how": "min",
-  "value": 28595
+  "value": 23805
  },
  "m68k.spr.ciclos_p99": {
   "how": "min",
-  "value": 37018
+  "value": 32194
  },
  "m68k.spr.resync": {
   "how": "min",

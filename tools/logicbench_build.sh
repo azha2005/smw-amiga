@@ -73,10 +73,12 @@ case " $LBDEFS " in
         sed -i -E 's/^([[:space:]]*jsr[[:space:]]+)_powerup_from_block([[:space:]]*)$/\1_powerup_from_block_bridge\2/' "$CC/mcoll.code.s"
         sed -i -E 's/^([[:space:]]*jsr[[:space:]]+)_mario_E2BD([[:space:]]*)$/\1_mario_E2BD_bridge\2/' "$CC/manim.code.s"
         sed -i -E 's/^([[:space:]]*jsr[[:space:]]+)_sprite_run([[:space:]]*)$/\1_sprite_run_bridge\2/' "$CC/manim.code.s"
-        sed -i -E 's/^([[:space:]]*jsr[[:space:]]+)_mario_collide([[:space:]]*)$/\1_mario_collide_bridge\2/' "$CC/manim.code.s"
         sed -i -E 's/^([[:space:]]*jsr[[:space:]]+)_mario_hurt([[:space:]]*)$/\1_mario_hurt_rex_bridge\2/' "$CC/spr_rex.code.s"
         ;;
 esac
+# G5L-R-L2: mario_player_c (C) llama a la logica que paso a logic68k.s,
+# lejos en los dos builds: puentes de pic68k.s
+sed -i -E 's/^([[:space:]]*jsr[[:space:]]+)_mario_(collide|D5F2|D062|D7E4|CEB1)([[:space:]]*)$/\1_mario_\2_bridge\3/' "$CC/manim.code.s"
 # Los spr_*.c se anexan a msprite.data.s / msprite.code.s: los arneses
 # (game.s, logicbench.s) incluyen por nombre y asi no hay que tocarlos al
 # agregar un sprite. Los datos siguen yendo antes que todo el codigo (P36).

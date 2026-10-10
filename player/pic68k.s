@@ -34,7 +34,26 @@ _mario_E2BD_bridge:
         public  _sprite_run_bridge
 _sprite_run_bridge:
         PICJUMP _sprite_run
+        endif
+
+; --- _mario_collide_bridge / D5F2 / D062 / D7E4 / CEB1 (G5L-R-L2) ---
+; mario_player_c (el C raro de manim.c) llama a la logica que ahora es
+; asm en logic68k.s, a mas de 32 KB en los dos builds (NOOAM y SPR_OAM).
+; entrada: sin argumentos.
+; salida: la del destino.
+; registros destruidos: a0 (caller saved); los del destino.
         public  _mario_collide_bridge
 _mario_collide_bridge:                      ; G5L-R-L2: mario_player_c -> logic68k.s
         PICJUMP _mario_collide
-        endif
+        public  _mario_D5F2_bridge
+_mario_D5F2_bridge:
+        PICJUMP _mario_D5F2
+        public  _mario_D062_bridge
+_mario_D062_bridge:
+        PICJUMP _mario_D062
+        public  _mario_D7E4_bridge
+_mario_D7E4_bridge:
+        PICJUMP _mario_D7E4
+        public  _mario_CEB1_bridge
+_mario_CEB1_bridge:
+        PICJUMP _mario_CEB1

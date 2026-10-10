@@ -29,6 +29,10 @@ static void unsup_anim(int why) { if (!mario_unsupported) mario_unsupported = wh
 
 /* ------------------------------------------------------------------ */
 /* CODE_00CEB1 */
+#ifdef LOGIC68K
+void mario_CEB1_c(void);   /* G5L-R-L2: en la Amiga, la de logic68k.s */
+#define mario_CEB1 mario_CEB1_c
+#endif
 void mario_CEB1(void)
 {
     u8 a, x, y, b;
@@ -188,6 +192,9 @@ l_D01A:
     }
     W8(wm_MarioFrame, a);
 }
+#ifdef LOGIC68K
+#undef mario_CEB1
+#endif
 
 /* ------------------------------------------------------------------ */
 /* CODE_00CDDD: mover la camara con L/R */

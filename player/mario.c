@@ -22,6 +22,17 @@ int mario_unsupported;
 
 #include "smwmac.h"
 
+/* G5L-R-L2: en la Amiga (vbcc sin NOASM), D5F2, D062 y D7E4 son las de
+   player/logic68k.s; estas quedan como referencia del PC */
+#if defined(__VBCC__) && !defined(NOASM)
+void mario_D5F2_c(void);
+void mario_D062_c(void);
+void mario_D7E4_c(void);
+#define mario_D5F2 mario_D5F2_c
+#define mario_D062 mario_D062_c
+#define mario_D7E4 mario_D7E4_c
+#endif
+
 /* Tablas de player.s que el generador no nombra (DATA_ sin datos propios en
    el fuente, o con nombre ambiguo): direccion tomada de la etiqueta. */
 #ifndef DATA_00D5EB
