@@ -24,8 +24,9 @@ diferencia visible.
 1. **Reproducir.**
    `python tools/sprshot_cmp.py --logic --bin <build>/game.bin --lst
    <build>/game.lst --trace <replay>` sobre los builds de
-   `work/g4b/all*` (o rearmarlos: `G5L_TYPES=all`, `-DREPLAY -DG5L
-   -DCUSHION`). `work/g9/logica_<replay>.json` trae `casos` (foto, frame,
+   `work/g4b/all*` (o rearmarlos: hoy todos los tipos y 2 por foto son
+   el defecto; para el replay con Exec, `G5L_MAXPL=1` o
+   `tools/bm_build.sh`, P126). `work/g9/logica_<replay>.json` trae `casos` (foto, frame,
    tipo, ranura, motivo, OAM del port) y las fotos fuera de sincronía.
 2. **El primer frame distinto, en la RAM y no en la OAM.** Para cada
    tramo:

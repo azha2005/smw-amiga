@@ -41,8 +41,8 @@ G5L_NONE    equ $8000                       ; "sin carga" en last
 G5L_WRAP    equ 255-$2c                     ; el segmento que cruza la 255
 G5L_RSTR    equ 136                         ; un flujo del bufer: POS/CTL, 32 filas, fin
         ifnd    G5L_MAXPL
-G5L_MAXPL   equ 1                           ; G4-2: Rex ubicados por foto; 2 con -DG5L_MAXPL=2
-        endc                                ; (apagado: empeora D1, informe-g4-2-1010.md)
+G5L_MAXPL   equ 2                           ; G4-2: objetos ubicados por foto; 1 con -DG5L_MAXPL=1
+        endc                                ; (activado por el usuario el 2026-10-10 pese a D1)
 G5L_CSTR    equ 264                         ; flujo de cadena: 2 x 32 filas, POS/CTL, fin
         ifeq    G5L_MAXPL-1
 G5L_LBLK    equ 4*G5L_RSTR                  ; por lista: las bandas del Rex

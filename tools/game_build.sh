@@ -70,8 +70,10 @@ case " $GDEFS " in
         case " $CDEFS " in *" -DSPR_G5"*) echo "ERROR: G5L no usa el C de SPR_G5"; exit 1 ;; esac
         [ -n "$SPR_BANK" ] || { echo "ERROR: G5L requiere SPR_BANK"; exit 1; }
         YDAT=work/yi1_s_g5.dat
-        # G4-B: G5L_TYPES=all suma los demás enemigos de YI1 (por defecto, el Rex)
-        $PY tools/g5l.py mk --bank "$SPR_BANK" --types "${G5L_TYPES-AB}"
+        # G4-B: los demás enemigos de YI1 por defecto (usuario, 2026-10-10);
+        # G5L_TYPES=AB deja solo el Rex. Con todos y G5L_MAXPL=2 el replay no
+        # entra en chip con Exec (P126): en WinUAE, tools/bm_build.sh
+        $PY tools/g5l.py mk --bank "$SPR_BANK" --types "${G5L_TYPES-all}"
         # G5L-R solo dibuja variantes limpias (g5l_cdma): el banco G3 hace
         # falta para la tabla (arriba), no en el juego (65 KB de chip menos)
         SPR_BANK= ;;

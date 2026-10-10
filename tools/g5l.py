@@ -2119,7 +2119,7 @@ def main():
     sub = ap.add_subparsers(dest='cmd', required=True)
     m = sub.add_parser('mk')
     m.add_argument('--bank', default='work/g3/bank')
-    m.add_argument('--types', default='AB', help="G4-B: 'AB', 'all' o hex separados por comas")
+    m.add_argument('--types', default='all', help="G4-B: 'AB', 'all' (el defecto) o hex separados por comas")
     t = sub.add_parser('trace')
     t.add_argument('--bank', default='work/g3/bank')
     t.add_argument('--types', default='AB', help="G4-B: 'AB', 'all' o hex separados por comas")

@@ -1,17 +1,19 @@
 # PRÓXIMO — lo que sigue
 
-2026-10-10. **Código en `g2t-b2bis`, sin merge ni push**; worktree:
-`C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
-anterior.
+2026-10-10. **`g2t-b2bis` integrada a master** (sin push, a pedido del
+usuario). El worktree `C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008` sigue
+existiendo; se trabaja en master.
 
 **G4-B y G9 hechas.**
 
 - **G4-B** (`docs/informe-g4-b-1010.md`): con `G5L_TYPES=all`, G5L dibuja
   los demás enemigos de YI1 (piraña, Chuck, Koopa, caparazón, caja, cinta
-  y `$02`), un objeto por foto. Exacto en el 68000. **Apagado por
-  defecto**: D1 empeora más que el ruido (normal 11 → 27, back 387 → 456,
-  piranha 108 → 131 fotos perdidas) y la chip del replay queda casi al
-  límite (P126).
+  y `$02`). Exacto en el 68000. **Activado por defecto por el usuario
+  (2026-10-10), con 2 objetos por foto (`G5L_MAXPL` = 2)**, aceptando que
+  D1 empeora (1 por foto: normal 11 → 27, back 387 → 456, piranha 108 →
+  131 fotos perdidas; con 2, más). `G5L_TYPES=AB` y `-DG5L_MAXPL=1`
+  vuelven a lo anterior. **El replay con arranque Exec ya no entra en
+  chip (P126): en WinUAE, `tools/bm_build.sh`** (arranque BM1).
 - **G9** (`docs/informe-g9-1010.md`): `tools/sprshot_cmp.py` compara la
   captura con la OAM de la SNES. **El dibujo es exacto**: en 10
   capturas, los 8 tipos (limpios y con bandas) y Mario dan 0 px
@@ -37,27 +39,18 @@ Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
 
 ## 2. Pendiente del usuario
 
-- **Trade de los demás enemigos** (G4-B, `G5L_TYPES=all`):
-  - a favor: se ven la piraña, el Koopa, la caja, la cinta y `$02` casi
-    siempre. El Chuck y el caparazón se ven poco, porque casi siempre hay
-    otro objeto más alto y gana ese. Con 2 por foto se ve más de la mitad.
-  - en contra: fotos perdidas normal 11 → 27, back +69, piranha +23.
-  - además, la chip del replay queda a ≈ 3 KB del límite real (P126).
-    El vivo (BM1) tiene 14,7 KB.
-
-  Hoy está apagado por la regla de la tarjeta.
-- **Trade de los 2 Rex por foto** (G4-2/G4-2o): más Rex visibles contra
-  ≈ 1,6-2× fotos perdidas. Hoy está apagado.
-  - Con todos los tipos y 2 por foto, el **replay no arranca** por chip
-    (P126). El vivo sí tendría lugar.
-- **La regla de "un objeto por foto: el más alto"** (de la tarjeta G4-B)
-  deja casi invisibles al Chuck y al caparazón, porque la caja y la cinta
-  ganan casi siempre. Cambiar la prioridad es una decisión de fidelidad,
-  y queda para ti: por ejemplo, el enemigo más cercano a Mario, o dejar
-  la caja y la cinta al final.
-- Probar el vivo a mano en esta rama y decidir cuándo integrar a master.
-  `G5L_TYPES=all GDEFS=" " OUT=work/live sh tools/game_build.sh` arma el
-  vivo con todos los enemigos.
+- **Todos los tipos y 2 por foto, activados** (usuario, 2026-10-10). Falta
+  el A/B de D1 con los dos juntos (la tanda de controles de arriba es con
+  1 Rex por foto).
+- **La regla de prioridad** (qué objetos se dibujan cuando no entran
+  todos): hoy, de arriba abajo, hasta 2, y el segundo solo si no comparte
+  filas con el primero (`bob_canal`) y hay índice de color (`bob_color`).
+  Con 2 por foto el Chuck se ve 531 de 998 fotos y el caparazón 550 de
+  938. Alternativas (decisión de fidelidad, del usuario): el más cercano
+  a Mario, enemigos antes que la caja y la cinta, o mantener la elección
+  de la foto anterior. El arreglo de fondo es la cola de bobs (G7).
+- Probar en la Amiga real el ADF del vivo: `GDEFS=" " OUT=work/live sh
+  tools/game_build.sh` → `work/live/smw.adf` (A500 con A501, 1 MB).
 - **Solo como dato (no se propone):** S11 y L3 indican que el estrés back
   probablemente no entre en D1 solo con CPU. Con 5 planos (PF2 de 2) el
   ≈ 1,6× de los planos casi desaparecería, pero cambia D8 y el fondo. Es
