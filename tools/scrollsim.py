@@ -24,7 +24,7 @@ Solo mira la capa 1 (registros $182-$18E) en los pixeles donde se ve.
   python3 tools/scrollsim.py -D SPRITES            # la cabecera del juego (CL_LINES 216)
   python3 tools/scrollsim.py --g5 [--ret]          # SPR_G5: SEG 256 + bloque VBL (C1)
 """
-import argparse, hashlib, os, struct, sys
+import argparse, hashlib, json, os, struct, sys
 
 import numpy as np
 
@@ -129,6 +129,7 @@ def main():
     ap.add_argument("--top", type=int, default=10)
     ap.add_argument("--data", default=None,
                     help="yi1_s.dat (con SPR_G5: yi1_s_g5.dat, mkscroll.py --g5)")
+    ap.add_argument("--tile-changes", help="SW-B: JSON de pares [celda, Map16] para el mapa dinamico")
     ap.add_argument("--g5", action="store_true",
                     help="scroll.s con -DSPRITES -DSPR_G5 (G2T C1: SEG 256, bloque VBL)")
     ap.add_argument("--ret", action="store_true",
@@ -145,6 +146,15 @@ def main():
     a.x1 = min(a.x1, 5120 - W)
 
     d = render_d.load(os.path.join(P.WORK, "yi1_d.dat"))
+    scroll_data = bytearray(open(a.data, "rb").read())
+    if a.tile_changes:
+        import tilechange
+        changes = json.load(open(a.tile_changes, encoding='utf-8'))
+        tilechange.apply_reference(d, scroll_data, changes)
+        mp = struct.unpack_from('>I', scroll_data, 20)[0]
+        for cell, _ in changes:
+            col, row = divmod(cell, 15)
+            scroll_data[mp + cell] = int(d['map'][row + 12, col])
     idx = render_d.l1_index(d)
     ideal = [render_d.reg_colors(d["events"][Y0 + L], d["W"]) for L in range(LINES)]
     defs = ["SPEED=%d" % a.speed, "STOPX=%d" % a.x1, "VIS=%d" % W]
@@ -155,7 +165,7 @@ def main():
     syms, local = P.listing(lst)
     CL_LINES, SEG = syms["CL_LINES"], syms["SEG"]       # 92/216 y 220; con SPR_G5: 344 y 256
     V = {n: v for n, v in syms.items() if n.startswith("V_")}
-    sc = P.Scroll(code, syms, local, open(a.data, "rb").read(), V)
+    sc = P.Scroll(code, syms, local, bytes(scroll_data), V)
     sc.init()
     vbl_bad = False
     if "SPR_G5" in a.D:

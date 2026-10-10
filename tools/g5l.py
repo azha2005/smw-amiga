@@ -1813,6 +1813,12 @@ def run_game(a):
                 lt_ = mem.r32(fr.vars + s['V_LTC'])
             before_ = cpu.read(lt_, 32 * 224)
         pre = {}                                # T2: coste del render previo, por foto
+        tile_changes = []                       # SW-B: todos hasta el limite de la foto
+        if 'R_TSEQ' in s:
+            read, limit = mem.r16(addr('_tile_read')), mem.r16(rec + s['R_TSEQ'])
+            while read != limit:
+                tile_changes.append(list(struct.unpack('>HH', cpu.read(addr('_tile_changes') + (read & 255) * 4, 4))))
+                read = (read + 1) & 65535
         for n in ('columns', 'apply_colors', 'set_pointers', 'build_mid'):
             if a.pcprof and (not pcframes or k in pcframes) and (n == 'build_mid' or a.pcscroll):
                 h_ = {}
@@ -1824,6 +1830,9 @@ def run_game(a):
                     pcprof['scroll'].setdefault(k, {})[n] = hist_
             else:
                 pre[n] = sum(fr.call(addr(n), G.FAKE).values())
+            if n == 'columns' and 'R_TSEQ' in s:
+                cpu.cpu.w_reg(cpu.M.Register.D7, mem.r16(rec + s['R_TSEQ']))
+                pre['tile_apply'] = sum(fr.call(addr('tile_apply'), G.FAKE).values())
         if dumpk:
             pcprof.setdefault('lines', {})[k] = {'s': mem.r16(fr.vars + s['V_S']), 'lt': lt_,
                                                 'before': bytes(before_).hex(), 'after': bytes(cpu.read(lt_, 32 * 224)).hex()}
@@ -1879,6 +1888,7 @@ def run_game(a):
             st['abi'] += 1
         cycles.append((c, gr.first + mem.r16(rec + s['R_FRAME'])))
         frames.append(dict(k=k, c=c, parts=parts, ntr=len(p['trans']) if p else -1,
+                           tile_changes=tile_changes,
                            nseg=len(p['segs']) if p else 0, pre=pre,
                            cap=caps[-1] if k else 0, logic=logic, f=cycles[-1][1],
                            pk=cpu.read(gv + s['GV_PK'], 64).hex(),    # T2: clave del plan
@@ -2033,6 +2043,9 @@ def run_shot(a):
         mem.w16(fr.vars + s['V_S'], mem.r16(rec + s['R_S']))
         for n in ('columns', 'apply_colors', 'set_pointers', 'build_mid'):
             fr.call(addr(n), G.FAKE)
+            if n == 'columns' and 'R_TSEQ' in s:
+                cpu.cpu.w_reg(R.D7, mem.r16(rec + s['R_TSEQ']))
+                fr.call(addr('tile_apply'), G.FAKE)
         if k == a.frame:
             back = mem.r32(fr.vars + s['V_BACK'])
             ml = MemList(bytearray(cpu.read(back, s['CL_SIZE'])), back, s, gr.nb)

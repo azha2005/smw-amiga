@@ -76,6 +76,7 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import render_d                                 # noqa: E402
+import tilechange                               # noqa: E402
 
 WORK = os.path.join(HERE, "..", "work")
 Y0, LINES = 192, 224
@@ -133,6 +134,19 @@ def main():
     if g5:
         SEG = SEG_G5
     d = render_d.load(os.path.join(WORK, "yi1_d.dat"))
+    blocks, _, _, bad = tilechange.inventory(d)
+    added, rejected = tilechange.reserve_colors(d, bad)
+    blocks, replacements, _, bad = tilechange.inventory(d)
+    if bad or rejected or len(blocks) > 256:
+        raise SystemExit("SW-B: reemplazos sin representacion exacta: %r / %r; bloques=%d"
+                         % (bad, rejected, len(blocks)))
+    d["blocks"], d["nblk"] = blocks, len(blocks)
+    tch = bytearray(struct.pack(">H", len(replacements)))
+    for cell, result, block in replacements:
+        col, row = divmod(cell, 15)
+        old = int(d["map"][row + Y0 // 16, col])
+        tch += struct.pack(">HHBB", cell, result, block, old)
+    print("SW-B: %d reemplazos, %d reservas de color exactas" % (len(replacements), len(added)))
     W, cols = d["W"], d["cols"]
     ini = np.zeros((LINES, 7), np.int32)
     chg = []
@@ -221,15 +235,16 @@ def main():
     chgb = (struct.pack(">HHHH", 0, 0, 0, 0)
             + b"".join(struct.pack(">HHHH", *c) for c in chg) + struct.pack(">HHHH", 0xFFFF, 0, 0, 0))
     secs = [bytes(blk), bytes(mp), inib, chgb, bytes(l2), l2p,
-            struct.pack(">%dH" % len(mlx), *mlx), bytes(mldb), lns]
+            struct.pack(">%dH" % len(mlx), *mlx), bytes(mldb), lns, bytes(tch)]
     head = b"SMWS" + struct.pack(">HHHHH", W, cols, d["nblk"], d["sky"], len(chg))
-    off = len(head) + 2 + 4 * 10
+    off = len(head) + 2 + 4 * 11
     offs = []
     for s in secs:
         off = (off + 7) & ~7
         offs.append(off)
         off += len(s)
-    out = bytearray(head + b"\0\0" + struct.pack(">10I", *offs, 0))
+    # +52 reservado D_COIN; +56 D_TCHG, añadido al final de cabecera.
+    out = bytearray(head + b"\0\0" + struct.pack(">11I", *offs[:9], 0, offs[9]))
     for o, s in zip(offs, secs):
         out += bytes(o - len(out)) + s
     name = "yi1_s_g5.dat" if g5 else "yi1_s.dat"
