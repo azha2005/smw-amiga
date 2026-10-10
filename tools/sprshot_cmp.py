@@ -49,7 +49,7 @@ def snes_objects(trace, frame, types):
                 recorded=recs[0]['recorded'], nums=sorted({r['num'] for r in recs}))
 
 
-def expected(snes, ctx, vram, cg):
+def expected(snes, ctx, vram, cg, foreground=None):
     """{(x, fila): (color12, dueño)} con dueño 'M' (Mario) o la ranura;
     Mario delante; entre objetos, el primero (como la OAM). Y los solapes."""
     import g5ref as R
@@ -59,6 +59,9 @@ def expected(snes, ctx, vram, cg):
     pi = R.palette_index(ram, ctx['pointers'])
     colors = struct.unpack_from('>16H', ctx['pals'], 32 * pi)
     pix, solape = {}, 0
+    covered = {}
+    camx = ram[0x1a] | ram[0x1b] << 8
+    camy = ram[0x1c] | ram[0x1d] << 8
     for (x, y), (v, _) in R.mario_pixels(ram, recorded, ctx['gfx']).items():
         if y + 1 < ROWS:
             pix[x, y + 1] = (colors[v], 'M')
@@ -71,11 +74,46 @@ def expected(snes, ctx, vram, cg):
                 x, y = r['sx'] + ox + xx, r['sy'] + oy + yy + 1
                 if not (0 <= x < 256 and 0 <= y < ROWS):
                     continue
+                # SW-P: OAM 0/1 esta detras de toda la capa 1. El origen
+                # de la mascara es el Map16/GFX original, no la captura.
+                if foreground is not None and r['priority'] < 2:
+                    wx, wy = camx+x, camy+y-1
+                    if 0 <= wy < foreground.shape[0] and 0 <= wx < foreground.shape[1] and foreground[wy,wx]:
+                        covered[r['slot']] = covered.get(r['slot'],0)+1
+                        continue
                 if (x, y) in pix:
                     solape += 1
                     continue
                 pix[x, y] = (snes_to_amiga12(cg[128 + 16 * val[0] + val[1]]), r['slot'])
-    return pix, solape
+    return pix, solape, covered
+
+
+def foreground_mask():
+    """Opacidad PF1 desde tiles originales (cielo de color igual sigue opaco)."""
+    import numpy as np
+    import mklvl, lvdesc
+    from map16 import Map16, TILESET_SET
+    h,_,lv=mklvl.build(lvdesc.load(None).obj,verbose=False)
+    files=mklvl.gfx_files_for_tileset(h['tileset'])
+    gfx=mklvl.load_gfx(str(Path(mklvl._DEF_SRC)/'graphics'),files,h['tileset'])
+    m=Map16(set_index=TILESET_SET.get(h['tileset'],0),tileset=h['tileset'])
+    out=np.zeros((lv.H*16,lv.W*16),np.uint8)
+    pos=((0,0),(0,8),(8,0),(8,8))
+    for by in range(lv.H):
+        for bx in range(lv.W):
+            idx=lv.get(bx,by)
+            raw=m.get_raw(idx,bx//16) if idx is not None else None
+            ent=m.get(idx,bx//16) if idx is not None else None
+            if not ent:
+                continue
+            for word,(t,p,pri,xf,yf),(dx,dy) in zip(raw,ent,pos):
+                if word==0:
+                    continue
+                tile=np.asarray(gfx[files[t//128]][t%128])
+                if xf:tile=tile[:,::-1]
+                if yf:tile=tile[::-1]
+                out[by*16+dy:by*16+dy+8,bx*16+dx:bx*16+dx+8]=tile!=0
+    return out
 
 
 def sample(shot, x, y):
@@ -185,7 +223,7 @@ def run(a):
                 r = [r for r in snes['objs'] if r['slot'] == slot][0]
                 r.update(sx=0, sy=0, tiles=[[x - 512 if x >= 256 else x, y, tl, 16 if sz else 8,
                                              at >> 6 & 1, at >> 7, at >> 1 & 7] for x, y, tl, at, sz in q])
-    pix, solape = expected(snes, ctx, vram, cg)
+    pix, solape, covered = expected(snes, ctx, vram, cg, foreground_mask())
     shot = Image.open(a.shot).convert('RGB').crop(L.SHOT_BOX)
     rows = compare(shot, pix, snes, (fr.get('plan') or {}).get('rex'))
     for d in rows:
@@ -196,6 +234,7 @@ def run(a):
     name = '%s_%d' % (a.trace, a.k)
     zoom(shot, pix, [d for d in rows if d in bad] or rows, OUT / (name + '.png'))
     res = dict(foto=a.k, frame=fr['f'], traza=a.trace, objetos=rows, solape_entre_sprites=solape,
+               pixeles_tapados_por_capa1=covered,
                tipos_en_frame=['%02X' % n for n in snes['nums']], fallos=len(bad))
     (OUT / (name + '.json')).write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding='utf-8')
     for d in rows:

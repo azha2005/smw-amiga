@@ -2663,7 +2663,11 @@ gb_scroll_frame:
         FBSR    set_pointers
         GBS     8
         ifnd    NOMID
+        ifd     G5L_PRIORITY
+        FBSR    build_mid                   ; SW-P: BENCH supera el alcance de bsr.w
+        else
         bsr     build_mid
+        endc
         endc
         GBS     9
         move.l  V_BACK(a5),COP1LC(a4)       ; se usa desde el proximo frame

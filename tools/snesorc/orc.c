@@ -68,6 +68,7 @@
 #include "src/snes/ppu.h"
 #include "src/common_cpu_infra.h"
 #include "src/common_rtl.h"
+#include "src/smw_rtl.h"
 #include "src/smw_spc_player.h"
 #include "assets/smw_assets.h"
 
@@ -289,6 +290,54 @@ static long shot_max;
 static const char *shot_dir;
 static uint8 shot_px[256 * 240 * 4];
 static long shots_done;
+static int shot_vram, shot_layers;
+static unsigned ram_lo[32], ram_hi[32], ram_n;
+static FILE *ram_out;
+
+static void put32le(FILE *f, unsigned long v)
+{
+    int i;
+    for (i=0;i<4;i++,v>>=8) fputc(v&255,f);
+}
+
+/* Mismo recorrido que SmwDrawPpuFrame, con mascara aplicada por linea:
+   el IRQ vuelve a escribir TM/TS, por eso no basta enmascarar al empezar. */
+static void draw_masked(unsigned mask)
+{
+    SimpleHdma hdma[3];
+    int i, trigger = g_snes->vIrqEnabled ? g_snes->vTimer + 1 : -1;
+    dma_startDma(g_snes->dma, g_snes->ram[0xd9f], true);
+    for (i = 0; i < 3; i++) SimpleHdma_Init(&hdma[i], &g_snes->dma->channel[5 + i]);
+    for (i = 0; i <= 224; i++) {
+        uint8 main = g_snes->ppu->screenEnabled[0], sub = g_snes->ppu->screenEnabled[1];
+        g_snes->ppu->screenEnabled[0] &= mask;
+        g_snes->ppu->screenEnabled[1] &= mask;
+        ppu_runLine(g_snes->ppu, i);
+        g_snes->ppu->screenEnabled[0] = main;
+        g_snes->ppu->screenEnabled[1] = sub;
+        SimpleHdma_DoLine(&hdma[0]); SimpleHdma_DoLine(&hdma[1]); SimpleHdma_DoLine(&hdma[2]);
+        if (i == trigger) {
+            SmwVectorIRQ();
+            trigger = g_snes->vIrqEnabled ? g_snes->vTimer + 1 : -1;
+        }
+    }
+}
+
+static void load_ram_ranges(const char *s)
+{
+    char *e;
+    while (*s) {
+        unsigned long lo = strtoul(s, &e, 16), hi;
+        if (e == s || *e != ':') fail("--ram espera INICIO:FIN hexadecimal");
+        s = e + 1; hi = strtoul(s, &e, 16);
+        if (e == s || lo >= hi || hi > 0x20000 || ram_n == 32)
+            fail("rango --ram invalido (WRAM 00000:20000, fin exclusivo)");
+        ram_lo[ram_n] = lo; ram_hi[ram_n++] = hi;
+        if (!*e) break;
+        if (*e != ',') fail("separador --ram invalido");
+        s = e + 1;
+    }
+}
 
 static void shot_frame(long fno)
 {
@@ -297,21 +346,48 @@ static void shot_frame(long fno)
     static Dma dma_bak;
     char path[1024];
     FILE *f;
-    int x, y;
+    int x, y, pass;
     bool irq = g_snes->vIrqEnabled, hirq = g_snes->hIrqEnabled;
     uint16 vt = g_snes->vTimer;
     memcpy(ram_bak, g_snes->ram, sizeof ram_bak);
     ppu_bak = *g_snes->ppu;
     dma_bak = *g_snes->dma;
+    if (shot_vram) {
+        snprintf(path, sizeof path, "%s/snes_%ld.vram", shot_dir, fno);
+        if (!(f = fopen(path, "wb"))) fail("no se puede escribir %s", path);
+        for (x = 0; x < 0x8000; x++) {
+            fputc(ppu_bak.vram[x] & 255, f); fputc(ppu_bak.vram[x] >> 8, f);
+        }
+        fclose(f);
+        snprintf(path, sizeof path, "%s/snes_%ld.state", shot_dir, fno);
+        if (!(f = fopen(path, "wb"))) fail("no se puede escribir %s", path);
+        fprintf(f, "FrameB=%02x tileset=%02x bgTileAdr=%04x hscroll=%u,%u vscroll=%u,%u\n",
+                rd(0x14), rd(0x1931), ppu_bak.bgTileAdr,
+                ppu_bak.hScroll[0], ppu_bak.hScroll[1], ppu_bak.vScroll[0], ppu_bak.vScroll[1]);
+        fclose(f);
+    }
+    if (ram_n) {
+        snprintf(path, sizeof path, "%s/snes_%ld.ram", shot_dir, fno);
+        if (!(f = fopen(path, "wb"))) fail("no se puede escribir %s", path);
+        for (x = 0; x < (int)ram_n; x++) fwrite(ram_bak + ram_lo[x], 1, ram_hi[x] - ram_lo[x], f);
+        fclose(f);
+    }
+    for (pass = 0; pass < (shot_layers ? 4 : 1); pass++) {
+    static const char *suffix[] = {"", "_no_bg1", "_no_bg2", "_no_obj"};
+    static const unsigned mask[] = {31, 30, 29, 15};
+    *g_snes->ppu = ppu_bak;
+    *g_snes->dma = dma_bak;
+    memcpy(g_snes->ram, ram_bak, sizeof ram_bak);
+    g_snes->vIrqEnabled = irq; g_snes->hIrqEnabled = hirq; g_snes->vTimer = vt;
     PpuBeginDrawing(g_snes->ppu, shot_px, 256 * 4, 0);
-    g_rtl_game_info->draw_ppu_frame();
+    if (pass) draw_masked(mask[pass]); else g_rtl_game_info->draw_ppu_frame();
     *g_snes->ppu = ppu_bak;
     *g_snes->dma = dma_bak;
     memcpy(g_snes->ram, ram_bak, sizeof ram_bak);
     g_snes->vIrqEnabled = irq;
     g_snes->hIrqEnabled = hirq;
     g_snes->vTimer = vt;
-    snprintf(path, sizeof path, "%s/snes_%ld.ppm", shot_dir, fno);
+    snprintf(path, sizeof path, "%s/snes_%ld%s.ppm", shot_dir, fno, suffix[pass]);
     if (!(f = fopen(path, "wb"))) fail("no se puede escribir %s", path);
     fprintf(f, "P6\n256 224\n255\n");
     for (y = 0; y < 224; y++)
@@ -320,6 +396,7 @@ static void shot_frame(long fno)
             fputc(q[2], f); fputc(q[1], f); fputc(q[0], f);
         }
     fclose(f);
+    }
     shots_done++;
 }
 
@@ -356,6 +433,11 @@ static void step(uint16 snes)
     if (g_got_mismatch_count) mismatch_frames++;
     if (!pre_valid) fail("el frame %ld no paso por $8077", frame_no);
     frame_no++;
+    if (ram_out) {
+        unsigned i;
+        put32le(ram_out, rp_pos >= 0 ? rp[rp_pos].frame : frame_no);
+        for (i=0;i<ram_n;i++) fwrite(g_snes->ram+ram_lo[i],1,ram_hi[i]-ram_lo[i],ram_out);
+    }
     if (shot_want) {
         long lab = rp_pos >= 0 ? rp[rp_pos].frame : frame_no;
         if (lab >= 0 && lab < shot_max && shot_want[lab]) shot_frame(lab);
@@ -677,7 +759,8 @@ static void usage(void)
     fprintf(stderr,
         "uso: snesorc --script GUION.orc [--out ORACULO.txt] [--rom smw.sfc] [--assets smw_assets.dat]\n"
         "             [--mode rom|both] [--trace N] [--replay GRABACION.txt [--replay-tl 29] [--replay-seg N]]\n"
-        "             [--shots LISTA.txt --shotdir DIR]\n");
+        "             [--shots LISTA.txt --shotdir DIR [--vram] [--layers]]\n"
+        "             [--ram INICIO:FIN[,..] [--ram-out FILE]]\n");
     exit(2);
 }
 
@@ -685,6 +768,7 @@ int main(int argc, char **argv)
 {
     const char *rom_path = "work/smw.sfc", *assets = NULL, *script = NULL, *outp = NULL, *replay = NULL;
     const char *mode = "rom";
+    const char *ram_outpath = NULL;
     size_t rom_len;
     uint8 *rom;
     int i, verbose = 0;
@@ -705,11 +789,25 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--replay-seg") && i + 1 < argc) rp_seg = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--shots") && i + 1 < argc) load_shots(argv[++i]);
         else if (!strcmp(argv[i], "--shotdir") && i + 1 < argc) shot_dir = argv[++i];
+        else if (!strcmp(argv[i], "--vram")) shot_vram = 1;
+        else if (!strcmp(argv[i], "--layers")) shot_layers = 1;
+        else if (!strcmp(argv[i], "--ram") && i + 1 < argc) load_ram_ranges(argv[++i]);
+        else if (!strcmp(argv[i], "--ram-out") && i + 1 < argc) ram_outpath = argv[++i];
         else if (!strcmp(argv[i], "-v")) verbose = 1;
         else usage();
     }
     if (!script) usage();
     if (shot_want && !shot_dir) usage();
+    if ((shot_vram || shot_layers) && !shot_want) usage();
+    if (ram_n && !shot_want && !ram_outpath) usage();
+    if (ram_outpath) {
+        unsigned n;
+        if (!ram_n) usage();
+        if (!(ram_out=fopen(ram_outpath,"wb"))) fail("no se puede escribir %s",ram_outpath);
+        fwrite("RAM1",1,4,ram_out);
+        put32le(ram_out,ram_n);
+        for(n=0;n<ram_n;n++) { put32le(ram_out,ram_lo[n]); put32le(ram_out,ram_hi[n]); }
+    }
     if (!strcmp(mode, "rom")) g_runmode = RM_THEIRS;
     else if (!strcmp(mode, "both")) g_runmode = RM_BOTH;
     else usage();
