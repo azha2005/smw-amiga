@@ -36,3 +36,28 @@ La captura heredada de 126 fotos correspondía a la tabla incorrecta y
 no valida el arreglo. Hay una barrida nueva preparada en
 `work/resume-sw-m/`; debe compararse contra SNES antes de cerrar SW-M.
 También falta A/B BENCH de D1. Los costes Musashi son sin DMA.
+
+## Puertas cerradas en la segunda retoma (2026-10-10)
+
+- **SW1 repetida** (`work/resume-sw-m/`, build de master `717a37f`,
+  `-DHOLDEVERY=50`, 126 fotos; las fotos SNES y `pairs.json` se reusan de
+  la barrida original): contra SW1, **13 fotos mejoran y ninguna
+  empeora**. La moneda (≈ 100 px por foto) queda exacta en k 349-449,
+  949, 3149 y 3199, y en las fotos con otras diferencias (k 749-999,
+  2949, 2999) desaparecen sus 100 px. Lo que queda en k 349-949 es el
+  píxel de la fila 185 (SW-D).
+- **A/B BENCH de D1** en WinUAE cycle-exact (`-DREPLAY -DBENCH`, control
+  con las dos rutinas apagadas):
+
+  | | control | moneda animada |
+  |---|---:|---:|
+  | fotos perdidas | 103 (1,63 %) | 148 (2,34 %) |
+  | total medio | 13 343 ticks | 13 403 ticks |
+  | peor `build_mid` | 14 084 | 15 066 |
+  | frames de más de un frame | 331 | 426 |
+
+  No está dentro del ruido. **SW-M queda opcional**: `-DCOINANIM`
+  (antes, `-DCOINCONTROL` era el control y la animación iba por
+  defecto). Sin `COINANIM`, la moneda tiene el color estático (paso 2,
+  `$27FF`), como antes de SW-M. `coinpal_verify.py` necesita un build con
+  `-DCOINANIM`. Activarla es decisión del usuario (D1).

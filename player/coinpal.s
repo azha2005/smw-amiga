@@ -1,5 +1,7 @@
 ; SW-M: la paleta de la moneda viaja con la foto de O5. Los bits 15..12
 ; de COLORxx no existen en OCS; el bit 15 conserva el origen CGRAM $64.
+; Opcional (-DCOINANIM, 2026-10-10): el A/B BENCH en WinUAE da 103 -> 148
+; fotos perdidas; sin COINANIM las dos rutinas vuelven enseguida.
 
 ; --- coin_prepare --- actualizar las fuentes INI/CHG/MLD de esta foto
 ; entrada: d0.b = FrameB, a3 = SMWS
@@ -7,8 +9,8 @@
 ; registros destruidos: d0-d1/a0-a1
 ; ciclos: medidos por tools/coinpal_verify.py (sin DMA)
 coin_prepare:
-        ifd     COINCONTROL                ; A/B: mismas llamadas, paleta estática
-        rts
+        ifnd    COINANIM                   ; SW-M opcional: D1 +45 fotos (informe)
+        rts                                ; paleta estática (paso 2, $27FF)
         endc
         and.w   #$1c,d0
         lsr.w   #2,d0                       ; paso 0..7, cada cuatro frames
@@ -39,7 +41,7 @@ coin_prepare:
 ; registros destruidos: d0-d1/a0-a1
 ; ciclos: medidos por tools/coinpal_verify.py (sin DMA)
 coin_list:
-        ifd     COINCONTROL
+        ifnd    COINANIM
         rts
         endc
         movem.l d2-d4/a2-a3,-(sp)
