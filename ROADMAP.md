@@ -80,7 +80,7 @@ copian acá.
 | 3-4 | Esqueleto Amiga y viabilidad | **hecho**; D1, D8 y D9 cerrados | `player/boot.s`, `bench*.s`, `copbench.s` |
 | 5 | Conversor del nivel al formato (d) | **hecho**; falta compararlo contra la referencia en la PC (→ 7) | `tools/mkbg.py`, `mkd8in.py`, `mkleveld.py`, `render_d.py` |
 | 6.1-6.3 | Scroll a 256 px, ida y vuelta | **hecho** (P59 arreglada) | `player/scroll.s`, `tools/mkscroll.py` |
-| 6.4 | Scroll en el peor frame | **no cerrada**. S9 comparte líneas; S5 probado y descartado. P123 corregida. WinUAE BENCH final: build_mid normal 83,2 %, vuelta/back **180,4 %** (s=4581); back 387 fotos perdidas, racha 5. Perfil: bm_left domina; speedcode pendiente de puerta tamaño/coste | `docs/informe-p123-scroll-1010.md`, `docs/informe-g5l-r-s9-1010.md` |
+| 6.4 | Scroll en el peor frame | **no cerrada**. S9 comparte líneas; S5 probado y descartado. P123 corregida. WinUAE BENCH final: build_mid normal 83,2 %, vuelta/back **180,4 %** (s=4581); back 387 fotos perdidas, racha 5. Perfil: bm_left domina, pero el bucle por carga es solo el 30,6 %. Speedcode S10 descartado por su puerta (118 KB, −6,2 % de CPU). WinUAE ≈ 2,8× Musashi: falta medir el reparto (M1) | `docs/informe-g5l-r-s10-1010.md`, `docs/informe-p123-scroll-1010.md`, `docs/informe-g5l-r-s9-1010.md` |
 | 7 | Capa 2 contra la referencia | pendiente (solo PC, U2) | — |
 | 8a/8b/8c | Física, colisión, pendientes | **hecho**: `full` 6510/6547 en `oracle_yi1`; pendientes 2154/2154 (`oracle_hills`) | `player/mario.c`, `mcoll.c`, `manim.c` |
 | 8 (gfx, cámara) | Gráficos de Mario y cámara | **hecho**; `gfx` 100 % en los oráculos (P69 arreglada) | `player/mgfx.c`, `mcam.c` |
@@ -233,6 +233,11 @@ cambiable en un solo lugar (una tabla).
 
 ## 4. Olas y sesiones (revisado el 2026-10-10)
 
+2026-10-10 (S10): el speedcode no pasa la puerta de tamaño/coste
+(`docs/informe-g5l-r-s10-1010.md`). El estimado no cambia: **9-12
+sesiones (ESTIMADO)**; la medida M1 (1 sesión) decide la siguiente
+palanca de D1, que sigue siendo la mayor incertidumbre.
+
 2026-10-10 (P123/perfil): la corrección de memoria está cerrada, el
 estrés sigue rojo y los recortes locales se retiraron por su A/B. Falta
 la puerta de tamaño/coste del speedcode y su integración si resulta
@@ -329,6 +334,10 @@ O5 es el modo por defecto (`-DNODECOUPLE` = bucle viejo); si cambia
 ---
 
 ## 7. Cierre de sesión (obligatorio)
+
+2026-10-10 (S10): prototipo de speedcode medido offline y cerrado por su
+puerta (118 KB, −6,2 % de CPU, no cabe en el vivo); nada integrado. PROXIMO
+archivado y reescrito; nueva tarjeta de medida M1; estados actualizados.
 
 2026-10-10 (P123/perfil): PROXIMO anterior y resúmenes antiguos de §1/§4
 archivados textualmente. Corrección y test del bucle real; recortes

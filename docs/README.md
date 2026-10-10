@@ -92,6 +92,8 @@
 | `informe-p123-scroll-1010.md` | 2026-10-10 | P123 corregida: a2 destruido por columns; prueba del bucle real; perfil de la vuelta; recortes de CPU retirados por BENCH peor |
 | `instrucciones-g5l-r-s10.md` | 2026-10-10 | Prototipo acotado de speedcode: tamaño/coste antes de integrar; tres replays y A/B real con P123 corregida |
 | `instrucciones-g5l-r-l3.md` | 2026-10-10 | Recortes de los núcleos asm restantes tras S10: perfil, fuzz, copper y WinUAE |
+| `informe-g5l-r-s10-1010.md` | 2026-10-10 | S10 cerrada: speedcode 118 KB y −6,2 % de CPU; no cabe en el vivo; WinUAE ≈ 2,8× Musashi |
+| `instrucciones-g5l-r-m1.md` | 2026-10-10 | Medir por qué `build_mid` cuesta ≈ 2,8× en el hardware: pares por foto, VHPOSR, variantes opt-in |
 | `investigacion-demoscene-1010.md` | 2026-10-10 | fuentes de demos: speedcode, código automodificable, cadenas copper-blitter y carga/descompresión; §11 reordena tras L2: speedcode en `build_mid` según el perfil de estrés |
 | `instrucciones-g5l-r-l2.md` | 2026-10-10 | Opción A: la lógica en C a asm, por partes (si el usuario la elige) |
 | `instrucciones-g2t-cpre.md` | 2026-10-08 | G2T-Cpre: emisor `g5_emit` y capturas WinUAE (0/57 344 px) con el plan precalculado en el replay, antes de terminar B |
