@@ -101,6 +101,8 @@
 | `instrucciones-g5l-n.md` | 2026-10-10 | G5L-N: clave normalizada y máscaras compartidas en la tabla del Rex |
 | `informe-g5l-n-1010.md` | 2026-10-10 | G5L-N: tabla G5L2 (clave normalizada, máscaras por forma), el Rex aplastado ya se dibuja, −84 KB de slow |
 | `instrucciones-g4-1.md` | 2026-10-10 | G4-1: varios Rex por foto en la referencia Python, cola de bobs contada |
+| `informe-g4-1-1010.md` | 2026-10-10 | G4-1: varios Rex por foto en la referencia; el límite son los canales, no los colores |
+| `instrucciones-g4-2.md` | 2026-10-10 | G4-2: varios Rex en el 68000 con encadenado DMA por lista |
 | `instrucciones-g5l-r-s11.md` | 2026-10-10 | Cortar la espiral de la vuelta en `build_mid`, sin cambiar la imagen |
 | `instrucciones-g5l-r-m1.md` | 2026-10-10 | Medir por qué `build_mid` cuesta ≈ 2,8× en el hardware: pares por foto, VHPOSR, variantes opt-in |
 | `investigacion-demoscene-1010.md` | 2026-10-10 | fuentes de demos: speedcode, código automodificable, cadenas copper-blitter y carga/descompresión; §11 reordena tras L2: speedcode en `build_mid` según el perfil de estrés |

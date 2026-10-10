@@ -4,18 +4,17 @@
 `C:/Users/JC/Downloads/sma/wt-g2t-b2bis-1008`. Master conserva el código
 anterior.
 
-**G5L-N hecha e integrada en la rama** (`docs/informe-g5l-n-1010.md`).
-La tabla del Rex pasa a `G5L2`, con la clave normalizada y las máscaras
-una vez por forma. Ocupa 44.810 B en vez de 128.724, y la slow libre del
-vivo sube de 61 a 145 KB. **El Rex aplastado sobre una pendiente ya se
-dibuja**: en `hills2`, 340 frames → 0 sin forma. En la foto 1720, la
-captura WinUAE es el control más el Rex planeado, con 0 de 327.680
-píxeles distintos. El A/B BENCH no empeora (normal 14→9, back 392→373,
-sprites 98→88). Trampa nueva: P124. **Ahora: G4-1.**
+**G4-1 hecha (solo Python)**, ver `docs/informe-g4-1-1010.md`.
+`plan_frame_n` ubica varios Rex por foto en los pares 4-5 y 6-7, con reuso
+vertical (gap 1). En las 8 trazas hay 0 errores de color y 0 píxeles
+tapados. Ningún Rex queda afuera por color ni por plazo: **el límite son
+los canales**. hills2 sube de 1.893 a 2.498 Rex, stress_sprites de 1.040 a
+1.305 y stress_back de 2.440 a 2.576. yi1 queda igual porque los Rex que
+faltan comparten filas. Con un solo Rex el plan es igual al de hoy.
+**Ahora: G4-2.**
 
-G4-A (medida) quedó antes (`docs/informe-g4a-1010.md`): 9 tipos con
-gráfico, ninguno de más de 15 colores. El Banzai es bob, y el bob y el
-audio no entran en chip hasta C2/C4 + C3.
+Antes quedaron G5L-N (`informe-g5l-n-1010.md`), con la tabla `G5L2`, el
+Rex aplastado y +84 KB de slow, y G4-A (`informe-g4a-1010.md`).
 
 **D1 sigue roja**: back 373/4126 (racha 4), sprites 88/1914, normal BENCH
 9/6312 (tanda de G5L-N). 50 Hz y colchón aceptados.
@@ -24,8 +23,8 @@ audio no entran en chip hasta C2/C4 + C3.
 
 | tarjeta | responsable | ficheros / puerta | instrucciones |
 |---|---|---|---|
-| **G4-1** | coordinador; **en curso** | `tools/g5l.py` (`plan_frame_n`, `check_trace_n`, `trace --multi`), solo Python: varios Rex por foto en los pares 4-5 y 6-7, con reuso vertical y colores compartidos con Mario. Puerta: 0 errores de color en las 8 trazas; cada Rex visible queda dibujado o en la cola de bobs con su motivo | `docs/instrucciones-g4-1.md` |
-| G4-2 | después de G4-1 | el 68000 de `plan_frame_n` en `g5l.s`, `g5l.py game` exacto, A/B | (la escribe G4-1) |
+| **G4-2** | coordinador; **en curso** | `player/g5l.s` y `tools/g5l.py`: el 68000 de `plan_frame_n` (hasta 4 Rex en los pares 4-7, encadenado DMA por lista, sin MOVE nuevos). Puerta: `g5l.py game --multi` exacto, regresión, memmap, A/B BENCH y captura con 2 Rex | `docs/instrucciones-g4-2.md` |
+| G4-3 | después de G4-2 | los pares de Mario (0-1/2-3) fuera de sus filas: la cota de G4-1 §3 | (la escribe G4-2) |
 
 Antes de cada commit: `python tools/lint_port.py` y `python tools/regress.py
 --baseline tools/baseline_pc.json --level --g5l --bm1`, en verde.

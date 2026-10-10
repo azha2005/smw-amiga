@@ -1022,6 +1022,265 @@ def check_trace(p, recs, ctx, colors):
     return len(env) + pix
 
 
+# ----------------------------------------------------------------------
+# G4-1: varios Rex por foto (solo la referencia; el 68000 sigue con
+# plan_frame hasta G4-2). docs/instrucciones-g4-1.md
+# ----------------------------------------------------------------------
+class EMap:
+    """Bordes por dueños: bit 0 Mario, bit j + 1 el Rex j. E[m] = el mayor
+    borde derecho + 1 de los dueños de m (0 sin dueños). Con un Rex es la
+    tupla (0, xm + 1, xr + 1, max + 1) de plan_frame."""
+    def __init__(self, xs):
+        self.x = list(xs)
+
+    def __getitem__(self, m):
+        if not m:
+            return 0
+        return max(self.x[k] for k in range(len(self.x)) if m >> k & 1) + 1
+
+
+def mario_occ(mrow, colors):
+    """ocupación de los índices por fila: occ[i][fila] = color (Mario)"""
+    occ = [dict() for _ in range(16)]
+    for r, m in mrow.items():
+        for i in range(1, 16):
+            if m >> i & 1:
+                occ[i][r] = colors[i]
+    return occ
+
+
+def occ_bad(occ, i, c, r0, h):
+    """filas (bits relativos a r0) en que otro usa el índice i con otro color"""
+    o, b = occ[i], 0
+    for r in range(h):
+        col = o.get(r0 + r)
+        if col is not None and col != c:
+            b |= 1 << r
+    return b
+
+
+def band_need_n(v, r0, occ):
+    """band_need con la ocupación de Mario y de los Rex ya ubicados"""
+    vis = sum(1 << r for r in range(v['h']) if 0 <= r0 + r < ROWS)
+    n = 0
+    for d, c, m in v['groups']:
+        if d in (1, 2):
+            continue
+        if occ_bad(occ, d, c, r0, v['h']) & m & vis:
+            n += 1
+    return n
+
+
+def band_assign_n(v, r0, occ):
+    """band_assign con la ocupación general (solo Mario: el mismo resultado)"""
+    h = v['h']
+    vis = sum(1 << r for r in range(h) if 0 <= r0 + r < ROWS)
+    groups = collections.OrderedDict()
+    own = [0] * 16
+    cmap = {}
+    for d, c, m in v['groups']:
+        cmap[d] = c
+        if m & vis:
+            groups[d, c] = m & vis
+            own[d] |= m & vis
+    remaps = []
+    inv = {c: d for d, c in cmap.items()}
+    for c in REXC:
+        if c not in inv:
+            continue
+        ic = inv[c]
+        rc = groups.get((ic, c), 0)
+        k = rc & occ_bad(occ, ic, c, r0, h)
+        if not k:
+            continue
+        lo = (k & -k).bit_length() - 1
+        hi = k.bit_length() - 1
+        f = None
+        for b in (rc, rc & ~((1 << lo) - 1), rc & ((1 << (hi + 1)) - 1) & ~((1 << lo) - 1)):
+            for g in BAND_PREF:
+                if g == ic or occ_bad(occ, g, c, r0, h) & b or own[g] & b:
+                    continue
+                f = g
+                break
+            if f is not None:
+                break
+        if f is None:
+            return None
+        groups[ic, c] &= ~b
+        if not groups[ic, c]:
+            del groups[ic, c]
+        groups[f, c] = groups.get((f, c), 0) | b
+        own[ic] &= ~b
+        own[f] |= b
+        remaps.append((ic, f, b, c))
+    return groups, remaps
+
+
+def sweep_n(objs, mruns, colors):
+    """sweep con varios Rex: objs = [(runs, r0)], dueño 2 << j. Mismo orden
+    de mezcla (Mario primero si empatan, después los Rex en su orden)."""
+    out = []
+    for i in range(1, 16):
+        rx = []
+        for j, (runs, r0) in enumerate(objs):
+            for a, b, c in runs.get(i, ()):
+                a, b = max(0, r0 + a), min(ROWS - 1, r0 + b)
+                if a <= b:
+                    rx.append((a, 1 + j, b, c, 2 << j))
+        if not any(c != colors[i] for _, _, _, c, _ in rx):
+            continue
+        ms = [(a, 0, b, colors[i], 1) for a, b in mruns.get(i, ())]
+        cur, last, own = colors[i], -1, 0
+        for a, _, b, c, o in sorted(ms + rx):
+            if c != cur:
+                if last >= a:
+                    return None
+                out.append((i, c, last, own, a))
+                cur = c
+            if b > last:
+                last, own = b, o
+            elif b == last:
+                own |= o
+    return out
+
+
+def occ_add(occ, groups, r0):
+    for (i, c), m in groups.items():
+        r = 0
+        while m >> r:
+            if m >> r & 1 and 0 <= r0 + r < ROWS:
+                occ[i][r0 + r] = c
+            r += 1
+
+
+def plan_frame_n(photo, tab, colors, lst, st, maxrex=8):
+    """G4-1: como plan_frame, pero ubica los Rex visibles en orden (fila,
+    ranura) mientras entren: pares 4-5 y 6-7 (una columna por par, una línea
+    libre para reusar un par), colores con la ocupación de Mario y de los
+    ya ubicados, y el plazo de place para todos juntos. Lo que no entra va a
+    la cola de bobs con su motivo (canal, color o plazo).
+    Devuelve dict(rex=[...], trans, vbl, segs, E, bobs) o None si no hay
+    ningún Rex visible."""
+    ents = mario_entries(photo['moam'], photo['mosz'])
+    mrow, xm = mario_rows(tab, ents, photo['ptrs'])
+    mruns = mario_runs(mrow)
+    cands = []
+    for slot, x, y, entries in photo['rex']:
+        sx, sy = s16(x - photo['camx']), s16(y - photo['camy'])
+        t4, pri = rex_key(entries, sx, sy)
+        if pri is None:
+            st['rex_prio_mixta'] += 1
+            continue
+        t4, mx, my = norm_key(t4)
+        sx, sy = sx + mx, sy + my
+        vs = tab.lookup(t4, pri)
+        if vs is None:
+            st['rex_sin_forma'] += 1
+            continue
+        v0 = tab.variant(vs[0])
+        x0, r0 = sx + v0['ox'], sy + v0['oy'] + 1
+        if not (r0 + v0['h'] > 0 and r0 < ROWS and x0 + v0['w'] > 0 and x0 < 256):
+            continue
+        cands.append((r0, slot, x0, vs))
+    if not cands:
+        return None
+    cands.sort(key=lambda t: (t[0], t[1]))
+    occ = mario_occ(mrow, colors)
+    pairs = {0: [], 1: []}
+    placed, bobs = [], []
+    best = None
+    for r0, slot, x0, vs in cands[:maxrex]:
+        v0 = tab.variant(vs[0])
+        a, b = max(r0, 0), min(ROWS, r0 + v0['h'])
+        free = [p for p in (0, 1) if all(b2 <= a - 1 or a2 >= b + 1 for a2, b2 in pairs[p])]
+        if len(free) < v0['cols']:
+            bobs.append((slot, 'canal'))
+            continue
+        order = sorted((band_need_n(tab.variant(vo), r0, occ), m, vo) for m, vo in enumerate(vs))
+        asg = None
+        for n, m, vo in order:
+            v = tab.variant(vo)
+            asg = band_assign_n(v, r0, occ)
+            if asg is not None:
+                break
+            st['reintento'] += 1
+        if asg is None:
+            bobs.append((slot, 'color'))
+            continue
+        groups, remaps = asg
+        trial = placed + [dict(slot=slot, vo=vo, var=v, x0=x0, r0=r0, groups=groups, remaps=remaps,
+                               mapa=m, pares=free[:v0['cols']])]
+        objs = [(group_runs(p['groups']), p['r0']) for p in trial]
+        trans = sweep_n(objs, mruns, colors)
+        if trans is None:
+            raise AssertionError('A3 tras band_assign_n')
+        E = EMap([xm] + [min(255, p['x0'] + p['var']['xmax']) for p in trial])
+        res = place(trans, lst, E, collections.Counter())
+        if res is None:
+            bobs.append((slot, 'plazo'))
+            continue
+        placed = trial
+        for p in free[:v0['cols']]:
+            pairs[p].append((a, b))
+        occ_add(occ, groups, r0)
+        best = (trans, res, E)
+    if not placed:
+        st['sin_plan'] += 1
+        return dict(rex=[], trans=[], vbl=[], segs={}, E=None, bobs=bobs)
+    trans, (vbl, segs), E = best
+    for p in placed:
+        st['remap_%d' % len(p['remaps'])] += 1
+        st['mapa_%d' % p['mapa']] += 1
+    return dict(rex=placed, trans=trans, vbl=vbl, segs=segs, E=E, bobs=bobs)
+
+
+def check_trace_n(p, recs, ctx, colors):
+    """errores de color de cada píxel de Mario y de todos los Rex ubicados,
+    y píxeles de Rex que se tapan entre sí (prioridad: el primero ubicado)"""
+    import g2t_ref as T
+    chosen = [r for r in recs if r['num'] == 0xAB][0]
+    ram, recorded = chosen['ram'], chosen['recorded']
+    mario, _, _, _ = T.mario_check(ram, recorded, ctx['gfx'])
+    uses = collections.defaultdict(dict)
+
+    def add(x, rr, i, color):
+        if not (0 <= x < 256 and 0 <= rr < ROWS):
+            return
+        u = uses[rr].get(i)
+        if u is None:
+            uses[rr][i] = dict(color=color, first=x, last=x, owners=set())
+        else:
+            if u['color'] != color:
+                raise AssertionError('índice con dos colores en la fila (A3)')
+            u['first'], u['last'] = min(u['first'], x), max(u['last'], x)
+    for (x, rr), i in mario.items():
+        add(x, rr, i, colors[i])
+    rexpix, tapados = {}, 0
+    for q in p['rex']:
+        n = q['var']['n']
+        pose = ctx['clean'][n & 0x7FFF] if n & 0x8000 else ctx['poses'][n]
+        pose = remap_pose(pose, q['remaps'])
+        for r, row in enumerate(pose['rows']):
+            cmap = {d: c for _, _, d, c in pose['row_maps'][r]}
+            for x, d in enumerate(row):
+                if not d:
+                    continue
+                gx, gy = q['x0'] + x, q['r0'] + r
+                add(gx, gy, d, cmap[d])
+                if 0 <= gx < 256 and 0 <= gy < ROWS:
+                    if (gx, gy) in rexpix:
+                        tapados += 1
+                    else:
+                        rexpix[gx, gy] = (d, cmap[d])
+    trans = [dict(indice=i, valor=c, segmento=-1, x=None) for i, c in p['vbl']]
+    for s, (form, ms) in p['segs'].items():
+        for (i, c, _), x in zip(ms, positions(s, form, ms)):
+            trans.append(dict(indice=i, valor=c, segmento=s, x=x))
+    env = T.simulate(uses, trans, colors)
+    pix, _ = T.pixel_errors(mario, rexpix, trans, colors)
+    return len(env) + pix, tapados
+
+
 def run_trace(a):
     import g2t_ref as T
     import g5ref as R
@@ -1057,6 +1316,9 @@ def run_trace(a):
             pi = R.palette_index(ram, ctx['pointers'])
             colors = struct.unpack_from('>16H', ctx['pals'], 32 * pi)
             st['fotos'] += 1
+            if getattr(a, 'multi', False):
+                run_multi_photo(photo, tab, colors, sl, st, recs, ctx)
+                continue
             p = plan_frame(photo, tab, colors, sl, st)
             if p is None:
                 st['sin_rex_dibujado'] += 1
@@ -1071,11 +1333,47 @@ def run_trace(a):
             st['remap_max'] = max(st['remap_max'], len(p['remaps']))
         summary[name] = dict(st)
         print(name, json.dumps(dict(st), sort_keys=True), flush=True)
-        ok &= st['errores'] == 0 and st['sin_plan'] == 0
+        ok &= st['errores'] == 0 and st['sin_plan'] == 0 and st['distinto_de_uno'] == 0
     OUT.mkdir(parents=True, exist_ok=True)
+    if getattr(a, 'multi', False):
+        (OUT / 'trace_multi.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
+        print('G4-1 TRACE: ' + ('OK' if ok else 'FALLA'))
+        return 0 if ok else 1
     (OUT / 'trace_summary.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
     print('G5L TRACE: ' + ('OK' if ok else 'FALLA'))
     return 0 if ok else 1
+
+
+def run_multi_photo(photo, tab, colors, sl, st, recs, ctx):
+    """G4-1 en una foto de la traza: plan_frame_n, su comprobación y la
+    equivalencia con plan_frame cuando ubica un solo Rex (el mismo)"""
+    p1 = plan_frame(photo, tab, colors, sl, Stats())
+    pn = plan_frame_n(photo, tab, colors, sl, st)
+    if pn is None:
+        st['sin_rex_visible'] += 1
+        return
+    n = len(pn['rex'])
+    st['visibles'] += n + len(pn['bobs'])
+    st['ubicados'] += n
+    st['max_ubicados'] = max(st['max_ubicados'], n)
+    st['hoy'] += p1 is not None
+    for _, why in pn['bobs']:
+        st['bob_' + why] += 1
+    st['max_bobs'] = max(st['max_bobs'], len(pn['bobs']))
+    if not n:
+        return
+    if n == 1 and p1 is not None and pn['rex'][0]['slot'] == p1['slot']:
+        same = (pn['trans'] == p1['trans'] and pn['vbl'] == p1['vbl'] and pn['segs'] == p1['segs']
+                and pn['rex'][0]['remaps'] == p1['remaps'])
+        st['igual_a_uno' if same else 'distinto_de_uno'] += 1
+    st['trans'] += len(pn['trans'])
+    st['max_trans'] = max(st['max_trans'], len(pn['trans']))
+    st['sufijos'] += len(pn['segs'])
+    st['max_sufijos'] = max(st['max_sufijos'], len(pn['segs']))
+    st['max_vbl'] = max(st['max_vbl'], len(pn['vbl']))
+    err, tap = check_trace_n(pn, recs, ctx, colors)
+    st['errores'] += err
+    st['pixeles_tapados'] += tap
 
 
 def sim_ldoff(mem, base, syms):
@@ -1632,6 +1930,7 @@ def main():
     t = sub.add_parser('trace')
     t.add_argument('--bank', default='work/g3/bank')
     t.add_argument('--traces', nargs='+', default=['yi1', 'normal', 'spin_kill'])
+    t.add_argument('--multi', action='store_true', help='G4-1: varios Rex por foto (plan_frame_n)')
     g = sub.add_parser('game')
     g.add_argument('--bin', default='work/g5l/rep/game.bin')
     g.add_argument('--lst', default='work/g5l/rep/game.lst')
