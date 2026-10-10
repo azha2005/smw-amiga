@@ -261,7 +261,10 @@ original del 2026-09-30, ola por ola, está textual en
 | G5L-R-Q | **hecha (2026-10-09)** | perfil por PC plano; reescrituras concretas −8 % render y `build_mid` → modelo 14-16 saltos (10-11 con S5). `docs/informe-g5l-r-q-1009.md` |
 | G5L-R-R1 | **hecha (2026-10-09)** | `f837262`: render G5L −5,6 % (Musashi); BENCH 53, VBTRACE 17. `docs/informe-g5l-r-r1-1009.md` |
 | G5L-R-S9 | **hecha (2026-10-10)** | `b67ee4b`: `build_mid` copia líneas entre listas; S5 descartado (P121); BENCH 36, VBTRACE 12. `docs/informe-g5l-r-s9-1010.md` |
-| G5L-R-L | **paso 1 hecho (2026-10-10); decide el usuario** | la lógica es plana (máx. 6,5 %); ≤ 5 pide −20 % de la lógica o una cuarta lista. `docs/informe-g5l-r-l1-1010.md`, `docs/instrucciones-g5l-r-l.md` |
+| G5L-R-L | **L2 lote 1 hecha; recortes posteriores retirados (2026-10-10)** | lógica caliente asm en 222fb64. FinishOAM/bm_share posteriores exactos pero BENCH peor (387→389, 98→104); retirados. `docs/informe-p123-scroll-1010.md` |
+| P123 | **corregida (2026-10-10)** | columns destruye a2: recargar dc_st antes de DC_REND. Watchpoint identificó g5l_choose; prueba del bucle real en regress, tres replays exactos; e7234ab + arreglo 150 s cycle-exact sin excepción |
+| G5L-R-S10 | **perfil hecho; prototipo pendiente** | bm_left domina en la vuelta. Generador acotado: puerta de tamaño/coste antes de integrar y A/B con el bucle corregido. `docs/instrucciones-g5l-r-s10.md` |
+| G5L-R-L3 | **pendiente, después de S10** | elegir otro núcleo asm por el perfil, fuzz y A/B real; no reintroducir recortes que fallaron BENCH. `docs/instrucciones-g5l-r-l3.md` |
 | G5L-R-V | **hecha (2026-10-09)** | teclado real KS 1.2/1.3, historial reproducido, RETURN; defecto G5L+CUSHION+SPR_OAM en `53e6453`. `docs/informe-cierre-v-bm1-1009.md` |
 | BM1 | **hecha (2026-10-09); boot del vivo por defecto** | KS 1.2/1.3 exactos, Z1, sin A501 no carga (usuario); 31,96 s contra 33,02 s trackdisk (`143c9ea`). `docs/informe-cierre-v-bm1-1009.md` |
 | G2T-Cpre | **WIP: C2a exacta, C2b detenido por coste** | 2288 planes, cinco contadores cero; sonda 28680 ciclos >4000, sin emitir. C3/C4 pendientes. `docs/informe-g2t-cpre-1008.md`, `docs/instrucciones-g2t-cpre-coste.md` |

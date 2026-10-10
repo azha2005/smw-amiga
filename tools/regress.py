@@ -546,6 +546,7 @@ def g5l_live_checks(r):
             return
         commands = [([PY, 'tools/memmap.py', out_dir + '/game.lst', '--data', 'work/yi1_s_g5.dat'], 'memmap: 0 violaciones')]
         if mode == 'replay':
+            commands.append(([PY, 'tools/dc_loop_verify.py', '--bin', out_dir + '/game.bin', '--lst', out_dir + '/game.lst'], 'DC LOOP: OK'))
             commands.append(([PY, 'tools/g5l.py', 'game', '--bin', out_dir + '/game.bin', '--lst', out_dir + '/game.lst'], 'G5L GAME: OK'))
         else:
             commands.append(([PY, 'tools/restart_verify.py', '--dir', out_dir], 'CUSHION vivo: tres listas, diagnostico/retorno OK'))

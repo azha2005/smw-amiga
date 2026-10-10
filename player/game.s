@@ -2246,6 +2246,7 @@ dc_loop:
         GBR     16
         endc
         ifd     G5L
+        lea     dc_st(pc),a2                ; columns destruye a2: recuperar el estado
         move.w  DC_REND(a2),d0
         bsr     dc_recp
         GETBASE a1

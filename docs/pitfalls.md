@@ -1091,7 +1091,7 @@ rutina y salen errores de pila y de registros "en `build_mid`" que no son
 reales. Las rutinas nuevas van después de `bm_left`. Un `jmp` calculado
 (`jmp .x(pc,d1.w)`) necesita `; lint: targets .x`.
 
-### P123 — Guru 3 en el juego: Exec no da el PC, y los emuladores del PC no fallan
+### P123 — columns destruye a2 y dc_loop lee una foto falsa: corrupción de GV_TAB
 
 **Síntoma (2026-10-10):** el build BENCH de `stress_back` en el commit
 `e7234ab` (antes de G5L-R-L2) muestra siempre "Guru Meditation
@@ -1105,8 +1105,31 @@ el marco y los registros tras `ADRTRAP!`; `python tools/adrtrap.py ADF LST
 [s]` corre WinUAE cycle-exact y los traduce. `m68kverify.py --odd`
 (Unicorn) lista los accesos impares de la lógica.
 
-**Caso:** `g5l.s:1248` (`move.w 16(a3,d7.w),d0`, `g5l_render`) con
-`a3 = GV_TAB(a6) = $31FA0031`: algo pisó `GV_TAB`, que va justo detrás de
-`GV_W` (224 × 8 B); candidato: `g5l_wcache` con un segmento ≥ 224. La
-lógica de ese build no hace accesos impares (`--odd`: 0). Abierto: ver
-`docs/informe-g5l-r-l2-1010.md` §4.
+**Observación inicial:** `g5l_render` encontraba `GV_TAB=$31FA0031`.
+La lógica no hacía accesos impares (`--odd`: 0). El candidato inicial
+era `g5l_wcache`, porque su tabla termina junto a GV_TAB. Una sonda puede
+alterar el layout y esconder el fallo; el Guru indica dónde se usa la
+dirección corrupta, no quién la escribió.
+
+**Causa comprobada:** `dc_loop` tenía `a2=dc_st`, pero `columns` destruye
+`a2` (declarado en su cabecera). `build_mid` guardaba/restauraba ese a2
+ya destruido. Después, G5L leía `DC_REND(a2)` desde los píxeles de PF1 y
+`dc_recp` entregaba una foto falsa. Con un contador cero, `g5l_choose`
+restaba 1 y su DBF escribía fuera de GV_KEY, hasta GV_TAB.
+
+**Arreglo:** `lea dc_st(pc),a2` inmediatamente antes de leer DC_REND en
+el camino G5L del bucle. No añadir un límite para esconder la foto falsa.
+`tools/dc_loop_verify.py` ejecuta el bucle real con columnas nuevas en
+ambas direcciones: falla antes del arreglo (slot 2, s=33) y pasa 3/3
+después. Está en `regress.py --g5l`. El arnés que llama las fases por
+separado y les suministra una foto válida no cubre ese fallo.
+
+**Writer sin modificar el binario:** `tools/gvtab_watch.py ADF LST
+--seconds 150 --out work/p123/watch`, bajo el candado, después de generar
+`at.uae` para ese ADF con `adrtrap.py`. Abre un WinUAE propio y cruza su
+PID con el pipe IPC; `DBG w 0 <GV_TAB> 4 BW` provoca bus error al escribir
+GV_TAB después de init. En el binario original: escritor B+$32730,
+`move.b d0,(a2)+`, `g5l_choose .k`; foto falsa $C1D006 dentro de código.
+Volcados y datos derivados solo en `work/`. Evidencia y reconstrucción
+e7234ab + arreglo, 150 s cycle-exact sin excepción:
+`docs/informe-p123-scroll-1010.md` §1.

@@ -1241,7 +1241,12 @@ def run_game(a):
     last_key = None
     keys = []
     logic = 0
-    pcprof = {'build_mid': {}, 'render': {}, 'logic': {}}   # Q: {k: {offset: [veces, ciclos]}}
+    pcprof = {'build_mid': {}, 'render': {}, 'logic': {}, 'scroll': {}}
+    pcframes = set()
+    for r_ in (a.pcframes or '').split(','):
+        if r_:
+            lo_, _, hi_ = r_.partition('-')
+            pcframes.update(range(int(lo_), int(hi_ or lo_) + 1))
     pclogic = set()                             # L: fotos con la lógica paso a paso
     for r_ in (a.pclogic or '').split(','):
         if r_:
@@ -1257,17 +1262,22 @@ def run_game(a):
             cap = fr.call(addr('dc_cop'), G.FAKE, 'x', {addr('g5l_capture'): 'cap'})
             caps.append(cap.get('cap', 0))
             logic = cap.get('x', 0)             # T2: la lógica de la interrupción
+        if k % a.render_every:
+            continue                            # avanza la lógica sin dibujar esta foto
         photo = mem.r16(dc + s['DC_NEW'])
         rec = addr('dc_rec') + photo * s['DC_REC']
         mem.w16(dc + s['DC_REND'], photo)
         mem.w16(fr.vars + s['V_S'], mem.r16(rec + s['R_S']))
         pre = {}                                # T2: coste del render previo, por foto
         for n in ('columns', 'apply_colors', 'set_pointers', 'build_mid'):
-            if a.pcprof and n == 'build_mid':
+            if a.pcprof and (not pcframes or k in pcframes) and (n == 'build_mid' or a.pcscroll):
                 h_ = {}
                 pre[n] = step_call(fr, G, gr.V, addr(n), G.FAKE, h_)
-                if pre[n] > 10000:
-                    pcprof[n][k] = {'%x' % (pc_ - gr.B): v_ for pc_, v_ in h_.items()}
+                hist_ = {'%x' % (pc_ - gr.B): v_ for pc_, v_ in h_.items()}
+                if n == 'build_mid' and (pcframes or pre[n] > 10000):
+                    pcprof[n][k] = hist_
+                if a.pcscroll:
+                    pcprof['scroll'].setdefault(k, {})[n] = hist_
             else:
                 pre[n] = sum(fr.call(addr(n), G.FAKE).values())
         back = mem.r32(fr.vars + s['V_BACK'])
@@ -1290,7 +1300,7 @@ def run_game(a):
         for r_, v_ in poison.items():
             cpu.cpu.w_reg(r_, v_)
         cpu.cpu.w_reg(R.A0, rec)
-        if a.pcprof:
+        if a.pcprof and (not pcframes or k in pcframes):
             h_ = {}
             parts = {'render': step_call(fr, G, gr.V, addr('g5l_render'), G.FAKE, h_)}
             if parts['render'] > 3000:
@@ -1378,6 +1388,7 @@ def run_game(a):
     if a.pcprof:                                # Q: no pisa la corrida normal
         pcprof['tot'] = {x['k']: [x['c'], x['pre']['build_mid']] for x in frames}
         pcprof['logic_tot'] = {x['k']: x['logic'] for x in frames if x['k'] in pclogic}
+        pcprof['scroll_tot'] = {x['k']: x['pre'] for x in frames}
         Path(a.pcprof).write_text(json.dumps(pcprof), encoding='utf-8')
         print(json.dumps(dict(st), sort_keys=True))
         ok = not st['distintas'] and not st['abi'] and not st['restos'] and not st['sin_plan'] and not st['bufer_distinto']
@@ -1529,7 +1540,10 @@ def main():
     g.add_argument('--lst', default='work/g5l/rep/game.lst')
     g.add_argument('--bank', default='work/g3/bank')
     g.add_argument('--frames', type=int, default=0)
+    g.add_argument('--render-every', type=int, default=1, help='Dibujar cada N fotos; ejercita el scroll y las cachés con fotos omitidas')
     g.add_argument('--pcprof', help='Q: histograma por PC de g5l_render y build_mid (json)')
+    g.add_argument('--pcscroll', action='store_true', help='Con --pcprof: incluir columns, apply_colors y set_pointers')
+    g.add_argument('--pcframes', help='Con --pcprof: limitar el paso a paso del render/scroll a fotos k, p.ej. 10-20,40')
     g.add_argument('--pclogic', help="L: con --pcprof, fotos con la lógica (dc_cop) paso a paso: '3290-3370,1000-1050'")
     h = sub.add_parser('shot')
     h.add_argument('--bin', default='work/g5l/rep/game.bin')
@@ -1539,6 +1553,8 @@ def main():
     h.add_argument('--shot', required=True)
     h.add_argument('--control', required=True)
     a = ap.parse_args()
+    if a.cmd == 'game' and a.render_every < 1:
+        ap.error('--render-every debe ser >= 1')
     return {'mk': run_mk, 'trace': run_trace, 'game': run_game, 'shot': run_shot}[a.cmd](a)
 
 

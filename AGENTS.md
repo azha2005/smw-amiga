@@ -498,7 +498,7 @@ número siguiente (**la próxima es P124**).
 - **P120** `vbtrace.py` daba "sin traza": a su `.uae` le faltaba `use_gui=no`
 - **P121** Los picos de `build_mid` vienen de a tres (uno por lista), no se adelantan (S5 no sirve; S9 copia)
 - **P122** `lint_port.py` (V3): una cabecera `; ---` entre `build_mid` y `bm_left` los separa
-- **P123** Guru 3 en el juego: Exec no da el PC. `-DADRTRAP` + `tools/adrtrap.py`; Musashi/Unicorn no fallan con .w impar (`m68kverify --odd`)
+- **P123** `columns` destruye a2: `dc_loop` debe recuperar dc_st antes de leer DC_REND; si no, g5l_choose pisa GV_TAB. ADRTRAP/watchpoint y `dc_loop_verify.py`
 
 ---
 
