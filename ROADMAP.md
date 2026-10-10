@@ -80,7 +80,7 @@ copian acá.
 | 3-4 | Esqueleto Amiga y viabilidad | **hecho**; D1, D8 y D9 cerrados | `player/boot.s`, `bench*.s`, `copbench.s` |
 | 5 | Conversor del nivel al formato (d) | **hecho**; falta compararlo contra la referencia en la PC (→ 7) | `tools/mkbg.py`, `mkd8in.py`, `mkleveld.py`, `render_d.py` |
 | 6.1-6.3 | Scroll a 256 px, ida y vuelta | **hecho** (P59 arreglada) | `player/scroll.s`, `tools/mkscroll.py` |
-| 6.4 | Scroll en el peor frame | **no cerrada**. S9 comparte líneas; S5 probado y descartado. P123 corregida. WinUAE BENCH final: build_mid normal 83,2 %, vuelta/back **180,4 %** (s=4581); back 387 fotos perdidas, racha 5. Perfil: bm_left domina, pero el bucle por carga es solo el 30,6 %. Speedcode S10 descartado por su puerta (118 KB, −6,2 % de CPU). M1: ≈ 2,8× = fotos omitidas ≈ 1,6× × DMA de 6 planos ≈ 1,6×; picos = espiral de la vuelta (\|Δs\| > 16 en la misma lista). S11: en la vuelta ≈ 90 líneas reescritas por foto con ventanas de ≈ 13 px; probablemente no entra en D1 solo con CPU del scroll | `docs/informe-g5l-r-m1-1010.md`, `docs/informe-g5l-r-s10-1010.md`, `docs/informe-p123-scroll-1010.md`, `docs/informe-g5l-r-s9-1010.md` |
+| 6.4 | Scroll en el peor frame | **no cerrada**. S9 comparte líneas; S5 probado y descartado. P123 corregida. WinUAE BENCH final: build_mid normal 83,2 %, vuelta/back **180,4 %** (s=4581); back 387 fotos perdidas, racha 5. Perfil: bm_left domina, pero el bucle por carga es solo el 30,6 %. Speedcode S10 descartado por su puerta (118 KB, −6,2 % de CPU). M1: ≈ 2,8× = fotos omitidas ≈ 1,6× × DMA de 6 planos ≈ 1,6×; picos = espiral de la vuelta (\|Δs\| > 16 en la misma lista). S11: en la vuelta ≈ 90 líneas reescritas por foto con ventanas de ≈ 13 px; probablemente no entra en D1 solo con CPU del scroll. L3: perfil de la lógica plano, ningún recorte la mueve | `docs/informe-g5l-r-m1-1010.md`, `docs/informe-g5l-r-s10-1010.md`, `docs/informe-p123-scroll-1010.md`, `docs/informe-g5l-r-s9-1010.md` |
 | 7 | Capa 2 contra la referencia | pendiente (solo PC, U2) | — |
 | 8a/8b/8c | Física, colisión, pendientes | **hecho**: `full` 6510/6547 en `oracle_yi1`; pendientes 2154/2154 (`oracle_hills`) | `player/mario.c`, `mcoll.c`, `manim.c` |
 | 8 (gfx, cámara) | Gráficos de Mario y cámara | **hecho**; `gfx` 100 % en los oráculos (P69 arreglada) | `player/mgfx.c`, `mcam.c` |
@@ -233,6 +233,10 @@ cambiable en un solo lugar (una tabla).
 
 ## 4. Olas y sesiones (revisado el 2026-10-10)
 
+2026-10-10 (L3): la ola 3 deja de tener palancas de CPU con margen
+medido (S10, S11, L3). Empieza la ola 4 con G4-A, que mide el coste en
+memoria de llevar todos los enemigos al copper. El estimado no cambia.
+
 2026-10-10 (S10): el speedcode no pasa la puerta de tamaño/coste
 (`docs/informe-g5l-r-s10-1010.md`). El estimado no cambia: **9-12
 sesiones (ESTIMADO)**; la medida M1 (1 sesión) decide la siguiente
@@ -263,7 +267,7 @@ pero detenida por coste; primer microbench asm medido (18 794 ciclos solo en tra
 | 1. Medir y preparar | — | **cerrada** | 0 |
 | 2. 50 Hz (1) | — (S4 descartada, P89) | **cerrada** | 0 |
 | 3. 50 Hz (2) + diseños | G2/G3 acotadas y traza D1 integradas; L-OAM asm parcial (41,2 % YI1, estrés rojo), G5a-bis detenida fase A (ventanas vacías). G2T-A hecha (contrato fijado, A-T verde); B35 exacta en rama pero inviable (2,41 M ciclos máx.); primer microbench asm entregado y detenido (18 794 ciclos solo en transiciones); faltan nuevo diseño viable, rendimiento de B2bis, resolver coste Cpre/C y la ruta OAM de piraña; A2 y R7. A1/G8b adelantadas | **B35 parcial por coste; L-OAM roja** | **3 estimadas** (nuevo diseño viable de B35 + B2bis/C + L-OAM; el microbench no reduce la ruta crítica) |
-| 4. Motores y estructura | G4 + G6, G5 + G9, C2 (vlink), S8 (cámara vertical), A0 + A2, P7/P9/P10, T1, I/E sueltas | pendiente | 2-3 |
+| 4. Motores y estructura | G4-A (medida, en curso 2026-10-10), G4 + G6, G5 + G9, C2 (vlink), S8 (cámara vertical), A0 + A2, P7/P9/P10, T1, I/E sueltas | **en curso** | 2-3 |
 | 5. Integraciones y 50 Hz con sprites | S5 (+ S3/S6) con G5 ya hecho, C3/C4/C5 (loader), segundo PF1 + G7 (bobs), H2-H4 (HUD), A3/A4 (música) | pendiente | 2-3 |
 | 6. El juego completo | Z2-Z6 (punto medio, meta, tiempo, fundidos, poste), T2/T3 (tubería), A5-A8 (efectos, comparación), H5, R7 | pendiente | 2 |
 | 7. Segunda ronda de 50 Hz | todo junto contra la compuerta D1 en estrés | pendiente | 1 |
@@ -334,6 +338,9 @@ O5 es el modo por defecto (`-DNODECOUPLE` = bucle viejo); si cambia
 ---
 
 ## 7. Cierre de sesión (obligatorio)
+
+2026-10-10 (L3): perfil de la lógica plano; tarjeta cerrada sin integrar.
+Empieza la ola 4 por G4-A (medida). PROXIMO archivado y reescrito.
 
 2026-10-10 (S11): fase 1 medida y tarjeta cerrada sin integrar; sigue L3
 (PROXIMO §1). Estados actualizados.
