@@ -348,10 +348,40 @@ def run_cmp(a):
     dy = a.dy if a.dy is not None else min(tot, key=tot.get)
     print('alineacion: fila Amiga y = fila SNES y%+d  (%s)' % (dy, ', '.join('%+d: %d' % kv for kv in sorted(tot.items()))))
     rows = []
+    frame_info = {}
+    if a.px is not None:
+        if Path(a.frames).exists():
+            frame_info = {q['k']: q for q in json.loads(Path(a.frames).read_text())}
+        loaded = [q for q in loaded if q[0]['k'] == a.px]
+        if not loaded:
+            sys.exit('no existe el par k=%d' % a.px)
     for p, sn, am, rara in loaded:
         bad = diff_rows(sn, am, dy)
         hud = [q for q in bad if q[1] < HUD_ROWS]
         jue = [q for q in bad if q[1] >= HUD_ROWS]
+        if a.px is not None:
+            raw = Image.open(d / 'snes' / ('snes_%d.ppm' % p['f'])).convert('RGB')
+            layers = {}
+            for name in ('bg1', 'bg2', 'obj'):
+                lp = d / 'snes' / ('snes_%d_no_%s.ppm' % (p['f'], name))
+                if lp.exists():
+                    layers[name] = Image.open(lp).convert('RGB')
+            info = frame_info.get(p['k'], {})
+            cam = dict(camx=info.get('camx', info.get('sc', 0)), camy=info.get('camy', 192))
+            pixels = []
+            for x, y in jue:
+                rgb = raw.getpixel((x, y + dy))
+                c15 = (rgb[0] >> 3) | (rgb[1] >> 3) << 5 | (rgb[2] >> 3) << 10
+                q = am[y * COLS + x]
+                c12 = (q[0] // 17 << 8) | (q[1] // 17 << 4) | q[2] // 17
+                influences = [name for name, im in layers.items()
+                              if im.getpixel((x, y + dy)) != rgb]
+                pos = [cam['camx'] + x, cam['camy'] + y]
+                pixels.append(dict(x=x, y=y, snes15=c15, amiga12=c12,
+                                   nivel=pos, capas=influences))
+                print('k=%d (%d,%d) nivel=(%d,%d) SNES=$%04X Amiga=$%03X capas=%s'
+                      % (p['k'], x, y, *pos, c15, c12, ','.join(influences) or '?'))
+            (d / ('px_%d.json' % p['k'])).write_text(json.dumps(pixels, indent=1))
         bx = boxes(jue)
         rows.append(dict(k=p['k'], f=p['f'], distintos=len(bad), hud=len(hud), juego=len(jue),
                          cajas=bx[:12], muestreo_raro=rara))
@@ -360,7 +390,7 @@ def run_cmp(a):
     res = dict(alineacion=dy, pares=len(rows), hud_rows=HUD_ROWS,
                exactos=sum(1 for r in rows if not r['distintos']),
                sin_hud_exactos=sum(1 for r in rows if not r['juego']), filas=rows)
-    (d / 'sweep.json').write_text(json.dumps(res, indent=1))
+    (d / ('sweep.json' if a.px is None else 'sweep_px_%d.json' % a.px)).write_text(json.dumps(res, indent=1))
     print('%d pares: %d exactos; fuera de la barra de estado, %d exactos' % (res['pares'], res['exactos'], res['sin_hud_exactos']))
     for r in sorted(rows, key=lambda r: -r['juego'])[:a.top]:
         print('  k %5d f %5d  juego %5d  barra %5d  cajas %s' % (
@@ -409,6 +439,8 @@ def main():
     m.add_argument('--dy', type=int, help='alineacion fija (por defecto, medida)')
     m.add_argument('--align', type=int, default=8, help='pares para medir la alineacion')
     m.add_argument('--top', type=int, default=25)
+    m.add_argument('--px', type=int, help='SW-D: listar los píxeles de juego de la foto k')
+    m.add_argument('--frames', default='work/g9/frames_yi1.json', help='cámara por foto (g5l.py game)')
     a = ap.parse_args()
     if a.selftest:
         selftest()
