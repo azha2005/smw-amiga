@@ -26,7 +26,7 @@ omitidas pide **−20 % de toda la lógica** o **una cuarta lista**.
 
 | opción | qué | costo |
 |---|---|---|
-| **A. Lógica a asm, por partes** (recomendada si se sigue a 50 Hz sin más latencia) | `_level_frame`, `mcoll.c`, `_banzai_gfx`, `_sprites_all` y el resto del C de sprites, cada uno con el cruce PC = 68000 (V1) | varias sesiones; −6-9 k por foto ESTIMADO pasando casi todo el C |
+| **A. Lógica a asm, por partes** (recomendada si se sigue a 50 Hz sin más latencia) | `_level_frame`, `mcoll.c`, `_banzai_gfx`, `_sprites_all` y el resto del C de sprites, cada uno con el cruce PC = 68000 (V1); `docs/instrucciones-g5l-r-l2.md` | varias sesiones; −6-9 k por foto ESTIMADO pasando casi todo el C |
 | B. Cuarta lista del copper | otra foto de holgura: modelo 1-8 saltos | **+20 ms de latencia** (decisión del usuario); 57 692 B de chip (`CL_SIZE`) que hoy no hay (24 856 B libres en el vivo): antes C2/C4 |
 | C. G5L (camino lento) y el primer pico de `bm_left` | `instrucciones-g5l-r-l.md` pasos 2-3 | 1-3 saltos según el modelo |
 
