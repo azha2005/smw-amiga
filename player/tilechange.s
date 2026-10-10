@@ -17,7 +17,7 @@ tile_current:
 ; salida: D_MAP y las dos copias de cada celda residente actualizadas
 ; registros destruidos: d0-d1/a0-a1
 ; conserva los registros restantes con movem
-; con D_TCHG vacia (mkscroll.py sin SW_TILES=1) solo avanza tile_read
+; con D_TCHG vacia (mkscroll.py con SW_TILES=0) solo avanza tile_read
 ; ciclos: medidos con g5l.py / WinUAE BENCH en el informe SW-B
 tile_apply:
 .base0: lea     .base0(pc),a0

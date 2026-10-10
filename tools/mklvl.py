@@ -932,12 +932,13 @@ def load_gfx(src_dir, files, tileset=7, anim_phase=None):
         dec = lc_lz2_decompress(raw)
         bpp = BPP_TABLE.get(f, 3)
         out[f] = decode_snes_tileset(dec, bpp)
-    # SW-A ocupa chip adicional en el blob del nivel. Hasta resolver el
-    # presupuesto del vivo, se genera explicitamente con SW_ANIM_POSTS=0
-    # (fase referencia; 1..3, las demas fases para auditoria).
+    # SW-A: los postes del punto medio con la fase 0 congelada, activados
+    # por defecto (usuario, 2026-10-10: fidelidad 1:1 primero; coste en
+    # informe-sw-ap-1010.md). SW_ANIM_POSTS=off los quita (control A/B);
+    # 1..3, las demas fases para auditoria.
     if anim_phase is None:
-        phase = os.environ.get('SW_ANIM_POSTS')
-        if phase is None:
+        phase = os.environ.get('SW_ANIM_POSTS', '0')
+        if phase == 'off':
             return out
         anim_phase = int(phase)
     if anim_phase not in range(4):

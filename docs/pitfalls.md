@@ -1240,3 +1240,18 @@ sobre la RAM y la PPU del emulador.
 informa; hoy da −1, sin ambigüedad. `orc.c` (`shot_frame`) guarda y
 restaura la RAM, la PPU, el DMA y el IRQ alrededor del dibujo. Comprobar
 siempre que el oráculo sale idéntico con y sin `--shots` (SW1: 6312/6312).
+
+**P129 — La regresión medía el vivo G5L con arranque Exec, no el vivo real (BM1).**
+
+**Síntoma:** con SW-A/B activadas (2026-10-10), `g5l_live_memmap.py` da
+`V-CHIP-TOTAL: chip 531552 B > 524288`, mientras el vivo que se distribuye
+(`GDEFS=" " game_build.sh`) entra con 42 KB de margen.
+
+**Causa:** `regress.py` pasaba `-DG5L -DCUSHION` a mano; con `-DG5L` en
+`GDEFS`, `game_build.sh` no agrega `-DBM_FIXED`, así que el build era el
+de Exec/trackdisk, con la cola CPU de `yi1_s.dat` todavía en chip.
+
+**Cómo evitarlo:** el vivo de la regresión lleva `-DBM_FIXED` (D13: el
+vivo arranca con BM1). Un build con flags explícitos tiene que repetir lo
+que el perfil por defecto agrega; comparar su `memmap` con el de
+`work/live`.

@@ -64,6 +64,13 @@ CA_SL       equ 10                          ; ranura
 CA_H        equ 12                          ; alto (la primera variante)
 CA_DEAD     equ 14                          ; .b sin variante (bob 'color')
 CA_PRI      equ 15                          ; .b prioridad OAM (SW-P)
+; SW-P activada por defecto (usuario, 2026-10-10: fidelidad 1:1 primero);
+; -DG5L_NOPRIORITY la quita entera, -DG5L_NOPRI deja el control A/B.
+        ifnd    G5L_PRIORITY
+        ifnd    G5L_NOPRIORITY
+G5L_PRIORITY equ 1
+        endc
+        endc
         ifd     G5L_PRIORITY
         ifnd    G5L_NOPRI
 G5L_PRI_ON  equ 1
@@ -708,7 +715,7 @@ g5l_render:
         beq.s   .swd
         bsr     g5l_pcput
 .swd:
-        ifd     G5L_PRIORITY                ; SW-P opt-in: puerta D1 pendiente
+        ifd     G5L_PRIORITY                ; SW-P (coste D1 medido: informe-sw-ap)
         ifnd    G5L_NOPRI                   ; control A/B (SW-P)
         cmp.w   #1+G5L_PRI_ON,GV_VMAP(a6)    ; referencia tambien exporta el flag al listado
         bhs.s   .sprdone

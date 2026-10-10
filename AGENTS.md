@@ -372,7 +372,7 @@ En español. Cada rutina de hardware (blitter/copper) lleva arriba:
 Índice, una línea por trampa. **El texto completo (causa, síntoma, arreglo y
 comandos) está en `docs/pitfalls.md`, textual**: leer ahí las del área que se
 toca antes de cambiar nada. Una trampa nueva se agrega allí y aquí con el
-número siguiente (**la próxima es P129**).
+número siguiente (**la próxima es P130**).
 
 - **P1** El layout de paletas de SMW no es un array 8×16. ✅ RESUELTO
 - **P2** El blitter tiene prioridad sobre la CPU y la "roba" ciclos
@@ -504,6 +504,7 @@ número siguiente (**la próxima es P129**).
 - **P126** En el replay (boot con Exec) el margen de chip de `memmap.py` no descuenta los 23.016 B que retiene Exec: con menos, `AllocMem` falla y la pantalla queda roja (`gfail`)
 - **P127** La x/y de la ranura que captura el port es posterior al movimiento y la OAM anterior (comparar OAM absoluta); el mapa de una variante es su familia, no su tipo ($BD/$B9/$02 usan los del Rex)
 - **P128** Pantalla entera contra la SNES: fila Amiga = fila SNES − 1 (medirla), y `snesorc --shots` tiene que guardar y restaurar la RAM/PPU/DMA
+- **P129** La regresión armaba el vivo G5L con arranque Exec (sin `-DBM_FIXED`): medía chip de un vivo que no se distribuye
 
 ---
 

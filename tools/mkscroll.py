@@ -135,11 +135,12 @@ def main():
     if g5:
         SEG = SEG_G5
     d = render_d.load(os.path.join(WORK, "yi1_d.dat"))
-    # SW-B es opcional (SW_TILES=1): sus reservas de color alargan el plan
-    # del copper (build_mid.max +836 ciclos, informe-sw-b-1010.md). Sin
-    # ella, D_TCHG queda vacia y tile_apply solo consume el diario.
+    # SW-B activada por defecto (usuario, 2026-10-10: fidelidad 1:1
+    # primero). Sus reservas de color alargan el plan del copper
+    # (informe-sw-b-1010.md). SW_TILES=0 deja D_TCHG vacia (control A/B):
+    # tile_apply solo consume el diario.
     tch = bytearray(struct.pack(">H", 0))
-    if os.environ.get("SW_TILES") == "1":
+    if os.environ.get("SW_TILES", "1") != "0":
         blocks, _, _, bad = tilechange.inventory(d)
         added, rejected = tilechange.reserve_colors(d, bad)
         blocks, replacements, _, bad = tilechange.inventory(d)
@@ -154,7 +155,7 @@ def main():
             tch += struct.pack(">HHBB", cell, result, block, old)
         print("SW-B: %d reemplazos, %d reservas de color exactas" % (len(replacements), len(added)))
     else:
-        print("SW-B: apagada (SW_TILES=1 la activa); D_TCHG vacia")
+        print("SW-B: apagada (SW_TILES=0); D_TCHG vacia")
     W, cols = d["W"], d["cols"]
     ini = np.zeros((LINES, 7), np.int32)
     chg = []

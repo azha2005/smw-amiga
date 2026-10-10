@@ -537,7 +537,9 @@ def g5l_live_checks(r):
     """Puerta opt-in G5L/CUSHION: listas reales A/B/C y reinicio vivo."""
     env = dict(os.environ, VBCC=vbcc_dir(), CDEFS='-DNOOAM -DSPR_OAM', SPR_BANK='work/g3/bank')
     env.pop('NOCC', None)
-    for mode, flags in [('replay', '-DREPLAY -DG5L -DCUSHION'), ('live', '-DG5L -DCUSHION')]:
+    # P129: el vivo que se distribuye arranca con BM1 (-DBM_FIXED, cola CPU
+    # en slow); con Exec ya no entra en chip. Se mide ese.
+    for mode, flags in [('replay', '-DREPLAY -DG5L -DCUSHION'), ('live', '-DG5L -DCUSHION -DBM_FIXED')]:
         out_dir = 'work/rg_g5l_' + mode
         code, out = sh(['sh', 'tools/game_build.sh'], env=dict(env, GDEFS=flags, OUT=out_dir), timeout=1800)
         r.logs['g5l_build_' + mode] = out
