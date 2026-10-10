@@ -81,7 +81,7 @@ def main():
         end = time.monotonic() + a.seconds
         host = None
         while time.monotonic() < end and host is None:
-            for h, _ in mem.find(b'G5L2', 16):
+            for h, _ in mem.find(b'G5L3', 16):
                 raw = mem.read(h + s['g5l_v'] + s['GV_TAB'] - s['g5l_table'], 4)
                 if not raw:
                     continue

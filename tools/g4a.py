@@ -129,7 +129,7 @@ def run_inv(a):
     # tamaño real de la tabla del Rex (g5l.bin): registros de variante
     blob = Path('work/g5l/g5l.bin').read_bytes()
     tab = L.Table(blob)
-    sbase = 16 + 2 * L.NHASH
+    sbase = struct.unpack_from('>H', blob, 10)[0] + 16 * L.NORDS + 32   # G5L3
     o, vbase = sbase, None
     vbase = sbase
     for h in range(L.NHASH):

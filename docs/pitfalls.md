@@ -1184,3 +1184,22 @@ comparando `GV_RBUF`: ahora hay una por (lista, Rex) (`GV_RKP`).
 **Cómo verlo:** `g5l.py game` compara cada cadena con las fuentes en
 memoria (`cadenas`, `cadena_distinta`) y cada búfer de bandas con
 `rbuf_streams` (`bufer_distinto`). `docs/informe-g4-2-1010.md`.
+
+**P126 — En el replay, el margen de chip de `memmap.py` no descuenta lo que retiene Exec.**
+
+**Síntoma (G4-B):** el ADF de chuck con todos los tipos y `-DG5L_MAXPL=2`
+arranca con la pantalla en rojo y no sale de ahí. `memmap.py` daba
+0 violaciones y 21.480 B de margen de chip.
+
+**Causa:** el replay arranca con el boot de siempre, que pide la chip a
+Exec (`AllocMem`). Exec, sus librerías y trackdisk retienen **23.016 B**
+(medido en BM1, `informe-bm1-1009.md` §1), y `memmap.py` no los cuenta.
+Con menos de eso de margen, un `AllocMem` falla y `game.s` salta a
+`gfail`, que pinta `COLOR00` de rojo. El vivo usa `-DBM_FIXED` (arenas
+sin Exec) y `memmap.py` sí cuenta su reserva inferior de 4.096 B, así que
+en el vivo el margen es real.
+
+**Cómo evitarlo:** en un build de replay hay que tener margen ≥ 23.016 B,
+o usar `tools/bm_build.sh`. Margen de chip real del replay: el de
+`memmap.py` menos 23.016 B. Con todos los tipos y un objeto quedan
+26.280 − 23.016 ≈ 3,3 KB (`docs/informe-g4-b-1010.md` §4).

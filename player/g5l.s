@@ -173,9 +173,9 @@ GV_RKB      equ GV_RKA+46                   ; .w bandas, GV_REM (g5l_patch); la 
         ifd     CUSHION
 GV_RKC      equ GV_RKB+46                   ; la C
 GV_PNVC     equ GV_RKC+46                   ; .b colores de partida en la C
-GV_VMAP     equ GV_PNVC+2                   ; .w mapa de la variante x 6 (g5l_plan .ord)
+GV_VMAP     equ GV_PNVC+2                   ; .w libre (era el mapa de g5l_plan; G4-B)
         else
-GV_VMAP     equ GV_RKB+46                   ; .w mapa de la variante x 6 (g5l_plan .ord)
+GV_VMAP     equ GV_RKB+46                   ; .w libre (era el mapa de g5l_plan; G4-B)
         endc
 GV_NEED     equ GV_VMAP+2                   ; 8 .w: choques de cada variante (-1: sin
                                             ; calcular, $7FFF: probada)
@@ -316,7 +316,8 @@ TRB     macro
 
 ;----------------------------------------------------------------------
 ; --- g5l_capture --- (la interrupcion, dc_capture) lo que el plan lee de
-; la logica: OAM de Mario, punteros de GFX32, camara y los Rex con fichas
+; la logica: OAM de Mario, punteros de GFX32, camara y los objetos con
+; fichas de los tipos de la tabla (G4-B: el mapa de bits de la G5L3)
 ; entrada:  a1 = foto (dc_rec + DC_REC * i), a4 = binstart
 ; salida:   R_G5L de la foto
 ; registros destruidos: d0-d1/a0 (preserva el resto)
@@ -329,7 +330,11 @@ TRB     macro
         fail    "G5L: mario_oam y ram en direccion par (captura con .l)"
         endc
 g5l_capture:
-        movem.l d2-d5/a1-a3,-(sp)
+        movem.l d2-d5/a1-a3/a5,-(sp)
+        move.l  a4,a5
+        add.l   #g5l_table-binstart,a5
+        add.w   10(a5),a5                   ; G5L3: los ordenes y detras
+        lea     16*16(a5),a5                ; a5 = los tipos (256 bits)
         lea     R_G5L(a1),a1
         lea     _mario_oam(a4),a0           ; mario_oam y mario_osz: seguidos
         move.l  (a0)+,(a1)+                 ; y en direccion par (ver arriba)
@@ -359,8 +364,12 @@ g5l_capture:
         beq     .nk
         move.w  d2,d0
         add.w   #wm_SpriteNum,d0
-        cmp.b   #$AB,(a2,d0.w)
-        bne     .nk
+        moveq   #0,d1
+        move.b  (a2,d0.w),d1                ; d1 = tipo
+        move.w  d1,d0
+        lsr.w   #3,d0
+        btst    d1,(a5,d0.w)                ; (bit = tipo & 7)
+        beq     .nk
         cmp.w   #G5L_MAXREX,d3
         bhs     .end
         lea     _spr_oam_first(a4),a0
@@ -415,7 +424,7 @@ g5l_capture:
         cmp.w   #12,d2
         blo     .k
 .end:   move.b  d3,(a3)
-        movem.l (sp)+,d2-d5/a1-a3
+        movem.l (sp)+,d2-d5/a1-a3/a5
         rts
 
 ;----------------------------------------------------------------------
@@ -669,7 +678,6 @@ g5l_render:
         move.l  d0,(a2)+
         move.l  d0,(a2)
         clr.w   GV_FM(a6)                   ; camino rapido: la primera
-        clr.w   GV_VMAP(a6)                 ; variante sin choques
 .fm:    move.w  GV_FM(a6),d0
         move.l  GV_VLIST(a6),a0
         move.l  (a0,d0.w),a0
@@ -678,7 +686,6 @@ g5l_render:
         bsr     g5l_fast
         beq     .swd                        ; sin g5l_plan ni g5l_sweep
         addq.w  #4,GV_FM(a6)
-        addq.w  #6,GV_VMAP(a6)
         move.w  GV_NVAR(a6),d0
         lsl.w   #2,d0
         cmp.w   GV_FM(a6),d0
@@ -842,10 +849,6 @@ g5l_picksel:
         move.l  (a0,d0.w),a0
         add.l   GV_TAB(a6),a0
         move.l  a0,GV_VAR(a6)
-        move.w  d4,d0
-        add.w   d4,d0
-        add.w   d4,d0
-        move.w  d0,GV_VMAP(a6)
         tst.w   d3                          ; G4-2o: sin choques y en el camino
         bne.s   .pl                         ; de varios: sin bandas, no hace
         tst.b   GV_PSF(a6)                  ; falta g5l_plan
@@ -2774,8 +2777,13 @@ g5l_plan:
         move.w  d5,GV_IM(a6)
         tst.l   GV_MCUR(a6)
         beq     .ok                         ; sin Mario nada choca
-        lea     .ord(pc),a5
-        add.w   GV_VMAP(a6),a5              ; los del mapa de la variante
+        move.l  GV_VAR(a6),a0               ; G5L3: los del mapa de la
+        moveq   #0,d0                       ; variante (nibble alto del .b
+        move.b  7(a0),d0                    ; 7: mapa x 16), en la tabla
+        and.w   #$f0,d0
+        move.l  GV_TAB(a6),a5
+        add.w   10(a5),d0
+        add.w   d0,a5
         lea     GV_BITS(a6),a1
 .ic:    moveq   #0,d2
         move.b  (a5)+,d2                    ; d2 = ic (0: fin)
@@ -2905,10 +2913,6 @@ g5l_plan:
         move.w  GV_TMP+2(a6),d0
 .fx:    rts
 
-.ord:   dc.b    6,7,4,9,15,0                ; tools/g5l.py CLEAN_PERMS: por
-        dc.b    5,7,15,6,4,0                ; mapa, los indices de los colores
-        dc.b    11,7,15,6,4,0               ; propios en el orden de REXC
-        dc.b    6,7,15,14,4,0
 .pref:  dc.b    7,15,4,6,14,9,13,8,12,11,5,10,3 ; tools/g5l.py BAND_PREF
         even
 
