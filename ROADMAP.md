@@ -57,7 +57,9 @@ línea de la lista anterior si vale en s (los picos venían de a tres, uno
 por lista, P121); S5 se probó y se descartó. WinUAE: BENCH 66 → 53 → **36**
 fotos, VBTRACE 25 → 17 → **12** omitidas. Siguen: el racimo 3305-3364
 (camino lento de G5L y la lógica). `docs/informe-g5l-r-r1-1009.md`,
-`docs/informe-g5l-r-s9-1010.md`.
+`docs/informe-g5l-r-s9-1010.md`. G5L-R-L paso 1: la lógica es plana; ≤ 5
+pide −20 % de la lógica o una cuarta lista (decide el usuario,
+`docs/informe-g5l-r-l1-1010.md`).
 
 **G5L-R-Q (2026-10-09 noche, rama g2t-b2bis, solo medida):** histograma
 por PC en Musashi (`g5l.py game --pcprof`, totales idénticos en 6313
@@ -405,6 +407,9 @@ O5 es el modo por defecto (`-DNODECOUPLE` = bucle viejo); si cambia
 ---
 
 ## 7. Cierre de sesión (obligatorio)
+
+2026-10-10 (2): G5L-R-L paso 1 (medida de la lógica). PROXIMO con la
+elección A/B/C para el usuario.
 
 2026-10-10: G5L-R-R1 y S9 hechas (autorizadas). P121, P122. Archivado
 PROXIMO; nueva tarjeta G5L-R-L (`docs/instrucciones-g5l-r-l.md`), bajo la

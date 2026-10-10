@@ -17,11 +17,18 @@ descartó (`docs/informe-g5l-r-s9-1010.md`, P121). WinUAE cycle-exact:
 
 **D1 sigue roja** (objetivo ≤ 5 omitidas).
 
-## 1. La próxima sesión
+## 1. La próxima sesión — decide el usuario
 
-| tarjeta | toca | instrucciones y entrega |
+G5L-R-L paso 1 (`docs/informe-g5l-r-l1-1010.md`): la lógica también es
+**plana** (la función más cara 6,5 %, casi todo asm ya escrito); el racimo
+3305-3364 sube por tener más sprites vivos. Según el modelo de cola, ≤ 5
+omitidas pide **−20 % de toda la lógica** o **una cuarta lista**.
+
+| opción | qué | costo |
 |---|---|---|
-| **G5L-R-L** (bajo la autorización de optimizar del 2026-10-09) | el racimo 3305-3364 (6 de los 12 saltos): medir la lógica por PC, camino lento de G5L (`g5l_sweep`/`g5l_plan`/`g5l_mfill`), el primer pico de `bm_left` (4218) | `docs/instrucciones-g5l-r-l.md`: ahorro medido por paso, BENCH/VBTRACE antes/después, lo que falta para ≤ 5 |
+| **A. Lógica a asm, por partes** (recomendada si se sigue a 50 Hz sin más latencia) | `_level_frame`, `mcoll.c`, `_banzai_gfx`, `_sprites_all` y el resto del C de sprites, cada uno con el cruce PC = 68000 (V1) | varias sesiones; −6-9 k por foto ESTIMADO pasando casi todo el C |
+| B. Cuarta lista del copper | otra foto de holgura: modelo 1-8 saltos | **+20 ms de latencia** (decisión del usuario); 57 692 B de chip (`CL_SIZE`) que hoy no hay (24 856 B libres en el vivo): antes C2/C4 |
+| C. G5L (camino lento) y el primer pico de `bm_left` | `instrucciones-g5l-r-l.md` pasos 2-3 | 1-3 saltos según el modelo |
 
 Builds seriales, una WinUAE midiendo, R9.
 
@@ -36,6 +43,7 @@ es G5L-R**; B2bis/Cpre/B35 aparcadas.
 
 ## 3. Pendiente del usuario o la PC
 
+- **Elegir A, B o C** (o D1: dejarlo así, 12 omitidas en el replay).
 - Probar el vivo con S9 (`work/s9/vivo`, MD5 `510e1ee3…`) a mano: el
   scroll a la izquierda es lo que cambió.
 - U2 capa 2 contra referencia; U3 opcional, A500 real (con A501).

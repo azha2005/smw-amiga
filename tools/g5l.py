@@ -1241,9 +1241,19 @@ def run_game(a):
     last_key = None
     keys = []
     logic = 0
-    pcprof = {'build_mid': {}, 'render': {}}   # Q: {k: {offset: [veces, ciclos]}}
+    pcprof = {'build_mid': {}, 'render': {}, 'logic': {}}   # Q: {k: {offset: [veces, ciclos]}}
+    pclogic = set()                             # L: fotos con la lógica paso a paso
+    for r_ in (a.pclogic or '').split(','):
+        if r_:
+            lo_, _, hi_ = r_.partition('-')
+            pclogic.update(range(int(lo_), int(hi_ or lo_) + 1))
     for k in range(min(gr.n, nlim)):
-        if k:
+        if k and k in pclogic:                  # L: la lógica paso a paso (con la captura)
+            h_ = {}
+            logic = step_call(fr, G, gr.V, addr('dc_cop'), G.FAKE, h_)
+            caps.append(0)
+            pcprof['logic'][k] = {'%x' % (pc_ - gr.B): v_ for pc_, v_ in h_.items()}
+        elif k:
             cap = fr.call(addr('dc_cop'), G.FAKE, 'x', {addr('g5l_capture'): 'cap'})
             caps.append(cap.get('cap', 0))
             logic = cap.get('x', 0)             # T2: la lógica de la interrupción
@@ -1367,6 +1377,7 @@ def run_game(a):
                partes={kk: dict(media=round(v[0] / v[2]), max=v[1], n=v[2]) for kk, v in prof.items()})
     if a.pcprof:                                # Q: no pisa la corrida normal
         pcprof['tot'] = {x['k']: [x['c'], x['pre']['build_mid']] for x in frames}
+        pcprof['logic_tot'] = {x['k']: x['logic'] for x in frames if x['k'] in pclogic}
         Path(a.pcprof).write_text(json.dumps(pcprof), encoding='utf-8')
         print(json.dumps(dict(st), sort_keys=True))
         ok = not st['distintas'] and not st['abi'] and not st['restos'] and not st['sin_plan'] and not st['bufer_distinto']
@@ -1519,6 +1530,7 @@ def main():
     g.add_argument('--bank', default='work/g3/bank')
     g.add_argument('--frames', type=int, default=0)
     g.add_argument('--pcprof', help='Q: histograma por PC de g5l_render y build_mid (json)')
+    g.add_argument('--pclogic', help="L: con --pcprof, fotos con la lógica (dc_cop) paso a paso: '3290-3370,1000-1050'")
     h = sub.add_parser('shot')
     h.add_argument('--bin', default='work/g5l/rep/game.bin')
     h.add_argument('--lst', default='work/g5l/rep/game.lst')
