@@ -78,6 +78,8 @@
 | `instrucciones-bm1-cierre.md` | 2026-10-09 | Procedimiento ejecutado: KS 1.3, sin A501 y tiempo trackdisk comparable |
 | `informe-cierre-v-bm1-1009.md` | 2026-10-09 | V y BM1 cerradas: teclado real, defectos nuevos (BM1 en el vivo), KS 1.3, 31,96 s contra 33,02 s |
 | `instrucciones-g5l-r-t2.md` | 2026-10-09 | Medir por frame qué causa los 25 saltos de VBTRACE antes de otro candidato |
+| `informe-g5l-r-t2-1009.md` | 2026-10-09 | T2: los saltos son atraso acumulado; camino lento de G5L + picos de `build_mid`; propuesta G5L-R-P |
+| `instrucciones-g5l-r-pa.md` | 2026-10-09 | Medida offline: ¿el plan de G5L se reutiliza corrido a otra altura? (pendiente de autorización) |
 | `instrucciones-g2t-cpre.md` | 2026-10-08 | G2T-Cpre: emisor `g5_emit` y capturas WinUAE (0/57 344 px) con el plan precalculado en el replay, antes de terminar B |
 | `instrucciones-revision-1007.md` | 2026-10-07 | revisión propuesta tras las dos paradas: diagnóstico de coste OAM y contrato temporal, antes de nueva implementación |
 | `informe-revision-loam-1007.md` | 2026-10-07 | revisión L-OAM: coste de OAM por función en YI1 y estrés (Musashi y WinUAE), por qué el estrés sale peor, y una tarjeta (ruta de la piraña en asm) |

@@ -31,7 +31,7 @@
 2. Trabajar **un paso por vez**; no se empieza el siguiente con el anterior
    en rojo. Commit `Etapa N.x: <qué>`. Trampa nueva: `Pnn` en
    `docs/pitfalls.md` y en el índice de `AGENTS.md` §8 (la próxima es
-   **P117**).
+   **P121**).
 3. **Al cerrar la sesión: §7** (obligatorio: reescribir `PROXIMO.md`).
 
 **Reglas del proceso (no negociables, vienen de lo que ya costó caro):**
@@ -49,6 +49,16 @@
 ---
 
 ## 1. Estado por etapa (al 2026-10-09)
+
+**G5L-R-T2 (2026-10-09 noche, rama g2t-b2bis, solo medida):** BENCH del
+defecto 66 fotos/racha 1 y VBTRACE 25 omitidas reproducidas (WinUAE
+cycle-exact). Coste por foto en Musashi: total mediana 52 521, p99
+122 544, máx. 156 864 ciclos sin DMA. Saltos = atraso acumulado por rachas
+de fotos caras (modelo de cola 21/25). Fuentes: camino lento de G5L (145
+fotos, 66 k contra 9 k; el Rex cambia de forma solapado con Mario) y picos
+de `build_mid`. Estimado: 8-12 / 13-18 saltos atacando cada una, 0-4 las
+dos. Propuesta G5L-R-P sin implementar (`docs/informe-g5l-r-t2-1009.md`).
+D1 roja.
 
 **Cierre V/BM1 (2026-10-09 noche, rama g2t-b2bis, sin integrar):**
 G5L-R-V y BM1 cerradas (`docs/informe-cierre-v-bm1-1009.md`). Teclado
@@ -245,6 +255,11 @@ cambiable en un solo lugar (una tabla).
 
 ## 4. Olas y sesiones (revisado el 2026-10-09)
 
+2026-10-09 (noche, T2): medida hecha. Bajar los tirones pide dos cosas
+(camino lento de G5L y S5), estimado 1 sesión de medida (P-a) + 1-2 de
+implementación + 1-2 de S5, dentro del total; restante estimado sin
+cambios: **10-13**. La próxima espera la autorización del usuario.
+
 2026-10-09 (noche): V y BM1 cerradas en una sesión; queda T2 (medida de
 los tirones, 1 sesión estimada) antes de otro candidato. Total restante
 estimado sin cambios: **10-13**.
@@ -350,6 +365,10 @@ O5 es el modo por defecto (`-DNODECOUPLE` = bucle viejo); si cambia
 ---
 
 ## 7. Cierre de sesión (obligatorio)
+
+2026-10-09 (noche, 2): G5L-R-T2 hecha (solo medida, herramientas). P120.
+Archivado PROXIMO; nueva tarjeta G5L-R-Pa pendiente de autorización
+(`docs/instrucciones-g5l-r-pa.md`).
 
 2026-10-09 (noche): cierre V/BM1 (`1cab075`, `143c9ea`, `53e6453`),
 defectos nuevos, P117-P119, 9 worktrees borrados. Archivado PROXIMO;

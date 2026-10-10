@@ -1062,3 +1062,12 @@ La prueba de latencia de `dc_vb` falla con y sin BM1 (`work/g5l/z1n`):
 `Z1STOP` es solo para la captura reproducible. El reinicio se verifica
 con `restart_verify.py` sobre el vivo sin el flag (`regress.py --g5l
 --bm1`) y la captura Z1 con `diag_read.py` (frame 411, X 0010 Y 0160).
+
+**P120 — `vbtrace.py` daba "sin traza": a su `.uae` le faltaba `use_gui=no`.**
+Con el defecto G5L+CUSHION, `vbtrace.py` no encontraba la firma
+`VBTRACE!`: WinUAE se quedaba en el diálogo y el juego no corría. Con
+`use_gui=no` reproduce los 25 saltos del informe T. En la misma sesión su
+escáner de memoria propio se cambió por `winuae_memory.ProcessMemory.find`
+(el de `bm_probe`/`load_probe`), que además dice cuántas firmas sin
+inicializar vio (la copia del ADF vale cero); no está probado que el
+escáner viejo fallara. Un `.uae` generado para leer memoria: `use_gui=no`.

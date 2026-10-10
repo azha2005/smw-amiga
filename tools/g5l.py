@@ -1215,16 +1215,19 @@ def run_game(a):
     nlim = a.frames or gr.n
     last_key = None
     keys = []
+    logic = 0
     for k in range(min(gr.n, nlim)):
         if k:
             cap = fr.call(addr('dc_cop'), G.FAKE, 'x', {addr('g5l_capture'): 'cap'})
             caps.append(cap.get('cap', 0))
+            logic = cap.get('x', 0)             # T2: la lógica de la interrupción
         photo = mem.r16(dc + s['DC_NEW'])
         rec = addr('dc_rec') + photo * s['DC_REC']
         mem.w16(dc + s['DC_REND'], photo)
         mem.w16(fr.vars + s['V_S'], mem.r16(rec + s['R_S']))
+        pre = {}                                # T2: coste del render previo, por foto
         for n in ('columns', 'apply_colors', 'set_pointers', 'build_mid'):
-            fr.call(addr(n), G.FAKE)
+            pre[n] = sum(fr.call(addr(n), G.FAKE).values())
         back = mem.r32(fr.vars + s['V_BACK'])
         size = s['CL_SIZE']
         snap = bytearray(cpu.read(back, size))
@@ -1259,7 +1262,9 @@ def run_game(a):
             st['abi'] += 1
         cycles.append((c, gr.first + mem.r16(rec + s['R_FRAME'])))
         frames.append(dict(k=k, c=c, parts=parts, ntr=len(p['trans']) if p else -1,
-                           nseg=len(p['segs']) if p else 0))
+                           nseg=len(p['segs']) if p else 0, pre=pre,
+                           cap=caps[-1] if k else 0, logic=logic, f=cycles[-1][1],
+                           pk=cpu.read(gv + s['GV_PK'], 64).hex()))   # T2: clave del plan
         got = cpu.read(back, size)
         dslot = mem.r16(gv + s['GV_DSLOT'])
         want_slot = p['slot'] if p else 0xFFFF

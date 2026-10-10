@@ -372,7 +372,7 @@ En español. Cada rutina de hardware (blitter/copper) lleva arriba:
 Índice, una línea por trampa. **El texto completo (causa, síntoma, arreglo y
 comandos) está en `docs/pitfalls.md`, textual**: leer ahí las del área que se
 toca antes de cambiar nada. Una trampa nueva se agrega allí y aquí con el
-número siguiente (**la próxima es P120**).
+número siguiente (**la próxima es P121**).
 
 - **P1** El layout de paletas de SMW no es un array 8×16. ✅ RESUELTO
 - **P2** El blitter tiene prioridad sobre la CPU y la "roba" ciclos
@@ -495,6 +495,7 @@ número siguiente (**la próxima es P120**).
 - **P117** Teclado real en WinUAE: RawInput ignora `SendInput`; el Koopa deslizante mata al empezar (fiel)
 - **P118** PowerShell: `Test-Path` toma los corchetes como comodín (`-LiteralPath`)
 - **P119** `restart_verify.py` no vale sobre un build con `Z1STOP`
+- **P120** `vbtrace.py` daba "sin traza": a su `.uae` le faltaba `use_gui=no`
 
 ---
 
