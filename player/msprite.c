@@ -105,17 +105,67 @@ void give_lives_tick(void)
     W8(wm_StatusLives, R8(wm_StatusLives) + 1);
 }
 
-/* ScoreSprGfx: las 6 ranuras, de la 5 a la 0 (CODE_02ADC9 sin el dibujo) */
+#ifdef SPR_OAM
+/* _02AE5B: las dos fichas 8x8 del puntaje en wm_ExOamSlot + DATA_02AD9E[x]
+   (el CLC/ADC/PHP/SBC/PLP/ADC de la ROM es el byte alto de x + $0C - camara) */
+static const u8 ss_t1[22] = {                               /* PointTile1 */
+    0x00, 0x83, 0x83, 0x83, 0x83, 0x44, 0x54, 0x46, 0x47, 0x44, 0x54, 0x46,
+    0x47, 0x56, 0x29, 0x39, 0x38, 0x5E, 0x5E, 0x5E, 0x5E, 0x5E };
+static const u8 ss_t2[22] = {                               /* PointTile2 */
+    0x00, 0x44, 0x54, 0x46, 0x47, 0x45, 0x45, 0x45, 0x45, 0x55, 0x55, 0x55,
+    0x55, 0x57, 0x57, 0x57, 0x57, 0x4E, 0x44, 0x4F, 0x54, 0x5D };
+/* The2Up3UpAttr y los bytes que la siguen en la ROM (DEC $16FF,X) */
+static const u8 ss_attr[5] = { 0x04, 0x06, 0xDE, 0xFF, 0x16 };
+
+static void score_draw(u8 x)
+{
+    u8 l = (u8)(RX8(wm_ScoreSprLayer, x) << 2), y, n = RX8(wm_ScoreSprNum, x), a;
+    u16 vo = R16(wm_Bg1VOfs + l), ho = R16(wm_Bg1HOfs + l);
+    u16 sx = (u16)(RX8(wm_ScoreSprXLo, x) | RX8(wm_ScoreSprXHi, x) << 8);
+    u16 sy = (u16)(RX8(wm_ScoreSprYLo, x) | RX8(wm_ScoreSprYHi, x) << 8);
+    if ((u16)(sx + 0x0C - ho) >> 8 & 0xFF)
+        return;
+    if ((u16)(sx - ho) >> 8 || (u16)(sy - vo) >> 8)
+        return;
+    y = (R8(wm_LevelMode) & 0x40) ? 0x04 : ss_tab[SS_SPEEDY + 4 + x];
+    a = (u8)(((n < 0x0E) ? 0x08 : ss_attr[n - 0x0E]) | 0x30);
+    W8(wm_ExOamSlot + y + 1, (u8)(sy - vo));
+    W8(wm_ExOamSlot + y + 5, (u8)(sy - vo));
+    W8(wm_ExOamSlot + y, (u8)(sx - ho));
+    W8(wm_ExOamSlot + y + 4, (u8)(sx - ho + 8));
+    W8(wm_ExOamSlot + y + 2, ss_t1[n]);
+    W8(wm_ExOamSlot + y + 6, ss_t2[n]);
+    W8(wm_ExOamSlot + y + 3, a);
+    W8(wm_ExOamSlot + y + 7, a);
+    W8(wm_ExOamSize + (y >> 2), 0);
+    W8(wm_ExOamSize + (y >> 2) + 1, 0);
+}
+#define SCORE_DRAW(x) score_draw(x)
+#else
+#define SCORE_DRAW(x)
+#endif
+
+/* ScoreSprGfx: las 6 ranuras, de la 5 a la 0 (CODE_02ADC9) */
 void score_update(void)
 {
     u8 x = 6, v, n, i;
     u16 s;
-    if ((R8(wm_LevelMode) & 0x40) && R8(wm_LevelMode) == 0xC1)
-        return;
+    if (R8(wm_LevelMode) & 0x40) {
+        if (R8(wm_LevelMode) == 0xC1)
+            return;
+#ifdef SPR_OAM
+        W8(wm_ExOamSlot + 0x05, 0xF0);      /* ExOamSlot.2/.3.YPos */
+        W8(wm_ExOamSlot + 0x09, 0xF0);
+#endif
+    }
     while (x--) {
         W8(wm_SprProcessIndex, x);
-        if (!RX8(wm_ScoreSprNum, x) || R8(wm_SpritesLocked))
+        if (!RX8(wm_ScoreSprNum, x))
             continue;
+        if (R8(wm_SpritesLocked)) {
+            SCORE_DRAW(x);
+            continue;
+        }
         v = RX8(wm_ScoreSprSpeedY, x);
         if (!v) {
             (RX8(wm_ScoreSprNum, x) = 0);
@@ -146,6 +196,7 @@ void score_update(void)
                     (RX8(wm_ScoreSprYHi, x) = (u8)(RX8(wm_ScoreSprYHi, x) - 1));
             }
         }
+        SCORE_DRAW(x);
     }
 }
 
@@ -169,13 +220,26 @@ u8 mex_slot(void)
     return R8(wm_DelOldExSpr);
 }
 
+#ifdef SPR_OAM
+static const u8 mx_oam[12] = {                              /* BrokenBlock */
+    0x50, 0x54, 0x58, 0x5C, 0x60, 0x64, 0x68, 0x6C, 0x70, 0x74, 0x78, 0x7C };
+static const u8 mx_t1[8] = { 0x3C, 0x3D, 0x3D, 0x3C, 0x3C, 0x3D, 0x3D, 0x3C };  /* BrokenBlock2 */
+static const u8 mx_p1[8] = { 0x00, 0x00, 0x80, 0x80, 0x80, 0xC0, 0x40, 0x00 };  /* DATA_028B8C */
+static const u8 mx_t2[6] = { 0x66, 0x6E, 0xFF, 0x6D, 0x6C, 0x5C };  /* StarSparkleTiles */
+#endif
+
 /* CODE_028B67: los 12 sprites menores, de la 11 a la 0, sin el dibujo.
    Solo los tipos de YI1: 1 = trozo de bloque (CODE_028F8B), 2 y 5 =
-   destello (CODE_028ED2). Los demas quedan quietos. */
+   destello (CODE_028ED2), con su ficha 8x8 en ExOamSlot + BrokenBlock[x]
+   (SPR_OAM). Los demas quedan quietos. */
 void mex_update(void)
 {
     u8 x = 12, a;
     u16 p;
+#ifdef SPR_OAM
+    u8 xs, i;
+    u16 o;
+#endif
     while (x--) {
         a = RX8(wm_MExSprNum, x);
         if (!a)
@@ -186,9 +250,24 @@ void mex_update(void)
                 goto kill;
             if (!R8(wm_SpritesLocked))
                 (RX8(wm_MExSprTimer, x) = (u8)(RX8(wm_MExSprTimer, x) - 1));
+#ifdef SPR_OAM
+            o = (u16)(wm_ExOamSlot + mx_oam[x]);
+            xs = (u8)(RX8(wm_MExSprXLo, x) - R8(wm_Bg1HOfs));
+            if (xs >= 0xF0)
+                goto kill;
+            W8(o, xs);
+            xs = (u8)(RX8(wm_MExSprYLo, x) - R8(wm_Bg1VOfs));
+            if (xs >= 0xF0)
+                goto kill;
+            W8(o + 1, xs);
+            W8(o + 2, mx_t2[(RX8(wm_MExSprTimer, x) >> 3) + (a == 5 ? 3 : 0)]);
+            W8(o + 3, (u8)(R8(wm_SpriteProp) | 0x06));
+            W8(wm_ExOamSize + (mx_oam[x] >> 2), 0);
+#else
             if ((u8)(RX8(wm_MExSprXLo, x) - R8(wm_Bg1HOfs)) >= 0xF0
                 || (u8)(RX8(wm_MExSprYLo, x) - R8(wm_Bg1VOfs)) >= 0xF0)
                 goto kill;
+#endif
             continue;
         }
         if (a != 1)
@@ -215,30 +294,95 @@ void mex_update(void)
         }
         if ((u16)((RX8(wm_MExSprXLo, x) | RX8(wm_MExSprXHi, x) << 8) - R16(wm_Bg1HOfs)) >> 8)
             goto kill;
+#ifdef SPR_OAM
+        o = (u16)(wm_ExOamSlot + mx_oam[x]);    /* CODE_028FDD */
+        W8(o, (u8)(RX8(wm_MExSprXLo, x) - R8(wm_Bg1HOfs)));
+#endif
         if ((u8)p >= 0xF0)
             goto kill;
+#ifdef SPR_OAM
+        W8(o + 1, (u8)p);
+        i = (u8)(((R8(wm_FrameB) >> 1) + x) & 7);
+        W8(o + 2, mx_t1[i]);
+        W8(o + 3, (u8)(((RX8(wm_MExSprTimer, x) ? (R8(wm_FrameA) & 0x0E) : 0) ^ mx_p1[i])
+                       | R8(wm_SpriteProp)));
+        W8(wm_ExOamSize + (mx_oam[x] >> 2), 0);
+#endif
         continue;
 kill:
         (RX8(wm_MExSprNum, x) = 0);         /* CODE_028F87 */
     }
 }
 
+#ifdef SPR_OAM
+/* el dibujo del humo (cada tipo, despues de bajar el temporizador) */
+static const u8 sm_oex[4] = { 0x20, 0x24, 0x28, 0x2C };    /* DATA_0296B8 */
+static const u8 sm_oslot[4] = { 0x90, 0x94, 0x98, 0x9C };  /* DATA_0296BC */
+static const u8 sm_t1[7] = { 0x66, 0x66, 0x64, 0x62, 0x60, 0x62, 0x60 };    /* DATA_0296D8 */
+static const u8 sm_t3[5] = { 0x66, 0x66, 0x64, 0x62, 0x62 };   /* DATA_029922 */
+
+/* una ficha en ram[o] (o = wm_ExOamSlot/wm_OamSlot + Y) y su tamano */
+static void oam1(u16 o, u8 xs, u8 ys, u8 tile, u8 prop, u8 size)
+{
+    W8(o, xs);
+    W8(o + 1, ys);
+    W8(o + 2, tile);
+    W8(o + 3, prop);
+    W8(wm_ExOamSize + ((o - wm_ExOamSlot) >> 2), size);
+}
+
+/* tipo 2 (CODE_0297B2 / CODE_029838): la estrella de 4 fichas 8x8 */
+static void smoke2_draw(u16 o, u8 xs, u8 ys, u8 t)
+{
+    u8 p = (u8)(((t << 5) & 0x40) | R8(wm_SpriteProp));
+    u8 a = (t & 2) ? 0x7D : 0x7C, b = (t & 2) ? 0x7C : 0x7D;
+    oam1(o, xs, ys, a, p, 0);
+    oam1(o + 4, (u8)(xs + 8), ys, b, p, 0);
+    oam1(o + 8, xs, (u8)(ys + 8), b, (u8)(p ^ 0xC0), 0);
+    oam1(o + 12, (u8)(xs + 8), (u8)(ys + 8), a, (u8)(p ^ 0xC0), 0);
+}
+#endif
+
 void smoke_update(void)
 {
-    u8 x = 4, n, t, y;
+    u8 x = 4, n, t, y, lm;
+#ifdef SPR_OAM
+    u8 xs, ys;
+    u16 o;
+#endif
     while (x--) {
         n = RX8(wm_SmokeSprite, x);
         if (!n)
             continue;
         t = RX8(wm_SmokeTimer, x);
+        lm = R8(wm_LevelMode);
         switch (n & 0x7F) {
         case 1:                             /* CODE_0296E3 */
             if (!t) break;
             if ((n & 0x80) || !R8(wm_SpritesLocked))
                 (RX8(wm_SmokeTimer, x) = (u8)(t - 1));
+#ifdef SPR_OAM
+            /* nube: ExOamSlot (CODE_02974A) u OamSlot; el CMP #$08 / LDA #0 /
+               ASL x4 de la ROM siempre deja 0: atributo = SpriteProp */
+            o = (SPR(wm_SpriteNum, 7) == 0xA9 || !(lm & 0x40))
+                ? (u16)(wm_ExOamSlot + sm_oex[x]) : (u16)(wm_OamSlot + sm_oslot[x]);
+            xs = (u8)(RX8(wm_SmokeXPos, x) - R8(wm_Bg1HOfs));
+            if (xs >= 0xF4)
+                break;
+            W8(o, xs);
+            ys = (u8)(RX8(wm_SmokeYPos, x) - R8(wm_Bg1VOfs));
+            if (ys >= 0xE0)
+                break;
+            W8(o + 1, ys);
+            W8(o + 3, R8(wm_SpriteProp));
+            W8(o + 2, sm_t1[RX8(wm_SmokeTimer, x) >> 2]);
+            W8(wm_ExOamSize + ((o - wm_ExOamSlot) >> 2), 0x02);
+#else
+            (void)lm;
             if ((u8)(RX8(wm_SmokeXPos, x) - R8(wm_Bg1HOfs)) >= 0xF4
                 || (u8)(RX8(wm_SmokeYPos, x) - R8(wm_Bg1VOfs)) >= 0xE0)
                 break;
+#endif
             continue;
         case 2:                             /* CODE_029797 */
             if (!t) break;
@@ -246,16 +390,39 @@ void smoke_update(void)
                 (RX8(wm_SmokeTimer, x) = (u8)(t - 1));
             if ((u8)(RX8(wm_SmokeXPos, x) - R8(wm_Bg1HOfs)) >= 0xF0)
                 break;
+#ifdef SPR_OAM
+            o = ((lm & 0x40) && lm != 0xC1) ? (u16)(wm_OamSlot + 0x90)     /* CODE_029838 */
+                                            : (u16)(wm_ExOamSlot + 0xF0);  /* CODE_0297B2 */
+            smoke2_draw(o, (u8)(RX8(wm_SmokeXPos, x) - R8(wm_Bg1HOfs)),
+                        (u8)(RX8(wm_SmokeYPos, x) - R8(wm_Bg1VOfs)), RX8(wm_SmokeTimer, x));
+#endif
             continue;
         case 3:                             /* CODE_029927 */
-            if (!t) break;
+            if (!t) {
+#ifdef SPR_OAM
+                if ((lm & 0x40) && !R8(wm_ReznorSmokeFlag))
+                    W8(wm_OamSlot + sm_oslot[x] + 1, 0xF0);
+#endif
+                break;
+            }
             if (!R8(wm_SpritesLocked)) {
                 (RX8(wm_SmokeTimer, x) = (u8)(t - 1));
                 if (!(t & 7))
                     (RX8(wm_SmokeYPos, x) = (u8)(RX8(wm_SmokeYPos, x) - 1));
             }
+#ifdef SPR_OAM
+            if (SPR(wm_SpriteNum, 7) == 0xA9 || R8(wm_ReznorSmokeFlag) || !NEG(lm))
+                o = (u16)(wm_ExOamSlot + sm_oex[x]);            /* CODE_02996C */
+            else if (lm != 0xC1 && (lm & 0x40))
+                o = (u16)(wm_OamSlot + sm_oslot[x]);            /* CODE_02999F */
+            else
+                o = (u16)(wm_ExOamSlot + sm_oslot[x]);
+            oam1(o, (u8)(RX8(wm_SmokeXPos, x) - R8(wm_Bg1HOfs)),
+                 (u8)(RX8(wm_SmokeYPos, x) - R8(wm_Bg1VOfs)),
+                 sm_t3[RX8(wm_SmokeTimer, x) >> 2], R8(wm_SpriteProp), 0);
+#endif
             continue;
-        case 5:                             /* CODE_0298CA */
+        case 5:                             /* CODE_0298CA: sin dibujo */
             if (!t) break;
             if (!R8(wm_SpritesLocked)) {
                 (RX8(wm_SmokeTimer, x) = (u8)(t - 1));

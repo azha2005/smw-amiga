@@ -10,9 +10,17 @@ La clave es la de lder.py --key f: la RAM del port después del frame
 lógico f contra el volcado de la SNES después del frame f. Los frames del
 replay que el port no corre (SKIP) o en que carga un estado (SYNC/RUNSYNC)
 no se cuentan: ahí los sprites del port no son los de la SNES.
+
+Paso 4 (con --oam, la OAM grabada <oráculo>_oam.bin): las fichas de los
+efectos que el port escribe en ram[$0200-$02FF] (puntos: 2 por ranura en
+$B0 + 8x; humo: $20 + 4x y la estrella de $F0-$FF; menores: $50 + 4x),
+las visibles de cada grupo seguidas y exactas en la grabación del frame
+(x, y, ficha, atributos, tamaño), como G8 con los sprites. Una ficha que
+la SNES dibuja y el port no, no se ve aquí: eso lo cubre la RAM.
 """
 import argparse
 import collections
+import struct
 import sys
 from pathlib import Path
 
@@ -33,6 +41,41 @@ def fields_of(engine):
     raise KeyError(engine)
 
 
+# grupos de fichas de la OAM (indice de entrada desde $0200): una ranura cada uno
+OAM_GROUPS = {'puntos': [(44 + 2 * i, 2) for i in range(6)],
+              'humo': [(8 + i, 1) for i in range(4)] + [(60, 4)],
+              'menores': [(20 + i, 1) for i in range(12)]}
+
+
+def oam_read(path):
+    """{frame: bytes de las entradas visibles} (oracle2bin.py: <IB + 640)"""
+    d = open(path, 'rb').read()
+    out = {}
+    for o in range(0, len(d) - 644, 645):
+        f, n = struct.unpack_from('<IB', d, o)
+        out.setdefault(f, d[o + 5:o + 5 + 5 * n])
+    return out
+
+
+def oam_groups(ram, engine):
+    """las fichas visibles de cada grupo del port: [bytes de 5 x n]"""
+    out = []
+    for e0, n in OAM_GROUPS[engine]:
+        b = b''.join(bytes(ram[0x200 + 4 * e:0x204 + 4 * e]) + bytes([ram[0x420 + e]])
+                     for e in range(e0, e0 + n) if ram[0x201 + 4 * e] != 0xF0)
+        if b:
+            out.append((e0, b))
+    return out
+
+
+def oam_in(rec, b):
+    """b (entradas de 5 bytes) seguidas en rec, alineadas a entrada"""
+    for p in range(0, len(rec) - len(b) + 1, 5):
+        if rec[p:p + len(b)] == b:
+            return True
+    return False
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--bin', required=True)
@@ -42,6 +85,7 @@ def main():
     ap.add_argument('--engines', default='puntos,humo,menores')
     ap.add_argument('--show', type=int, default=6)
     ap.add_argument('--key', type=int, default=0, help='desplazamiento de la clave del port (0 = f)')
+    ap.add_argument('--oam', help='la OAM grabada (<oraculo>_oam.bin): compara las fichas (paso 4)')
     a = ap.parse_args()
     import g5l as L
     _, frames = S.read(a.ram)
@@ -56,6 +100,9 @@ def main():
     nops = mem.r16(ops_at + 4)
     ops = [mem.r8(ops_at + o_ops + 6 * i) for i in range(nops)]
     stats = {e: collections.Counter() for e in engines}
+    orec = oam_read(a.oam) if a.oam else None
+    ostats = {e: collections.Counter() for e in engines}
+    oshown = collections.Counter()
     first = {}
     shown = collections.Counter()
     prev = None
@@ -79,6 +126,19 @@ def main():
         if sf is None:
             continue
         ram = gr.cpu.read(ram_at, 0x2000)
+        rec = orec.get(f + a.key) if orec is not None else None
+        for e in engines:
+            if rec is None:
+                continue
+            for e0, b in oam_groups(ram, e):
+                ostats[e]['fichas'] += 1
+                if oam_in(rec, b):
+                    continue
+                ostats[e]['distintas'] += 1
+                if oshown[e] < a.show:
+                    oshown[e] += 1
+                    print('oam %-8s f %5d: entrada %d port %s | grabada %s' % (
+                        e, f, e0, b.hex(' ', 5), rec[:60].hex(' ', 5)))
         for e in engines:
             bad = [(n, sf[adr], ram[adr]) for n, adr in flds[e] if sf[adr] != ram[adr]]
             stats[e]['frames'] += 1
@@ -98,7 +158,15 @@ def main():
               '' if e not in first else ' (primero f %d)' % first[e]))
         ok &= c['distintos'] == 0
     print('SWS RAM: ' + ('OK' if ok else 'DISTINTA'))
-    return 0 if ok else 1
+    if orec is None:
+        return 0 if ok else 1
+    ook = True
+    for e in engines:
+        c = ostats[e]
+        print('oam %-8s %5d grupos de fichas, %5d distintos' % (e, c['fichas'], c['distintas']))
+        ook &= c['distintas'] == 0
+    print('SWS OAM: ' + ('OK' if ook else 'DISTINTA'))
+    return 0 if ok and ook else 1
 
 
 if __name__ == '__main__':

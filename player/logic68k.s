@@ -117,16 +117,23 @@ ss_spawn:
 
 ; --- score_update ---
 ; entrada:  a4 = datos del C
-; salida:   ScoreSprGfx sin el dibujo: las 6 ranuras de la 5 a la 0 suben,
-;           suman la puntuacion (o vidas / monedas) al pasar SpeedY por $2A
-;           y se borran
+; salida:   ScoreSprGfx: las 6 ranuras de la 5 a la 0 suben, suman la
+;           puntuacion (o vidas / monedas) al pasar SpeedY por $2A y se
+;           borran; con SPR_OAM, sus dos fichas en ExOamSlot (ss_draw)
 ; registros destruidos: d0-d1/a0-a1
 ; ciclos:   tools/l_funcs.py
         public  _score_update
 _score_update:
-        cmp.b   #$c1,_ram+wm_LevelMode(a4)  ; (LevelMode & $40) y == $C1
+        move.b  _ram+wm_LevelMode(a4),d0
+        btst    #6,d0
+        beq.s   .nb
+        cmp.b   #$c1,d0
         beq     .ret
-        lea     _ram+wm_ScoreSprNum(a4),a0  ; lo normal: ninguno (el bucle
+        ifd SPR_OAM
+        move.b  #$f0,_ram+wm_ExOamSlot+5(a4)    ; ExOamSlot.2/.3.YPos
+        move.b  #$f0,_ram+wm_ExOamSlot+9(a4)
+        endc
+.nb:    lea     _ram+wm_ScoreSprNum(a4),a0  ; lo normal: ninguno (el bucle
         move.b  (a0)+,d0                    ; deja SprProcessIndex = 0)
         rept    5
         or.b    (a0)+,d0
@@ -141,7 +148,7 @@ _score_update:
         move.b  (a0,d1.w),d3                ; d3 = n
         beq     .nx
         tst.b   _ram+wm_SpritesLocked(a4)
-        bne     .nx
+        bne     .draw
         lea     _ram+wm_ScoreSprSpeedY(a4),a1
         move.b  (a1,d1.w),d2
         bne.s   .v
@@ -197,21 +204,113 @@ _score_update:
         lea     ss_tab+34(pc),a0            ; PointSpeedY (y lo que sigue)
         move.b  (a0,d0.w),d0
         and.b   _ram+wm_FrameA(a4),d0
-        bne.s   .nx
+        bne.s   .draw
         lea     _ram+wm_ScoreSprYLo(a4),a0  ; _02AE38: sube, sin pasar del borde
         move.b  (a0,d1.w),d0
         move.b  d0,d2
         sub.b   _ram+wm_Bg1VOfs(a4),d2
         cmp.b   #4,d2
-        blo.s   .nx
+        blo.s   .draw
         subq.b  #1,(a0,d1.w)
         tst.b   d0
-        bne.s   .nx
+        bne.s   .draw
         lea     _ram+wm_ScoreSprYHi(a4),a0
         subq.b  #1,(a0,d1.w)
+.draw:
+        ifd SPR_OAM
+        bsr     ss_draw
+        endc
 .nx:    dbf     d1,.lp
         movem.l (sp)+,d2-d3
 .ret:   rts
+
+        ifd SPR_OAM
+; --- ss_draw ---
+; entrada:  d1.w = x, d3.b = numero; a4 = datos del C
+; salida:   _02AE5B: las dos fichas 8x8 del puntaje en ExOamSlot +
+;           DATA_02AD9E[x] si esta en pantalla (el CLC/ADC/PHP/SBC/PLP/ADC
+;           de la ROM es el byte alto de x + $0C - camara)
+; registros destruidos: d0/d2/a0-a1
+; ciclos:   tools/l_funcs.py
+ss_draw:
+        movem.l d4-d5,-(sp)
+        lea     _ram+wm_ScoreSprLayer(a4),a0
+        moveq   #0,d0
+        move.b  (a0,d1.w),d0
+        add.w   d0,d0
+        add.w   d0,d0
+        lea     _ram+wm_Bg1VOfs(a4),a0      ; la capa: Bg1 o Bg2 (+4)
+        add.w   d0,a0
+        move.b  1(a0),d4
+        lsl.w   #8,d4
+        move.b  (a0),d4                     ; d4 = vofs
+        move.b  -1(a0),d5
+        lsl.w   #8,d5
+        move.b  -2(a0),d5                   ; d5 = hofs
+        lea     _ram+wm_ScoreSprXHi(a4),a0
+        move.b  (a0,d1.w),d2
+        lsl.w   #8,d2
+        lea     _ram+wm_ScoreSprXLo(a4),a0
+        move.b  (a0,d1.w),d2
+        sub.w   d5,d2                       ; d2 = x - hofs
+        move.w  d2,d0
+        add.w   #$0c,d0
+        lsr.w   #8,d0
+        bne     .r
+        move.w  d2,d0
+        lsr.w   #8,d0
+        bne     .r
+        lea     _ram+wm_ScoreSprYHi(a4),a0
+        move.b  (a0,d1.w),d0
+        lsl.w   #8,d0
+        lea     _ram+wm_ScoreSprYLo(a4),a0
+        move.b  (a0,d1.w),d0
+        sub.w   d4,d0                       ; d0 = y - vofs
+        move.w  d0,d4
+        lsr.w   #8,d4
+        bne.s   .r
+        moveq   #4,d4
+        btst    #6,_ram+wm_LevelMode(a4)
+        bne.s   .y4
+        lea     ss_tab+38(pc),a0            ; DATA_02AD9E
+        move.b  (a0,d1.w),d4
+.y4:    lea     _ram+wm_ExOamSlot(a4),a0
+        add.w   d4,a0
+        move.b  d2,(a0)
+        addq.b  #8,d2
+        move.b  d2,4(a0)
+        move.b  d0,1(a0)
+        move.b  d0,5(a0)
+        moveq   #0,d5
+        move.b  d3,d5
+        lea     ss_t1(pc),a1
+        move.b  (a1,d5.w),2(a0)
+        lea     ss_t2(pc),a1
+        move.b  (a1,d5.w),6(a0)
+        moveq   #8,d0
+        sub.w   #$0e,d5
+        blo.s   .p
+        lea     ss_attr(pc),a1              ; The2Up3UpAttr
+        move.b  (a1,d5.w),d0
+.p:     or.b    #$30,d0
+        move.b  d0,3(a0)
+        move.b  d0,7(a0)
+        lsr.w   #2,d4
+        lea     _ram+wm_ExOamSize(a4),a0
+        add.w   d4,a0
+        clr.b   (a0)+
+        clr.b   (a0)
+.r:     movem.l (sp)+,d4-d5
+        rts
+
+ss_t1:  dc.b    $00,$83,$83,$83,$83,$44,$54,$46,$47,$44,$54,$46     ; PointTile1
+        dc.b    $47,$56,$29,$39,$38,$5E,$5E,$5E,$5E,$5E
+ss_t2:  dc.b    $00,$44,$54,$46,$47,$45,$45,$45,$45,$55,$55,$55     ; PointTile2
+        dc.b    $55,$57,$57,$57,$57,$4E,$44,$4F,$54,$5D
+ss_attr:
+        dc.b    $04,$06,$DE,$FF,$16         ; The2Up3UpAttr y lo que la sigue
+        even
+        endc
 
 ; PointMultiplierLo (17), PointMultiplierHi (17), PointSpeedY (4) y
 ; DATA_02AD9E (6), contiguas como en la ROM (CODE_02AE12 con n >= $11 lee
@@ -249,9 +348,10 @@ sm_dy:  dc.b    $FC,$04,$0C,$04             ; DATA_0298C6
 
 ; --- mex_update ---
 ; entrada:  a4 = datos del C
-; salida:   CODE_028B67 sin el dibujo: los 12 sprites menores, de la 11 a
-;           la 0. Solo los tipos de YI1: 1 = trozo de bloque (CODE_028F8B),
-;           2 y 5 = destello (CODE_028ED2); los demas quedan quietos
+; salida:   CODE_028B67: los 12 sprites menores, de la 11 a la 0. Solo los
+;           tipos de YI1: 1 = trozo de bloque (CODE_028F8B), 2 y 5 =
+;           destello (CODE_028ED2); los demas quedan quietos. Con SPR_OAM,
+;           su ficha 8x8 en ExOamSlot + BrokenBlock[x]
 ; registros destruidos: d0-d1/a0-a1
 ; ciclos:   tools/l_funcs.py
         public  _mex_update
@@ -270,7 +370,7 @@ _mex_update:
         beq     .nx
         move.b  d1,_ram+wm_ExSprIndexM(a4)
         cmp.b   #1,d0
-        beq.s   .t1
+        beq     .t1
         cmp.b   #2,d0
         beq.s   .t2
         cmp.b   #5,d0
@@ -286,11 +386,38 @@ _mex_update:
         sub.b   _ram+wm_Bg1HOfs(a4),d0
         cmp.b   #$f0,d0
         bhs     .kill
+        ifd SPR_OAM
+        lea     mx_oam(pc),a1
+        moveq   #0,d2
+        move.b  (a1,d1.w),d2
+        lea     _ram+wm_ExOamSlot(a4),a2
+        add.w   d2,a2
+        move.b  d0,(a2)
+        endc
         lea     _ram+wm_MExSprYLo(a4),a1
         move.b  (a1,d1.w),d0
         sub.b   _ram+wm_Bg1VOfs(a4),d0
         cmp.b   #$f0,d0
         bhs     .kill
+        ifd SPR_OAM
+        move.b  d0,1(a2)
+        lea     _ram+wm_MExSprTimer(a4),a1
+        moveq   #0,d0
+        move.b  (a1,d1.w),d0
+        lsr.b   #3,d0
+        lea     _ram+wm_MExSprNum(a4),a1
+        cmp.b   #5,(a1,d1.w)
+        bne.s   .n5
+        addq.w  #3,d0
+.n5:    lea     mx_t2(pc),a1                ; StarSparkleTiles
+        move.b  (a1,d0.w),2(a2)
+        moveq   #6,d0
+        or.b    _ram+wm_SpriteProp(a4),d0
+        move.b  d0,3(a2)
+        lsr.w   #2,d2
+        lea     _ram+wm_ExOamSize(a4),a1
+        clr.b   (a1,d2.w)
+        endc
         bra     .nx
 .t1:    tst.b   _ram+wm_SpritesLocked(a4)   ; CODE_028F8B
         bne.s   .cull
@@ -322,8 +449,8 @@ _mex_update:
         lsr.w   #8,d2
         beq.s   .cx
         tst.b   d2
-        bmi.s   .nx                         ; por encima: sigue vivo
-        bra.s   .kill
+        bmi     .nx                         ; por encima: sigue vivo
+        bra     .kill
 .cx:    lea     _ram+wm_MExSprXLo(a4),a1
         lea     _ram+wm_MExSprXHi(a4),a2
         bsr     mx_get
@@ -333,14 +460,56 @@ _mex_update:
         sub.w   d0,d2
         lsr.w   #8,d2
         bne.s   .kill
+        ifd SPR_OAM
+        lea     mx_oam(pc),a1               ; CODE_028FDD
+        moveq   #0,d2
+        move.b  (a1,d1.w),d2
+        lea     _ram+wm_ExOamSlot(a4),a2
+        add.w   d2,a2
+        lea     _ram+wm_MExSprXLo(a4),a1
+        move.b  (a1,d1.w),d0
+        sub.b   _ram+wm_Bg1HOfs(a4),d0
+        move.b  d0,(a2)
+        endc
         cmp.b   #$f0,d3
         bhs.s   .kill
+        ifd SPR_OAM
+        move.b  d3,1(a2)
+        move.b  _ram+wm_FrameB(a4),d0
+        lsr.b   #1,d0
+        add.b   d1,d0
+        and.w   #7,d0                       ; i
+        lea     mx_t1(pc),a1                ; BrokenBlock2
+        move.b  (a1,d0.w),2(a2)
+        moveq   #0,d3
+        lea     _ram+wm_MExSprTimer(a4),a1
+        tst.b   (a1,d1.w)
+        beq.s   .p0
+        moveq   #$0e,d3
+        and.b   _ram+wm_FrameA(a4),d3
+.p0:    lea     mx_p1(pc),a1                ; DATA_028B8C
+        move.b  (a1,d0.w),d0
+        eor.b   d0,d3
+        or.b    _ram+wm_SpriteProp(a4),d3
+        move.b  d3,3(a2)
+        lsr.w   #2,d2
+        lea     _ram+wm_ExOamSize(a4),a1
+        clr.b   (a1,d2.w)
+        endc
         bra.s   .nx
 .kill:  lea     _ram+wm_MExSprNum(a4),a0    ; CODE_028F87
         clr.b   (a0,d1.w)
 .nx:    dbf     d1,.lp
         movem.l (sp)+,d2-d3/a2
         rts
+
+        ifd SPR_OAM
+mx_oam: dc.b    $50,$54,$58,$5C,$60,$64,$68,$6C,$70,$74,$78,$7C ; BrokenBlock
+mx_t1:  dc.b    $3C,$3D,$3D,$3C,$3C,$3D,$3D,$3C             ; BrokenBlock2
+mx_p1:  dc.b    $00,$00,$80,$80,$80,$C0,$40,$00             ; DATA_028B8C
+mx_t2:  dc.b    $66,$6E,$FF,$6D,$6C,$5C                     ; StarSparkleTiles
+        even
+        endc
 
 ; d2.w = a2[x] << 8 | a1[x]   (x = d1.w)
 mx_get: move.b  (a2,d1.w),d2
@@ -358,9 +527,10 @@ mx_add: ext.w   d0
 
 ; --- smoke_update ---
 ; entrada:  a4 = datos del C
-; salida:   CODE_0296C0 sin el dibujo: las 4 ranuras de humo. 1 = nube,
-;           2 = estrella de contacto, 3 = humo de derrape, 5 = destellos
-;           (crean sprites menores del tipo 2); los demas no hacen nada
+; salida:   CODE_0296C0: las 4 ranuras de humo. 1 = nube, 2 = estrella de
+;           contacto, 3 = humo de derrape, 5 = destellos (crean sprites
+;           menores del tipo 2, sin dibujo); los demas no hacen nada. Con
+;           SPR_OAM, sus fichas (d2.w = desplazamiento desde ExOamSlot)
 ; registros destruidos: d0-d1/a0-a1
 ; ciclos:   tools/l_funcs.py
         public  _smoke_update
@@ -384,9 +554,9 @@ _smoke_update:
         cmp.b   #1,d0
         beq.s   .s1
         cmp.b   #2,d0
-        beq.s   .s2
+        beq     .s2
         cmp.b   #3,d0
-        beq.s   .s3
+        beq     .s3
         cmp.b   #5,d0
         beq     .s5
         bra     .nx
@@ -397,16 +567,48 @@ _smoke_update:
         tst.b   _ram+wm_SpritesLocked(a4)
         bne.s   .c1
 .d1:    subq.b  #1,(a1,d1.w)
-.c1:    lea     _ram+wm_SmokeXPos(a4),a0
+.c1:
+        ifd SPR_OAM
+        moveq   #0,d2                       ; ExOamSlot + DATA_0296B8 u
+        lea     sm_oex(pc),a0               ; OamSlot + DATA_0296BC
+        cmp.b   #$a9,_ram+wm_SpriteNum+7(a4)
+        beq.s   .o1
+        btst    #6,_ram+wm_LevelMode(a4)
+        beq.s   .o1
+        lea     sm_oslot(pc),a0
+        move.w  #$100,d2
+.o1:    moveq   #0,d0
         move.b  (a0,d1.w),d0
+        add.w   d0,d2
+        lea     _ram+wm_ExOamSlot(a4),a0
+        add.w   d2,a0
+        endc
+        lea     _ram+wm_SmokeXPos(a4),a1
+        move.b  (a1,d1.w),d0
         sub.b   _ram+wm_Bg1HOfs(a4),d0
         cmp.b   #$f4,d0
         bhs     .kill
-        lea     _ram+wm_SmokeYPos(a4),a0
-        move.b  (a0,d1.w),d0
+        ifd SPR_OAM
+        move.b  d0,(a0)
+        endc
+        lea     _ram+wm_SmokeYPos(a4),a1
+        move.b  (a1,d1.w),d0
         sub.b   _ram+wm_Bg1VOfs(a4),d0
         cmp.b   #$e0,d0
         bhs     .kill
+        ifd SPR_OAM
+        move.b  d0,1(a0)
+        move.b  _ram+wm_SpriteProp(a4),3(a0)    ; (el ASL de la ROM sobre 0)
+        lea     _ram+wm_SmokeTimer(a4),a1
+        moveq   #0,d0
+        move.b  (a1,d1.w),d0
+        lsr.b   #2,d0
+        lea     sm_t1(pc),a1                ; DATA_0296D8
+        move.b  (a1,d0.w),2(a0)
+        lsr.w   #2,d2
+        lea     _ram+wm_ExOamSize(a4),a1
+        move.b  #$02,(a1,d2.w)
+        endc
         bra     .nx
 .s2:    tst.b   d3                          ; CODE_029797
         beq     .kill
@@ -418,17 +620,79 @@ _smoke_update:
         sub.b   _ram+wm_Bg1HOfs(a4),d0
         cmp.b   #$f0,d0
         bhs     .kill
+        ifd SPR_OAM
+        move.w  #$f0,d2                     ; CODE_0297B2: ExOamSlot + $F0
+        move.b  _ram+wm_LevelMode(a4),d0
+        btst    #6,d0
+        beq.s   .o2
+        cmp.b   #$c1,d0
+        beq.s   .o2
+        move.w  #$190,d2                    ; CODE_029838: OamSlot + $90
+.o2:    bsr     sm_star
+        endc
         bra     .nx
 .s3:    tst.b   d3                          ; CODE_029927
+        bne.s   .s3g
+        ifd SPR_OAM
+        btst    #6,_ram+wm_LevelMode(a4)
         beq     .kill
-        tst.b   _ram+wm_SpritesLocked(a4)
-        bne     .nx
+        tst.b   _ram+wm_ReznorSmokeFlag(a4)
+        bne     .kill
+        lea     sm_oslot(pc),a0
+        moveq   #0,d0
+        move.b  (a0,d1.w),d0
+        lea     _ram+wm_OamSlot+1(a4),a0
+        move.b  #$f0,(a0,d0.w)
+        endc
+        bra     .kill
+.s3g:   tst.b   _ram+wm_SpritesLocked(a4)
+        bne.s   .d3
         subq.b  #1,(a1,d1.w)
         moveq   #7,d0
         and.b   d3,d0
-        bne     .nx
+        bne.s   .d3
         lea     _ram+wm_SmokeYPos(a4),a0
         subq.b  #1,(a0,d1.w)
+.d3:
+        ifd SPR_OAM
+        moveq   #0,d2
+        lea     sm_oex(pc),a0
+        cmp.b   #$a9,_ram+wm_SpriteNum+7(a4)
+        beq.s   .o3
+        tst.b   _ram+wm_ReznorSmokeFlag(a4)
+        bne.s   .o3
+        move.b  _ram+wm_LevelMode(a4),d0
+        bpl.s   .o3
+        lea     sm_oslot(pc),a0
+        cmp.b   #$c1,d0
+        beq.s   .o3
+        btst    #6,d0
+        beq.s   .o3
+        move.w  #$100,d2                    ; CODE_02999F: OamSlot
+.o3:    moveq   #0,d0
+        move.b  (a0,d1.w),d0
+        add.w   d0,d2
+        lea     _ram+wm_ExOamSlot(a4),a0
+        add.w   d2,a0
+        lea     _ram+wm_SmokeXPos(a4),a1
+        move.b  (a1,d1.w),d0
+        sub.b   _ram+wm_Bg1HOfs(a4),d0
+        move.b  d0,(a0)
+        lea     _ram+wm_SmokeYPos(a4),a1
+        move.b  (a1,d1.w),d0
+        sub.b   _ram+wm_Bg1VOfs(a4),d0
+        move.b  d0,1(a0)
+        move.b  _ram+wm_SpriteProp(a4),3(a0)
+        lea     _ram+wm_SmokeTimer(a4),a1
+        moveq   #0,d0
+        move.b  (a1,d1.w),d0
+        lsr.b   #2,d0
+        lea     sm_t3(pc),a1                ; DATA_029922
+        move.b  (a1,d0.w),2(a0)
+        lsr.w   #2,d2
+        lea     _ram+wm_ExOamSize(a4),a1
+        clr.b   (a1,d2.w)
+        endc
         bra     .nx
 .s5:    tst.b   d3                          ; CODE_0298CA
         beq.s   .kill
@@ -464,6 +728,72 @@ _smoke_update:
 .nx:    dbf     d1,.lp
         movem.l (sp)+,d2-d3
         rts
+
+        ifd SPR_OAM
+; --- sm_star ---
+; entrada:  d1.w = x, d2.w = desplazamiento de la primera ficha desde
+;           ExOamSlot; a4 = datos del C
+; salida:   CODE_0297B2 / CODE_029838: la estrella de contacto, 4 fichas 8x8
+; registros destruidos: d0/a0
+; ciclos:   tools/l_funcs.py
+sm_star:
+        movem.l d3-d5,-(sp)
+        lea     _ram+wm_SmokeXPos(a4),a0
+        move.b  (a0,d1.w),d3
+        sub.b   _ram+wm_Bg1HOfs(a4),d3      ; xs
+        lea     _ram+wm_SmokeYPos(a4),a0
+        move.b  (a0,d1.w),d4
+        sub.b   _ram+wm_Bg1VOfs(a4),d4      ; ys
+        lea     _ram+wm_SmokeTimer(a4),a0
+        move.b  (a0,d1.w),d5                ; t
+        move.b  d5,d0
+        lsl.b   #5,d0
+        and.b   #$40,d0
+        or.b    _ram+wm_SpriteProp(a4),d0
+        lea     _ram+wm_ExOamSlot(a4),a0
+        add.w   d2,a0
+        move.b  d3,(a0)
+        move.b  d3,8(a0)
+        addq.b  #8,d3
+        move.b  d3,4(a0)
+        move.b  d3,12(a0)
+        move.b  d4,1(a0)
+        move.b  d4,5(a0)
+        addq.b  #8,d4
+        move.b  d4,9(a0)
+        move.b  d4,13(a0)
+        move.b  d0,3(a0)
+        move.b  d0,7(a0)
+        eor.b   #$c0,d0
+        move.b  d0,11(a0)
+        move.b  d0,15(a0)
+        moveq   #$7c,d3
+        moveq   #$7d,d4
+        btst    #1,d5
+        beq.s   .t
+        exg     d3,d4
+.t:     move.b  d3,2(a0)
+        move.b  d3,14(a0)
+        move.b  d4,6(a0)
+        move.b  d4,10(a0)
+        move.w  d2,d0
+        lsr.w   #2,d0
+        lea     _ram+wm_ExOamSize(a4),a0
+        add.w   d0,a0
+        clr.b   (a0)+
+        clr.b   (a0)+
+        clr.b   (a0)+
+        clr.b   (a0)
+        movem.l (sp)+,d3-d5
+        rts
+
+sm_oex: dc.b    $20,$24,$28,$2C             ; DATA_0296B8
+sm_oslot:
+        dc.b    $90,$94,$98,$9C             ; DATA_0296BC
+sm_t1:  dc.b    $66,$66,$64,$62,$60,$62,$60 ; DATA_0296D8
+sm_t3:  dc.b    $66,$66,$64,$62,$62         ; DATA_029922
+        even
+        endc
 
 ; --- contact_gfx ---
 ; entrada:  pila vbcc = u8 x; a4 = datos del C

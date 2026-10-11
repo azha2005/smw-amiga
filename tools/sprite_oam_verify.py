@@ -241,6 +241,10 @@ def main():
     ghost = bytearray(cpu.read(check.ram, 0x2000))
     for s in range(128):
         ghost[0x0201 + 4 * s] = 17
+    # SW-S: el humo y los sprites menores corren tambien sin fase de sprites
+    # y dibujan si quedaron activos: aca solo se prueba la limpieza
+    for lo, hi in ((0x16E1, 0x16E7), (0x17C0, 0x17C4), (0x17F0, 0x17FC)):
+        ghost[lo:hi] = bytes(hi - lo)
     cpu.write(check.ram, ghost)
     cpu.write(check.n, bytes([2] * 12))
     cpu.write(V.BASE + syms["_level_sprites"], b"\x00")
