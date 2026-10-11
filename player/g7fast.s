@@ -69,7 +69,21 @@ W_NSP   equ 4164        ; .w tramos de fichas en la fila
 W_SPN   equ 4166        ; 32 x 4 b tramo visible de cada ficha que corta la fila: x0, x1
 W_SPW   equ 4294        ; .w suma de los anchos de W_SPN
 W_JL    equ 4296        ; 64 b palabras que parcha el camino corto ($ff fin)
-W_SIZE  equ 4360
+W_WANT  equ 4360        ; 256 w color requerido por x (-1 transparente; required())
+W_NT    equ 4872        ; .w palabras de W_TRY
+W_SPARE equ 4874        ; .w indices sin uso (ni terreno ni efecto): sus recargas son ranuras
+W_WCLM  equ 4876        ; .w reclamados de la ventana
+W_UIN   equ 4878        ; .w indices del terreno dentro de [x0, x1]
+W_UANY  equ 4880        ; .w indices del terreno en la fila
+W_ULO   equ 4882        ; 8 w ultimo uso < x0 (-1 ninguno)
+W_UHI   equ 4898        ; 8 w primer uso > x1 (256 ninguno)
+W_CUR   equ 4914        ; 8 w color vigente por indice (g7f_want)
+W_WIN   equ 4930        ; 64 b variables de la ventana y de place
+W_EDF   equ 4994        ; 2048 b reservados para el paso 3b (player/g7edf.s)
+W_UM    equ 7042        ; 8 x 17 w uso del terreno por indice y palabra de pantalla
+W_ULM   equ 7314        ; 17 w pixeles a la izquierda de x0 (g7f_uses)
+W_URM   equ 7348        ; 17 w pixeles a la derecha de x1
+W_SIZE  equ 7382
 
 G7F_T0   equ -56
 G7F_IDLE equ 48
@@ -1208,15 +1222,308 @@ g7f_patch:
         blo.s   .w
         rts
 
-; --- g7f_left --- pasos 3 y 3b para los grupos sin indice
-; (etapa 1: todavia no portados; rechazo explicito)
-; entrada:  a6 trabajo
-; salida:   d0.l = 0 o 2|fila<<8
+; --- g7f_left --- pasos 3 (ventana) y 3b (EDF) para los grupos sin indice
+; entrada:  a6 trabajo tras g7f_fast (W_CL/W_NCL pendientes, W_CLM, W_SEG)
+; salida:   d0.l = 0 (W_SEG/W_NW/W_OUT con el plan) o 2|fila<<8
+; registros destruidos: d0-d7/a0-a5
 g7f_left:
-        moveq   #2,d0
+        cmp.w   #$7fff,W_NCL(a6)           ; mas grupos que W_CL
+        beq.s   .rej
+        cmp.w   #$7fff,W_END(a6)           ; end_of(nb siguiente) = None
+        beq.s   .rej
+        cmp.w   #G7F_WRAP,W_ROW(a6)
+        beq.s   .rej
+        bsr     g7f_umask
+        ifnd    G7F_NOWIN
+        bsr     g7f_window
+        tst.l   d0
+        beq.s   .ok
+        endc
+        bsr     g7f_tidx                   ; solo el paso 3b usa W_IDX y W_WANT
+        bsr     g7f_want
+        bsr     g7f_edf
+        tst.l   d0
+        beq.s   .ok
+.rej:   moveq   #2,d0
         move.w  W_ROW(a6),d1
         lsl.w   #8,d1
         or.w    d1,d0
+.ok:    rts
+
+; --- g7f_tidx --- W_IDX = indice del terreno de cada x de la fila (PF1),
+; tambien bajo los efectos (el idx de la especificacion)
+; registros destruidos: d0-d7/a0-a3
+g7f_tidx:
+        moveq   #0,d0
+        bsr     g7f_pf1                    ; a0 = palabra 0
+        move.l  W_PFR(a6),a3
+        lea     2*SLOTS(a3),a3             ; reenganche del anillo
+        lea     W_IDX(a6),a1
+        move.w  W_CAM(a6),d6
+        and.w   #15,d6
+        neg.w   d6                         ; x del bit 15 de la palabra 0
+        moveq   #16,d7
+.w:     move.w  (a0),d1
+        move.w  ROWB1(a0),d2
+        move.w  2*ROWB1(a0),d3
+        moveq   #15,d4
+.b:     moveq   #0,d5
+        add.w   d3,d3
+        addx.b  d5,d5
+        add.w   d2,d2
+        addx.b  d5,d5
+        add.w   d1,d1
+        addx.b  d5,d5
+        cmp.w   #256,d6                    ; sin signo: x < 0 tambien queda fuera
+        bhs.s   .s
+        move.b  d5,(a1,d6.w)
+.s:     addq.w  #1,d6
+        dbf     d4,.b
+        addq.l  #2,a0
+        cmpa.l  a3,a0
+        bne.s   .nw
+        lea     -2*SLOTS(a0),a0
+.nw:    dbf     d7,.w
+        rts
+
+; --- g7f_want --- W_WANT = required(): color del efecto, o el del indice
+; del terreno con la lista original (W_EVT de W_ORG), o -1
+; registros destruidos: d0-d1/d6-d7/a0-a4
+g7f_want:
+        lea     W_CUR(a6),a2
+        clr.l   (a2)
+        clr.l   4(a2)
+        clr.l   8(a2)
+        clr.l   12(a2)
+        lea     W_EVT(a6),a0
+        move.w  W_NEV(a6),d7
+        lea     W_IDX(a6),a3
+        lea     W_WANT(a6),a1
+        lea     W_CT(a6),a4
+        moveq   #0,d6
+.x:     tst.w   d7
+        beq.s   .px
+        cmp.w   (a0),d6
+        blt.s   .px                        ; el evento es despues de x
+        move.w  2(a0),d0
+        add.w   d0,d0
+        move.w  4(a0),(a2,d0.w)
+        addq.l  #6,a0
+        subq.w  #1,d7
+        bra.s   .x
+.px:    moveq   #0,d0
+        move.b  W_OV(a6,d6.w),d0
+        beq.s   .ter
+        add.w   d0,d0
+        move.w  (a4,d0.w),d1
+        bra.s   .st
+.ter:   move.b  (a3,d6.w),d0
+        beq.s   .tr
+        add.w   d0,d0
+        move.w  (a2,d0.w),d1
+        bra.s   .st
+.tr:    moveq   #-1,d1
+.st:    move.w  d1,(a1)+
+        addq.w  #1,d6
+        cmp.w   #256,d6
+        blo.s   .x
+        rts
+
+; --- g7f_umask --- W_UM: por palabra de pantalla j e indice r, los pixeles
+; del terreno (fuera de los efectos y de la pantalla) con ese indice
+; entrada:  a6 trabajo (W_EM, PF1)
+; registros destruidos: d0-d7/a0-a5
+; ciclos:   ~17 palabras x 200
+g7f_umask:
+        lea     W_EM(a6),a2
+        lea     W_UM(a6),a5
+        moveq   #0,d0
+        bsr     g7f_pf1                    ; a0 = palabra 0
+        move.l  W_PFR(a6),a3
+        lea     2*SLOTS(a3),a3
+        move.w  W_CAM(a6),d1
+        and.w   #15,d1
+        moveq   #-1,d5
+        lsr.w   d1,d5
+        move.w  d5,a4                      ; borde de la palabra 0
+        moveq   #0,d6
+.w:     moveq   #-1,d5
+        tst.w   d6
+        bne.s   .nj0
+        move.w  a4,d5
+        bra.s   .edge
+.nj0:   cmp.w   #16,d6
+        bne.s   .edge
+        move.w  a4,d5
+        not.w   d5
+.edge:  move.w  (a2)+,d0
+        not.w   d0
+        and.w   d0,d5                      ; m
+        move.w  (a0),d0                    ; p0
+        move.w  ROWB1(a0),d1               ; p1
+        move.w  2*ROWB1(a0),d7             ; p2
+        move.w  d0,d3
+        and.w   d5,d3                      ; a = p0 & m
+        not.w   d0
+        and.w   d5,d0                      ; na
+        move.w  d1,d4
+        not.w   d4                         ; ~p1
+        move.w  d3,d2
+        and.w   d4,d2                      ; t01
+        and.w   d1,d3                      ; t11
+        move.w  d0,d5
+        and.w   d4,d5                      ; t00
+        and.w   d1,d0                      ; t10
+        move.w  d7,d4
+        not.w   d4                         ; ~p2
+        move.w  d2,d1
+        and.w   d4,d1
+        move.w  d1,1*34(a5)                ; 1
+        move.w  d0,d1
+        and.w   d4,d1
+        move.w  d1,2*34(a5)                ; 2
+        move.w  d3,d1
+        and.w   d4,d1
+        move.w  d1,3*34(a5)                ; 3
+        and.w   d7,d5
+        move.w  d5,4*34(a5)                ; 4
+        and.w   d7,d2
+        move.w  d2,5*34(a5)                ; 5
+        and.w   d7,d0
+        move.w  d0,6*34(a5)                ; 6
+        and.w   d7,d3
+        move.w  d3,7*34(a5)                ; 7
+        addq.l  #2,a5
+        addq.l  #2,a0
+        cmpa.l  a3,a0
+        bne.s   .nw
+        lea     -2*SLOTS(a0),a0
+.nw:    addq.w  #1,d6
+        cmp.w   #17,d6
+        blo     .w
+        rts
+
+; --- g7f_uses --- uso del terreno por indice alrededor de [x0, x1] (W_UM)
+; entrada:  d3.w x0, d4.w x1
+; salida:   W_UIN, W_UANY (bits 1..7), W_ULO/W_UHI por indice
+;           (ultimo uso < x0 o -1, primer uso > x1 o 256)
+; registros destruidos: d0-d2/d5-d7/a0-a2
+g7f_uses:
+        ; mascaras de x < x0 y x > x1 por palabra
+        lea     W_ULM(a6),a0
+        lea     W_URM(a6),a1
+        move.w  W_CAM(a6),d6
+        and.w   #15,d6
+        neg.w   d6                         ; x del bit 15 de la palabra
+        moveq   #16,d7
+.mk:    move.w  d3,d0
+        sub.w   d6,d0                      ; pixeles < x0 en la palabra
+        bgt.s   .l1
+        moveq   #0,d1
+        bra.s   .l3
+.l1:    moveq   #-1,d1
+        cmp.w   #16,d0
+        bge.s   .l3
+        move.w  #$ffff,d1
+        lsr.w   d0,d1
+        not.w   d1
+.l3:    move.w  d1,(a0)+
+        move.w  d4,d0
+        sub.w   d6,d0
+        addq.w  #1,d0                      ; pixeles <= x1
+        bgt.s   .r1
+        moveq   #-1,d1
+        bra.s   .r3
+.r1:    moveq   #0,d1
+        cmp.w   #16,d0
+        bge.s   .r3
+        move.w  #$ffff,d1
+        lsr.w   d0,d1
+.r3:    move.w  d1,(a1)+
+        add.w   #16,d6
+        dbf     d7,.mk
+        ; por indice
+        moveq   #0,d5                      ; dentro
+        moveq   #0,d7                      ; en la fila
+        moveq   #1,d2
+.r:     move.w  d2,d0
+        add.w   d0,d0
+        lea     W_ULO(a6),a1
+        move.w  #-1,(a1,d0.w)
+        lea     W_UHI(a6),a1
+        move.w  #256,(a1,d0.w)
+        move.w  d2,d0
+        mulu    #34,d0
+        lea     W_UM(a6),a0
+        add.w   d0,a0                      ; W_UM + 34 r
+        move.l  a0,-(sp)
+        lea     W_ULM(a6),a1
+        lea     W_URM(a6),a2
+        moveq   #16,d6
+.a:     move.w  (a0)+,d0
+        beq.s   .an
+        bset    d2,d7
+        move.w  (a1),d1
+        or.w    (a2),d1
+        not.w   d1
+        and.w   d0,d1
+        beq.s   .an
+        bset    d2,d5
+.an:    addq.l  #2,a1
+        addq.l  #2,a2
+        dbf     d6,.a
+        btst    d2,d7
+        beq     .rx
+        ; ultimo uso a la izquierda: palabra mas alta, bit mas bajo
+        moveq   #16,d6
+.lo:    move.w  -(a0),d0
+        and.w   -(a1),d0
+        dbne    d6,.lo
+        tst.w   d0
+        beq.s   .hi
+        moveq   #0,d1
+.lob:   btst    d1,d0
+        bne.s   .lox
+        addq.w  #1,d1
+        bra.s   .lob
+.lox:   bsr.s   .x
+        lea     W_ULO(a6),a1
+        move.w  d1,(a1,d0.w)
+        ; primer uso a la derecha: palabra mas baja, bit mas alto
+.hi:    move.l  (sp),a0
+        lea     W_URM(a6),a2
+        moveq   #16,d6
+.hl:    move.w  (a0)+,d0
+        and.w   (a2)+,d0
+        dbne    d6,.hl
+        tst.w   d0
+        beq.s   .rx
+        neg.w   d6
+        add.w   #16,d6                     ; j
+        moveq   #15,d1
+.hib:   btst    d1,d0
+        bne.s   .hix
+        subq.w  #1,d1
+        bra.s   .hib
+.hix:   bsr.s   .x
+        lea     W_UHI(a6),a1
+        move.w  d1,(a1,d0.w)
+.rx:    addq.l  #4,sp
+.rn:    addq.w  #1,d2
+        cmp.w   #8,d2
+        blo     .r
+        move.w  d5,W_UIN(a6)
+        move.w  d7,W_UANY(a6)
+        rts
+.x:     neg.w   d1
+        add.w   #15,d1                     ; 15 - b
+        lsl.w   #4,d6
+        add.w   d6,d1
+        move.w  W_CAM(a6),d6
+        and.w   #15,d6
+        sub.w   d6,d1                      ; x = 16 j - s + 15 - b
+        move.w  d2,d0
+        add.w   d0,d0
         rts
 
 ; --- g7f_emit --- escribir el segmento si cambio y encolar los pixeles
@@ -1235,11 +1542,14 @@ g7f_emit:
         bne.s   .write
         dbf     d0,.cmp
         bra.s   .queue
-.write: moveq   #0,d0
+.write: moveq   #3,d0
+        add.w   W_NW(a6),d0
+        move.l  d0,-(sp)                   ; guardar tambien lo que el nuevo pisa
+        moveq   #0,d0
         move.w  W_ROW(a6),d0
         move.l  d0,-(sp)
         bsr     _g7b_save_row_far
-        addq.l  #4,sp
+        addq.l  #8,sp
         tst.l   d0
         bne     .full
         move.w  W_ROW(a6),d0
@@ -1609,6 +1919,11 @@ g7f_queue:
 g7f_ident:
         dc.b    0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
         even
+
+        include "player/g7edf.s"
+        ifnd    G7F_NOWIN
+        include "player/g7win.s"
+        endc
 
 ; Puentes a g7bobs.s (fuera del alcance de bsr, P102). ABI C: pila.
 _g7b_save_row_far:

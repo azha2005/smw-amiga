@@ -123,7 +123,9 @@ g7b_list:
         rts
 
 ; --- _g7b_save_row --- puente ABI: guardar segmento antes de modificarlo
-; entrada: 4(sp).l fila; salida: d0 = 0 o 4 (capacidad agotada)
+; entrada: 4(sp).l fila, 8(sp).l minimo de longs a guardar (el segmento
+;          nuevo puede ser mas largo que el original: lo de despues del
+;          salto tambien se repone); salida: d0 = 0 o 4 (capacidad agotada)
 ; registros destruidos: d0-d1/a0-a1
 ; ciclos: 4 B por pareja hasta el salto, sin datos por frame
 _g7b_save_row:
@@ -155,7 +157,12 @@ _g7b_save_row:
         bls.s   .find
         bra.s   .bad
 .tail:  add.w   #12,d2
-        move.w  (a1),d3
+        move.l  40(sp),d3
+        lsl.w   #2,d3
+        cmp.w   d3,d2
+        bhs.s   .len
+        move.w  d3,d2
+.len:   move.w  (a1),d3
         add.w   d3,a0
         add.w   d2,d3
         addq.w  #4,d3

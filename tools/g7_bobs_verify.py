@@ -103,7 +103,7 @@ def core(g):
     others={at:cpu.read(at,s['CL_SIZE']) for at in lists if at!=back}
     original=cpu.read(back,s['CL_SIZE'])
     g.fr.call(addr('g7b_begin'),g.G.FAKE)
-    row=101;m.w32(g.V.STACK,row)
+    row=101;m.w32(g.V.STACK,row);m.w32(g.V.STACK+4,0)
     g.fr.call(addr('_g7b_save_row'),g.G.FAKE)
     assert cpu.cpu.r_reg(R.D0)==0
     index=lists.index(back);count=addr('g7b_saved_n')+2*index
@@ -115,7 +115,7 @@ def core(g):
     g.fr.call(addr('g7b_clean'),g.G.FAKE)
     assert cpu.read(back,s['CL_SIZE'])==original,'copper/VBL no restituidos'
     assert all(cpu.read(at,s['CL_SIZE'])==raw for at,raw in others.items()),'FRONT/PEND modificadas'
-    m.w16(count,s['G7_SNAP_SIZE']-4);m.w32(g.V.STACK,row)
+    m.w16(count,s['G7_SNAP_SIZE']-4);m.w32(g.V.STACK,row);m.w32(g.V.STACK+4,0)
     g.fr.call(addr('_g7b_save_row'),g.G.FAKE)
     assert cpu.cpu.r_reg(R.D0)==4 and m.r16(count)==s['G7_SNAP_SIZE']-4
     m.w16(count,0)
