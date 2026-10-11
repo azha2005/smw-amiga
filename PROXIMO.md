@@ -35,7 +35,7 @@ arquitectura del frame** (decisión del usuario, 2026-10-11).
 
 | tarjeta | estado / qué hacer | instrucciones |
 |---|---|---|
-| **ARQ-0** | vara de diferencia visible contra la SNES, medida de partida en cuatro tramos, prototipos P1 (5 planos), P2 (copper precalculado o paleta optimizada) y P3 (espiral), y el contrato del frame | `docs/instrucciones-arq-0.md` |
+| **ARQ-0** | pasos 0-2 medidos (`docs/informe-arq-0-1011.md`). **Usuario, 2026-10-11: vara ΔE ≥ 2 aceptada (ΔE ≤ 3 tolerable con beneficio claro); P1 (5 planos) vale, pero primero P1-V: buscar un truco visual que acerque la capa 2 de 3 colores por fila** (paleta por fila y ventana de cámara, COLOR00 como cuarto color donde no se ve el cielo, tramado). **P1-V medido** (informe §5): los trucos de paleta solos −25 %; los cortes de paleta PF2 anclados a la capa 2 (tramos ≥ 64 px, tabla 8,4 KB) bajan a 461 px ΔE ≥ 2 por foto (hoy 264, P1 4.462). **Siguiente: el costo de copper de esos cortes** (≤ 4 por fila, contra las cargas de `build_mid`, ranuras con 5 planos) y BENCH. Después, el contrato. Aparte: el master empeoró desde el 10/10 (yi1 14 → 217, back racha 28), sin bisect | `docs/informe-arq-0-1011.md`, `docs/instrucciones-arq-0.md` |
 | META-R | en pausa (el tramo de la meta entra en la medida de ARQ-0) | `docs/instrucciones-meta-r.md` |
 | G7-S1 | en pausa | `docs/instrucciones-g7-s1.md` |
 | REX2 | en pausa | `docs/instrucciones-rex2.md` |

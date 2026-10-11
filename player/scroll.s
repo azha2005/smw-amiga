@@ -1675,7 +1675,11 @@ build_copper:                               ; a0 = lista
         move.l  #$00900000|DIWE,(a0)+       ; DIWSTOP: 224 lineas
         move.l  #$00920000|DDFS,(a0)+       ; DDFSTRT: una palabra antes
         move.l  #$00940000|DDFE,(a0)+       ; DDFSTOP
+        ifd     ARQ_5PL
+        move.l  #$01005600,(a0)+            ; ARQ-0 P1(c), solo sonda de tiempos:
+        else                                ; 5 planos (PF2 de 2), imagen mal
         move.l  #$01006600,(a0)+            ; BPLCON0: 6 planos, DBLPF, COLOR
+        endc
         move.l  #$01020000,(a0)+            ; BPLCON1 (set_pointers)
         ifd     SPRTEST
         move.l  #$01040024,(a0)+            ; BPLCON2: sprites delante

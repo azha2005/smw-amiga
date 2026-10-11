@@ -1363,3 +1363,21 @@ los efectos G7 daba falsos positivos de píxeles y conteos visibles mal.
 VBL de una pareja Mario detenida en `test_g7_hw_support.py`.
 Recalcular cobertura offline anterior; no confundir ese cambio con una
 validación física del nuevo renderer. La sonda G7-3 k409 sigue roja.
+
+
+**P135 — `tools/shot.ps1` en paralelo: todas las copias escriben `work/shot.uae` (ARQ-0, 2026-10-11).**
+
+**Síntoma:** dos capturas BENCH lanzadas a la vez (cada una con su
+`-Adf`) dan la misma tabla. `p5_hills2` midió 1914 frames, que son los de
+`stress_sprites`. Otras salieron con la ventana minimizada: 199×34 px,
+"2 bandas blancas, esperaba 19". En la barrida `sweep_cmp capture`, las
+fotos desde la que coincidió con otra captura quedaron todas de 199×34.
+
+**Causa:** `shot.ps1` escribe la configuración en `work\shot.uae`, la
+misma para todas las corridas. El candado (`winuae_lock.ps1`, 3 lugares)
+deja correr hasta tres WinUAE, pero no separa sus ficheros.
+
+**Cómo evitarlo:** capturas de `shot.ps1` en serie, o con una copia por
+lugar como `stress_ab_shots.ps1` o `tools/arq0/shots_par.sh`. Comprobar siempre `frames medidos` de
+`game_read.py` contra la longitud del replay. `arq_diff.py` rechaza las
+capturas que no tienen el tamaño de la ventana.
