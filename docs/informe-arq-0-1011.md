@@ -337,6 +337,15 @@ Lectura:
   registro, CHG de `mkscroll.py`), `build_mid` y la búsqueda del salto de
   G5L (`$0084`).
 
+### ARQ-C paso 1 medido (2026-10-11)
+
+Los saltos al segmento siguiente entran en el segundo WAIT (`SEGIN` = 4 en
+`scroll.s`; el segmento que cruza la 255 lleva el MOVE nulo primero; el fin
+de lista va en `SEGIN` y `CL_SIZE` crece 4 B). 2 palabras de copper por
+línea menos, imagen igual (regresión completa OK). Fotos perdidas (racha),
+6 planos: yi1 217 → 213 (2), back 1128 → 1090 (25), sprites 397 → 393 (5),
+hills2 686 → 677 (6), meta 581 → 484 (7). Vivo: SHA `425b658a…`.
+
 ### Decisión (libertad creativa del usuario, 2026-10-11)
 
 El usuario dio libertad para modificar el plano buscando el mayor parecido

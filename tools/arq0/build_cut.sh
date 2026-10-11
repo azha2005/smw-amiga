@@ -5,7 +5,10 @@
 # (5 planos fuera de [48, 192), sin MOVE nulos)
 cd "$(dirname "$0")/../.."
 K=${K:-8}
-if [ -n "$BANDS" ]; then
+# Sin sonda, con el codigo de hoy: PFX=ac1 sh tools/arq0/build_cut.sh -> work/arq0/ac1_*
+if [ -n "$PFX" ]; then
+  P=$PFX; D="${XD:-}"
+elif [ -n "$BANDS" ]; then
   P=bd$(echo $BANDS | tr , _); D="-DARQ_BANDS -DARQ_B1=${BANDS%,*} -DARQ_B2=${BANDS#*,}"
 else
   P=c$K; D="-DARQ_5PL -DARQ_CUTN=$K"

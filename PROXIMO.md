@@ -37,7 +37,7 @@ parecido con la mayor ganancia"): ARQ-C, después P1-B, después el contrato.
 
 | tarjeta | estado / qué hacer | instrucciones |
 |---|---|---|
-| **ARQ-C** | **siguiente**: dieta de copper sin tocar la imagen (~10 palabras de DMA por línea estimadas, cerca del 60 % de lo que libera el plano 6). Medir con BENCH antes de dar nada por hecho | `docs/instrucciones-arq-c.md` |
+| **ARQ-C** | **paso 1 hecho (2026-10-11)**: los saltos entran en el segundo WAIT (`SEGIN`), 2 palabras por línea; regresión OK; fotos perdidas yi1 217 → 213, back 1128 → 1090, sprites 397 → 393, hills2 686 → 677, meta 581 → 484 (racha 22 → 7). **Siguiente: paso 2 (`COP2LCH`, 2 palabras; cambia el formato del salto en scroll/G5L/G7 y sus referencias)**. El paso 3 (borrado compacto) es más grande de lo estimado: ~4 palabras netas, pide eventos nuevos en `mkscroll.py`, indirección en `apply_colors` y medir en WinUAE el tiempo del borrado con 2-6 MOVE para G5L/G7 (instrucciones §3) | `docs/instrucciones-arq-c.md` |
 | **ARQ-0** | pasos 0-2 y P1-V medidos (`docs/informe-arq-0-1011.md` §5). Vara ΔE ≥ 2 (ΔE ≤ 3 tolerable). **P1-V: los cortes de paleta PF2 se comen la ganancia** (BENCH: conservan 20-55 % sin contar su CPU), no se adoptan. **Bandas de 5 planos por fila (sin CPU, 2 MOVE de BPLCON0): 0-16 + 208-223 invisibles (≈ 4 px), 17-24 % de la ganancia (51 % en goal)** → tarjeta P1-B después de ARQ-C. Las filas de las colinas a 5 planos (P1 entero, ≈ 3.900 px más) quedan para el usuario. Después, el contrato. Aparte: el master empeoró desde el 10/10 (yi1 14 → 217, back racha 28), sin bisect | `docs/informe-arq-0-1011.md`, `docs/instrucciones-arq-0.md` |
 | META-R | en pausa (el tramo de la meta entra en la medida de ARQ-0) | `docs/instrucciones-meta-r.md` |
 | G7-S1 | en pausa | `docs/instrucciones-g7-s1.md` |
@@ -55,7 +55,7 @@ También `sh tools/sws_gate.sh` y `sh tools/oam68k_gate.sh`.
 Builds secuenciales: comparten `work/cc` y `work/g5l.i`. Si trabajan dos
 agentes a la vez, cada build pasa por `sh work/buildlock.sh <comando>`.
 
-El vivo por defecto mantiene SHA256 `33f2250a…` (`work/rg_bm1/game.bin`).
+El vivo por defecto: SHA256 `425b658a…` desde ARQ-C paso 1 (antes `33f2250a…`; `work/rg_bm1/game.bin`).
 G7_BOBS: `GDEFS="-DREPLAY -DG7_BOBS" OUT=… sh tools/bm_build.sh` (replay)
 o `GDEFS="-DG7_BOBS" OUT=… sh tools/game_build.sh` (vivo). Margen slow con
 G7_BOBS: 5.040 B (vivo), 4.560 B (replay).

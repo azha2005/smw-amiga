@@ -104,7 +104,13 @@ SEG         equ 256             ; (tools/mkscroll.py --g5: SEG). +36 B por
 SEG         equ 64+MIDMAX*12+12 ; 220 (tools/mkscroll.py: SEG). Una carga
                                 ; ocupa hasta 12 bytes: 2 rellenos + MOVE
         endc
-CL_SIZE     equ CL_LINES+SEG*LINES+4
+; ARQ-C paso 1: los saltos entran en el segundo WAIT del segmento (SEGIN): el
+; primero es un relleno de la etapa 6 (iguales salvo en la linea que cruza la
+; 255, que lleva el MOVE nulo primero y el WAIT ($FF,$DE) en SEGIN). El
+; segmento 0 se entra desde la cabecera por el principio. Detras del ultimo,
+; el fin de la lista ($FFFFFFFE, o la cola de game.s en CL_END) en SEGIN.
+SEGIN       equ 4
+CL_SIZE     equ CL_LINES+SEG*LINES+SEGIN+4
 ; WAIT + MOVE: en que x de pantalla cambia el color (P42, medido en WinUAE
 ; con copcal.s -DPATTERN y COPCAL_FINE=1, h de a 2):
 ;   h <= $D0: x = 8 * ((h - $38) >> 2) - 1   (rejilla de 8 px: con 6 planos
@@ -773,11 +779,13 @@ init_lines:
         move.w  d3,16(a0)
         add.l   #SEG,d4
         move.w  #$0084,18(a0)               ; salto al segmento siguiente
-        move.l  d4,d0
+        move.l  d4,d0                       ; (en su SEGIN)
+        addq.l  #SEGIN,d0
         swap    d0
         move.w  d0,20(a0)
         move.w  #$0086,22(a0)
-        move.w  d4,24(a0)
+        swap    d0
+        move.w  d0,24(a0)
         move.l  #$008a0000,26(a0)
         add.w   #$100,d3
         lea     32(a0),a0
@@ -1770,8 +1778,8 @@ build_copper:                               ; a0 = lista
         move.w  d3,(a0)+
         move.w  #$fffe,(a0)+
         bra.s   .wd
-.w255:  move.l  #$ffdffffe,(a0)+            ; en la 255: WAIT ($FF,$DE) y uno
-        move.l  #$01fe0000,(a0)+            ; solo (+ un MOVE nulo). El copper
+.w255:  move.l  #$01fe0000,(a0)+            ; en la 255: un MOVE nulo y el WAIT
+        move.l  #$ffdffffe,(a0)+            ; ($FF,$DE) en SEGIN. El copper
                                             ; ve ($FF,$E2) con V ya en $00
                                             ; (256): no llegaba nunca y las
                                             ; lineas 212-223 se quedaban sin
@@ -1813,7 +1821,7 @@ build_copper:                               ; a0 = lista
         dbf     d0,.cn                      ; PF2 (MOVE nulos; las cargas van
         endc                                ; detras, init_lines)
         move.l  d5,d0                       ; salto al segmento siguiente
-        add.l   #SEG,d0
+        add.l   #SEG+SEGIN,d0
         move.w  #$0084,(a0)+
         swap    d0
         move.w  d0,(a0)+
@@ -1826,6 +1834,7 @@ build_copper:                               ; a0 = lista
         addq.w  #1,d2
         cmp.w   #LINES,d2
         blo     .line
+        move.l  #$fffffffe,(a0)+            ; (el de SEGIN es el que se usa)
         move.l  #$fffffffe,(a0)+
         movem.l (sp)+,a2/a6
         rts

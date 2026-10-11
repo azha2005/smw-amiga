@@ -1646,7 +1646,7 @@ class MemList:
             a += 4
 
     def put_jump(self, a, s):
-        nxt = self.seg(s + 1)
+        nxt = self.seg(s + 1) + self.syms.get('SEGIN', 0)   # ARQ-C: entra en el 2.o WAIT
         self.w16(a, 0x0084)
         self.w16(a + 2, nxt >> 16)
         self.w16(a + 4, 0x0086)

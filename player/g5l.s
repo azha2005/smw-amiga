@@ -1672,7 +1672,7 @@ g5l_clean:
         addq.w  #1,d0
         lsl.l   #8,d0                       ; SEG = 256
         add.l   a2,d0
-        add.l   #CL_LINES,d0                ; el segmento siguiente
+        add.l   #CL_LINES+SEGIN,d0          ; el segmento siguiente (SEGIN)
         move.w  #$0084,(a0)+
         swap    d0
         move.w  d0,(a0)+
@@ -4163,7 +4163,7 @@ g5l_emitc:
         and.l   #$ffff,d0
         lsl.l   #8,d0
         add.l   a2,d0
-        add.l   #CL_LINES,d0
+        add.l   #CL_LINES+SEGIN,d0          ; (SEGIN: ARQ-C)
         move.w  #$0084,(a0)+
         swap    d0
         move.w  d0,(a0)+

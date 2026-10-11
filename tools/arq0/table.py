@@ -3,6 +3,7 @@
 import re, sys
 from pathlib import Path
 def LAB(k):
+    if k.startswith('ac'): return '6 planos, ARQ-C hasta el paso %s' % k[2:]
     if k.startswith('bd'): return '5 planos fuera de [%s, %s) (P1-V2)' % tuple(k[2:].split('_'))
     return '5 planos + %s MOVE/linea (P1-V)' % k[1:]
 FR = dict(yi1=6312, back=4126, sprites=1914, hills2=2835, goal=2507)
