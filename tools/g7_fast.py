@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """G7-3b: especificacion del productor sin busqueda (rediseno 2026-10-11).
 
+Camino corto (v2, fast2_row): si el prefijo es el canonico de build_mid
+(dos WAIT y los MOVE $182..$18E en las palabras 2..8), cada color usa un
+indice constante en toda la fila (su MOVE del prefijo vale el color y el
+cuerpo no lo recarga) o, si no hay, un indice libre, probados de 7 a 1
+(prefijo parchado, recargas a NOP). Sin modelo de tiempos ni grupos: una pasada por el
+cuerpo. Si no alcanza, la fila sigue por las capas de abajo desde cero.
+
 Por fila con efectos, en este orden y sin backtracking:
   1. existente: un indice PF1 que ya tiene el color en todo su tramo;
   2. libre: un indice que el terreno visible no usa en la fila; se
@@ -97,6 +104,53 @@ def fast_row(words, row, idx, overlay):
         for xs in parts:
             out_idx[xs] = r
     return new, out_idx, left, claimed
+
+
+def fast2_row(words, row, idx, overlay):
+    """Camino corto: (palabras, out_idx) o None si la fila no entra."""
+    if len(words) < 9 or not (words[0][0] & 1 and words[1][0] & 1):
+        return None
+    if any(words[2+i][0] != 0x182+2*i for i in range(7)):
+        return None
+    reload = 0
+    for a, _ in words[9:]:
+        if 0x182 <= a <= 0x18E and not a & 1:    # un WAIT con v = 1 empieza por $01xx
+            reload |= 1 << ((a-0x180) >> 1)
+    occ = overlay >= 0
+    pick, claimed, need = {}, 0, []
+    for c in sorted(set(int(v) for v in overlay[occ])):
+        for r in range(1, 8):
+            if not reload >> r & 1 and words[1+r][1] & 0xFFF == c:
+                pick[c] = r
+                claimed |= 1 << r
+                break
+        else:
+            need.append(c)
+    new = list(words)
+    if need:
+        terrain = (~occ) & (idx > 0)
+        busy = claimed
+        for r in range(1, 8):
+            if np.any(terrain & (idx == r)):
+                busy |= 1 << r
+        for c in need:
+            # De mayor a menor: el 7 esta libre en el 89 % de las filas con
+            # efectos de YI1 y el 6 en el 74 %; el 68000 prueba de a uno.
+            free = [r for r in range(7, 0, -1) if not busy >> r & 1]
+            if not free:
+                return None
+            r = free[0]
+            busy |= 1 << r
+            pick[c] = r
+            reg = 0x180 + 2*r
+            new[1+r] = (reg, (new[1+r][1] & 0xF000) | c)
+            for i in range(9, len(new)):
+                if new[i][0] == reg:
+                    new[i] = NOP
+    out = idx.copy()
+    for c, r in pick.items():
+        out[overlay == c] = r
+    return new, out
 
 
 def positions(words, row):
@@ -594,8 +648,17 @@ def main():
                 words, _ = T.segment_words(mem, back, s['CL_LINES'], s['SEG'], row)
                 idx = P.terrain(data, cam, row)
                 idx[hid[row]] = 0
-                new, out_idx, left, reserved = fast_row(words, row, idx, ov[row])
                 st['rows'] += 1
+                got = fast2_row(words, row, idx, ov[row])
+                if got:
+                    new, out_idx = got
+                    if not check(words, new, row, idx, out_idx, ov[row]):
+                        st['rows_wrong'] += 1
+                        print('MAL v2', k, row, flush=True)
+                        continue
+                    st['rows_fast2'] += 1
+                    continue
+                new, out_idx, left, reserved = fast_row(words, row, idx, ov[row])
                 mode = 'fast'
                 if left:
                     nxt, _ = T.segment_words(mem, back, s['CL_LINES'], s['SEG'], (row+1) % 224)

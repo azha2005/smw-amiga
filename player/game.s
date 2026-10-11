@@ -4563,16 +4563,7 @@ m1_buf: dcb.b   16*M1N,0
         endc
 
         ifd     G7_BOBS
-; Puentes al lado del productor, fuera del alcance PC de la cola (P102).
-_g7b_send_bridge:
-        PICJUMP _g7b_send
-_g7b_save_row_bridge:
-        PICJUMP _g7b_save_row
-_g7b_retry_bridge:
-        PICJUMP _g7b_retry
-_g7b_div16_bridge:
-        PICJUMP _g7b_div16
-        include "work/g7/prod.s"
+        include "player/g7fast.s"
         cnop 0,4
 g7b_saved: ds.b G7_SNAP_SIZE*3
         endc

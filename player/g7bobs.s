@@ -11,18 +11,6 @@ BLTBPTR equ $04c
 BLTCMODR equ $060
 BLTBMODR equ $062
 
-; --- _g7b_div16 --- resto de columna fisica (ABI helper de vbcc)
-; entrada: d0.l 0..65535, d1.l 22; salida: cociente d0, resto d1
-; registros destruidos: d0-d1
-; ciclos: DIVU (aprox. 140); todos los otros divisores son shifts en C
-_g7b_div16:
-        divu    d1,d0
-        move.l  d0,d1
-        and.l   #$ffff,d0
-        swap    d1
-        and.l   #$ffff,d1
-        rts
-
 ; --- g7b_clean --- reponer exactamente la lista libre anterior a G7
 ; entrada: a5 scroll, V_BACK libre; antes de apply_colors/build_mid/G5L
 ; salida: prefijos, eventos y saltos originales; diario de esa lista vacio
@@ -226,34 +214,12 @@ g7b_draw:
         bsr     dc_recp
         move.b  R_SWS_VALID(a0),d0
         beq.s   .done
-        moveq   #0,d0
-        move.w  R_S(a0),d0
-        movem.l d0/a0,-(sp)
+        move.l  a0,a2
         bsr     g7b_begin
-        movem.l (sp)+,d0/a0
-        move.l  V_BACK(a5),d1
-        cmp.l   V_COP(a5),d1
-        beq.s   .camera
-        add.l   #$10000,d0
-        cmp.l   V_COP2(a5),d1
-        beq.s   .camera
-        add.l   #$10000,d0
-.camera:
-        move.l  d0,-(sp)
-        move.w  d7,d0
-        lsl.w   #2,d0
-        lea     g_sbuf(pc),a1
-        move.l  (a1,d0.w),-(sp)
-        lea     R_OAM(a0),a0
-        move.l  a0,-(sp)
-        move.l  V_BACK(a5),-(sp)
-        move.l  V_BUF1(a5),-(sp)
-        move.l  a3,-(sp)
-        move.l  g7b_bank(pc),-(sp)
-.cc:    lea     .cc(pc),a1
-        adda.l  #_g7_render-.cc,a1
-        jsr     (a1)
-        lea     28(sp),sp
+        move.l  g7b_bank(pc),a1
+.cc:    lea     .cc(pc),a0                 ; g7fast.s, al final del binario (P102)
+        adda.l  #g7f_render-.cc,a0
+        jsr     (a0)
         lea     g7b_error(pc),a0
         move.w  d0,(a0)
 .done:  movem.l (sp)+,d0-d7/a0-a6

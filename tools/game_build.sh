@@ -106,7 +106,7 @@ ORACLE=${ORACLE:-work/oracle_yi1.bin}
 mkdir -p "$OUT"
 [ -n "$NOCC" ] || sh tools/logicbench_build.sh
 case " $GDEFS " in
-    *" -DG7_BOBS "*) $PY tools/g7_sources.py; $PY tools/g7_pack.py; $PY tools/g7_compile.py ;;
+    *" -DG7_BOBS "*) $PY tools/g7_sources.py; $PY tools/g7_pack.py ;;
 esac
 # NOCC tambien debe usar un C ya compilado con estas opciones (P36/P98).
 if grep -q '^_rex_gfx' work/cc/msprite.code.s; then CC_SPR=1; else CC_SPR=0; fi
