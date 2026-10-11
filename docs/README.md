@@ -24,6 +24,7 @@
 | `instrucciones-g7-1.md` | doble PF1: corregir SW1 k4599, propiedad y coste antes de los bobs |
 | `instrucciones-g7-2.md` | procedimiento original de G7-2/G7-3: OAM, fuentes, color y cola |
 | `instrucciones-g7-color.md` | G7-C: reproducir la cota k6047, alternativa exacta medida y puertas antes de G7-3 |
+| `instrucciones-g7-hibrido.md` | cobertura PF1/hardware por tramos, controles y paleta exactos antes del renderer G7-3 |
 | `plan-tecnico.md` | cómo hacer lo que falta: optimización (§9), cada bloque pendiente (§10), más allá de YI1 (§11). Escrito el 2026-09-30; sus números de estado son de esa fecha |
 | `pitfalls.md` | texto completo de las trampas P1-P109 (índice en `AGENTS.md` §8) |
 | `formato-nivel.md` | assets, formato `.lv`, Map16, tileset, paletas, comparación contra la referencia |
@@ -43,6 +44,7 @@
 |---|---|---|
 | `informe-g7-1010.md` | 2026-10-10 | memoria G7-0 y prototipo de doble PF1 G7-1; reservas, pruebas y preflight de color |
 | `informe-g7-2-1011.md` | 2026-10-11 | OAM y fuentes exactas, tres sondas cycle-exact de 0 px y cota independiente negativa de paleta local bajo G2T-A |
+| `informe-g7-c-1011.md` | 2026-10-11 | referencia híbrida exacta en cinco trazas, 3.754 fotos/250.347 píxeles; siete sondas WinUAE exactas, negativo y calibración DMA; renderer pendiente |
 | `informe-sw-m-retoma-1010.md` | 2026-10-10 | recuperación SW-M, ocho amarillos corregidos, cola CPU BM1 y puertas pendientes |
 | `informe-sw-d-retoma-1010.md` | 2026-10-10 | diagnóstico de los cinco píxeles BG1: derrames del asignador; herramienta por píxel recuperada |
 | `informe-sw-ap-1010.md` | 2026-10-10 | SW-A (postes) y SW-P (prioridad de la piraña): hechas, opcionales; costes de copper y de D1 |

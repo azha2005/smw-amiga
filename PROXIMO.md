@@ -1,6 +1,6 @@
 # PRÓXIMO — lo que sigue
 
-2026-10-11, cierre G7-2 parcial. **SW-S: la lógica y la OAM de los puntos, el humo y los
+2026-10-11, G7-C verificada. **SW-S: la lógica y la OAM de los puntos, el humo y los
 sprites menores están en el 68000 (asm), exactas contra la SNES y activas
 por defecto** (`docs/informe-sw-s-1010.md`): la RAM y la OAM de los tres
 motores dan 0 distintos en yi1 y en 4 grabaciones. **El dibujo será por
@@ -21,12 +21,24 @@ coincide en cinco trazas; las fuentes exactas ocupan 7.616 B de los
 12 KiB reservados. Tres sondas (k409, k5026, k6015) dan **0 píxeles
 distintos en WinUAE cycle-exact**. Todavía no hay cola de bobs en el juego.
 
-**Puerta de color negativa concreta:** k6047/fila161/x151..181 necesita
-nueve colores; con siete registros PF1, las ranuras del contrato G2T-A
-no alcanzan. Una enumeración independiente también permite remapear el
-terreno y no encuentra solución. Es un límite del contrato actual,
-no de todos los métodos posibles de Amiga. Informe y certificado:
-`docs/informe-g7-2-1011.md`, `work/g7-bound/window.png`.
+**G7-C: testigo k6047 resuelto sin cambiar D8.** Apoyo puntual de
+SPR2/3 (y SPR6/7 en las fotos vecinas), controles DMA auditados y colores
+existentes de Mario compartidos sin recargas nuevas. Cuatro fotos
+consecutivas k6046..6049: **848 píxeles de efectos, 0 diferencias en
+pantalla completa**, WinUAE cycle-exact; negativo de armado detectado
+solo en el apoyo hardware. La cota negativa de PF1 sigue siendo válida;
+el apoyo hardware la evita. `docs/informe-g7-c-1011.md`.
+
+La barrida híbrida automática de esas cuatro fotos también pasa:
+1 foto solo PF1, 3 híbridas, máximo 160 B DMA en la reserva existente.
+El tramo 6015..6060 pasa offline: 46 fotos, 8.929 píxeles; 40 fotos PF1
+y seis híbridas, ninguna sin resolver.
+**Cobertura offline completa de las cinco trazas:** 3.754 fotos con
+efectos, 250.347 píxeles, 0 fotos sin destino. 3.733 fotos solo PF1 y
+21 híbridas; hasta 160 B DMA por foto. Los casos con recargas
+k6064..6066 también pasan en WinUAE: **siete sondas, 1.180 píxeles y
+0 diferencias en pantalla completa**. Sigue pendiente la cola y el
+renderer del juego; la referencia no mide su coste ni propiedad en movimiento.
 
 G7_DOUBLE vivo: 522.448 B chip / 511.656 B slow, 0 violaciones;
 el vivo por defecto conserva su binario. **D1 sigue roja**; 217→269
@@ -37,7 +49,7 @@ BENCH nuevo ni efectos activados.
 
 | tarjeta | responsable | ficheros / puerta | instrucciones |
 |---|---|---|---|
-| **G7-C → G7-3, efectos SW-S** | coordinador; **siguiente** | reproducir cota k6047, resolver alternativa exacta; después cargar fuentes, restauración/cola, SW1 y BENCH | `docs/instrucciones-g7-color.md` |
+| **G7-3, efectos SW-S** | coordinador; **siguiente** | llevar los destinos exactos de la referencia al render; fuentes, restauración/cola y almacenamiento hardware por lista; después SW1 y BENCH | `docs/instrucciones-g7-hibrido.md` |
 | **D1, optimizar** | coordinador; en paralelo o después de G7 | con todo activado: 217 fotos perdidas, peor `build_mid` 15 604 ticks, `resto de scroll_frame` 18 798. Primero lo que más pesa, medido por foto perdida | `docs/instrucciones-d1-opt.md` |
 | SW-Q, resto | cuando haya grabaciones | una estrella real y flor/1-UP con más de una foto; A/B BENCH | `docs/informe-sw-q-recuperacion-1010.md` §"Qué sigue" |
 | SW-B, resto | — | barrida de `turn_block` con `HOLDEVERY=10` y A/B BENCH en WinUAE | `docs/informe-sw-b-1010.md` §"Continuación" |
@@ -57,13 +69,11 @@ regenerar los datos. Si se probó una opción de datos (`SW_ANIM_POSTS`,
 ## 2. Decisiones y pendientes
 
 - **G7-C, decidido por el usuario el 2026-10-11:** «Apoyo puntual de
-  sprites hardware para conservar los colores exactos». Investigar esa
-  alternativa antes de G7-3, como excepción puntual al dibujo por bobs.
-  No volver a pedir esta elección. Disponibilidad DMA, rearmado y colores
-  compartidos siguen pendientes de prueba cycle-exact; la autorización
-  no implica que la solución ya funcione. Seguir
-  `docs/instrucciones-g7-color.md`. Sesión cerrada a pedido del usuario;
-  no continuar la investigación hasta la próxima sesión.
+  sprites hardware para conservar los colores exactos». La excepción ya
+  pasó en k6046..6049: parejas detenidas, armado VBL y paleta compartida
+  exacta o recargas calibradas, con cobertura offline en cinco trazas.
+  No volver a pedir la elección. No se ha demostrado reuso de canales
+  ocupados ni cola en movimiento; seguir `docs/instrucciones-g7-hibrido.md`.
 - Para probar en la Amiga el vivo con todo: `GDEFS=" " OUT=work/live sh
   tools/game_build.sh` → `work/live/game.adf` (BM1, A501).
 - **La regla de prioridad** (qué objetos se dibujan cuando no entran

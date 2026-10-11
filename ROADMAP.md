@@ -48,7 +48,7 @@
 
 ---
 
-## 1. Estado por etapa (al 2026-10-10)
+## 1. Estado por etapa (al 2026-10-11)
 
 **P123 y perfil del estrés (2026-10-10, rama g2t-b2bis):** corregido
 el Guru: `columns` destruía a2, `dc_loop` leía una foto falsa y
@@ -87,7 +87,7 @@ copian acá.
 | 8.1 | Grabaciones | **32 oráculos** con snesorc sin usuario (`tools/snesorc/*.orc`), entre ellos `stress_back`, `stress_sprites`, `stress_vert`, `pipe`, `goal`/`goal_low`/`goal_miss`, `pw_*` (seta, flor, estrella, 1-UP, `$C7`, bloques, medio, monedas de Yoshi) y los de R10. Faltan: luna 3-UP, R7 (contadores del HUD), R8/A0 (audio) | `tools/snesorc/`, `work/oracle_*.txt` |
 | 8.2 | Lógica ≤ 40 % | **normal pasa; estrés no** con L2 y P123 corregida. WinUAE BENCH level_frame: YI1 **29,2 %**, back **60,4 %**, sprites **57,5 %**. PC=68000/regresión verdes; no implica cerrar D1. Lógica caliente en asm, C de referencia | `player/logic68k.s`; `docs/informe-g5l-r-l2-1010.md`, `docs/informe-p123-scroll-1010.md` |
 | 9.1 | Sprites: lógica | **casi hecha**: Rex, `$83`, `$B9`, `$BD`, `$02`, `$9F`, `$4F`, `$8E`, `$C7`, Chuck `$95`, caparazones, meta `$7B`, power-ups (P6), Mario crecer/encoger/morir/estrella (P8); `game` 0 resincronizaciones. Faltan P7 (bolas de fuego), P9 (monedas de Yoshi, puntos), P10 (reserva) | `player/msprite.c`, `spr_*.c` |
-| 9.2 | Sprites: dibujo | **Mario y Rex G5L funcionan**; G5L+CUSHION+SPR_OAM por defecto, P123 corregida. G5L-N: tabla G5L2 (el Rex aplastado ya se dibuja, −84 KB de slow); G4-1 (Python) ubica hasta 2 Rex sin errores de color; G4-2 lo lleva al 68000, exacto, con encadenado DMA (**activado por el usuario el 2026-10-10**, `G5L_MAXPL` = 2, pese a D1); G4-2o lo abarató (52 k de mediana con 2 Rex) sin llegar al ruido. G4-B: los demás enemigos de YI1 (piraña, Chuck, Koopa, caparazón, caja, cinta, `$02`) por G5L con la tabla G5L3, exactos, **activados por el usuario el 2026-10-10** (`G5L_TYPES=AB` los apaga) aunque D1 empeora (normal 11 → 27) y el replay con Exec ya no entra en chip (P126: en WinUAE, `tools/bm_build.sh`). G9: el dibujo de los sprites es exacto contra la OAM de la SNES (10 capturas, 8 tipos y Mario, 0 px); la lógica que parecía desviarse (Rex yi1 70 %, piraña 74 %) era el replay, que saltaba el primer frame bloqueado: L-DER (P130) deja `--logic` OK en las 10 trazas con oamb. SW-S: puntos, humo y sprites menores en asm con su OAM, exactos contra la SNES (el dibujo, por bobs G7: decisión del usuario del 2026-10-10). G7-0 hecha: caben segundo PF1 y 12 KiB; G7-1 opt-in, doble PF1 con propiedad comprobada y SW1 completo exacto (`docs/informe-g7-1010.md`); G7-2 parcial: OAM/fuentes verificadas, tres sondas exactas y cota negativa local de color bajo G2T-A (`docs/informe-g7-2-1011.md`); cola pendiente. R1/S9/L2 integradas en rama. D1 todavía roja (tanda actual en §2); demás enemigos/bobs y cobertura global G4-G7/G9 pendientes. G2T-A verificada; B35/B2bis/Cpre aparcadas con informes y puertas históricas | `docs/informe-cierre-v-bm1-1009.md`, `docs/informe-g5l-r-l2-1010.md`, `docs/informe-p123-scroll-1010.md`, `docs/informe-g4-2-1010.md`, `docs/informe-g4-2o-1010.md`, `docs/informe-g4-b-1010.md`, `docs/informe-g9-1010.md`; historia textual en `docs/archivo/sesiones.md` |
+| 9.2 | Sprites: dibujo | **Mario y Rex G5L funcionan**; G5L+CUSHION+SPR_OAM por defecto, P123 corregida. G5L-N: tabla G5L2 (el Rex aplastado ya se dibuja, −84 KB de slow); G4-1 (Python) ubica hasta 2 Rex sin errores de color; G4-2 lo lleva al 68000, exacto, con encadenado DMA (**activado por el usuario el 2026-10-10**, `G5L_MAXPL` = 2, pese a D1); G4-2o lo abarató (52 k de mediana con 2 Rex) sin llegar al ruido. G4-B: los demás enemigos de YI1 (piraña, Chuck, Koopa, caparazón, caja, cinta, `$02`) por G5L con la tabla G5L3, exactos, **activados por el usuario el 2026-10-10** (`G5L_TYPES=AB` los apaga) aunque D1 empeora (normal 11 → 27) y el replay con Exec ya no entra en chip (P126: en WinUAE, `tools/bm_build.sh`). G9: el dibujo de los sprites es exacto contra la OAM de la SNES (10 capturas, 8 tipos y Mario, 0 px); la lógica que parecía desviarse (Rex yi1 70 %, piraña 74 %) era el replay, que saltaba el primer frame bloqueado: L-DER (P130) deja `--logic` OK en las 10 trazas con oamb. SW-S: puntos, humo y sprites menores en asm con su OAM, exactos contra la SNES (el dibujo, por bobs G7: decisión del usuario del 2026-10-10). G7-0 hecha: caben segundo PF1 y 12 KiB; G7-1 opt-in, doble PF1 con propiedad comprobada y SW1 completo exacto (`docs/informe-g7-1010.md`); G7-2 parcial: OAM/fuentes verificadas; G7-C resuelve el testigo de color con apoyo hardware autorizado, cuatro fotos consecutivas y 848 píxeles exactos en WinUAE, negativo y calibración verdes (`docs/informe-g7-c-1011.md`). Parejas detenidas, paleta existente o sufijo calibrado; siete sondas/1.180 píxeles exactos. Referencia offline completa en cinco trazas, 3.754 fotos/250.347 píxeles, 0 sin destino. Renderer/cola G7-3 pendientes. R1/S9/L2 integradas en rama. D1 todavía roja (tanda actual en §2); demás enemigos/bobs y cobertura global G4-G7/G9 pendientes. G2T-A verificada; B35/B2bis/Cpre aparcadas con informes y puertas históricas | `docs/informe-cierre-v-bm1-1009.md`, `docs/informe-g5l-r-l2-1010.md`, `docs/informe-p123-scroll-1010.md`, `docs/informe-g4-2-1010.md`, `docs/informe-g4-2o-1010.md`, `docs/informe-g4-b-1010.md`, `docs/informe-g9-1010.md`; historia textual en `docs/archivo/sesiones.md` |
 | 6b | Integración | ADF replay y vivo; G5L+CUSHION+SPR_OAM por defecto, boot BM1 en vivo KS1.2/1.3, A501 obligatoria. Memmap actual: replay normal **chip 483808/slow 410152 B**; vivo BM1 **499432/463000 B**, 0 violaciones. Regresión G5L/retorno/BM1 verde. Reubicar tablas de CPU en chip (135468 B) requiere espacio slow | `player/game.s`; `docs/informe-cierre-v-bm1-1009.md`, `docs/informe-p123-scroll-1010.md` |
 | 10-12 | HUD, audio, pulido | **Z1** hecho (muerte normal y reinicio; `docs/validacion-z1.md`). **H1** medido conservadoramente (`docs/medida-hud.md`; falta la alineación exacta PPU). **A1**: conversor verificado, 20 muestras / 50560 B PCM (`docs/informe-a1.md`); audio reproducido y R8 pendientes. HUD visible, punto medio, meta, game over: pendientes | — |
 | Experimental E11-E14 | Técnicas de juegos de referencia | E11a hecha: 0 cargas PF1 en franjas aptas de 15.755 frames; E11b descartada para `build_mid`. E12 descartada: 0/7 índices sin conflicto en 1.016.785 cámaras. E13 sin caso. E14a hecha; E14 descartada para estrés: 0/202 frames con las 64 filas libres (Banzai solo: 16/331). No cambia el presupuesto ni la compuerta D1 | `docs/experimentos-e11-e14.md` |
@@ -288,6 +288,10 @@ Proyecto completo ~16-18 sesiones estimadas (14-18 restantes si hay que serializ
 `docs/archivo/sesiones.md`. E11-E14, A1 y G8b son avances previos parciales
 que no cierran las tarjetas de dibujo ni reducen por sí solos la ruta crítica.
 
+G7-C (2026-10-11) cierra la referencia de colores/destinos en cinco trazas,
+pero no reduce todavía el estimado: cola y coste del renderer siguen
+pendientes. Se mantiene el rango de sesiones anterior hasta esas puertas.
+
 Lo que más mueve el estimado: viabilidad temporal del banco G3, alcance
 de la siguiente optimización OAM, G5 integrado y el pico del scroll con
 enemigos (S5). Las decisiones de 50 Hz y fidelidad permanecen vigentes.
@@ -308,7 +312,7 @@ El trabajo del usuario en la PC (U1-U3) sigue registrado en `PROXIMO.md`.
 | Índices de 16 bits con signo | escrituras 64 KB antes a partir de 32 KB | `(An,Dn.l)` con `moveq #0` antes (P40) |
 | El modelo de tiempos del copper | cargas corridas unos píxeles | calibrar con `copcal` en cada pantalla nueva (0.4, 6.1); los WAIT cuestan ranura (P39) |
 | El oráculo no cubre un caso | un sprite o una pendiente sin frames que verificar | sesión de grabación única (8.1) |
-| Chip RAM | G7_DOUBLE vivo 522.448 B chip / 511.656 B slow; márgenes 1.840/12.632 B. Incluye segundo PF1, OAM por foto y reserva 12 KiB; fuentes generadas 7.616 B, aún no cargadas. `docs/informe-g7-2-1011.md` | G7-C: resolver paleta; cargar fuentes sin duplicar reserva. Audio exige revisar presupuesto |
+| Chip RAM | G7_DOUBLE vivo 522.448 B chip / 511.656 B slow; márgenes 1.840/12.632 B. Incluye segundo PF1, OAM por foto y reserva 12 KiB; fuentes generadas 7.616 B, aún no cargadas. `docs/informe-g7-2-1011.md` | G7-3: llevar el plan exacto al render y cargar fuentes sin duplicar reserva. Audio exige revisar presupuesto |
 | La cámara vertical de YI1 | Mario se corre respecto del fondo cuando la cámara sube (`Bg1VOfs` < `$C0`) | `docs/plan-tecnico.md` §10.2b: segmentos por línea del nivel y la v de los WAIT |
 | Muestras de audio | todas las BRR son 92 KB ≈ 164 KB de PCM | solo las del tema y los efectos; bajar la frecuencia donde haga falta (`docs/plan-tecnico.md` §10.9) |
 | Lo que no cubre ningún oráculo | un camino del ROM que nadie recorrió (P69: la cámara vertical) | grabarlo con snesorc antes de darlo por verificado |
@@ -344,6 +348,16 @@ O5 es el modo por defecto (`-DNODECOUPLE` = bucle viejo); si cambia
 ---
 
 ## 7. Cierre de sesión (obligatorio)
+
+2026-10-11 (G7-C): testigo k6047 resuelto sin cambiar D8; siete sondas
+(incluidas k6046..6049 consecutivas y k6064..6066 con recargas), 1.180
+píxeles de efectos y 0 diferencias en pantalla completa, WinUAE cycle-exact. Parejas 2/3 y 6/7 detenidas,
+armado VBL y colores existentes exactos; hasta 160 B DMA dentro de la
+reserva. Negativo detectado solo en el apoyo y 19 casos de calibración
+con audio DMA verdes. Referencia offline completa en las cinco trazas:
+3.754 fotos/250.347 píxeles, 0 sin destino; 21 fotos híbridas.
+Renderer/cola G7-3 pendientes; vivo por defecto idéntico, D1 roja y ningún
+BENCH nuevo. `docs/informe-g7-c-1011.md`; instrucciones G7-3 actualizadas.
 
 2026-10-11 (G7-2): OAM de foto y fuentes verificadas en cinco trazas;
 sondas k409/k5026/k6015 exactas en WinUAE. Cota independiente de color

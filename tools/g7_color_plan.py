@@ -57,15 +57,16 @@ def transitions(required, initial, locked=(), phase_max=0):
     for r in range(1, 8):
         if r in locked:
             continue
-        uses = [(x, int(c)) for x, c in enumerate(required[r]) if c >= 0]
-        if not uses:
+        xs = np.flatnonzero(required[r] >= 0)
+        if not xs.size:
             continue
-        colors[r] = uses[0][1]
-        last, old = uses[0]
-        for x, color in uses[1:]:
-            if color != old:
-                jobs.append((last+1, x-phase_max, 0x180+2*r, color))
-            last, old = x, color
+        values = required[r, xs]
+        colors[r] = int(values[0])
+        # Solo una transicion necesita entrar en Python. La busqueda de
+        # asignaciones llama miles de veces a esta funcion por fila.
+        for i in np.flatnonzero(values[1:] != values[:-1]) + 1:
+            jobs.append((int(xs[i-1])+1, int(xs[i])-phase_max,
+                         0x180+2*r, int(values[i])))
     return jobs, colors
 
 
@@ -138,6 +139,46 @@ def schedule(jobs, start, end, capacity, row, max_states=3000, budget=None):
 def plan_line(words, row, idx, overlay, next_nb, capacity=64, phase_max=0, search_states=3000, row_states=30000):
     budget=[row_states]
     base = palette(words, row)
+    # Caso exacto sin recargas: cada pixel puede usar un indice existente
+    # distinto. No exigir un unico indice por tinta si la paleta ya cambia
+    # por X. Evita buscar cientos de asignaciones para negro/blanco comunes.
+    occupied=overlay>=0
+    if occupied.any() and len(words)+3<=capacity:
+        possible=(base==overlay[None,:])
+        possible[0]=False             # un efecto negro sigue siendo opaco
+        for phase in range(1,phase_max+1):
+            possible &= palette(words,row,phase)==overlay[None,:]
+        if np.all(np.any(possible[:,occupied],axis=0)):
+            selected=np.argmax(possible,axis=0)
+            out_idx=idx.copy();out_idx[occupied]=selected[occupied]
+            mapping=[]
+            for color in sorted(set(map(int,overlay[occupied]))):
+                for index in range(1,8):
+                    xs=np.flatnonzero(occupied&(overlay==color)&(selected==index))
+                    if xs.size:mapping.append(dict(color=color,index=index,xs=xs.tolist()))
+            return dict(words=words,indices=out_idx.tolist(),mapping=mapping,
+                        transitions=0,fixed=0,bytes=4*(len(words)+3),mode='existing'),None
+    if phase_max==0:
+        # Una cota independiente puede cerrar el rechazo antes de la DFS.
+        # Ventanas de 31 px antes del codo: siete registros y a lo sumo dos
+        # MOVE, incluso permitiendo reasignar todos los indices del terreno.
+        from g7_color_bound import certificate
+        required=np.where(occupied,overlay,base[idx,np.arange(256)])
+        live=occupied|(idx!=0)
+        seen=set()
+        for left in range(201):
+            right=left+30
+            uses={x:int(required[x]) for x in range(left,right+1) if live[x]}
+            colors=set(uses.values())
+            if len(colors)>9:
+                return None,f'cota negativa G2T-A: mas de nueve colores en x{left}..{right}'
+            if len(colors)!=9:continue
+            key=tuple((x-left,c) for x,c in uses.items()),left%8
+            if key in seen:continue
+            seen.add(key)
+            slots=[x for x in range(left,right+1) if x%8==7]
+            if not certificate(uses,slots)['feasible']:
+                return None,f'cota negativa G2T-A: nueve colores en x{left}..{right}'
     req = np.full((8, 256), -1, dtype=np.int32)
     for x, r in enumerate(idx):
         if r and overlay[x] < 0:

@@ -615,13 +615,23 @@ def bm1_checks(r):
             commands.append(([PY, 'tools/g7_double_verify.py', '--bin', dest + '/game.bin', '--lst', dest + '/game.lst'], 'G7 DOUBLE: OK'))
             commands.extend([
                 ([PY, '-m', 'unittest', 'discover', '-s', 'tools', '-p', 'test_g7_color_plan.py'], 'OK'),
+                ([PY, '-m', 'unittest', 'discover', '-s', 'tools', '-p', 'test_g7_hw_support.py'], 'OK'),
                 ([PY, 'tools/g7_sources.py'], 'G7 SOURCES: OK'),
                 ([PY, 'tools/g7_photo_verify.py', '--bin', dest + '/game.bin', '--lst', dest + '/game.lst'], 'G7 PHOTO: OK'),
                 ([PY, 'tools/g7_color_plan.py', '--bin', dest + '/game.bin', '--lst', dest + '/game.lst',
-                  '--from-k', '409', '--to-k', '409', '--out', 'work/rg_g7_color_409'], 'G7 COLOR PLAN: OK')])
+                  '--from-k', '409', '--to-k', '409', '--out', 'work/rg_g7_color_409'], 'G7 COLOR PLAN: OK'),
+                ([PY, 'tools/g7_color_probe.py', 'build', '--bin', dest + '/game.bin', '--lst', dest + '/game.lst',
+                  '--frame', '6047', '--hardware-entry', '31', '--out', 'work/rg_g7_hw_6047'], 'G7 PROBE: generada'),
+                ([PY, 'tools/g7_color_probe.py', 'build', '--bin', dest + '/game.bin', '--lst', dest + '/game.lst',
+                  '--frame', '6066', '--hardware-entry', '28', '--hardware-entry', '29',
+                  '--out', 'work/rg_g7_hw_6066'], 'G7 PROBE: generada')])
         for args, expected in commands:
             code, out = sh(args, env=probe_env, timeout=1800)
             key = 'g7_double_' + mode + '_' + os.path.basename(args[1])
+            if args[1] == '-m':
+                key += '_' + args[-1]
+            elif args[1].endswith('g7_color_probe.py'):
+                key += '_' + args[args.index('--frame')+1]
             r.logs[key] = out
             r.note(key, code == 0 and expected in out, out[-1000:])
 

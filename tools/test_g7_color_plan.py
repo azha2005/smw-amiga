@@ -57,6 +57,25 @@ class ColorPlanTests(unittest.TestCase):
         uses.update({7:7,23:8})
         self.assertFalse(certificate(uses,[7,23])['feasible'])
 
+    def test_existing_color_can_change_index_by_x(self):
+        words=self.words()+[((80+P.L.V0)<<8|0x99,0xFFFE),(0x182,0x222)]
+        idx=np.full(256,7,dtype=np.int8)
+        overlay=np.full(256,-1);overlay[10]=0x111;overlay[180]=0x222
+        plan,why=P.plan_line(words,80,idx,overlay,7)
+        self.assertIsNone(why)
+        self.assertEqual(plan['mode'],'existing')
+        self.assertEqual(plan['words'],words)
+        self.assertNotEqual(plan['indices'][10],0)
+        self.assertEqual(P.palette(words,80)[plan['indices'][180],180],0x222)
+
+    def test_independent_bound_rejects_before_search(self):
+        idx=np.zeros(256,dtype=np.int8)
+        idx[:7]=np.arange(1,8);idx[16:23]=np.arange(1,8)
+        overlay=np.full(256,-1);overlay[7]=0x888;overlay[23]=0x999
+        plan,why=P.plan_line(self.words(),80,idx,overlay,7)
+        self.assertIsNone(plan)
+        self.assertIn('cota negativa G2T-A',why)
+
 
 if __name__=='__main__':
     unittest.main()
