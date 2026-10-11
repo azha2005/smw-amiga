@@ -9,6 +9,11 @@ diferencias, el diario repone la lista byte a byte). **Sigue opt-in
 
 ## 1. Decisiones del usuario (2026-10-11)
 
+- **Criterio de fidelidad: 1:1 lo más posible; si hay que recortar, que
+  no se note**, medido contra la SNES y mostrado lado a lado. Antes de
+  sumar más costo se resuelve la arquitectura del frame (ARQ-0); el
+  usuario elige con los números.
+
 - **G7: se elige (a), el híbrido con sprites de hardware**, frente a (b)
   un presupuesto con fotos omitidas y (c) otra vía. Por ahora solo
   queda anotado; se empieza en la próxima sesión. El productor PF1 (G7-3c)
@@ -25,15 +30,19 @@ diferencias, el diario repone la lista byte a byte). **Sigue opt-in
 
 ## 2. La próxima sesión, en orden
 
+**ARQ-0 primero; lo demás en pausa hasta que el usuario elija la
+arquitectura del frame** (decisión del usuario, 2026-10-11).
+
 | tarjeta | estado / qué hacer | instrucciones |
 |---|---|---|
-| **META-R** | medir el reparto por componente en la meta (WinUAE cycle-exact) y proponer con números | `docs/instrucciones-meta-r.md` |
-| **G7-S1** | híbrido (a): especificación de efectos en sprites con su verificador de píxeles, después el 68000 | `docs/instrucciones-g7-s1.md` |
-| **REX2** | segundo Rex en los pares de Mario si Mario no ocupa sus filas: medida base, especificación (colores compartidos y orden), verificador, 68000 | `docs/instrucciones-rex2.md` |
-| **BANZAI** | presupuesto de chip exacto (qué necesita el bob, qué libera C2/C3/C4); después especificación, verificador y 68000 | `docs/instrucciones-banzai.md` |
-| G7-3, puertas | k409 físico, SW1, A/B BENCH, cycle-exact | `docs/instrucciones-g7-3-retoma.md` pasos 4-8 |
+| **ARQ-0** | vara de diferencia visible contra la SNES, medida de partida en cuatro tramos, prototipos P1 (5 planos), P2 (copper precalculado o paleta optimizada) y P3 (espiral), y el contrato del frame | `docs/instrucciones-arq-0.md` |
+| META-R | en pausa (el tramo de la meta entra en la medida de ARQ-0) | `docs/instrucciones-meta-r.md` |
+| G7-S1 | en pausa | `docs/instrucciones-g7-s1.md` |
+| REX2 | en pausa | `docs/instrucciones-rex2.md` |
+| BANZAI | en pausa | `docs/instrucciones-banzai.md` |
+| G7-3, puertas | en pausa | `docs/instrucciones-g7-3-retoma.md` pasos 4-8 |
 
-D1 sigue roja; después de G7, `docs/instrucciones-d1-opt.md`.
+D1 sigue roja; `docs/instrucciones-d1-opt.md` queda absorbida por ARQ-0 (su paso 1 es la medida de partida).
 
 ## 3. Red de seguridad y continuidad
 

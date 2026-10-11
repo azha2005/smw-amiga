@@ -164,6 +164,7 @@ mide como dice §2.
 | ID | Decisión | Qué se hace | Consecuencias | Etapa |
 |---|---|---|---|---|
 | D1 | 50 Hz o no | **cerrada (usuario, 2026-09-30): 50 Hz, haciendo todo lo posible**; "si no se puede, no se puede" | la optimización (`docs/plan-tecnico.md` §9, §10.1-10.3) va antes que todo lo que suma coste. Compuerta medida en **fotos omitidas** desde el 2026-10-05 (§2): objetivo 0; mínimo ≤ 0,1 %, racha 1, ≤ 1 cada 250 frames. Si agotadas las ideas no se llega, se le presentan al usuario los números y el plan B (dibujo a 25 Hz). **2026-10-09 [usuario]:** vista la muestra a 25 Hz ("es bastante duro perder tanta fluidez"), **se acepta el colchón de tercera lista** (latencia fija de 2 frames, +20 ms) y sigue 50 Hz; los tirones del Rex se revisan (G5L-R-T) | todas |
+| **D17** | Criterio de fidelidad y arquitectura del frame | **usuario, 2026-10-11: 1:1 lo más posible; si hay que recortar, que no se note** (medido contra la SNES con `tools/arq_diff.py` y mostrado lado a lado). Antes de sumar más costo, ARQ-0: prototipos de las palancas grandes (5 planos, copper precalculado, espiral) y contrato del frame por componente; el usuario elige | las tarjetas que suman costo quedan en pausa hasta la elección | `docs/instrucciones-arq-0.md` |
 | **D15** | Velocidad: el ROM (U) es NTSC y la Amiga va a 50 Hz | **cerrada (usuario, 2026-09-30): se acepta** el 83 % de velocidad, como la SNES PAL (`docs/plan-tecnico.md` §10.12) | nada que hacer; la música mantiene el tempo (tick por CIA) | — |
 | **D16** | ¿La zona de la tubería (`obj-1.lv`) entra en el alcance? | **cerrada (usuario, 2026-09-30): entra** (`docs/plan-tecnico.md` §10.10) | conversión de una segunda zona, tuberías y transición | 12 |
 | **D5** | Música | **secuenciador propio** que lee las secuencias N-SPC de SMW convertidas offline a un formato compacto de eventos (no MOD) | Conserva glissandos, vibrato, envolventes (ADSR aproximado por tick) y el tempo del SPC700 (tick por timer de CIA). **Sin mezcla por CPU**: cada voz va directa a un canal de Paula, 3 de música + 1 de efectos, con prioridad por tema; el eco se omite. Límites: ≤ 64 KB de muestras en chip RAM y **≤ 3 % de CPU** medido. **Verificación** (como sonic2mod de reassembler): contra el registro de escrituras al DSP de `snesorc` en la partida del oráculo, nota por nota, con un informe por tema en `docs/audio/` (SUBAGENTES A0, A3, A6, A8) | 11 |
@@ -348,6 +349,12 @@ O5 es el modo por defecto (`-DNODECOUPLE` = bucle viejo); si cambia
 ---
 
 ## 7. Cierre de sesión (obligatorio)
+
+2026-10-11 (decisiones): el usuario eligió el híbrido G7 (a), pidió
+priorizar la meta (META-R), dibujar el Banzai (BANZAI) y arreglar los dos
+Rex en las mismas filas (REX2: medido, uno queda invisible y se alternan).
+Después fijó el criterio D17 (1:1 lo más posible; recortes solo si no se
+notan) y la tarjeta **ARQ-0** primero, con las demás en pausa.
 
 2026-10-11 (G7-S0 + G7-3c): medida de efectos en sprites de hardware
 (híbrido: 0,05-0,83 filas PF1 por foto de media, 12-16 en el peor caso;

@@ -534,6 +534,7 @@ número siguiente (**la próxima es P135**).
 | **D14** | Controles | **teclado primero** (flechas, Z = B, X = A, A = Y, S = X, Return = Start, Shift der. = Select), joystick como alternativa | **cerrado** (usuario, 2026-09-26) |
 | **D15** | Velocidad (ROM NTSC en una Amiga PAL) | **se acepta el 83 %**, como la SNES PAL | **cerrado** (usuario, 2026-09-30), `docs/plan-tecnico.md` §10.12 |
 | **D16** | Zona de la tubería (`obj-1.lv`, 2 pantallas) | **entra en el alcance** | **cerrado** (usuario, 2026-09-30), `docs/plan-tecnico.md` §10.10 |
+| **D17** | Criterio de fidelidad y arquitectura del frame | **1:1 lo más posible; si hay que recortar, que no se note** (medido contra la SNES con `tools/arq_diff.py` y mostrado lado a lado). Antes de sumar más costo, ARQ-0 (prototipos de las palancas grandes y contrato del frame); el usuario elige | **cerrado** (usuario, 2026-10-11), `docs/instrucciones-arq-0.md` |
 
 ### D3 — los sprites reales de Yoshi's Island 1
 
