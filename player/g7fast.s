@@ -68,7 +68,8 @@ W_NQ    equ 4162        ; .w entradas de la cola de la fila
 W_NSP   equ 4164        ; .w tramos de fichas en la fila
 W_SPN   equ 4166        ; 32 x 4 b tramo visible de cada ficha que corta la fila: x0, x1
 W_SPW   equ 4294        ; .w suma de los anchos de W_SPN
-W_SIZE  equ 4296
+W_JL    equ 4296        ; 64 b palabras que parcha el camino corto ($ff fin)
+W_SIZE  equ 4360
 
 G7F_T0   equ -56
 G7F_IDLE equ 48
@@ -92,6 +93,7 @@ OVPX    macro
 .n\@:   addq.l  #1,a0
         addq.w  #1,d6
         endm
+
 
 ; --- g7f_render --- producir los efectos de la foto DC_REND en el PF1 libre
 ; entrada:  a2 foto, a1 banco G7S1, a5 vars (scroll)
@@ -1339,15 +1341,11 @@ g7f_v2:
         move.b  (a5)+,d2
         move.b  d0,(a2,d2.w)
         dbf     d7,.need
-        ; diario de la fila y parche en el sitio
-        moveq   #0,d0
-        move.w  W_ROW(a6),d0
-        move.l  d0,-(sp)
-        bsr     _g7b_save_row_far          ; ABI C: d2-d7/a2-a6 intactos
-        addq.l  #4,sp
-        tst.l   d0
-        bne     .full
-        lea     W_NEED(a6),a5
+        ; diario disperso (solo las palabras que cambian) y parche:
+        ; pasada 0 arma la lista, pasada 1 escribe
+        lea     W_JL(a6),a1
+        moveq   #0,d4
+.pass:  lea     W_NEED(a6),a5
         lea     W_SR(a6),a2
         move.w  d6,d7
         subq.w  #1,d7
@@ -1361,23 +1359,48 @@ g7f_v2:
         move.w  d0,d5
         lsl.w   #2,d5
         lea     6(a3,d5.w),a0              ; valor del MOVE de r (palabra 1 + r)
-        move.w  (a0),d5
+        tst.w   d4
+        bne.s   .pv
+        move.w  d0,d5
+        addq.w  #1,d5
+        move.b  d5,(a1)+
+        bra.s   .pb
+.pv:    move.w  (a0),d5
         and.w   #$f000,d5
         or.w    d1,d5
         move.w  d5,(a0)
-        add.w   d0,d0
+.pb:    add.w   d0,d0
         add.w   #$180,d0                   ; registro
         lea     36(a3),a0                  ; palabra 9
+        moveq   #9,d5
         move.w  #$84,d2
 .nop:   move.w  (a0),d1
         cmp.w   d2,d1
         beq.s   .pn
         cmp.w   d0,d1
         bne.s   .nn
-        move.l  #$01fe0000,(a0)
+        tst.w   d4
+        bne.s   .nv
+        move.b  d5,(a1)+
+        bra.s   .nn
+.nv:    move.l  #$01fe0000,(a0)
 .nn:    addq.l  #4,a0
+        addq.w  #1,d5
         bra.s   .nop
 .pn:    dbf     d7,.patch
+        tst.w   d4
+        bne.s   .emit
+        st      (a1)                       ; fin de la lista
+        pea     W_JL(a6)
+        moveq   #0,d0
+        move.w  W_ROW(a6),d0
+        move.l  d0,-(sp)
+        bsr     _g7b_save_sparse_far       ; ABI C: d2-d7/a2-a6 intactos
+        addq.l  #8,sp
+        tst.l   d0
+        bne     .full
+        moveq   #1,d4
+        bra     .pass
 .emit:  moveq   #0,d0
         cmp.w   #1,W_NS(a6)
         bne.s   .many
@@ -1592,6 +1615,8 @@ _g7b_save_row_far:
         PICJUMP _g7b_save_row
 _g7b_send_far:
         PICJUMP _g7b_send
+_g7b_save_sparse_far:
+        PICJUMP _g7b_save_sparse
 
         cnop 0,4
 g7f_w:  ds.b    W_SIZE

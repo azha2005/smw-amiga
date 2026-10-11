@@ -40,8 +40,7 @@ g7b_clean:
 .next:  cmpa.l  a3,a0
         bhs.s   .done
         moveq   #0,d0
-        move.w  (a0)+,d0
-        lsl.l   #8,d0
+        move.w  (a0)+,d0                   ; desplazamiento en CL_LINES (fila << 8 + 4 palabra)
         move.l  V_BACK(a5),a2
         adda.l  #CL_LINES,a2
         add.l   d0,a2
@@ -164,7 +163,9 @@ _g7b_save_row:
         bhi.s   .bad
         move.w  d3,(a1)
         bset    d1,(a2,d0.w)
-        move.w  d5,(a0)+
+        move.w  d5,d1
+        lsl.w   #8,d1
+        move.w  d1,(a0)+                   ; desplazamiento de la fila
         lsr.w   #2,d2
         move.w  d2,(a0)+
         subq.w  #1,d2
@@ -173,6 +174,44 @@ _g7b_save_row:
 .ok:    moveq   #0,d0
         bra.s   .out
 .bad:   moveq   #4,d0
+.out:   movem.l (sp)+,d2-d5/a2-a5
+        rts
+
+; --- _g7b_save_sparse --- guardar palabras sueltas de una fila antes de parcharlas
+; entrada: 4(sp).l fila, 8(sp).l lista de indices de palabra (bytes, $ff fin)
+; salida: d0 = 0 o 4 (capacidad agotada); un registro de 8 B por palabra
+; registros destruidos: d0-d1/a0-a1
+; ciclos: ~250 + 60 por palabra
+_g7b_save_sparse:
+        movem.l d2-d5/a2-a5,-(sp)
+        move.l  36(sp),d5
+        move.l  40(sp),a2
+.base:  lea     .base(pc),a5
+        sub.l   #.base-binstart,a5
+        adda.l  #vars-binstart,a5
+        bsr     g7b_list
+        lsl.w   #8,d5                      ; fila en CL_LINES
+        move.l  V_BACK(a5),a3
+        adda.l  #CL_LINES,a3
+        move.w  (a1),d3
+.w:     moveq   #0,d2
+        move.b  (a2)+,d2
+        cmp.b   #$ff,d2
+        beq.s   .end
+        cmp.w   #G7_SNAP_SIZE-8,d3
+        bhi.s   .bad
+        lsl.w   #2,d2
+        add.w   d5,d2                      ; desplazamiento (sin signo)
+        move.w  d2,(a0,d3.w)
+        move.w  #1,2(a0,d3.w)
+        move.l  (a3,d2.l),4(a0,d3.w)
+        addq.w  #8,d3
+        bra.s   .w
+.end:   move.w  d3,(a1)
+        moveq   #0,d0
+        bra.s   .out
+.bad:   move.w  d3,(a1)                    ; lo guardado se repone igual
+        moveq   #4,d0
 .out:   movem.l (sp)+,d2-d5/a2-a5
         rts
 

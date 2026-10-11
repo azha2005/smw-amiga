@@ -66,6 +66,8 @@ def main():
                     help='capas que implementa el 68000 (las mismas en la especificacion)')
     ap.add_argument('--out', help='informe JSON')
     ap.add_argument('--local', action='store_true', help='perfil tambien por etiqueta local')
+    ap.add_argument('--check-clean', action='store_true',
+                    help='tras cada foto, g7b_clean tiene que dejar la lista como antes de g7b_draw')
     ap.add_argument('--profile', default='',
                     help='fotos (k,k,...) con perfil por muestreo del PC cada ~200 ciclos; '
                          '"all": perfil acumulado de todas')
@@ -209,6 +211,7 @@ def main():
             assert F.check(words, new, row, idx, out, ov[row]), ('especificacion', k, row)
             expect[row] = (words, new, out, idx)
         before = cpu.read(pf, s['BUF1'])
+        list_before = cpu.read(back, s['CL_SIZE']) if a.check_clean else None
         for reg, value in ((R.A3, g.G.DATA), (R.A4, g.G.FAKE), (R.A5, g.fr.vars), (R.A7, g.V.STACK-4)):
             cpu.cpu.w_reg(reg, value)
         m.w32(g.V.STACK-4, g.V.RET)
@@ -246,6 +249,11 @@ def main():
             bad = np.flatnonzero(np.where(occ, now != out, now != idx))
             assert not bad.size, ('PF1 distinto', k, row, cam, bad[:10].tolist(),
                                   now[bad[:10]].tolist(), out[bad[:10]].tolist(), idx[bad[:10]].tolist())
+        if a.check_clean:
+            # El diario tiene que reponer la lista libre byte a byte.
+            g.fr.call(g.addr('g7b_clean'), g.G.FAKE)
+            assert cpu.read(back, s['CL_SIZE']) == list_before, ('diario no repone la lista', k)
+            st['clean_checked'] += 1
         if error:
             m.w16(g.addr('g7b_error'), 0)
             rejects.append(dict(k=k, row=fail_row))
