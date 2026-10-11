@@ -14,6 +14,9 @@ diferencias, el diario repone la lista byte a byte). **Sigue opt-in
   queda anotado; se empieza en la próxima sesión. El productor PF1 (G7-3c)
   queda para las filas que no entren en sprites. Hoy no cabe en el frame:
   YI1 p99 1,04 M ciclos sin DMA (`docs/informe-g7-3c-1011.md`).
+- **Dos Rex en las mismas filas**: hoy uno queda invisible y cuál se ve
+  cambia cada ~15 cuadros (el "flicker"). Arreglo exacto: usar los pares
+  de Mario cuando él no está en esas filas.
 - **Dibujar el Banzai Bill** (`$9F`): hoy tiene lógica pero es invisible.
   Va como bob del PF1 y primero hay que hacerle lugar en chip.
 - **Prioridad: mejorar el rendimiento al final del nivel** (zona de la
@@ -26,6 +29,7 @@ diferencias, el diario repone la lista byte a byte). **Sigue opt-in
 |---|---|---|
 | **META-R** | medir el reparto por componente en la meta (WinUAE cycle-exact) y proponer con números | `docs/instrucciones-meta-r.md` |
 | **G7-S1** | híbrido (a): especificación de efectos en sprites con su verificador de píxeles, después el 68000 | `docs/instrucciones-g7-s1.md` |
+| **REX2** | segundo Rex en los pares de Mario si Mario no ocupa sus filas: medida base, especificación (colores compartidos y orden), verificador, 68000 | `docs/instrucciones-rex2.md` |
 | **BANZAI** | presupuesto de chip exacto (qué necesita el bob, qué libera C2/C3/C4); después especificación, verificador y 68000 | `docs/instrucciones-banzai.md` |
 | G7-3, puertas | k409 físico, SW1, A/B BENCH, cycle-exact | `docs/instrucciones-g7-3-retoma.md` pasos 4-8 |
 
