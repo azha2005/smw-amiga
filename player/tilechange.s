@@ -66,8 +66,10 @@ tile_apply:
         move.b  4(a1),d0
         move.l  a3,a0
         add.l   D_MAP(a3),a0
+        ifnd    G7_DOUBLE
         cmp.b   (a0,d4.w),d0
         beq     .advance                   ; cambio repetido ya aplicado
+        endc                               ; G7: el otro PF1 aun necesita el dibujo
         move.b  d0,(a0,d4.w)
         mulu    #96,d0
         add.l   a3,d0

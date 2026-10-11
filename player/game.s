@@ -67,6 +67,21 @@ DECOUPLE    equ 1
         endc
         endc
 
+        ifd     G7_DOUBLE
+        ifnd    BM_FIXED
+        fail    "G7_DOUBLE requiere BM_FIXED (presupuesto medido sin Exec)"
+        endc
+        ifnd    DECOUPLE
+        fail    "G7_DOUBLE requiere O5"
+        endc
+        ifnd    CUSHION
+        fail    "G7_DOUBLE requiere CUSHION"
+        endc
+        ifnd    G7_RESERVE
+G7_RESERVE equ 1
+        endc
+        endc
+
 ; G5L (player/g5l.s): el Rex en los sprites 4-7 con el plan de color por
 ; filas. Usa el layout de lista de G2T (segmento de 256 B y bloque VBL de
 ; scroll.s, -DSPR_G5) pero no el codigo B2bis (g5env) ni el C de G5.
@@ -433,6 +448,22 @@ entry:
         tst.l   d0
         beq     gfail
         move.l  d0,V_BUF1(a5)
+        ifd     G7_DOUBLE
+        lea     g7_original(pc),a0
+        move.l  d0,(a0)
+        endc
+        ifd     G7_RESERVE
+        ; G7-0: reserva real para comprobar la arena antes de conectar
+        ; el segundo PF1 al render, mas 12 KiB para fuentes/mascaras.
+        ; PF1 solo se usa con G7_DOUBLE; G7-2 debe respetar el tope de fuentes.
+        move.l  #BUF1+12288,d0
+        move.l  #MEMF_CHIP,d1
+        GALLOC
+        tst.l   d0
+        beq     gfail
+        lea     g7_pf1(pc),a0
+        move.l  d0,(a0)
+        endc
         move.l  #CL_SIZE+CL_TAIL,d0         ; (+ la cola del diagnostico)
         move.l  #MEMF_CHIP|MEMF_CLEAR,d1
         GALLOC
@@ -2095,6 +2126,9 @@ cam_s:
 ; cola que pide la COPER
 ; registros destruidos: d0-d2/a0-a2
 dc_init:
+        ifd     G7_DOUBLE
+        bsr     g7_init
+        endc
         move.l  d7,-(sp)
         lea     dc_st(pc),a2
         moveq   #-1,d0
@@ -2296,12 +2330,14 @@ dc_loop:
         moveq   #0,d0
         move.b  R_COIN(a0),d0
         bsr     coin_prepare
+        ifnd    G7_DOUBLE
         FBSR    columns
         lea     dc_st(pc),a2
         move.w  DC_REND(a2),d0
         bsr     dc_recp
         move.w  R_TSEQ(a0),d7
         bsr     tile_apply                  ; hasta la foto elegida, incluso si salto otras
+        endc
         ifd     BENCH
         GBR     7
         endc
@@ -2345,9 +2381,31 @@ dc_loop:
         GBR     17
         endc
         endc
+        ifd     G7_DOUBLE
+        ; Preparar la lista libre aprovecha el colchon sin escribir PF1.
+        ; Solo al terminar se espera a que VERTB libere el anillo.
+        ifd     BENCH
+        GBR     18
+        endc
+        bsr     g7_select                  ; DC_REND sigue siendo la foto tomada
+        bsr     g7_columns
+        lea     dc_st(pc),a2
+        move.w  DC_REND(a2),d0
+        bsr     dc_recp
+        move.w  R_TSEQ(a0),d7
+        bsr     tile_apply
+        FBSR    set_pointers               ; lint: targets set_pointers
+        ifd     BENCH
+        GBR     19
+        endc
+        endc
         lea     dc_st(pc),a2
         move.w  DC_REND(a2),d7
         bsr     dc_hdr
+        ifd     G7_DOUBLE
+        bsr     g7_save
+        bsr     bwait                      ; nunca publicar un blit pendiente
+        endc
         ifd     G5_PRE
         GETBASE a0
         add.l   #g5_emit-binstart,a0
@@ -2393,6 +2451,139 @@ dc_loop:
         bsr     gb_rnd_end                  ; d7 = la foto
         endc
         bra     dc_loop
+
+        ifd     G7_DOUBLE
+; --- g7_columns --- alcanzar la camara por columnas, no ventanas completas
+; entrada: a3 datos, a4 CUSTOM, a5 vars; cursores del anillo seleccionado
+; salida: V_S conservada, columnas intermedias actualizadas; ultimo blit pendiente
+; registros destruidos: d0-d3/d6-d7/a0-a2
+; ciclos: medir A/B WinUAE; evita draw_window para saltos menores que SLOTS
+g7_columns:
+        movem.l d4-d5,-(sp)
+        move.w  V_S(a5),d4
+        move.w  d4,d5
+        subq.w  #1,d5
+        asr.w   #4,d5
+.next:  move.w  V_P(a5),d0
+        cmp.w   d5,d0
+        beq.s   .final
+        move.w  d5,d1
+        sub.w   d0,d1
+        cmp.w   #SLOTS,d1
+        bge.s   .final                     ; salto real de ventana: ruta original
+        cmp.w   #-SLOTS,d1
+        ble.s   .final
+        tst.w   d1
+        bmi.s   .left
+        addq.w  #1,d0
+        bra.s   .step
+.left:  subq.w  #1,d0
+.step:  lsl.w   #4,d0
+        addq.w  #1,d0
+        move.w  d0,V_S(a5)
+        FBSR    columns                    ; lint: targets columns
+        cmp.w   V_P(a5),d5
+        beq.s   .restore
+        bra.s   .next
+.final: move.w  d4,V_S(a5)
+        FBSR    columns                    ; lint: targets columns
+.restore:
+        move.w  d4,V_S(a5)
+        movem.l (sp)+,d4-d5
+        rts
+
+; --- g7_init --- clonar PF1 de arranque y estado de los dos anillos
+; entrada: a4 CUSTOM, a5 vars; scroll_init ya reconstruyo el PF1 actual
+; salida: dos PF1 iguales, las tres listas conservan el PF1 actual
+; registros destruidos: d0-d1/a0-a1
+; ciclos: ~444006, solo arranque/reinicio (Musashi, sin DMA)
+g7_init:
+        movem.l d2-d3/a2,-(sp)
+        bsr     bwait
+        move.l  V_BUF1(a5),a0
+        move.l  g7_original(pc),a1
+        cmpa.l  a0,a1
+        bne.s   .dest
+        move.l  g7_pf1(pc),a1
+.dest:  move.w  #BUF1/4-1,d0
+.copy:  move.l  (a0)+,(a1)+
+        dbf     d0,.copy
+        lea     g7_lists(pc),a0
+        move.l  V_BUF1(a5),(a0)+
+        move.l  V_BUF1(a5),(a0)+
+        move.l  V_BUF1(a5),(a0)
+        lea     g7_state(pc),a1
+        moveq   #1,d2
+        GETBASE a0
+.state: move.w  V_P(a5),(a1)+
+        move.w  V_CCOL(a5),(a1)+
+        move.w  V_CBLK(a5),(a1)+
+        move.w  _tile_read(a0),(a1)+
+        dbf     d2,.state
+        movem.l (sp)+,d2-d3/a2
+        rts
+
+; --- g7_select --- tomar el PF1 que libera VERTB, con la foto ya fijada
+; entrada: DC_REND tomado; a4 CUSTOM, a5 vars
+; salida: V_BUF1 y cursores de columnas/mapa del PF1 libre
+; registros destruidos: d0-d1/a0-a1
+; ciclos: ~312 sin espera (Musashi); espera VBL medida por fotos omitidas
+g7_select:
+.wait:  move.w  dc_st+DC_PEND(pc),d0
+        bpl.s   .wait                      ; IRQ sigue habilitada; logica a 50 Hz
+        move.l  dc_st+DC_FLIST(pc),d0
+        lea     g7_lists(pc),a0
+        cmp.l   V_COP(a5),d0
+        beq.s   .front
+        addq.l  #4,a0
+        cmp.l   V_COP2(a5),d0
+        beq.s   .front
+        addq.l  #4,a0
+.front: move.l  (a0),d1
+        move.l  g7_original(pc),d0
+        cmp.l   d0,d1
+        bne.s   .a
+        move.l  g7_pf1(pc),d0
+        moveq   #8,d1
+        bra.s   .use
+.a:     moveq   #0,d1
+.use:   move.l  d0,V_BUF1(a5)
+        lea     g7_active(pc),a0
+        move.w  d1,(a0)
+        lea     g7_state(pc),a1
+        add.w   d1,a1
+        move.w  (a1)+,V_P(a5)
+        move.w  (a1)+,V_CCOL(a5)
+        move.w  (a1)+,V_CBLK(a5)
+        GETBASE a0
+        move.w  (a1),_tile_read(a0)
+        rts
+
+; --- g7_save --- guardar cursores y asociar V_BACK con el PF1 elegido
+; entrada: a5 vars; todas las columnas/cambios de la foto aplicados
+; salida: estado del anillo y propiedad de la lista actualizados
+; registros destruidos: d0-d1/a0-a1
+; ciclos: ~208 (Musashi, sin DMA)
+g7_save:
+        move.w  g7_active(pc),d0
+        lea     g7_state(pc),a1
+        add.w   d0,a1
+        move.w  V_P(a5),(a1)+
+        move.w  V_CCOL(a5),(a1)+
+        move.w  V_CBLK(a5),(a1)+
+        GETBASE a0
+        move.w  _tile_read(a0),(a1)
+        move.l  V_BACK(a5),d0
+        lea     g7_lists(pc),a0
+        cmp.l   V_COP(a5),d0
+        beq.s   .list
+        addq.l  #4,a0
+        cmp.l   V_COP2(a5),d0
+        beq.s   .list
+        addq.l  #4,a0
+.list:  move.l  V_BUF1(a5),(a0)
+        rts
+        endc
 
         ifnd    REPLAY
 ; --- dc_restart --- carga del demo tras la muerte (overworld fuera de alcance)
@@ -2898,8 +3089,17 @@ gb_rnd_end:
         move.w  R_S(a2),d5
         lea     gb_t(pc),a0
         move.w  gb_ovr(pc),d2
+        ifd     G7_DOUBLE
+        GBD     18,19                       ; espera PF1 + columnas + diario + punteros
+        move.w  d1,d6
+        GBD     6,7                         ; tambien preparacion de fuentes
+        add.w   d6,d1
+        move.w  d2,d3
+        add.w   d3,d3                       ; dos intervalos, dos costes de sello
+        else
         GBD     6,7                         ; columns
         move.w  d2,d3
+        endc
         bsr     gb_sub
         moveq   #3,d0
         bsr     gb_upd2
@@ -2910,6 +3110,21 @@ gb_rnd_end:
         moveq   #4,d0
         bsr     gb_upd2
         lea     gb_t(pc),a0
+        ifd     G7_DOUBLE
+        GBD     18,19
+        move.w  d2,d3
+        bsr     gb_sub
+        move.w  d1,d6
+        GBD     9,10                        ; descontar columnas ya contadas
+        move.w  d2,d3
+        bsr     gb_sub
+        sub.w   d6,d1
+        move.w  d1,d6
+        GBD     7,8
+        move.w  d2,d3
+        bsr     gb_sub
+        add.w   d6,d1
+        else
         GBD     7,8                         ; resto: apply_colors,
         move.w  d2,d3                       ; set_pointers, dc_hdr, publicar
         bsr     gb_sub
@@ -2918,6 +3133,7 @@ gb_rnd_end:
         move.w  d2,d3
         bsr     gb_sub
         add.w   d6,d1
+        endc
         moveq   #5,d0
         bsr     gb_upd2
         lea     gb_t(pc),a0
@@ -2934,9 +3150,17 @@ gb_rnd_end:
         GBD     6,11                        ; el render: sellos 7-11
         move.w  d2,d3
         ifd     SPR_G5
+        ifd     G7_DOUBLE
+        mulu    #9,d3                       ; tambien sellos 18 y 19
+        else
         mulu    #7,d3                       ; tambien sellos 16 y 17
+        endc
+        else
+        ifd     G7_DOUBLE
+        mulu    #7,d3
         else
         mulu    #5,d3
+        endc
         endc
         bsr     gb_sub
         add.w   R_ISR(a2),d1                ; + la logica de la misma foto
@@ -3075,10 +3299,14 @@ gb_show:
 
         even
 gb_t:
+        ifd     G7_DOUBLE
+        ds.w   20
+        else
         ifd     SPR_G5
         ds.w   18
         else
         ds.w   14
+        endc
         endc
 gb_res:  ds.w   3*GB_NP
 gb_out:  ds.l   GB_ROWS
@@ -3893,6 +4121,15 @@ lt_sig: dc.b    "TDLOAD!!"
 gfxname: dc.b   "graphics.library",0
         even
 vars:   ds.b    V_SIZE
+        ifd     G7_RESERVE
+g7_pf1: dc.l 0
+        endc
+        ifd     G7_DOUBLE
+g7_original: dc.l 0
+g7_lists: ds.l 3
+g7_state: ds.w 8
+g7_active: dc.w 0
+        endc
         even
 
 ;----------------------------------------------------------------------
@@ -3908,7 +4145,25 @@ gfx32:  incbin  "work/cc/gfx32.bin"
 gfx32f: incbin  "work/cc/gfx32f.bin"        ; con los bits al reves (volteo)
         even
         cnop    0,4
-replay: incbin  "work/yi1_replay.bin"       ; en vivo: solo el primer estado
+        ifnd    REPLAY
+        ifnd    PADTEST
+LIVE_SEED equ 1                            ; el vivo no consume los ops siguientes
+        endc
+        endc
+replay:
+        ifd     LIVE_SEED
+g_live_seed:
+        incbin  "work/yi1_seed.bin"
+        else
+        incbin  "work/yi1_replay.bin"
+        endc
+        ifd     LIVE_SEED
+G7_CPUCHG equ 1
+        else
+        ifd     G7_RESERVE
+G7_CPUCHG equ 1
+        endc
+        endc
         cnop    0,4
         ifd     SPR_BANK
 ; El loader G3 va detras de todo. Antes de entry alargaba el tramo entre el
@@ -4075,14 +4330,22 @@ bm_alloc:
 .fail:  moveq   #0,d0
         bra.s   .done
 
-; --- bm_cpu_tail --- sacar LNS y tablas finales de la chip (SW)
+; --- bm_cpu_tail --- sacar tablas finales solo de CPU de la chip (SW/G7)
 ; entrada: a3 = SMWS recién leído, d2 = longitud redondeada a sector
-; salida: d0 = 1; 0 sin slow suficiente. D_* apuntan a la copia CPU.
+; salida: d0 = 1; 0 sin slow suficiente o layout incompatible. D_* reparados.
 ; registros destruidos: d0-d1/a0-a1
 ; ciclos: sólo al cargar; medidos por tools/cputail_verify.py
 bm_cpu_tail:
         movem.l d2-d7/a2-a6,-(sp)
         move.l  D_LNS(a3),d3               ; todo desde LNS es sólo de CPU
+        ifd     G7_CPUCHG
+        move.l  D_CHG(a3),d3               ; G7-0: CHG precede a LNS en el archivo
+        cmp.l   D_MLD(a3),d3               ; nunca migrar un blob del orden viejo
+        bhi.s   .layout_ok
+        moveq   #0,d0
+        bra     .out
+.layout_ok:
+        endc
         sub.l   d3,d2
         move.l  d2,d0
         move.l  #MEMF_FAST,d1
@@ -4107,6 +4370,24 @@ bm_cpu_tail:
         ifd     D_TCHG
         add.l   d4,D_TCHG(a3)
         endc
+        ifd     G7_CPUCHG
+        add.l   d4,D_CHG(a3)
+        ; D_COIN contiene offsets relativos a a3: reparar las fuentes
+        ; que se movieron junto con CHG, sin tocar INI ni MLD.
+        move.l  a3,a1
+        add.l   D_COIN(a3),a1
+        move.w  16(a1),d7
+        lea     24(a1),a1
+        subq.w  #1,d7
+        bmi.s   .coin_done
+.coin:  cmp.l   (a1),d3
+        bhi.s   .coin_next
+        add.l   d4,(a1)
+.coin_next:
+        addq.l  #4,a1
+        dbf     d7,.coin
+.coin_done:
+        endc
         lea     bm_chipcur(pc),a0
         move.l  a3,d0
         add.l   d3,d0
@@ -4114,6 +4395,9 @@ bm_cpu_tail:
         moveq   #1,d0
 .out:   movem.l (sp)+,d2-d7/a2-a6
         rts
+        ifd     G7_CPUCHG
+bm_cpu_chg_patch:
+        endc
 bm_tail_end:
 g_cpu_tail: dc.l 0
         cnop    0,4

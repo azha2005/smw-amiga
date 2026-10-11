@@ -1753,6 +1753,9 @@ class GameRun:
         mem.w32(addr('g5l_rbuf'), self.RBUF)
         cpu.call(addr('replay_init'), B)
         self.fr = fr = G.Frames(cpu, B, s, Path('work/yi1_s_g5.dat').read_bytes())
+        if 'g7_original' in s:
+            mem.w32(addr('g7_original'), G.BUF1)
+            mem.w32(addr('g7_pf1'), 0x180000)
         self.first, self.n = mem.r16(addr('replay') + 6), mem.r16(addr('replay') + 4)
         cpu.call(addr('game_step'), B)
         self.cops = (G.COPA, G.COPB)

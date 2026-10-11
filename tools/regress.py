@@ -573,12 +573,51 @@ def bm1_checks(r):
     for args, expected in [
         ([PY, 'tools/mfm_verify.py', '--bin', out_dir + '/boot_bm.bin', '--lst', out_dir + '/boot_bm.lst'], 'MFM: OK'),
         ([PY, 'tools/memmap.py', '--selftest'], 'selftest: OK'),
+        ([PY, 'tools/replay_seed.py', '--selftest'], 'LIVE SEED: selftest OK'),
         ([PY, 'tools/memmap.py', out_dir + '/game.lst', '--data', 'work/yi1_s_g5.dat'], 'memmap: 0 violaciones'),
+        ([PY, 'tools/cputail_verify.py', '--bin', out_dir + '/game.bin', '--lst', out_dir + '/game.lst'], 'CPUTAIL: OK'),
         ([PY, 'tools/restart_verify.py', '--dir', out_dir], 'CUSHION vivo: tres listas, diagnostico/retorno OK')]:
         code, out = sh(args, env=env, timeout=1800)
         key = 'bm1_' + os.path.basename(args[1]) + ('_selftest' if '--selftest' in args else '')
         r.logs[key] = out
         r.note(key, code == 0 and expected in out, out[-1000:])
+
+    # G7-0: reservar de verdad el segundo PF1, en vivo y replay BM1.
+    # Solo ensamblar: reutilizar el C SPR_OAM que se acaba de comprobar.
+    for mode, defs in [('live', '-DG7_RESERVE'), ('replay', '-DREPLAY -DG7_RESERVE')]:
+        dest = 'work/rg_g7_memory_' + mode
+        probe_env = dict(env, OUT=dest, GDEFS=defs, NOCC='1')
+        code, out = sh(['sh', 'tools/bm_build.sh'], env=probe_env, timeout=1800)
+        r.logs['g7_memory_build_' + mode] = out
+        r.note('G7 memoria build ' + mode, code == 0, dest)
+        if code:
+            continue
+        for args, expected in [
+            ([PY, 'tools/memmap.py', dest + '/game.lst', '--data', 'work/yi1_s_g5.dat'], 'memmap: 0 violaciones'),
+            ([PY, 'tools/cputail_verify.py', '--bin', dest + '/game.bin', '--lst', dest + '/game.lst'], 'CPUTAIL: OK')]:
+            code, out = sh(args, env=probe_env, timeout=1800)
+            key = 'g7_memory_' + mode + '_' + os.path.basename(args[1])
+            r.logs[key] = out
+            r.note(key, code == 0 and expected in out, out[-1000:])
+
+    for mode, defs in [('live', '-DG7_DOUBLE'), ('replay', '-DREPLAY -DG7_DOUBLE')]:
+        dest = 'work/rg_g7_double_' + mode
+        probe_env = dict(env, OUT=dest, GDEFS=defs, NOCC='1')
+        code, out = sh(['sh', 'tools/bm_build.sh'], env=probe_env, timeout=1800)
+        r.logs['g7_double_build_' + mode] = out
+        r.note('G7 doble build ' + mode, code == 0, dest)
+        if code:
+            continue
+        commands = [([PY, 'tools/memmap.py', dest + '/game.lst', '--data', 'work/yi1_s_g5.dat'], 'memmap: 0 violaciones')]
+        if mode == 'live':
+            commands.append(([PY, 'tools/restart_verify.py', '--dir', dest], 'CUSHION vivo: tres listas, diagnostico/retorno OK'))
+        else:
+            commands.append(([PY, 'tools/g7_double_verify.py', '--bin', dest + '/game.bin', '--lst', dest + '/game.lst'], 'G7 DOUBLE: OK'))
+        for args, expected in commands:
+            code, out = sh(args, env=probe_env, timeout=1800)
+            key = 'g7_double_' + mode + '_' + os.path.basename(args[1])
+            r.logs[key] = out
+            r.note(key, code == 0 and expected in out, out[-1000:])
 
 
 def memmap_checks(r):

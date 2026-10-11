@@ -265,10 +265,14 @@ def main():
                     coin_initial.add(struct.unpack_from('>H', secs[section], pos // 8 * 8 + 2)[0])
     head = b"SMWS" + struct.pack(">HHHHH", W, cols, d["nblk"], d["sky"], len(chg))
     off = len(head) + 2 + 4 * 11
-    offs = []
-    for s in secs:
+    # G7-0: CHG es solo de CPU. Junto a la cola permite recuperarla
+    # en BM1 vivo; los indices logicos y las fuentes de D_COIN se conservan.
+    order = [0, 1, 2, 4, 5, 6, 7, 3, 8, 9]
+    offs = [0] * len(secs)
+    for index in order:
+        s = secs[index]
         off = (off + 7) & ~7
-        offs.append(off)
+        offs[index] = off
         off += len(s)
     # +52 D_COIN (SW-M) y +56 D_TCHG (SW-B), al final de la cabecera.
     from palette import COIN_ANIM, snes_to_amiga12
@@ -279,7 +283,8 @@ def main():
     coin += b''.join(struct.pack('>H', L * 32) for L in sorted(set(coin_rows)))
     coin_off = (off + 7) & ~7
     out = bytearray(head + b"\0\0" + struct.pack(">11I", *offs[:9], coin_off, offs[9]))
-    for o, s in zip(offs, secs):
+    for index in order:
+        o, s = offs[index], secs[index]
         out += bytes(o - len(out)) + s
     out += bytes(coin_off - len(out)) + coin
     print('SW-M: %d palabras de origen CGRAM $64, %d filas, tabla %d B'

@@ -282,7 +282,7 @@ original del 2026-09-30, ola por ola, está textual en
 | SW-B | **hecha (2026-10-10), opcional** | diario C + `tilechange.s` + `D_TCHG` (+56); `tilechange_verify` 33/33, 0 px. Reservas de color: `build_mid.max` +836 → `SW_TILES=1`. Falta barrida `turn_block` y A/B. `docs/informe-sw-b-1010.md` |
 | SW-Q | **integrada (2026-10-10), activa** | OAM del `$83` y power-ups (`swq68k.s`), G5L con sus formas; capturas k 1199/1249/1299 a 0 px; regresión y OAM68K OK. Pendiente: Rex 3770 de `pw_flor` (L-DER), estrella real, A/B. `docs/informe-sw-q-recuperacion-1010.md` |
 | SW-S | **lógica y OAM hechas (2026-10-10)**; dibujo por bobs (G7, usuario 2026-10-10) | los tres motores en asm, activos; RAM y OAM exactas contra la SNES en yi1 y 4 grabaciones (`tools/sws_gate.sh`); A/B BENCH 202 → 217 fotos. Falta el dibujo, por G7. `docs/informe-sw-s-1010.md` |
-| G7 | **siguiente**: primero los efectos de SW-S | G7-0 memoria (segundo PF1: faltan ≥ 17 KB de chip en el vivo), doble PF1, fuentes y color, cola de bobs. `docs/instrucciones-g7.md` |
+| G7 | **G7-0 hecha; G7-1 implementada opt-in** | memoria reservada y comprobada; preparar antes de esperar: SW1 126 pares / 0 píxeles, BENCH final 217 → 269. Faltan fuentes/color/cola. `docs/instrucciones-g7-1.md`, `docs/informe-g7-1010.md` |
 | D1, optimizar | en paralelo o después de G7 | con todo activado, 217 fotos perdidas; perfil de los tramos tarde y A/B por cambio. `docs/instrucciones-d1-opt.md` |
 | G4-3 | aparcada | Rex en los pares de Mario fuera de sus filas (cota G4-1 §3); solo con G4-2 activado. `docs/instrucciones-g4-3.md` |
 | G5L-R-V | **hecha (2026-10-09)** | teclado real KS 1.2/1.3, historial reproducido, RETURN; defecto G5L+CUSHION+SPR_OAM en `53e6453`. `docs/informe-cierre-v-bm1-1009.md` |

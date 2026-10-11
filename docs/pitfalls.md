@@ -1321,3 +1321,20 @@ en el C, mirar la fecha de `work/libport.so` antes de buscar el error.
 - **La puerta `sws_cmp.py` excluye el primer frame bloqueado con una
   animación no portada** (un RUN seguido de SKIP en el replay: la tubería
   de yi1, f11425). La SNES pone `$9D` a mitad del frame y el port no.
+
+**P132 — G7: offsets anidados y dos PF1 con tres listas.**
+
+Mover CHG a slow no termina al corregir D_CHG: D_COIN contiene offsets
+relativos a la base SMWS que apuntan a palabras de INI/CHG/MLD. Reparar
+solo las fuentes del tramo migrado, conservando las que siguen en chip.
+`cputail_verify.py` ejecuta `coin_prepare` y comprueba las 143 fuentes.
+Un blob anterior tiene CHG antes de L2B: no migrarlo como cola CPU;
+`game_build.sh` lo regenera y el 68000 rechaza el layout incompatible.
+
+CUSHION mantiene visible, pendiente y render en tres listas. Dos PF1
+no se asignan por paridad de lista: tomar DC_REND, esperar DC_PEND libre
+con IRQ habilitada y elegir el PF1 opuesto al de DC_FLIST. Tomar una foto
+nueva después de la espera cambia el desfase de publicación. Cada PF1
+necesita V_P/V_CCOL/V_CBLK y `_tile_read` propios; D_MAP ya actualizado
+no implica que el otro PF1 esté dibujado. `g7_double_verify.py` cubre
+propiedad, espera/VBL y cursores; las capturas y BENCH cubren imagen y coste.

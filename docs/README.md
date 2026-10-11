@@ -21,6 +21,8 @@
 
 | documento | qué |
 |---|---|
+| `instrucciones-g7-1.md` | doble PF1: corregir SW1 k4599, propiedad y coste antes de los bobs |
+| `instrucciones-g7-2.md` | continuación de G7: OAM de foto, fuentes/color exactos y cola de efectos sobre doble PF1 |
 | `plan-tecnico.md` | cómo hacer lo que falta: optimización (§9), cada bloque pendiente (§10), más allá de YI1 (§11). Escrito el 2026-09-30; sus números de estado son de esa fecha |
 | `pitfalls.md` | texto completo de las trampas P1-P109 (índice en `AGENTS.md` §8) |
 | `formato-nivel.md` | assets, formato `.lv`, Map16, tileset, paletas, comparación contra la referencia |
@@ -38,6 +40,7 @@
 
 | documento | fecha | qué |
 |---|---|---|
+| `informe-g7-1010.md` | 2026-10-10 | memoria G7-0 y prototipo de doble PF1 G7-1; reservas, pruebas y preflight de color |
 | `informe-sw-m-retoma-1010.md` | 2026-10-10 | recuperación SW-M, ocho amarillos corregidos, cola CPU BM1 y puertas pendientes |
 | `informe-sw-d-retoma-1010.md` | 2026-10-10 | diagnóstico de los cinco píxeles BG1: derrames del asignador; herramienta por píxel recuperada |
 | `informe-sw-ap-1010.md` | 2026-10-10 | SW-A (postes) y SW-P (prioridad de la piraña): hechas, opcionales; costes de copper y de D1 |

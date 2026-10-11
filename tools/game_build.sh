@@ -111,6 +111,20 @@ if grep -q '^_rex_gfx' work/cc/msprite.code.s; then CC_SPR=1; else CC_SPR=0; fi
 [ -f work/cc/spr.lv ] || cp ../smw-src-master/project/mw_e10/levels/data/world_1/1/spr.lv work/cc/spr.lv
 [ -f work/yi1_s.dat ] || $PY tools/mkscroll.py
 [ "$YDAT" = work/yi1_s.dat ] || [ -f "$YDAT" ] || $PY tools/mkscroll.py --g5
+# G7-0 cambio el orden fisico (no los offsets de cabecera). Un work/
+# anterior puede existir: regenerarlo antes de que BM1 migre CHG a slow.
+if ! $PY - "$YDAT" <<'PY'
+import struct
+import sys
+from pathlib import Path
+raw = Path(sys.argv[1]).read_bytes()
+offsets = struct.unpack_from('>9I', raw, 16)
+sys.exit(0 if offsets[3] > max(offsets[4:8]) and offsets[3] < offsets[8] else 1)
+PY
+then
+    if [ "$YDAT" = work/yi1_s_g5.dat ]; then $PY tools/mkscroll.py --g5
+    else $PY tools/mkscroll.py; fi
+fi
 [ -f work/cc/gfx32f.bin ] && [ -f work/cc/mario_pal.bin ] || $PY tools/mkmario.py
 REPLAY_KEY=$($PY - "$ORACLE" work/logicbench.bin <<'PY'
 import hashlib
@@ -125,6 +139,10 @@ if [ ! -f "$REPLAY" ] || [ ! -f "$REPLAY.oracle" ] || [ "$(cat "$REPLAY.oracle")
     printf '%s\n' "$REPLAY_KEY" > "$REPLAY.oracle"
 fi
 HARNESS=player/game.s
+case " $GDEFS " in
+    *" -DREPLAY "*|*" -DPADTEST "*) ;;
+    *) $PY tools/replay_seed.py "$REPLAY" work/yi1_seed.bin ;;
+esac
 if [ "$REPLAY" != work/yi1_replay.bin ]; then
     # Fuente temporal, como logicbench PROF: no modificar el replay normal
     # ni player/game.s. Los otros includes conservan sus rutas originales.

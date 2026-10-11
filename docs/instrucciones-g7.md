@@ -28,7 +28,7 @@ infraestructura.
 - O5 (render desacoplado) con tres buffers de foto; el render es el único
   dueño del blitter (`diseno-9.2.md` §4).
 
-## El problema de memoria (medido el 2026-10-10, `bm1_memmap.py`)
+## Memoria inicial (histórica, antes de G7-0)
 
 El diseño elige **doble buffer de PF1** (+59 136 B de chip) para no tocar la
 imagen publicada cuando O5 repite un frame. En el vivo por defecto (BM1):
@@ -43,7 +43,11 @@ máscaras de los bobs y las listas de regiones sucias. En chip hay
 94 904 B que solo lee la CPU (`CHG` 31 208, `MLD` 52 168, `MAP`, `INI`,
 `L2P`, `MLX`), pero la slow está llena: el binario fijo ocupa 407 820 B.
 
-## Pasos
+G7-0 ya está implementada; las medidas actuales y las puertas negativas
+de G7-1 están en `informe-g7-1010.md`. Continuar por
+`instrucciones-g7-1.md`; después, `instrucciones-g7-2.md`.
+
+## Pasos del diseño original
 
 1. **G7-0, memoria.** Conseguir ≥ 59 136 B + fuentes de chip libre en el
    vivo, sin bajar la fidelidad. Medir antes de elegir; candidatos:
@@ -55,7 +59,7 @@ máscaras de los bobs y las listas de regiones sucias. En chip hay
      distribuye, o sus pantallas en el PF1 libre;
    - las tres listas del copper (3 × 57 756 B): ver si la tercera (el
      colchón, aceptado por el usuario el 2026-10-09) puede compartir algo.
-   Puerta: `bm1_memmap.py` con el segundo PF1 reservado y 0 violaciones;
+   Puerta: `tools/memmap.py` con el segundo PF1 reservado y 0 violaciones;
    la regresión sin cambios de fidelidad. **Si ninguna opción alcanza sin
    tocar algo visible, consultar al usuario antes de seguir.**
 2. **G7-1, doble PF1 sin bobs.** Las dos copias del anillo de PF1 (columnas
@@ -86,7 +90,7 @@ máscaras de los bobs y las listas de regiones sucias. En chip hay
      exactas en las cajas de los efectos;
    - A/B BENCH de D1 (control `-DNOSWS`, que tiene que apagar también la
      cola de efectos);
-   - `bm1_memmap.py`, regresión, lint, `sws_gate.sh`, `oam68k_gate.sh`.
+   - `tools/memmap.py`, regresión, lint, `sws_gate.sh`, `oam68k_gate.sh`.
 6. **Después (otra tarjeta):** el Banzai Bill y los desbordes de G5L por la
    misma cola.
 

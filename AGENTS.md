@@ -372,7 +372,7 @@ En español. Cada rutina de hardware (blitter/copper) lleva arriba:
 Índice, una línea por trampa. **El texto completo (causa, síntoma, arreglo y
 comandos) está en `docs/pitfalls.md`, textual**: leer ahí las del área que se
 toca antes de cambiar nada. Una trampa nueva se agrega allí y aquí con el
-número siguiente (**la próxima es P132**).
+número siguiente (**la próxima es P133**).
 
 - **P1** El layout de paletas de SMW no es un array 8×16. ✅ RESUELTO
 - **P2** El blitter tiene prioridad sobre la CPU y la "roba" ciclos
@@ -507,6 +507,7 @@ número siguiente (**la próxima es P132**).
 - **P129** La regresión armaba el vivo G5L con arranque Exec (sin `-DBM_FIXED`): medía chip de un vivo que no se distribuye
 - **P130** El replay saltaba el primer frame bloqueado ($71/$9D): la deriva de la lógica de G9 venía de ahí (`--lock run`); el Koopa de snesorc (`-DLSS_SNESORC`), los `poke` y la ficha $0C de Mario
 - **P131** En Windows `regress.py` no recompilaba `work/libport.so`: el cruce PC=68000 usaba el C viejo; C que llama a asm lejano (SW-S) y la exclusión de la tubería en `sws_cmp.py`
+- **P132** G7: D_COIN contiene offsets anidados; al mover CHG hay que repararlos. Con CUSHION, dos PF1 requieren esperar a la liberación del VBL después de tomar la foto
 
 ---
 

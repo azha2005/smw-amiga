@@ -27,6 +27,9 @@ def main():
     c.mem.w16(0xDFF016, 0xFFFF)
     B = G.code_base(len(code))
     c.write(B, code)
+    if 'g7_original' in s:
+        c.mem.w32(B + s['g7_original'], G.BUF1)
+        c.mem.w32(B + s['g7_pf1'], 0x1C0000)
     R = c.M.Register
 
     def addr(n):

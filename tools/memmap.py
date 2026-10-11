@@ -421,7 +421,8 @@ def build_model(L, data=None, adf=None, data_len=None):
         classify(L, m, addr, size, flags, mem, d0, dest, data)
     if fixed:
         if L.has('g_cpu_tail') and data is not None:
-            start = struct.unpack_from('>I', data, L.sym('D_LNS'))[0]
+            split_sym = 'D_CHG' if L.has('bm_cpu_chg_patch') else 'D_LNS'
+            start = struct.unpack_from('>I', data, L.sym(split_sym))[0]
             for b in m.blocks:
                 if b.kind != 'data':
                     continue
@@ -432,9 +433,9 @@ def build_model(L, data=None, adf=None, data_len=None):
                 b.subs = [s for s in b.subs if s.off < start]
                 size = b.size - start
                 b.size = start
-                m.blocks.insert(1, Block('cola CPU de yi1_s.dat (LNS y tablas finales)',
+                m.blocks.insert(1, Block('cola CPU de yi1_s.dat (' + split_sym + ' y tablas finales)',
                                          'slow', size, 'cpu', MEMF_FAST, tail))
-                m.info.append('BM1: cola CPU %d B migra de chip a slow desde D_LNS=%d' % (size, start))
+                m.info.append('BM1: cola CPU %d B migra de chip a slow desde %s=%d' % (size, split_sym, start))
                 break
         chip_cursor, slow_cursor = 0x1000, 0xC00000
         for b in m.blocks:

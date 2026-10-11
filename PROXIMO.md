@@ -1,6 +1,6 @@
 # PRÓXIMO — lo que sigue
 
-2026-10-10, noche. **SW-S: la lógica y la OAM de los puntos, el humo y los
+2026-10-10, cierre G7-0/G7-1. **SW-S: la lógica y la OAM de los puntos, el humo y los
 sprites menores están en el 68000 (asm), exactas contra la SNES y activas
 por defecto** (`docs/informe-sw-s-1010.md`): la RAM y la OAM de los tres
 motores dan 0 distintos en yi1 y en 4 grabaciones. **El dibujo será por
@@ -16,14 +16,19 @@ vuelve a cruzar el C actual contra el asm en Windows (P131).
 | L-DER | cerrada (P130) | replay `run` | `docs/informe-l-der-1010.md` |
 | SW-S | **lógica y OAM hechas**; dibujo por bobs (G7, decidido) | lógica activa (`-DNOSWS` la apaga, solo para el A/B) | `docs/informe-sw-s-1010.md` |
 
-**D1 sigue roja**: en el BENCH de hoy, 202 fotos perdidas sin SW-S y 217
-con SW-S (3,44 %). 50 Hz y colchón aceptados; optimizar después.
+**G7-0 hecha:** el vivo libera 31.208 B de chip y 6.616 B de slow.
+Segundo PF1 + 12 KiB de fuentes caben, con 1.840 B de chip libres.
+**G7-1 implementada, opt-in** (`G7_DOUBLE`): preparar el copper antes
+de esperar al PF1 libre pasa SW1 completo (126 fotos, 0 píxeles).
+BENCH final: 269/6312 fotos omitidas frente a 217 del control;
+racha máxima 2 en ambos, con la espera incluida en la medición. **D1 sigue roja**; efectos sin dibujo.
+Detalles: `docs/informe-g7-1010.md`.
 
 ## 1. La próxima sesión, en orden
 
 | tarjeta | responsable | ficheros / puerta | instrucciones |
 |---|---|---|---|
-| **G7, bobs (efectos de SW-S)** | coordinador; **siguiente** | G7-0 memoria (el segundo PF1 no entra: chip con 42 056 B de margen, slow con 7 776), doble PF1, fuentes y color en PF1, cola de bobs; después SW1 en las fotos de la lista y A/B BENCH | `docs/instrucciones-g7.md` |
+| **G7-2/G7-3, efectos SW-S** | coordinador; **siguiente** | OAM en la foto, fuentes y color exactos, restauración y cola; SW1 y BENCH | `docs/instrucciones-g7-2.md` |
 | **D1, optimizar** | coordinador; en paralelo o después de G7 | con todo activado: 217 fotos perdidas, peor `build_mid` 15 604 ticks, `resto de scroll_frame` 18 798. Primero lo que más pesa, medido por foto perdida | `docs/instrucciones-d1-opt.md` |
 | SW-Q, resto | cuando haya grabaciones | una estrella real y flor/1-UP con más de una foto; A/B BENCH | `docs/informe-sw-q-recuperacion-1010.md` §"Qué sigue" |
 | SW-B, resto | — | barrida de `turn_block` con `HOLDEVERY=10` y A/B BENCH en WinUAE | `docs/informe-sw-b-1010.md` §"Continuación" |
