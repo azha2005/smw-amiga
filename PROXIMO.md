@@ -31,11 +31,14 @@ diferencias, el diario repone la lista byte a byte). **Sigue opt-in
 ## 2. La próxima sesión, en orden
 
 **ARQ-0 primero; lo demás en pausa hasta que el usuario elija la
-arquitectura del frame** (decisión del usuario, 2026-10-11).
+arquitectura del frame** (decisión del usuario, 2026-10-11). Con la libertad
+creativa que dio el usuario el 2026-10-11 ("modificar el plano para el mayor
+parecido con la mayor ganancia"): ARQ-C, después P1-B, después el contrato.
 
 | tarjeta | estado / qué hacer | instrucciones |
 |---|---|---|
-| **ARQ-0** | pasos 0-2 medidos (`docs/informe-arq-0-1011.md`). **Usuario, 2026-10-11: vara ΔE ≥ 2 aceptada (ΔE ≤ 3 tolerable con beneficio claro); P1 (5 planos) vale, pero primero P1-V: buscar un truco visual que acerque la capa 2 de 3 colores por fila** (paleta por fila y ventana de cámara, COLOR00 como cuarto color donde no se ve el cielo, tramado). **P1-V medido** (informe §5): los trucos de paleta solos −25 %; los cortes de paleta PF2 anclados a la capa 2 (tramos ≥ 64 px, tabla 8,4 KB) bajan a 461 px ΔE ≥ 2 por foto (hoy 264, P1 4.462). **Siguiente: el costo de copper de esos cortes** (≤ 4 por fila, contra las cargas de `build_mid`, ranuras con 5 planos) y BENCH. Después, el contrato. Aparte: el master empeoró desde el 10/10 (yi1 14 → 217, back racha 28), sin bisect | `docs/informe-arq-0-1011.md`, `docs/instrucciones-arq-0.md` |
+| **ARQ-C** | **siguiente**: dieta de copper sin tocar la imagen (~10 palabras de DMA por línea estimadas, cerca del 60 % de lo que libera el plano 6). Medir con BENCH antes de dar nada por hecho | `docs/instrucciones-arq-c.md` |
+| **ARQ-0** | pasos 0-2 y P1-V medidos (`docs/informe-arq-0-1011.md` §5). Vara ΔE ≥ 2 (ΔE ≤ 3 tolerable). **P1-V: los cortes de paleta PF2 se comen la ganancia** (BENCH: conservan 20-55 % sin contar su CPU), no se adoptan. **Bandas de 5 planos por fila (sin CPU, 2 MOVE de BPLCON0): 0-16 + 208-223 invisibles (≈ 4 px), 17-24 % de la ganancia (51 % en goal)** → tarjeta P1-B después de ARQ-C. Las filas de las colinas a 5 planos (P1 entero, ≈ 3.900 px más) quedan para el usuario. Después, el contrato. Aparte: el master empeoró desde el 10/10 (yi1 14 → 217, back racha 28), sin bisect | `docs/informe-arq-0-1011.md`, `docs/instrucciones-arq-0.md` |
 | META-R | en pausa (el tramo de la meta entra en la medida de ARQ-0) | `docs/instrucciones-meta-r.md` |
 | G7-S1 | en pausa | `docs/instrucciones-g7-s1.md` |
 | REX2 | en pausa | `docs/instrucciones-rex2.md` |

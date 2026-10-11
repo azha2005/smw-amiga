@@ -13,7 +13,7 @@ import numpy as np
 import render_d as R, arq_diff as A
 ap = argparse.ArgumentParser(); ap.add_argument('--step', type=int, default=64)
 ap.add_argument('--blk', type=int, default=16); ap.add_argument('--minseg', type=int, default=128)
-ap.add_argument('--grid', type=int, default=8)
+ap.add_argument('--grid', type=int, default=8); ap.add_argument('--dma', action='store_true')
 ap.add_argument('--img', type=int, nargs='*', help='solo imagenes de estos s')
 a = ap.parse_args()
 d = R.load('work/yi1_d.dat'); idx = R.l1_index(d)
@@ -100,6 +100,24 @@ def frame(s, keep=False):
             if A.de(c, k) >= 2: area += 1
             if keep: o.append(c); q.append(k)
     return area, o, q
+if a.dma:
+    # DMA del copper por linea de la zona de juego: cada corte visible = WAIT
+    # (2 palabras) + 2 por cada color que cambia respecto del tramo anterior
+    # (el primer tramo lo pone el borrado, como hoy). P1 libera FETCHW = 17
+    # palabras por linea (el plano 6).
+    tot = []; cuts = []
+    for s in range(0, d['W'] - SW, a.step):
+        x0 = (s // 2) % L2W; w = c = 0
+        for y in range(Y0 + HUD, Y0 + LINES):
+            sg = screen_segs(plans[y], x0)
+            for (_, p), (_, q) in zip(sg, sg[1:]):
+                w += 2 + 2 * sum(1 for i in range(4) if i >= len(p) or i >= len(q) or p[i] != q[i]); c += 1
+        tot.append(w / LINES); cuts.append(c / (LINES - HUD))
+    n = len(tot)
+    print('tramos >= %d px: cortes visibles por linea de juego %.2f (max foto %.2f);'
+          ' palabras de copper por linea (224) media %.1f, max %.1f; P1 libera 17'
+          % (a.minseg, sum(cuts) / n, max(cuts), sum(tot) / n, max(tot)))
+    sys.exit(0)
 if a.img:
     from PIL import Image
     for s in a.img:

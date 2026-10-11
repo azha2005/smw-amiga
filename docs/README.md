@@ -29,6 +29,8 @@
 | `instrucciones-g7-edf.md` | G7-3c: interfaz y pasos del EDF en 68000 (hecha) |
 | `instrucciones-g7-s1.md` | G7-S1: efectos en sprites de hardware (híbrido elegido por el usuario el 2026-10-11) |
 | `instrucciones-arq-0.md` | ARQ-0: arquitectura del frame (vara de diferencia visible, prototipos, contrato) |
+| `instrucciones-arq-c.md` | ARQ-C: dieta de copper (WAIT repetido, `COP2LCH`, borrado compacto), sin tocar la imagen |
+| `informe-arq-0-1011.md` | ARQ-0: vara, medida de partida, P1/P2/P3, P1-V (cortes y bandas) |
 | `instrucciones-meta-r.md` | META-R: medir y mejorar el rendimiento al final del nivel |
 | `instrucciones-rex2.md` | REX2: dos Rex en las mismas filas sin que uno quede invisible |
 | `instrucciones-banzai.md` | BANZAI: dibujar el Banzai Bill como bob (memoria primero) |

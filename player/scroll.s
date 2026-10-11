@@ -758,6 +758,9 @@ init_lines:
 .l:     moveq   #0,d0
         move.w  (a2)+,d0
         add.l   d4,d0
+        ifd     ARQ_CUTN
+        add.l   #ARQ_CUTN*4,d0              ; detras de la sonda (build_copper)
+        endc
         move.l  d0,(a0)                     ; donde van las cargas
         moveq   #0,d0
         move.w  (a1)+,d0
@@ -1678,7 +1681,11 @@ build_copper:                               ; a0 = lista
         ifd     ARQ_5PL
         move.l  #$01005600,(a0)+            ; ARQ-0 P1(c), solo sonda de tiempos:
         else                                ; 5 planos (PF2 de 2), imagen mal
+        ifd     ARQ_BANDS
+        move.l  #$01005600,(a0)+            ; ARQ-0 P1-V2, sonda: 5 planos hasta
+        else                                ; la fila ARQ_B1 y desde la ARQ_B2
         move.l  #$01006600,(a0)+            ; BPLCON0: 6 planos, DBLPF, COLOR
+        endc
         endc
         move.l  #$01020000,(a0)+            ; BPLCON1 (set_pointers)
         ifd     SPRTEST
@@ -1788,9 +1795,23 @@ build_copper:                               ; a0 = lista
 .c2n:   addq.l  #2,a2
         addq.w  #2,d0
         dbf     d1,.c2
+        ifd     ARQ_BANDS
+        cmp.w   #ARQ_B1,d2                  ; en el borrado: 6 planos en
+        bne.s   .bb2                        ; [ARQ_B1, ARQ_B2), 5 en el resto
+        move.l  #$01006600,(a0)+            ; (BPL6PT no avanza en las de 5:
+.bb2:   cmp.w   #ARQ_B2,d2                  ; la imagen de la sonda sale mal)
+        bne.s   .bb3
+        move.l  #$01005600,(a0)+
+.bb3:
+        endc
         move.l  a0,d0                       ; inicio de las cargas de la linea
         sub.l   d5,d0
         move.w  d0,(a6)+
+        ifd     ARQ_CUTN
+        moveq   #ARQ_CUTN-1,d0              ; ARQ-0 P1-V, solo sonda de tiempos:
+.cn:    move.l  #$01fe0000,(a0)+            ; el DMA de copper de los cortes de
+        dbf     d0,.cn                      ; PF2 (MOVE nulos; las cargas van
+        endc                                ; detras, init_lines)
         move.l  d5,d0                       ; salto al segmento siguiente
         add.l   #SEG,d0
         move.w  #$0084,(a0)+

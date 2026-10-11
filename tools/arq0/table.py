@@ -1,6 +1,10 @@
-# ARQ-0: tabla A/B de los BENCH de work/arq0/{b,p5}_<tramo>/read.txt (comprueba los frames)
+# ARQ-0: tabla A/B de los BENCH de work/arq0/{b,p5,c<K>}_<tramo>/read.txt (comprueba los frames)
+# uso: python tools/arq0/table.py [c8 bd48_192 ...]   (sondas de build_cut.sh)
 import re, sys
 from pathlib import Path
+def LAB(k):
+    if k.startswith('bd'): return '5 planos fuera de [%s, %s) (P1-V2)' % tuple(k[2:].split('_'))
+    return '5 planos + %s MOVE/linea (P1-V)' % k[1:]
 FR = dict(yi1=6312, back=4126, sprites=1914, hills2=2835, goal=2507)
 def rd(p):
     t = Path(p).read_text(errors='replace') if Path(p).exists() else ''
@@ -17,7 +21,7 @@ def rd(p):
 print('| tramo | variante | fotos perdidas | racha | total medio | level_frame | build_mid | resto scroll | columns | mspr_draw | total |')
 print('|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|')
 for t in FR:
-    for v, lab in (('b', '6 planos (hoy)'), ('p5', '5 planos (P1c)')):
+    for v, lab in [('b', '6 planos (hoy)'), ('p5', '5 planos (P1c)')] + [(k, LAB(k)) for k in sys.argv[1:]]:
         r = rd('work/arq0/%s_%s/read.txt' % (v, t))
         if r is None:
             print('| %s | %s | sin captura valida | | | | | | | | |' % (t, lab)); continue

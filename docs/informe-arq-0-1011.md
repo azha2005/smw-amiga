@@ -275,13 +275,92 @@ px por foto, 1,7× el port de hoy (contra 17× de P1 sin trucos). Lo que
 queda se ve en el contorno oscuro de las colinas de adelante y en algún
 brillo suelto (`work/arq0/de2/p1va_1528_*.png`, `p1va_3328_*.png`).
 
-**Falta antes de proponerlo:** el costo del copper. Son hasta 4 cortes ×
-(1 WAIT + 4 MOVE) por fila, con media ≈ 1,5 cortes visibles, y compiten con
-las cargas de PF1 a mitad de línea de `build_mid`. Además, con 5 planos
-cambian las ranuras del copper (P39/P42). Hay que simularlo con el modelo de
-ranuras de `build_mid` y medir en BENCH cuánto de la ganancia de P1 (−32 a
-−57 % de fotos perdidas) se come. También falta la chip de las listas:
-≈ 7 instrucciones × 4 B × 184 filas ≈ 5 KB por lista, × 3 listas.
+### P1-V medido: los cortes se comen la ganancia (2026-10-11)
+
+El usuario: "medí la ganancia, y si es así lo acepto", y después dio
+libertad creativa para modificar el plano. Medido:
+
+**La cuenta.** P1 gana porque deja de leer el plano 6: 17 palabras de DMA por
+línea (`FETCHW`). Cada palabra de copper compite por el mismo bus. Los cortes
+de 64 px gastan **16,3 palabras por línea** (WAIT + 2 por color que cambia,
+`p1v_anchor.py --dma`); hay que sumarles el borrado que repone la paleta del
+primer tramo en cada línea, y la CPU que los mueve con la cámara.
+
+**La medida (BENCH, WinUAE cycle-exact).** La sonda `-DARQ_CUTN=K` agrega K
+MOVE nulos por línea detrás del borrado (solo el DMA, sin la CPU: es la
+mejor cota posible para los cortes). Las bandas `-DARQ_BANDS` ponen 5 planos
+fuera de las filas [B1, B2) con un MOVE de `BPLCON0` en el borrado (sin CPU
+por frame: la ventana vertical es fija). Fotos perdidas (racha):
+
+| tramo | hoy | P1 | P1 + 8 MOVE (cortes de 64 px) | bandas 0-16 + 208-223 | bandas 0-16 + 192-223 | bandas 0-29 + 192-223 | bandas 0-47 + 192-223 |
+|---|---|---|---|---|---|---|---|
+| yi1 | 217 (2) | 93 (1) | 191 (2) | 195 (2) | 184 (2) | 173 (2) | 164 (2) |
+| back | 1128 (28) | 772 (5) | 1009 (25) | 1041 (24) | 1003 (7) | 1002 (22) | 968 (22) |
+| sprites | 397 (5) | 267 (3) | 364 (4) | 375 (5) | 366 (5) | 356 (5) | 345 (4) |
+| hills2 | 686 (5) | 447 (3) | 620 (5) | 644 (5) | 627 (4) | 610 (5) | 593 (4) |
+| goal | 581 (22) | 342 (5) | 447 (7) | 460 (7) | 450 (7) | 439 (7) | 428 (7) |
+| **imagen, ΔE ≥ 2 por foto** | 264 | 4.462 | ≈ 460-490 | **≈ 4** | 23 | 119 | 333 |
+
+(La racha de back es inestable entre variantes: 24 / 7 / 22 / 22. El área
+de las bandas es la media por foto sobre las 224 filas, sin el HUD encima.
+Con la banda de abajo desde la fila 192, el error se concentra en los huecos
+del suelo por donde se ve una colina: hasta 535 px en esas fotos (sombreado
+plano y una raya en la fila 192), `work/arq0/de2/p1vb_17_192_3328_*.png`.
+Desde la 208 no hay huecos: ≈ 4 px.)
+
+Lectura:
+
+- **Los cortes no sirven.** Aun sin su CPU, conservan del 20 al 55 % de la
+  ganancia de P1, menos que las bandas, y gastan copper en cada línea.
+- **Las bandas son la variante que sirve**, sin CPU por frame y con 2
+  MOVE de `BPLCON0`. Las filas de arriba (cielo y nubes, bajo el HUD) y las
+  del suelo admiten 3 colores + COLOR00 casi sin diferencia. Bandas 0-16 +
+  192-223 (49 filas): 23 px por foto de media y del 25 al 55 % de la ganancia
+  de P1 (la racha de goal baja de 22 a 7), pero se nota en los huecos del
+  suelo. **Bandas 0-16 + 208-223 (33 filas): ≈ 4 px, invisible**, y del 17 al
+  24 % de la ganancia (51 % en goal, racha 22 → 7). Bandas 0-47 + 192-223 (80 filas):
+  333 px, del 39 al 64 %.
+- **El resto de la ganancia está en las filas de las colinas.** Ahí la capa 2
+  tiene 7 colores por fila, y ningún truco de paleta las lleva a 3 sin
+  verse: 3.900 px por foto o más (curva en `tools/arq0/p1v_mix.py`). Con
+  cortes se arregla la imagen, pero el copper se come el ahorro.
+- **Otra fuente de DMA sin costo de imagen: la dieta de copper.** El copper
+  fijo de cada línea son 24 palabras, más que las 17 del plano 6: 2 WAIT
+  (el segundo es un relleno histórico de la etapa 6, cuando el primero
+  cruzaba la línea 255), 7 MOVE de borrado de la capa 1 y el salto al
+  segmento siguiente (3 MOVE). Del borrado solo hacen falta 2,1 MOVE por
+  línea en promedio (colores que cambian respecto del final de la línea
+  anterior). Estimado, sin medir: saltar el WAIT repetido, 2 palabras;
+  omitir `COP2LCH` cuando el banco no cambia, 2; compactar el borrado y
+  saltar el resto, ~6 netas. Unas 10 palabras por línea, cerca del 60 % del
+  plano 6, sin tocar la imagen. Toca `apply_colors` (posición fija por
+  registro, CHG de `mkscroll.py`), `build_mid` y la búsqueda del salto de
+  G5L (`$0084`).
+
+### Decisión (libertad creativa del usuario, 2026-10-11)
+
+El usuario dio libertad para modificar el plano buscando el mayor parecido
+con la mayor ganancia. Con lo medido:
+
+1. **Los cortes de paleta no se adoptan**: no conservan la ganancia.
+2. **Primero, la dieta de copper (tarjeta ARQ-C)**: es la palanca estimada
+   más grande (~10 palabras por línea) y no cambia la imagen. Se mide con
+   BENCH antes de seguir.
+3. **Después, las bandas de 5 planos 0-16 + 208-223 (P1-B)**: invisibles
+   (≈ 4 px por foto) y medidas del 17 al 24 % de la ganancia de P1 (51 % en
+   goal). Hace falta convertir esas filas de la capa 2 a 2 planos con su
+   paleta, mover sus datos del plano 6 para que el puntero (que no avanza en
+   las filas de 5 planos) quede alineado, y verificar con `arq_diff` en
+   WinUAE.
+4. **Las filas de las colinas a 5 planos (P1 entero) quedan para el
+   usuario**: es lo único que cambia la imagen de forma visible (≈ 3.900
+   px por foto más).
+5. El contrato del frame (D-C) se escribe con lo que dejen ARQ-C y P1-B.
+
+Herramientas: `p1v_pareto.py` (cortes optimizados con costo de copper),
+`p1v_rows.py` (5 planos por fila, imágenes de bandas `--bands B1 B2 --img
+s`), `p1v_mix.py` (mezcla por fila), `build_cut.sh` (`K=8` o
+`BANDS=17,192`), `table.py c8 bd17_192 ...`.
 
 ## 6. Reproducir
 
