@@ -194,7 +194,7 @@ def generate(a):
         groups[rec['frame']].append(rec)
     replay = Replay(a.bin, a.lst)
     s, mem = replay.s, replay.mem
-    if s['CL_LINES'] != 344 or s['SEG'] != 256:
+    if s.get('CL_J2H', s['CL_LINES']) != 344 or s['SEG'] != 256:
         raise ValueError('layout distinto de C1')
     totals = collections.Counter()
     entries, plans, cameras, frozen = [], [], 0, []

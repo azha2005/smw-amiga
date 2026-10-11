@@ -156,7 +156,7 @@ def segments(mem, base, cl, seg):
         nb, T, stage, loads, wrap, last = 0, None, 0, [], False, None
         for o in range(0, seg, 4):
             w1 = mem.r16(a + o)
-            if w1 == 0x84:
+            if w1 in (0x84, 0x86):   # ARQ-C paso 2: salto corto
                 break
             if stage == 0 and w1 & 1 and (w1 >> 8 == (v - 1) & 255 or w1 == 0xffdf):
                 wrap |= w1 == 0xffdf
@@ -190,7 +190,7 @@ def segment_words(mem, base, cl, seg, L):
     out = []
     for o in range(0, seg, 4):
         w1, w2 = mem.r16(a + o), mem.r16(a + o + 2)
-        if w1 == 0x84:
+        if w1 in (0x84, 0x86):   # ARQ-C paso 2: salto corto
             return out, (w1, w2, mem.r16(a + o + 4), mem.r16(a + o + 6), mem.r16(a + o + 8), mem.r16(a + o + 10))
         out.append((w1, w2))
     raise F.FormatError('salto no encontrado')
@@ -684,7 +684,7 @@ def run(args):
     ctx = load_context(args.bank)
     code, lst = P.assemble('player/scroll.s', ['VIS=256', 'SPRITES'])
     syms, local = P.listing(lst)
-    F.require(syms['CL_LINES'] == 216 and syms['SEG'] == 220, 'layout de scroll distinto')
+    F.require(syms.get('CL_J2H', syms['CL_LINES']) == 216 and syms['SEG'] == 220, 'layout de scroll distinto')
     V = {n: v for n, v in syms.items() if n.startswith('V_')}
     summary = dict(contrato='G2T-A fijado 2026-10-07', puerta_a_t=True, trazas={},
                    calibracion=dict(END=END, X_D0=X_D0, IDLE=IDLE, K255=K255, VBL_ARM=VBL_ARM),

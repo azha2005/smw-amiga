@@ -346,6 +346,26 @@ línea menos, imagen igual (regresión completa OK). Fotos perdidas (racha),
 6 planos: yi1 217 → 213 (2), back 1128 → 1090 (25), sprites 397 → 393 (5),
 hills2 686 → 677 (6), meta 581 → 484 (7). Vivo: SHA `425b658a…`.
 
+### ARQ-C paso 2 medido (2026-10-11)
+
+`COP2LCH` se escribe una vez en la cabecera (`CL_J2H`); cada salto es
+`COP2LCL` + `COPJMP2` + relleno (marcador `$0086`) salvo donde la lista
+cruza un banco de 64 KB, que conserva el salto completo (`$0084`). G5L, G7,
+`g5plan.c` y las referencias (`g5l.py`, `g2t_*.py`, `g7_color_probe.py`)
+reconocen los dos marcadores. 2 palabras más por línea (4 en total), imagen
+igual (regresión completa OK; barrido `arq_diff` de yi1 idéntico a la base:
+126 fotos, área media 263,7 px, mismas peores). Fotos perdidas (racha), paso
+1 → paso 2: yi1 213 → 210 (2), back 1090 → 1074 (24), sprites 393 → 390
+(5), hills2 677 → 673 (5), meta 484 → 482 (8). Acumulado desde hoy: −3 %,
+−5 %, −2 %, −2 %, −17 %. Vivo: SHA `b07e2757…`.
+
+**Lectura:** 4 palabras por línea (≈ ¼ del plano 6) rinden mucho menos que
+¼ de la ganancia de P1 salvo en la meta: la relación no es lineal (lo que
+pesa son los picos de `build_mid`/`columns`, no el DMA medio). El paso 3
+(≈ 4 palabras netas más, mucho trabajo: eventos en `mkscroll.py`,
+indirección en `apply_colors`, tiempos del borrado variable en G5L/G7)
+promete otro tanto: pocos puntos fuera de la meta.
+
 ### Decisión (libertad creativa del usuario, 2026-10-11)
 
 El usuario dio libertad para modificar el plano buscando el mayor parecido

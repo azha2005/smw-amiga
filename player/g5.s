@@ -100,6 +100,8 @@ g5_emit:
         move.w  (a1)+,d0
         cmp.w   #$0084,d0
         beq.s   .compare
+        cmp.w   #$0086,d0                   ; salto corto (ARQ-C paso 2)
+        beq.s   .compare
         add.w   d0,d7
         add.w   (a1)+,d7
         dbf     d4,.sum

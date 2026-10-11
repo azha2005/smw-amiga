@@ -218,7 +218,7 @@ u8 g5_segment(const u8 *list, u16 cl, u16 seg, s16 row, g5_seg *out)
     out->ok = 0;
     for (o = 0; o < seg; o += 4) {
         w1 = B16(a + o);
-        if (w1 == 0x84)
+        if (w1 == 0x84 || w1 == 0x86)   /* 0x86: salto corto (ARQ-C paso 2) */
             break;
         if (!stage && (w1 & 1) && ((w1 >> 8) == ((v - 1) & 255) || w1 == 0xFFDF)) {
             if (w1 == 0xFFDF)

@@ -518,6 +518,8 @@ g7f_load:
         swap    d0
         cmp.w   #$84,d0
         beq.s   .tail
+        cmp.w   #$86,d0                    ; salto corto (ARQ-C paso 2)
+        beq.s   .tail
         swap    d0
         move.l  d0,(a1)+
         move.l  d0,(a2)+
@@ -549,6 +551,8 @@ g7f_load:
         moveq   #0,d1                      ; indice
 .pre:   move.w  (a0),d0
         cmp.w   #$84,d0
+        beq.s   .pend
+        cmp.w   #$86,d0                    ; salto corto (ARQ-C paso 2)
         beq.s   .pend
         cmp.w   #2,d1
         bhs.s   .pre2
@@ -1687,6 +1691,8 @@ g7f_v2:
 .nop:   move.w  (a0),d1
         cmp.w   d2,d1
         beq.s   .pn
+        cmp.w   #$86,d1                    ; salto corto (ARQ-C paso 2)
+        beq.s   .pn
         cmp.w   d0,d1
         bne.s   .nn
         tst.w   d4
@@ -1807,6 +1813,8 @@ g7f_reloads:
         move.w  #$84,d2
 .w:     move.w  (a1),d0
         cmp.w   d2,d0
+        beq.s   .r
+        cmp.w   #$86,d0                    ; salto corto (ARQ-C paso 2)
         beq.s   .r
         btst    #0,d0                      ; WAIT (con v = 1 empieza por $01xx)
         bne.s   .n

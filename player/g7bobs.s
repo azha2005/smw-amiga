@@ -152,6 +152,8 @@ _g7b_save_row:
         moveq   #0,d2
 .find:  cmp.w   #$84,(a3,d2.w)
         beq.s   .tail
+        cmp.w   #$86,(a3,d2.w)             ; salto corto (ARQ-C paso 2)
+        beq.s   .tail
         addq.w  #4,d2
         cmp.w   #SEG-12,d2
         bls.s   .find

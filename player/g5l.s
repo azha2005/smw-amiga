@@ -3610,6 +3610,8 @@ g5l_place_e:
         add.l   d1,a0
         cmp.w   #$0084,CL_LINES+8(a0)
         beq.s   .o1
+        cmp.w   #$0086,CL_LINES+8(a0)       ; salto corto (ARQ-C paso 2)
+        beq.s   .o1
         subq.w  #2,d5
 .o1:    subq.w  #1,d5                       ; el que entra ahora
         lea     GV_ROOM(a6),a0
@@ -3817,6 +3819,8 @@ g5l_walk:
         move.w  #G5L_NONE,d1
 .l:     move.w  (a0),d0
         cmp.w   #$0084,d0
+        beq.s   .x
+        cmp.w   #$0086,d0                   ; salto corto (ARQ-C paso 2)
         beq.s   .x
         btst    #0,d0
         beq.s   .mv
@@ -4198,6 +4202,8 @@ g5l_emitc:
         add.w   d1,a0
         lea     CL_LINES+8(a0),a0
 .jl:    cmp.w   #$0084,(a0)
+        beq.s   .jx
+        cmp.w   #$0086,(a0)                 ; salto corto (ARQ-C paso 2)
         beq.s   .jx
         addq.l  #4,a0
         bra.s   .jl

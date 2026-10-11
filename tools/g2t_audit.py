@@ -156,7 +156,7 @@ def suffix(mem, base, line):
     v, nb, active, t, last_h, after = line+44, 0, False, None, None, 0
     for offset in range(0,220,4):
         w1,w2 = mem.r16(start+offset),mem.r16(start+offset+2)
-        if w1 == 0x84:
+        if w1 in (0x84, 0x86):   # ARQ-C paso 2: salto corto
             if not active:
                 t = S.T0 + max(0,16*(nb-9))
             return dict(offset_salto=offset, ultimo_wait_h=last_h,
@@ -203,7 +203,7 @@ def run(args):
     pointers=[struct.unpack_from('<H',rom,head+((R.mkmario.DATA_00E2A2+2*a)&0x7fff))[0] for a in range(8)]
     code,lst=P.assemble('player/scroll.s',['VIS=256','SPRITES'])
     syms,local=P.listing(lst)
-    F.require(syms['CL_LINES']==216 and syms['SEG']==220,
+    F.require(syms.get('CL_J2H', syms['CL_LINES'])==216 and syms['SEG']==220,
               'layout de scroll distinto: actualizar el lector de sufijos')
     V={n:v for n,v in syms.items() if n.startswith('V_')}
     S.W,S.T0=256,-120

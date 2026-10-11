@@ -93,6 +93,8 @@ g7_probe:
 .find{n}:
         cmp.w #$84,(a0)
         beq .tail{n}
+        cmp.w #$86,(a0)
+        beq .tail{n}
         addq.l #4,a0
         bra .find{n}
 .tail{n}:

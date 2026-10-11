@@ -43,7 +43,7 @@ def seg_words(mem, base, cl, seg, L):
     for o in range(0, seg, 4):
         w1, w2 = mem.r16(a + o), mem.r16(a + o + 2)
         out.append((w1, w2))
-        if w1 == 0x84:
+        if w1 in (0x84, 0x86):   # ARQ-C paso 2: salto corto
             return out
     raise F.FormatError('salto no encontrado (fila %d)' % L)
 
@@ -63,7 +63,7 @@ def main():
     code, lst = P.assemble('player/scroll.s', ['VIS=256', 'SPRITES'])
     syms, local = P.listing(lst)
     cl, seg = syms['CL_LINES'], syms['SEG']
-    F.require(cl == 216 and seg == 220, 'layout de scroll distinto')
+    F.require(syms.get('CL_J2H', cl) == 216 and seg == 220, 'layout de scroll distinto')
     V = {n: v for n, v in syms.items() if n.startswith('V_')}
     for pair in a.trace:
         path, oracle = pair.split('=', 1)

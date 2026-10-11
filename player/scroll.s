@@ -76,16 +76,22 @@ CL_COL17    equ CL_SPR+64       ; COLOR17; COLORk en CL_COL17 + (k-17)*4
 ; colores de partida del Rex (de momento NOP: $01FE). 4 + 64 + 60 = 128 B.
 CL_VBL      equ CL_COL17+60
 CL_VBLSZ    equ 128
-CL_LINES    equ CL_VBL+CL_VBLSZ
+CL_J2H      equ CL_VBL+CL_VBLSZ
         else
-CL_LINES    equ CL_COL17+60
+CL_J2H      equ CL_COL17+60
         endc
         else
         ifd     SPR_G5
         fail    "-DSPR_G5 requiere -DSPRITES"
         endc
-CL_LINES    equ 92
+CL_J2H      equ 92
         endc
+; ARQ-C paso 2: en CL_J2H, MOVE COP2LCH (la palabra alta del primer salto).
+; Los saltos son COP2LCL + COPJMP2 (+ un COPJMP2 de relleno que no se
+; ejecuta: 12 B como siempre) mientras el banco de 64 KB no cambia; el
+; segmento cuyo salto cambia de banco lleva el salto entero (COP2LCH
+; primero). Quien busque el salto acepta $0084 o $0086.
+CL_LINES    equ CL_J2H+4
 ; un segmento por linea: 2 WAIT + 7 + 7 MOVE (borrado), hasta MIDMAX
 ; cargas a mitad de linea y el salto al segmento siguiente (COP2LCH,
 ; COP2LCL, COPJMP2). Tamano fijo, contenido de largo variable: los huecos
@@ -668,7 +674,8 @@ apply_colors:
 ;   +4  .l lo, +8 .l hi: cargas escritas, [lo, hi) en MLD (absolutas)
 ;   +12 vl, +14 vu: lo escrito vale mientras vl <= s < vu
 ;   +16 la palabra alta del WAIT (v << 8)
-;   +18 el salto al segmento siguiente (COP2LCH, COP2LCL, COPJMP2)
+;   +18 el salto al segmento siguiente (COP2LCL y COPJMP2, o COP2LCH, COP2LCL
+;       y COPJMP2 donde cambia el banco: ARQ-C paso 2)
 ; htab[x] = byte bajo del WAIT (h | 1) para que el MOVE caiga en x >= x.
 ; entrada:  a3 = datos, V_COP, V_COP2 (build_copper ya dejo ldoff)
 ;----------------------------------------------------------------------
@@ -753,7 +760,11 @@ init_lines:
         bls.s   .c
         rts
 ; una tabla: a0 = tabla, d4 = lista
-.tab:   add.l   #CL_LINES,d4                ; d4 = segmento
+.tab:   movem.l d5,-(sp)
+        add.l   #CL_LINES,d4                ; d4 = segmento
+        move.l  d4,d5                       ; d5 = COP2LCH vigente (la palabra
+        add.l   #SEG+SEGIN,d5               ; alta del primer salto, como en
+        swap    d5                          ; build_copper)
         move.l  a3,a1
         add.l   D_MLX(a3),a1
         move.l  a3,d2
@@ -778,18 +789,27 @@ init_lines:
         clr.w   14(a0)
         move.w  d3,16(a0)
         add.l   #SEG,d4
-        move.w  #$0084,18(a0)               ; salto al segmento siguiente
-        move.l  d4,d0                       ; (en su SEGIN)
-        addq.l  #SEGIN,d0
+        move.l  d4,d0                       ; salto al segmento siguiente
+        addq.l  #SEGIN,d0                   ; (en su SEGIN), como build_copper
         swap    d0
+        cmp.w   d5,d0
+        beq.s   .ts
+        move.w  d0,d5                       ; cambia el banco: entero
+        move.w  #$0084,18(a0)
         move.w  d0,20(a0)
-        move.w  #$0086,22(a0)
         swap    d0
+        move.w  #$0086,22(a0)
         move.w  d0,24(a0)
-        move.l  #$008a0000,26(a0)
+        bra.s   .te
+.ts:    swap    d0                          ; mismo banco
+        move.w  #$0086,18(a0)
+        move.w  d0,20(a0)
+        move.l  #$008a0000,22(a0)
+.te:    move.l  #$008a0000,26(a0)
         add.w   #$100,d3
         lea     32(a0),a0
         dbf     d1,.l
+        movem.l (sp)+,d5
         rts
 
 ;----------------------------------------------------------------------
@@ -1680,7 +1700,7 @@ bwait:  btst    #6,DMACONR(a4)              ; dos veces: bug del Agnus viejo
 ; registros destruidos: d0-d5/a0-a2
 ;----------------------------------------------------------------------
 build_copper:                               ; a0 = lista
-        movem.l a2/a6,-(sp)
+        movem.l d6/a2/a6,-(sp)
         move.l  a0,d4                       ; d4 = principio de la lista
         move.l  #$008e0000|DIWS,(a0)+       ; DIWSTRT
         move.l  #$00900000|DIWE,(a0)+       ; DIWSTOP: 224 lineas
@@ -1758,6 +1778,12 @@ build_copper:                               ; a0 = lista
         dbf     d1,.v5n
         endc
         endc
+        move.l  d4,d0                       ; COP2LCH del primer salto (ARQ-C)
+        add.l   #CL_LINES+SEG+SEGIN,d0
+        swap    d0
+        move.w  #$0084,(a0)+
+        move.w  d0,(a0)+
+        move.w  d0,d6                       ; d6 = COP2LCH vigente
         ; lineas
         move.l  a3,a1
         add.l   D_INI(a3),a1
@@ -1822,21 +1848,30 @@ build_copper:                               ; a0 = lista
         endc                                ; detras, init_lines)
         move.l  d5,d0                       ; salto al segmento siguiente
         add.l   #SEG+SEGIN,d0
+        swap    d0
+        cmp.w   d6,d0
+        beq.s   .js
+        move.w  d0,d6                       ; cambia el banco: salto entero
         move.w  #$0084,(a0)+
-        swap    d0
         move.w  d0,(a0)+
-        move.w  #$0086,(a0)+
         swap    d0
+        move.w  #$0086,(a0)+
         move.w  d0,(a0)+
         move.l  #$008a0000,(a0)+
-        move.l  d5,a0
+        bra.s   .je
+.js:    swap    d0                          ; mismo banco: COP2LCL, COPJMP2
+        move.w  #$0086,(a0)+
+        move.w  d0,(a0)+
+        move.l  #$008a0000,(a0)+
+        move.l  #$008a0000,(a0)+            ; (relleno, no se ejecuta)
+.je:    move.l  d5,a0
         lea     SEG(a0),a0
         addq.w  #1,d2
         cmp.w   #LINES,d2
         blo     .line
         move.l  #$fffffffe,(a0)+            ; (el de SEGIN es el que se usa)
         move.l  #$fffffffe,(a0)+
-        movem.l (sp)+,a2/a6
+        movem.l (sp)+,d6/a2/a6
         rts
 
         ifd     BENCH

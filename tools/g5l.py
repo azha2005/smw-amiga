@@ -45,6 +45,7 @@ MAXMRUNS = 8
 SELECT = 'first'
 MOVE_PAD = 0x01A0          # relleno: COLOR16 nunca se ve (índice 0 de sprite)
 JUMP = 0x0084
+JUMPS = (0x0084, 0x0086)    # ARQ-C paso 2: salto corto COP2LCL + COPJMP2
 OUT = Path('work/g5l')
 
 
@@ -1079,7 +1080,7 @@ class SimList:
         return self.base + self.syms['CL_LINES'] + self.syms['SEG'] * s
 
     def has_loads(self, s):
-        return self.mem.r16(self.seg(s) + self.ldoff[s]) != JUMP
+        return self.mem.r16(self.seg(s) + self.ldoff[s]) not in JUMPS
 
     def walk(self, s):
         a = self.seg(s) + self.ldoff[s]
@@ -1087,7 +1088,7 @@ class SimList:
         free, last = T, None
         while True:
             w = self.mem.r16(a)
-            if w == JUMP:
+            if w in JUMPS:
                 return last, free, a
             if w & 1:
                 T = max(adv(T, 2), xh(w & 0xFE))
@@ -1587,7 +1588,7 @@ def sim_ldoff(mem, base, syms):
         o = 8
         while True:
             w = mem.r16(a)
-            if w & 1 or w == JUMP:
+            if w & 1 or w in JUMPS:
                 break
             a += 4
             o += 4
@@ -1622,11 +1623,11 @@ class MemList:
         return self.seg(s) + 8 + 4 * self.nb[s]
 
     def has_loads(self, s):
-        return self.r16(self.loads(s)) != JUMP
+        return self.r16(self.loads(s)) not in JUMPS
 
     def jump(self, s):
         a = self.loads(s)
-        while self.r16(a) != JUMP:
+        while self.r16(a) not in JUMPS:
             a += 4
         return a
 
@@ -1636,7 +1637,7 @@ class MemList:
         free, last = T, None
         while True:
             w = self.r16(a)
-            if w == JUMP:
+            if w in JUMPS:
                 return last, free, a
             if w & 1:
                 T = max(adv(T, 2), xh(w & 0xFE))
@@ -1707,7 +1708,7 @@ def stale_check(mem, base, s, nb, planned):
         a = base + s['CL_LINES'] + 256 * L + 8 + 4 * nb[L]
         while True:
             w = mem.r16(a)
-            if w == JUMP:
+            if w in JUMPS:
                 break
             if L not in planned and (0x01A0 <= w <= 0x01BE or (w & 1 and (w & 0xFF) == 0xD1)):
                 bad += 1
