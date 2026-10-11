@@ -33,11 +33,12 @@ diferencias, el diario repone la lista byte a byte). **Sigue opt-in
 **ARQ-0 primero; lo demás en pausa hasta que el usuario elija la
 arquitectura del frame** (decisión del usuario, 2026-10-11). Con la libertad
 creativa que dio el usuario el 2026-10-11 ("modificar el plano para el mayor
-parecido con la mayor ganancia"): ARQ-C, después P1-B, después el contrato.
+parecido con la mayor ganancia"): ARQ-C, después P1-B, después el contrato. **ARQ-C (pasos 1-2) y P1-B hechos: sigue el contrato del frame (D-C), y aparte el bisect del empeoramiento del master desde el 10/10.**
 
 | tarjeta | estado / qué hacer | instrucciones |
 |---|---|---|
-| **ARQ-C** | **pasos 1 y 2 hechos (2026-10-11)**: los saltos entran en el segundo WAIT (`SEGIN`) y `COP2LCH` solo en la cabecera y al cambiar de banco (`$0086`): 4 palabras por línea, imagen igual. Fotos perdidas hoy → paso 2: yi1 217 → 210, back 1128 → 1074, sprites 397 → 390, hills2 686 → 673, meta 581 → 482 (racha 22 → 8). **La ganancia no es lineal con el DMA** (informe §5). **Siguiente: decidir si el paso 3 (borrado compacto, ~4 palabras netas, pide eventos nuevos en `mkscroll.py`, indirección en `apply_colors` y tiempos del borrado variable en G5L/G7) vale su costo, o pasar a P1-B** | `docs/instrucciones-arq-c.md` |
+| **ARQ-C** | **pasos 1 y 2 hechos (2026-10-11)**: los saltos entran en el segundo WAIT (`SEGIN`) y `COP2LCH` solo en la cabecera y al cambiar de banco (`$0086`): 4 palabras por línea, imagen igual. Fotos perdidas: yi1 217 → 210, back 1128 → 1074, sprites 397 → 390, hills2 686 → 673, meta 581 → 482. **La ganancia no es lineal con el DMA** (informe §5). **Paso 3 (borrado compacto) en espera** (decisión con la libertad creativa del usuario): mucho trabajo (eventos en `mkscroll.py`, indirección en `apply_colors`, tiempos del borrado variable en G5L/G7) para una ganancia que, por los pasos 1-2, sería de pocos puntos | `docs/instrucciones-arq-c.md` |
+| **P1-B** | **hecho (2026-10-11)**: 5 planos en las filas 0-16 y 209-223 (`P1B_B1`/`P1B_B2` en `scroll.s`, `tools/p1b.py` reduce la capa 2 de esas filas a 3 colores en `mkscroll.py`; `-DNO_P1B` + `P1B=0` = 6 planos en todas). Imagen: zona de juego igual a la SNES que antes (263,7 px), +2,7 px por foto contando la barra. Fotos perdidas sobre el paso 2: yi1 210 → 190, back 1074 → 1030, sprites 390 → 368, hills2 673 → 631, meta 482 → 454 | `docs/informe-arq-0-1011.md` §5 |
 | **ARQ-0** | pasos 0-2 y P1-V medidos (`docs/informe-arq-0-1011.md` §5). Vara ΔE ≥ 2 (ΔE ≤ 3 tolerable). **P1-V: los cortes de paleta PF2 se comen la ganancia** (BENCH: conservan 20-55 % sin contar su CPU), no se adoptan. **Bandas de 5 planos por fila (sin CPU, 2 MOVE de BPLCON0): 0-16 + 208-223 invisibles (≈ 4 px), 17-24 % de la ganancia (51 % en goal)** → tarjeta P1-B después de ARQ-C. Las filas de las colinas a 5 planos (P1 entero, ≈ 3.900 px más) quedan para el usuario. Después, el contrato. Aparte: el master empeoró desde el 10/10 (yi1 14 → 217, back racha 28), sin bisect | `docs/informe-arq-0-1011.md`, `docs/instrucciones-arq-0.md` |
 | META-R | en pausa (el tramo de la meta entra en la medida de ARQ-0) | `docs/instrucciones-meta-r.md` |
 | G7-S1 | en pausa | `docs/instrucciones-g7-s1.md` |
@@ -55,7 +56,7 @@ También `sh tools/sws_gate.sh` y `sh tools/oam68k_gate.sh`.
 Builds secuenciales: comparten `work/cc` y `work/g5l.i`. Si trabajan dos
 agentes a la vez, cada build pasa por `sh work/buildlock.sh <comando>`.
 
-El vivo por defecto: SHA256 `b07e2757…` desde ARQ-C paso 2 (paso 1 `425b658a…`, antes `33f2250a…`; `work/rg_bm1/game.bin`).
+El vivo por defecto: SHA256 `2304fd12…` desde P1-B (ARQ-C paso 2 `b07e2757…`, paso 1 `425b658a…`, antes `33f2250a…`; `work/rg_bm1/game.bin`).
 G7_BOBS: `GDEFS="-DREPLAY -DG7_BOBS" OUT=… sh tools/bm_build.sh` (replay)
 o `GDEFS="-DG7_BOBS" OUT=… sh tools/game_build.sh` (vivo). Margen slow con
 G7_BOBS: 5.040 B (vivo), 4.560 B (replay).

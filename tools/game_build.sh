@@ -128,6 +128,14 @@ then
     if [ "$YDAT" = work/yi1_s_g5.dat ]; then $PY tools/mkscroll.py --g5
     else $PY tools/mkscroll.py; fi
 fi
+# P1-B: la capa 2 reducida (mkscroll.py, P1B) va con las bandas de scroll.s;
+# -DNO_P1B pide la entera. El sello <dat>.p1b dice con cual se genero.
+P1BW=1
+case " $GDEFS " in *" -DNO_P1B "*) P1BW=0 ;; esac
+if [ "$(cat "$YDAT.p1b" 2>/dev/null)" != "$P1BW" ]; then
+    if [ "$YDAT" = work/yi1_s_g5.dat ]; then P1B=$P1BW $PY tools/mkscroll.py --g5
+    else P1B=$P1BW $PY tools/mkscroll.py; fi
+fi
 [ -f work/cc/gfx32f.bin ] && [ -f work/cc/mario_pal.bin ] || $PY tools/mkmario.py
 REPLAY_KEY=$($PY - "$ORACLE" work/logicbench.bin <<'PY'
 import hashlib

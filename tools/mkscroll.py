@@ -78,6 +78,7 @@ sys.path.insert(0, HERE)
 import render_d                                 # noqa: E402
 import tilechange                               # noqa: E402
 import coinpal                                  # noqa: E402
+import p1b                                      # noqa: E402
 
 WORK = os.path.join(HERE, "..", "work")
 Y0, LINES = 192, 224
@@ -135,6 +136,11 @@ def main():
     if g5:
         SEG = SEG_G5
     d = render_d.load(os.path.join(WORK, "yi1_d.dat"))
+    # P1-B (ARQ-0): capa 2 a 3 colores en las filas de 5 planos (tools/p1b.py);
+    # scroll.s cambia BPLCON0 en P1B_B1/P1B_B2. P1B=0 la deja entera (control A/B
+    # con -DNO_P1B).
+    if os.environ.get("P1B", "1") != "0":
+        p1b.apply(d)
     # SW-B activada por defecto (usuario, 2026-10-10: fidelidad 1:1
     # primero). Sus reservas de color alargan el plan del copper
     # (informe-sw-b-1010.md). SW_TILES=0 deja D_TCHG vacia (control A/B):
@@ -291,6 +297,8 @@ def main():
           % (len(coin_data), len(set(coin_rows)), len(coin)))
     name = "yi1_s_g5.dat" if g5 else "yi1_s.dat"
     open(os.path.join(WORK, name), "wb").write(out)
+    # sello de P1-B: game_build.sh regenera si no coincide con -DNO_P1B
+    open(os.path.join(WORK, name + ".p1b"), "w").write(os.environ.get("P1B", "1") != "0" and "1" or "0")
     print("%s: %d bytes, %d bloques, %d cambios de color (capa 1, borrado)"
           % (name, len(out), d["nblk"], len(chg)))
 

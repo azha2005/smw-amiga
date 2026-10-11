@@ -366,6 +366,33 @@ pesa son los picos de `build_mid`/`columns`, no el DMA medio). El paso 3
 indirección en `apply_colors`, tiempos del borrado variable en G5L/G7)
 promete otro tanto: pocos puntos fuera de la meta.
 
+### P1-B hecho (2026-10-11)
+
+5 planos en las filas de pantalla 0-16 y 209-223 (32 filas, 14 % de P1).
+`tools/p1b.py` (desde `mkscroll.py`) reduce la capa 2 de esas filas a 3
+colores + el cielo, una vez y en los datos: la imagen es la misma con 5 o
+con 6 planos. `scroll.s` pone `BPLCON0` a 5 planos en la cabecera, a 6 en el
+borrado de la fila `P1B_B1` y a 5 en el de `P1B_B2`, y `set_pointers`
+adelanta `BPL6PT` `P1B_B1` filas (el plano 6 no avanza en las de arriba; el
+bucle de PF2 quedó desenrollado: 86 ciclos menos por frame). La banda de
+abajo empieza en 209 y no en 208: con 208 el borrado de esa fila llevaba
+10 MOVE (7 + 2 de PF2 + `BPLCON0`); con 209, 9 como mucho, como hoy (P43).
+La paleta de la banda de arriba copia la fila 17, así la 17 no cambia más
+colores que antes. `game_build.sh` regenera los datos si el sello
+`<dat>.p1b` no coincide con `-DNO_P1B`.
+
+Imagen (barrido de yi1 contra la SNES, `arq_diff`): zona de juego igual que
+antes (área media 263,7 px, mismas peores); contando la barra, 1801,8 →
+1804,5 px por foto (+2,7). Fotos perdidas (racha), paso 2 → P1-B: yi1 210 →
+190 (2), back 1074 → 1030 (25), sprites 390 → 368 (4), hills2 673 → 631
+(4), meta 482 → 454 (7). Desde el principio de ARQ-C: yi1 217 → 190, back
+1128 → 1030, sprites 397 → 368, hills2 686 → 631, meta 581 → 454.
+Regresión completa OK. Vivo: SHA `2304fd12…`.
+
+El paso 3 de ARQ-C queda en espera: los pasos 1-2 muestran que 4 palabras
+de copper en el borrado rinden 2-5 % (17 % en la meta), y el paso 3 cuesta
+mucho más trabajo.
+
 ### Decisión (libertad creativa del usuario, 2026-10-11)
 
 El usuario dio libertad para modificar el plano buscando el mayor parecido

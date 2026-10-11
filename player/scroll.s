@@ -58,6 +58,20 @@ ROWB2   equ     106             ; 848 px
 LINEB2  equ     ROWB2*3         ; 318
 BUF1    equ     LINEB1*LINES    ; 59136
 
+; P1-B (ARQ-0, 2026-10-11): 6 planos solo en las filas [P1B_B1, P1B_B2); en las
+; demas el copper pone 5 (BPLCON0 en el borrado) y la capa 2 tiene 3 colores
+; (mkscroll.py -> tools/p1b.py; la imagen es la misma con 5 o con 6). El
+; plano 6 no se lee en las filas 0..P1B_B1-1, asi que BPL6PT arranca P1B_B1
+; filas mas abajo. -DNO_P1B: 6 planos en todas (con P1B=0 en mkscroll.py).
+        ifnd    NO_P1B
+        ifnd    P1B_B1
+P1B_B1  equ     17
+        endc
+        ifnd    P1B_B2
+P1B_B2  equ     209
+        endc
+        endc
+
 ; lista del copper (dos: la que se ve y la que se escribe)
 CL_BPLCON1  equ 20+2
 CL_COLOR00  equ 36+2
@@ -598,17 +612,24 @@ set_pointers:
         move.w  d1,d2
         add.l   a3,d2
         add.l   D_L2B(a3),d2
-        lea     CL_PTR+8+2(a1),a0           ; BPL2PTH
-        swap    d3
-        move.w  #3-1,d3
-.p2:    swap    d2
-        move.w  d2,(a0)
+        swap    d2                          ; BPL2PT, BPL4PT, BPL6PT (desenrollado:
+        move.w  d2,CL_PTR+8+2(a1)           ; P1-B suma al tercero sin rama)
         swap    d2
-        move.w  d2,4(a0)
+        move.w  d2,CL_PTR+8+6(a1)
         add.l   #ROWB2,d2
-        lea     16(a0),a0
-        dbf     d3,.p2
-        swap    d3                          ; t
+        swap    d2
+        move.w  d2,CL_PTR+24+2(a1)
+        swap    d2
+        move.w  d2,CL_PTR+24+6(a1)
+        ifd     P1B_B1
+        add.l   #ROWB2+P1B_B1*LINEB2,d2     ; BPL6PT no avanza en las filas
+        else                                ; de 5 planos de arriba (P1-B)
+        add.l   #ROWB2,d2
+        endc
+        swap    d2
+        move.w  d2,CL_PTR+40+2(a1)
+        swap    d2
+        move.w  d2,CL_PTR+40+6(a1)
         neg.w   d3
         and.w   #15,d3
         lsl.w   #4,d3                       ; retardo PF2
@@ -1709,9 +1730,9 @@ build_copper:                               ; a0 = lista
         ifd     ARQ_5PL
         move.l  #$01005600,(a0)+            ; ARQ-0 P1(c), solo sonda de tiempos:
         else                                ; 5 planos (PF2 de 2), imagen mal
-        ifd     ARQ_BANDS
-        move.l  #$01005600,(a0)+            ; ARQ-0 P1-V2, sonda: 5 planos hasta
-        else                                ; la fila ARQ_B1 y desde la ARQ_B2
+        ifd     P1B_B1
+        move.l  #$01005600,(a0)+            ; BPLCON0: 5 planos hasta P1B_B1 (P1-B)
+        else
         move.l  #$01006600,(a0)+            ; BPLCON0: 6 planos, DBLPF, COLOR
         endc
         endc
@@ -1829,14 +1850,16 @@ build_copper:                               ; a0 = lista
 .c2n:   addq.l  #2,a2
         addq.w  #2,d0
         dbf     d1,.c2
-        ifd     ARQ_BANDS
-        cmp.w   #ARQ_B1,d2                  ; en el borrado: 6 planos en
-        bne.s   .bb2                        ; [ARQ_B1, ARQ_B2), 5 en el resto
-        move.l  #$01006600,(a0)+            ; (BPL6PT no avanza en las de 5:
-.bb2:   cmp.w   #ARQ_B2,d2                  ; la imagen de la sonda sale mal)
+        ifd     P1B_B1
+        ifnd    ARQ_5PL
+        cmp.w   #P1B_B1,d2                  ; P1-B, en el borrado: 6 planos en
+        bne.s   .bb2                        ; [P1B_B1, P1B_B2), 5 en el resto
+        move.l  #$01006600,(a0)+            ; (con estos dos el borrado llega a
+.bb2:   cmp.w   #P1B_B2,d2                  ; 9 MOVE, como hoy: tools/p1b.py)
         bne.s   .bb3
         move.l  #$01005600,(a0)+
 .bb3:
+        endc
         endc
         move.l  a0,d0                       ; inicio de las cargas de la linea
         sub.l   d5,d0

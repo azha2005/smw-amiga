@@ -2,14 +2,16 @@
 # ARQ-0 P1-V: builds BENCH con 5 planos + la sonda de DMA de los cortes de PF2
 # (K MOVE nulos por linea). Uso: K=8 sh tools/arq0/build_cut.sh -> work/arq0/c<K>_*
 # Bandas (P1-V2): BANDS=48,192 sh tools/arq0/build_cut.sh -> work/arq0/bd48_192_*
-# (5 planos fuera de [48, 192), sin MOVE nulos)
+# (5 planos fuera de [48, 192), sin MOVE nulos; desde P1-B son P1B_B1/P1B_B2 y
+# la capa 2 solo esta reducida en 0-16 + 209-223: otras bandas, solo tiempos)
 cd "$(dirname "$0")/../.."
 K=${K:-8}
 # Sin sonda, con el codigo de hoy: PFX=ac1 sh tools/arq0/build_cut.sh -> work/arq0/ac1_*
+# (6 planos en todas las filas: PFX=x XD=-DNO_P1B)
 if [ -n "$PFX" ]; then
   P=$PFX; D="${XD:-}"
 elif [ -n "$BANDS" ]; then
-  P=bd$(echo $BANDS | tr , _); D="-DARQ_BANDS -DARQ_B1=${BANDS%,*} -DARQ_B2=${BANDS#*,}"
+  P=bd$(echo $BANDS | tr , _); D="-DP1B_B1=${BANDS%,*} -DP1B_B2=${BANDS#*,}"
 else
   P=c$K; D="-DARQ_5PL -DARQ_CUTN=$K"
 fi
