@@ -49,6 +49,17 @@
 void spr_unsup(void);
 void boost_mario(void);
 void chain_points(u8 x);
+void give_points(u8 x, u8 a);               /* SW-S: GivePoints */
+u8 score_slot(void);                  /* CODE_02AD34 */
+void score_at_mario(u8 n);                  /* _00F38A */
+void contact_gfx(u8 x);                     /* DisplayContactGfx */
+void score_spawn(u8 x, u8 n);               /* CODE_02ACEF */
+void score_update(void);                    /* ScoreSprGfx sin el dibujo */
+void give_lives_tick(void);                 /* CODE_028AB1: las vidas pendientes */
+void smoke_update(void);                    /* CODE_0296C0 sin el dibujo */
+u8 mex_slot(void);                          /* ranura de sprite menor */
+void shatter_block(u8 t);                   /* ShatterBlock */
+void mex_update(void);                      /* CODE_028B67 sin el dibujo */
 
 /* motor de sprites de msprite.c (SubUpdateSprPos, GetDrawInfoBnk3...) */
 #ifdef LOGIC68K

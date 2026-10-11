@@ -1294,3 +1294,30 @@ tubería final, `$71` = 6), y el tramo continuo de 3824 a 6183 frames.
 (el port en la clave f contra el despacho de f; `mejor` puede esconder un
 frame de atraso). Antes de corregir un sprite, mirar qué op del replay
 cae en el primer frame distinto.
+
+**P131 — En Windows `regress.py` no recompilaba `work/libport.so`: el cruce PC=68000 usaba el C del 7 de octubre (SW-S).**
+
+**Síntoma:** con SW-S en C (humo, puntos), `cruce RAM loop/spr PC=68000`
+dio 716 y 1548 llamadas distintas, todas en `$17C0-$17CF` (el humo): el
+68000 bajaba el temporizador y "el PC" no, o el PC no creaba el humo.
+
+**Causa:** `regress.py` compilaba la biblioteca del cruce (`m68kverify
+--cross`) solo con `os.name != "nt"`. En la PC Windows se cargaba la que
+había quedado del 2026-10-07: todos los cambios del C posteriores (L-DER,
+SW-A/B/P/M) no se cruzaban contra el asm; pasaban porque no tocaban lo que
+el asm reemplaza.
+
+**Arreglo:** se compila siempre (ucrt64 `gcc -shared`; `ctypes.CDLL` carga
+el PE aunque se llame `.so`). Con la biblioteca al día el cruce da 0.
+
+**Cómo evitarlo:** si el cruce falla justo en lo que se acaba de cambiar
+en el C, mirar la fecha de `work/libport.so` antes de buscar el error.
+
+**Dos cosas más de SW-S:**
+- **C que llama a asm a más de 32 KB** (P102): `mcoll.c` queda lejos de
+  `logic68k.s`. Las rutinas de SW-S van al principio de `logic68k.s`;
+  `shatter_block` sigue en C (la llama `mcoll.c`, solo al romper un
+  bloque) y `score_at_mario` (`_00F38A`) vive en `msprite.c`.
+- **La puerta `sws_cmp.py` excluye el primer frame bloqueado con una
+  animación no portada** (un RUN seguido de SKIP en el replay: la tubería
+  de yi1, f11425). La SNES pone `$9D` a mitad del frame y el port no.

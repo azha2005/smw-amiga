@@ -42,9 +42,15 @@ void mario_D7E4_c(void);
 /* ------------------------------------------------------------------ */
 /* CODE_00FE4A: humo al frenar / derrapar. Escribe solo las tablas de humo.
    No toca X. */
-static void fe4a(void)
+/* SW-S: el carry con que CODE_00FE72 suma: el del CMP #$10 (1) si B abajo,
+   si no el del que llama (fe_cin; ver los JSR CODE_00FE4A de player.s).
+   La lee tambien mr_fe4a (logic68k.s). */
+u8 fe_cin;
+
+static void fe4a(u8 cin)
 {
     u8 a, y;
+    u16 s;
     a = (u8)((R8(wm_FrameA) & 0x03) | R8(wm_IsFlying) | R8(wm_MarioScrPosX + 1)
              | R8(wm_MarioScrPosY + 1) | R8(wm_SpritesLocked));
     if (a)
@@ -60,16 +66,14 @@ static void fe4a(void)
     }
     return;
 fe72:                                       /* CODE_00FE72 */
-    /* El ADC usa el carry que dejo el CMP #$10 (1) o el LDA (sin tocar):
-       en los dos caminos que llegan aca el carry es 1 si hubo CMP, y del
-       AND/ORA anteriores (no lo tocan) si no. Solo afecta a la posicion
-       del humo, que el oraculo no compara. */
+    /* Los ADC encadenan el carry: el del CMP #$10 (1) o el del que llama */
     (RX8(wm_SmokeSprite, y) = (u8)(0x03));
-    (RX8(wm_SmokeXPos, y) = (u8)(R8(wm_MarioXPos) + 0x04));
-    a = (u8)(R8(wm_MarioYPos) + 0x1A);
+    s = (u16)(R8(wm_MarioXPos) + 0x04 + ((R8(wm_JoyPadA) & 0x04) ? 1 : cin));
+    (RX8(wm_SmokeXPos, y) = (u8)s);
+    s = (u16)(R8(wm_MarioYPos) + 0x1A + (s >> 8));
     if (R8(wm_OnYoshi))
-        a = (u8)(a + 0x10);
-    (RX8(wm_SmokeYPos, y) = (u8)(a));
+        s = (u16)((u8)s + 0x10 + (s >> 8));
+    (RX8(wm_SmokeYPos, y) = (u8)s);
     (RX8(wm_SmokeTimer, y) = (u8)(0x13));
 }
 
@@ -114,7 +118,7 @@ void mario_D5F2(void)
     if (!R8(wm_IsDucking))
         goto l_D682;
     if (R8(wm_MarioSpeedX) && !R8(wm_IsSlipperyLevel))
-        fe4a();
+        fe4a(1);                            /* C del CMP #$02 con IsDucking: 1 */
     goto l_D764;
 
 l_D630:                                     /* CODE_00D630: empieza el salto */
@@ -152,7 +156,7 @@ l_D682:                                     /* _00D682 */
         if (!R8(wm_PlayerSlopePose))
             goto l_D764;
     }
-    fe4a();
+    fe4a(0);                                /* (sin B abajo, el C de antes de _00D682) */
     if (!R8(wm_OnSlopeTypeA))
         goto l_D764;
     (void)d96a(0);                          /* CODE_00D968 */
@@ -188,7 +192,7 @@ l_D6D5_pp:
         && !R8(wm_SlideImgTimer)) {
         if (!R8(wm_IsSlipperyLevel)) {
             W8(wm_PlayerTurningPose, 0x0D);
-            fe4a();
+            fe4a(0);                        /* los ASL de CODE_00D6D5 dejan C = 0 */
         }
         x = (u8)(x + 0x90);
     }

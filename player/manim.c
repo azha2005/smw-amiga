@@ -478,11 +478,17 @@ void level_frame(void)
     if (mario_unsupported)
         return;
     sprites_begin();
-    if (level_sprites)
+    if (level_sprites) {
         sprites_all();
+        give_lives_tick();                  /* CODE_028AB1 (SW-S) */
+    }
+    mex_update();                           /* CODE_028B67 (SW-S) */
     blocks_update();
-    if (level_sprites)
+    smoke_update();                         /* CODE_0296C0 (en CODE_02902D, SW-S) */
+    if (level_sprites) {
+        score_update();                     /* ScoreSprGfx (SW-S) */
         sprite_load_level();                /* al final de CODE_028AB1 */
+    }
 }
 #endif
 

@@ -67,7 +67,7 @@ void rex_contact(u8 x)
         W8(m15, (u8)d);                     /* SubHorzPosBnk3 */
         SETSPR(wm_SpriteSpeedX, x, (d & 0x8000) ? 0x10 : 0xF0);    /* RexKilledSpeed */
         W8(wm_StarKillPoints, p > 8 ? 8 : p);
-        mario_events |= MEV_SPRITE;         /* GivePoints */
+        give_points(x, p > 8 ? 8 : p);
         return;
     }
     if (SPR(wm_SpriteDecTbl2, x))
@@ -84,7 +84,8 @@ void rex_contact(u8 x)
         return;
     }
     chain_points(x);                       /* RexPoints (DATA_038000 = DATA_01A61E) */
-    boost_mario();                          /* BoostMarioSpeed, DisplayContactGfx */
+    boost_mario();                          /* BoostMarioSpeed */
+    contact_gfx(x);                         /* DisplayContactGfx */
     if (R8(wm_IsSpinJump) | R8(wm_OnYoshi)) {   /* RexSpinKill */
         SETSPR(wm_SpriteStatus, x, 0x04);
         SETSPR(wm_SpriteDecTbl1, x, 0x1F);

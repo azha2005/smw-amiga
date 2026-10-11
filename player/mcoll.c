@@ -22,6 +22,7 @@
  * de verdad con GenerateTile, que es lo que ve el frame siguiente.
  */
 #include "mario.h"
+#include "msprite.h"
 #include "gen/smwram.h"
 #include "gen/smwtab.h"
 #include "smwmac.h"
@@ -388,7 +389,16 @@ static void bounce_spawn(void)
 {
     u8 y, kind = R8(m4);
     if (kind == 0x07) {                       /* bloque giratorio que se rompe */
+        u8 i = (u8)(R8(wm_OWCharA) * 3);    /* 50 puntos, sin sprite */
+        u16 s = (u16)(R8(wm_MarioScoreHi + i) + 0x05);
+        W8(wm_MarioScoreHi + i, (u8)s);
+        if (s >> 8) {
+            W8(wm_MarioScoreMid + i, R8(wm_MarioScoreMid + i) + 1);
+            if (!R8(wm_MarioScoreMid + i))
+                W8(wm_MarioScoreLo + i, R8(wm_MarioScoreLo + i) + 1);
+        }
         W8(wm_MarioSpeedY, 0xD0);
+        shatter_block(0x00);
         mario_events |= MEV_BOUNCE;
         W8(wm_BlockId, 0x02);
         generate_tile();
@@ -646,6 +656,30 @@ static void f28c(void)
         mario_events |= MEV_1UP;
 }
 
+/* CODE_00FD5A: el destello (humo 5) sobre el bloque que se acaba de
+   cambiar, si Mario esta en la pantalla; sin ranura libre, nada (SW-S) */
+static void fd5a(void)
+{
+    u8 y = 4, bx, by;
+    if (R8(wm_MarioScrPosX + 1) | R8(wm_MarioScrPosY + 1))
+        return;
+    while (y--)
+        if (!RX8(wm_SmokeSprite, y))
+            break;
+    if (y == 0xFF)
+        return;
+    bx = R8(wm_BlockYPos);                  /* P33: los nombres estan cruzados */
+    by = R8(wm_BlockXPos);
+    if (R8(wm_LayerInProcess)) {
+        bx = (u8)(bx - R8(wm_26));
+        by = (u8)(by - R8(wm_28));
+    }
+    (RX8(wm_SmokeSprite, y) = 0x05);
+    (RX8(wm_SmokeXPos, y) = (u8)(bx & 0xF0));
+    (RX8(wm_SmokeYPos, y) = (u8)(by & 0xF0));
+    (RX8(wm_SmokeTimer, y) = 0x10);
+}
+
 /* CODE_00F309: monedas, monedas de Yoshi, luna */
 static void f309(void)
 {
@@ -661,20 +695,27 @@ static void f309(void)
             if (y != 0x2D)                  /* mitad de abajo: sube un bloque */
                 W8(wm_BlockXPos, R8(wm_BlockXPos) - 0x10);
             mario_events |= MEV_COIN;
+            {                               /* CODE_00F377 */
+                u8 n = (u8)(R8(wm_YoshiCoinsCollected) + 0x09);
+                score_at_mario(n >= 0x0D ? 0x0D : n);
+            }
             W8(wm_YoshiCoinsCollected, R8(wm_YoshiCoinsCollected) + 1);
             W8(wm_YoshiCoinsDisp, R8(wm_YoshiCoinsDisp) + 1);
             W8(wm_SoundCh1, 0x1C);
             W8(wm_BlockId, 0x18);
         }
         generate_tile();
+        fd5a();
         return;
     }
     if (y != 0x6E)
         return;
     mario_events |= MEV_COIN;               /* luna 3-UP */
+    score_at_mario(0x0F);
     W8(wm_3UpMoonsCol, R8(wm_3UpMoonsCol) + 1);
     W8(wm_BlockId, 0x01);
     generate_tile();
+    fd5a();
 }
 
 /* CODE_00F2C9 */
@@ -684,6 +725,7 @@ static void f2c9(u8 a)
     if (y == 0x38) {                        /* cinta del punto medio */
         W8(wm_BlockId, 0x02);
         generate_tile();
+        fd5a();
         mario_events |= MEV_MIDWAY;
         if (!R8(wm_MarioPowerUp))
             W8(wm_MarioPowerUp, 0x01);

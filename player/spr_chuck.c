@@ -121,7 +121,7 @@ static void chuck_die(u8 x)
     SETSPR(wm_SpriteSpeedX, x, 0);
     SETSPR(wm_SpriteStatus, x, 0x02);
     W8(wm_SoundCh1, 0x03);
-    mario_events |= MEV_SPRITE;
+    give_points(x, 3);
 }
 
 /* CODE_02C79D: el contacto con Mario */
@@ -143,7 +143,7 @@ static void chuck_contact(u8 x)
     }
     SETSPR(wm_SpriteDecTbl4, x, 0x05);          /* el pisoton */
     W8(wm_SoundCh1, 0x02);
-    mario_events |= MEV_SPRITE;                 /* DisplayContactGfx */
+    contact_gfx(x);                             /* DisplayContactGfx */
     boost_mario();
     SETSPR(wm_SpriteDecTbl6, x, 0);
     if (SPR(wm_SpriteState, x) == 3)

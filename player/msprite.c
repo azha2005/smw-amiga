@@ -26,15 +26,337 @@ void boost_mario(void)
         W8(wm_MarioSpeedY, NEG(R8(wm_JoyPadA)) ? 0xA8 : 0xD0);
 }
 
-/* CODE_01AB46: puntos por pisoton en cadena (la puntuacion y su sprite,
-   GivePoints, son de la etapa 10: MEV_SPRITE) */
+#ifndef LOGIC68K            /* con LOGIC68K: player/logic68k.s (SW-S) */
+/* ---- SW-S: los sprites de puntos (sprite_2-clus.s:5752-5960) ----
+   GivePoints crea uno en la ranura de sprite x; score_update (ScoreSprGfx,
+   en CODE_028AB1 despues de los sprites) los sube, suma la puntuacion al
+   pasar SpeedY por $2A (o las vidas / monedas) y los borra. El dibujo
+   (las dos fichas en wm_ExOamSlot) va aparte. */
+
+/* PointMultiplierLo (17), PointMultiplierHi (17), PointSpeedY (4) y
+   DATA_02AD9E (6), contiguas como en la ROM: CODE_02AE12 con Y >= $11 lee
+   las de la tabla siguiente */
+static const u8 ss_tab[44] = {
+    0x00, 0x01, 0x02, 0x04, 0x08, 0x0A, 0x14, 0x28, 0x50, 0x64, 0xC8, 0x90, 0x20, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03, 0x00, 0x00, 0x00, 0x00,
+    0x03, 0x01, 0x00, 0x00,
+    0xB0, 0xB8, 0xC0, 0xC8, 0xD0, 0xD8 };
+#define SS_SPEEDY 34
+static const u8 ss_coins[9] = { 0x01, 0x02, 0x03, 0x05, 0x05, 0x0A, 0x0F, 0x14, 0x19 };   /* CoinsToGive */
+
+/* CODE_02AD34: una ranura libre (la mas alta) o la siguiente de la rueda */
+u8 score_slot(void)
+{
+    u8 y = 6;
+    while (y--)
+        if (!RX8(wm_ScoreSprNum, y))
+            return y;
+    W8(wm_ScoreSprIndex, R8(wm_ScoreSprIndex) - 1);
+    if (NEG(R8(wm_ScoreSprIndex)))
+        W8(wm_ScoreSprIndex, 5);
+    return R8(wm_ScoreSprIndex);
+}
+
+/* CODE_02ACEF: el sprite de puntos n sobre la ranura x */
+void score_spawn(u8 x, u8 n)
+{
+    u8 y = score_slot();
+    u16 sy = (u16)((SPR(wm_SpriteYLo, x) | SPR(wm_SpriteYHi, x) << 8) - 8);
+    (RX8(wm_ScoreSprNum, y) = n);
+    if ((u8)((u8)sy - R8(wm_Bg1VOfs)) >= 0xF0)     /* CMP #$F0 deja C: ADC #$10 suma $11 */
+        sy = (u16)(sy + 0x11);
+    (RX8(wm_ScoreSprYLo, y) = (u8)sy);
+    (RX8(wm_ScoreSprYHi, y) = (u8)(sy >> 8));
+    (RX8(wm_ScoreSprXLo, y) = SPR(wm_SpriteXLo, x));
+    (RX8(wm_ScoreSprXHi, y) = SPR(wm_SpriteXHi, x));
+    (RX8(wm_ScoreSprSpeedY, y) = 0x30);
+}
+
+/* GivePoints: A = 1 (10) ... 8 (1-UP); el sprite es A + 5 */
+void give_points(u8 x, u8 a)
+{
+    score_spawn(x, (u8)(a + 5));
+}
+
+/* ADDR_05B329: monedas */
+static void coin_add(u8 a)
+{
+    W8(wm_SoundCh3, 0x01);
+    W8(wm_CoinAdder, R8(wm_CoinAdder) + a);
+    if (R8(wm_GreenStarCoins)) {
+        u8 g = (u8)(R8(wm_GreenStarCoins) - a);
+        W8(wm_GreenStarCoins, NEG(g) ? 0 : g);
+    }
+}
+
+/* CODE_028AB1, el principio: las vidas pendientes, una cada $23 frames */
+void give_lives_tick(void)
+{
+    if (!R8(wm_GiveLives))
+        return;
+    if (R8(wm_GiveLifeTimer)) {
+        W8(wm_GiveLifeTimer, R8(wm_GiveLifeTimer) - 1);
+        return;
+    }
+    W8(wm_GiveLives, R8(wm_GiveLives) - 1);
+    if (R8(wm_GiveLives))
+        W8(wm_GiveLifeTimer, 0x23);
+    W8(wm_SoundCh3, 0x05);
+    W8(wm_StatusLives, R8(wm_StatusLives) + 1);
+}
+
+/* ScoreSprGfx: las 6 ranuras, de la 5 a la 0 (CODE_02ADC9 sin el dibujo) */
+void score_update(void)
+{
+    u8 x = 6, v, n, i;
+    u16 s;
+    if ((R8(wm_LevelMode) & 0x40) && R8(wm_LevelMode) == 0xC1)
+        return;
+    while (x--) {
+        W8(wm_SprProcessIndex, x);
+        if (!RX8(wm_ScoreSprNum, x) || R8(wm_SpritesLocked))
+            continue;
+        v = RX8(wm_ScoreSprSpeedY, x);
+        if (!v) {
+            (RX8(wm_ScoreSprNum, x) = 0);
+            continue;
+        }
+        (RX8(wm_ScoreSprSpeedY, x) = (u8)(v - 1));
+        if (v == 0x2A) {
+            n = RX8(wm_ScoreSprNum, x);
+            if (n >= 0x0D && n < 0x11) {    /* CODE_02AE03: 1-UP ... */
+                W8(wm_GiveLives, R8(wm_GiveLives) + ss_coins[n - 13]);
+                W8(wm_GiveLifeTimer, 0);
+            } else {
+                if (n >= 0x11)
+                    coin_add(ss_coins[n - 13]);
+                i = (u8)(R8(wm_OWCharA) * 3);   /* CODE_02AE12 */
+                s = (u16)(R8(wm_MarioScoreHi + i) + ss_tab[n]);
+                W8(wm_MarioScoreHi + i, (u8)s);
+                s = (u16)(R8(wm_MarioScoreMid + i) + ss_tab[17 + n] + (s >> 8));
+                W8(wm_MarioScoreMid + i, (u8)s);
+                W8(wm_MarioScoreLo + i, (u8)(R8(wm_MarioScoreLo + i) + (s >> 8)));
+            }
+        }
+        if (!(R8(wm_FrameA) & ss_tab[SS_SPEEDY + (RX8(wm_ScoreSprSpeedY, x) >> 4)])) {
+            n = RX8(wm_ScoreSprYLo, x);     /* _02AE38: sube, sin pasar del borde */
+            if ((u8)(n - R8(wm_Bg1VOfs)) >= 4) {
+                (RX8(wm_ScoreSprYLo, x) = (u8)(n - 1));
+                if (!n)
+                    (RX8(wm_ScoreSprYHi, x) = (u8)(RX8(wm_ScoreSprYHi, x) - 1));
+            }
+        }
+    }
+}
+
+/* ---- SW-S: el humo (CODE_0296C0, en el bucle de CODE_02902D) ----
+   Las 4 ranuras de wm_SmokeSprite, sin el dibujo. 1 = nube, 2 = estrella
+   de contacto, 3 = humo de derrape, 5 = destellos (crea sprites menores
+   del tipo 2). Los demas no hacen nada. */
+static const u8 sm_dx[4] = { 0x04, 0x08, 0x04, 0x00 };     /* DATA_0298C2 */
+static const u8 sm_dy[4] = { 0xFC, 0x04, 0x0C, 0x04 };     /* DATA_0298C6 */
+
+/* la ranura de sprite menor libre (la mas alta) o la siguiente de la rueda */
+u8 mex_slot(void)
+{
+    u8 y = 12;
+    while (y--)
+        if (!RX8(wm_MExSprNum, y))
+            return y;
+    W8(wm_DelOldExSpr, R8(wm_DelOldExSpr) - 1);
+    if (NEG(R8(wm_DelOldExSpr)))
+        W8(wm_DelOldExSpr, 0x0B);
+    return R8(wm_DelOldExSpr);
+}
+
+/* CODE_028B67: los 12 sprites menores, de la 11 a la 0, sin el dibujo.
+   Solo los tipos de YI1: 1 = trozo de bloque (CODE_028F8B), 2 y 5 =
+   destello (CODE_028ED2). Los demas quedan quietos. */
+void mex_update(void)
+{
+    u8 x = 12, a;
+    u16 p;
+    while (x--) {
+        a = RX8(wm_MExSprNum, x);
+        if (!a)
+            continue;
+        W8(wm_ExSprIndexM, x);
+        if (a == 2 || a == 5) {             /* CODE_028ED2 */
+            if (!RX8(wm_MExSprTimer, x))
+                goto kill;
+            if (!R8(wm_SpritesLocked))
+                (RX8(wm_MExSprTimer, x) = (u8)(RX8(wm_MExSprTimer, x) - 1));
+            if ((u8)(RX8(wm_MExSprXLo, x) - R8(wm_Bg1HOfs)) >= 0xF0
+                || (u8)(RX8(wm_MExSprYLo, x) - R8(wm_Bg1VOfs)) >= 0xF0)
+                goto kill;
+            continue;
+        }
+        if (a != 1)
+            continue;
+        if (!R8(wm_SpritesLocked)) {        /* CODE_028F8B */
+            if (R8(wm_FrameA) & 3) {
+                p = (u16)((RX8(wm_MExSprXLo, x) | RX8(wm_MExSprXHi, x) << 8)
+                          + (s8)RX8(wm_MExSprXSpeed, x));
+                (RX8(wm_MExSprXLo, x) = (u8)p);
+                (RX8(wm_MExSprXHi, x) = (u8)(p >> 8));
+            }
+            p = (u16)((RX8(wm_MExSprYLo, x) | RX8(wm_MExSprYHi, x) << 8)
+                      + (s8)RX8(wm_MExSprYSpeed, x));
+            (RX8(wm_MExSprYLo, x) = (u8)p);
+            (RX8(wm_MExSprYHi, x) = (u8)(p >> 8));
+            if (!(R8(wm_FrameA) & 3))
+                (RX8(wm_MExSprYSpeed, x) = (u8)(RX8(wm_MExSprYSpeed, x) + 1));
+        }
+        p = (u16)((RX8(wm_MExSprYLo, x) | RX8(wm_MExSprYHi, x) << 8) - R16(wm_Bg1VOfs));
+        if (p >> 8) {
+            if (NEG((u8)(p >> 8)))
+                continue;                   /* por encima: sigue vivo */
+            goto kill;
+        }
+        if ((u16)((RX8(wm_MExSprXLo, x) | RX8(wm_MExSprXHi, x) << 8) - R16(wm_Bg1HOfs)) >> 8)
+            goto kill;
+        if ((u8)p >= 0xF0)
+            goto kill;
+        continue;
+kill:
+        (RX8(wm_MExSprNum, x) = 0);         /* CODE_028F87 */
+    }
+}
+
+void smoke_update(void)
+{
+    u8 x = 4, n, t, y;
+    while (x--) {
+        n = RX8(wm_SmokeSprite, x);
+        if (!n)
+            continue;
+        t = RX8(wm_SmokeTimer, x);
+        switch (n & 0x7F) {
+        case 1:                             /* CODE_0296E3 */
+            if (!t) break;
+            if ((n & 0x80) || !R8(wm_SpritesLocked))
+                (RX8(wm_SmokeTimer, x) = (u8)(t - 1));
+            if ((u8)(RX8(wm_SmokeXPos, x) - R8(wm_Bg1HOfs)) >= 0xF4
+                || (u8)(RX8(wm_SmokeYPos, x) - R8(wm_Bg1VOfs)) >= 0xE0)
+                break;
+            continue;
+        case 2:                             /* CODE_029797 */
+            if (!t) break;
+            if (!R8(wm_SpritesLocked))
+                (RX8(wm_SmokeTimer, x) = (u8)(t - 1));
+            if ((u8)(RX8(wm_SmokeXPos, x) - R8(wm_Bg1HOfs)) >= 0xF0)
+                break;
+            continue;
+        case 3:                             /* CODE_029927 */
+            if (!t) break;
+            if (!R8(wm_SpritesLocked)) {
+                (RX8(wm_SmokeTimer, x) = (u8)(t - 1));
+                if (!(t & 7))
+                    (RX8(wm_SmokeYPos, x) = (u8)(RX8(wm_SmokeYPos, x) - 1));
+            }
+            continue;
+        case 5:                             /* CODE_0298CA */
+            if (!t) break;
+            if (!R8(wm_SpritesLocked)) {
+                (RX8(wm_SmokeTimer, x) = (u8)(t - 1));
+                if (!(t & 3)) {
+                    y = mex_slot();
+                    (RX8(wm_MExSprNum, y) = 0x02);
+                    t = (u8)(((u8)(t - 1) >> 2) & 3);
+                    (RX8(wm_MExSprXLo, y) = (u8)(sm_dx[t] + RX8(wm_SmokeXPos, x)));
+                    (RX8(wm_MExSprYLo, y) = (u8)(sm_dy[t] + RX8(wm_SmokeYPos, x)));
+                    (RX8(wm_MExSprTimer, y) = 0x17);
+                }
+            }
+            continue;
+        default:
+            continue;
+        }
+        (RX8(wm_SmokeSprite, x) = 0);       /* CODE_0296DF / CODE_029793 */
+    }
+}
+
+/* DisplayContactGfx: la estrellita del contacto (humo 2) a los pies de
+   Mario, si el sprite x esta en pantalla; sin ranura libre pisa la 0 */
+void contact_gfx(u8 x)
+{
+    u8 y = 4;
+    if (SPR(wm_OffscreenHorz, x) | SPR(wm_OffscreenVert, x))
+        return;
+    while (y--)
+        if (!RX8(wm_SmokeSprite, y))
+            break;
+    if (y == 0xFF)
+        y = 0;
+    (RX8(wm_SmokeSprite, y) = 0x02);
+    (RX8(wm_SmokeXPos, y) = R8(wm_MarioXPos));
+    (RX8(wm_SmokeYPos, y) = (u8)(R8(wm_MarioYPos) + (R8(wm_OnYoshi) >= 1 ? 0x1E : 0x14)));
+    (RX8(wm_SmokeTimer, y) = 0x08);
+}
+
+#endif
+
+/* ShatterBlock (sprite_2-clus.s:751): los 4 trozos (sprite menor 1) en el
+   bloque BlockYPos/BlockXPos, con timer t. La busqueda de ranura sigue
+   bajando desde la ultima encontrada, como en la ROM. En C tambien en la Amiga: la llama mcoll.c, a mas de
+   32 KB de logic68k.s (P102), y solo al romper un bloque. */
+static const u8 sh_dy[4] = { 0x00, 0x00, 0x08, 0x08 };     /* DATA_028742 */
+static const u8 sh_dx[4] = { 0x00, 0x08, 0x00, 0x08 };     /* DATA_028746 */
+static const u8 sh_vy[4] = { 0xFB, 0xFB, 0xFD, 0xFD };     /* DATA_02874A */
+static const u8 sh_vx[4] = { 0xFF, 0x01, 0xFF, 0x01 };     /* DATA_02874E */
+
+void shatter_block(u8 t)
+{
+    u8 y = 4, x = 12;
+    u16 p;
+    while (y--) {
+        for (;;) {
+            if (x-- == 0) {                 /* sin libre: la rueda */
+                W8(wm_DelOldExSpr, R8(wm_DelOldExSpr) - 1);
+                if (NEG(R8(wm_DelOldExSpr)))
+                    W8(wm_DelOldExSpr, 0x0B);
+                x = R8(wm_DelOldExSpr);
+                break;
+            }
+            if (!RX8(wm_MExSprNum, x))
+                break;
+        }
+        W8(wm_SoundCh3, 0x07);
+        (RX8(wm_MExSprNum, x) = 0x01);
+        p = (u16)((R8(wm_BlockYPos) | R8(wm_BlockYPos + 1) << 8) + sh_dx[y]);
+        (RX8(wm_MExSprXLo, x) = (u8)p);
+        (RX8(wm_MExSprXHi, x) = (u8)(p >> 8));
+        p = (u16)((R8(wm_BlockXPos) | R8(wm_BlockXPos + 1) << 8) + sh_dy[y]);
+        (RX8(wm_MExSprYLo, x) = (u8)p);
+        (RX8(wm_MExSprYHi, x) = (u8)(p >> 8));
+        (RX8(wm_MExSprYSpeed, x) = sh_vy[y]);
+        (RX8(wm_MExSprXSpeed, x) = sh_vx[y]);
+        (RX8(wm_MExSprTimer, x) = t);
+    }
+}
+
+/* _00F38A: el sprite de puntos n sobre Mario (moneda de Yoshi, luna). Aca y
+   no en mcoll.c: score_slot es asm y mcoll.c queda a mas de 32 KB (P102) */
+void score_at_mario(u8 n)
+{
+    u8 y = score_slot();
+    (RX8(wm_ScoreSprNum, y) = n);
+    (RX8(wm_ScoreSprXLo, y) = R8(wm_MarioXPos));
+    (RX8(wm_ScoreSprXHi, y) = R8(wm_MarioXPos + 1));
+    (RX8(wm_ScoreSprYLo, y) = R8(wm_MarioYPos));
+    (RX8(wm_ScoreSprYHi, y) = R8(wm_MarioYPos + 1));
+    (RX8(wm_ScoreSprSpeedY, y) = 0x30);
+    (RX8(wm_ScoreSprLayer, y) = 0x00);
+}
+
+/* CODE_01AB46: puntos por pisoton en cadena */
 void chain_points(u8 x)
 {
     u8 y = (u8)(R8(wm_SprChainStomped) + SPR(wm_SprChainKillTbl, x) + 1);
     W8(wm_SprChainStomped, R8(wm_SprChainStomped) + 1);
     if (y < 8)
         W8(wm_SoundCh1, tx_01A61E[y - 1]);   /* DATA_01A61E */
-    mario_events |= MEV_SPRITE;
+    give_points(x, y < 8 ? y : 8);
 }
 
 void spr_unsup(void) { if (!mario_unsupported) mario_unsupported = MARIO_UNSUP_TILE; }
@@ -743,18 +1065,19 @@ static int spr_mario_contact(u8 x)
 #endif
 
 /* _01A8D8: rebote de Mario (DisplayContactGfx: la estrellita, grafico) */
-static void stomp_bounce(void)
+static void stomp_bounce(u8 x)
 {
     W8(wm_SoundCh1, 0x02);
     boost_mario();
-    mario_events |= MEV_SPRITE;
+    contact_gfx(x);
 }
 
 /* _01A924: el salto con giro (o Yoshi) sobre un sprite pisable lo deshace en
    humo. Extern: tambien lo usa spr_shell.c (CODE_01AA42) */
 MSX void spr_spin_kill(u8 x)
 {
-    mario_events |= MEV_SPRITE;             /* DisplayContactGfx, CODE_07FC3B */
+    contact_gfx(x);                         /* DisplayContactGfx */
+    mario_events |= MEV_SPRITE;             /* CODE_07FC3B */
     W8(wm_MarioSpeedY, 0xF8);
     if (R8(wm_OnYoshi))
         boost_mario();
@@ -778,8 +1101,9 @@ MSX void spr_spin_kill(u8 x)
 static void star_kill(u8 x)
 {
     u8 p = (u8)(R8(wm_StarKillPoints) + 1);
-    mario_events |= MEV_SPRITE;
+    mario_events |= MEV_SPRITE;             /* CODE_01AB6F: el humo */
     W8(wm_StarKillPoints, p > 8 ? 8 : p);
+    give_points(x, p > 8 ? 8 : p);
     SETSPR(wm_SpriteStatus, x, 0x02);
     SETSPR(wm_SpriteSpeedY, x, 0xD0);
     SETSPR(wm_SpriteSpeedX, x, sub_horiz_pos(x) ? 0x10 : 0xF0);    /* DATA_01A839 */
@@ -813,7 +1137,7 @@ MSS void default_interact(u8 x)      /* MSS: con LOGIC68K la llama mario_spr_int
                 spr_spin_kill(x);
                 return;
             }
-            stomp_bounce();                 /* CODE_01A947 */
+            stomp_bounce(x);                 /* CODE_01A947 */
             if (SPR(wm_SprStompImmuneTbl, x)) {
                 W8(wm_MarioSpeedX, sub_horiz_pos(x) ? 0xE8 : 0x18);
                 return;
@@ -843,7 +1167,7 @@ MSS void default_interact(u8 x)      /* MSS: con LOGIC68K la llama mario_spr_int
             return;
         }
         if (R8(wm_IsSpinJump) | R8(wm_OnYoshi)) {
-            stomp_bounce();                 /* _01A8D8: rebota sin hacerle nada */
+            stomp_bounce(x);                 /* _01A8D8: rebota sin hacerle nada */
             return;
         }
     }
@@ -1072,20 +1396,22 @@ static int sprspr_koopa02(u8 xx, u8 yy)
 }
 
 /* el que mata por contacto (killer) suma la cadena de puntos; los puntos
-   mismos (GivePoints, CODE_02ACE1) y el humo (_01AB72) son graficos */
-static void sprspr_chain(u8 killer)
+   salen sobre el muerto (victim: GivePoints / CODE_02ACE1); el humo
+   (_01AB72) es grafico */
+static void sprspr_chain(u8 killer, u8 victim)
 {
     u8 c = (u8)(SPR(wm_SprChainKillTbl, killer) + 1);
     SETSPR(wm_SprChainKillTbl, killer, c);
     if (c < 8)
         W8(wm_SoundCh1, tx_01A61E[c - 1]);
     mario_events |= MEV_SPRITE;
+    give_points(victim, c < 8 ? c : 8);
 }
 
 /* CODE_01A64A: el pateado / quieto en el aire (y) mata al otro (x) */
 static void sprspr_kill_x(u8 x, u8 y)
 {
-    sprspr_chain(y);
+    sprspr_chain(y, x);
     SETSPR(wm_SpriteStatus, x, 0x02);
     SETSPR(wm_SpriteSpeedX, x, NEG(SPR(wm_SpriteSpeedX, y)) ? 0xF0 : 0x10);
     SETSPR(wm_SpriteSpeedY, x, 0xD0);
@@ -1102,7 +1428,7 @@ static void sprspr_kill_y(u8 x, u8 y)
     }
     if (sprspr_koopa02(y, x))
         return;
-    sprspr_chain(x);
+    sprspr_chain(x, y);
     SETSPR(wm_SpriteStatus, y, 0x02);
     SETSPR(wm_SpriteSpeedX, y, NEG(SPR(wm_SpriteSpeedX, x)) ? 0xF0 : 0x10);
     SETSPR(wm_SpriteSpeedY, y, 0xD0);
@@ -1134,7 +1460,8 @@ static void sprspr_both_die(u8 x, u8 y)
         SETSPR(wm_SpriteSpeedY, y, 0xD0);
     }
     W8(wm_SoundCh1, 0x03);                  /* CODE_01AB6F: PlayKickSfx (+ humo) */
-    mario_events |= MEV_SPRITE;             /* GivePoints (4) */
+    mario_events |= MEV_SPRITE;             /* el humo */
+    give_points(x, 4);
     v = NEG(SPR(wm_SpriteSpeedX, x)) ? 0x10 : 0xF0;
     SETSPR(wm_SpriteSpeedX, x, v);
     SETSPR(wm_SpriteSpeedX, y, (u8)-v);
@@ -1313,6 +1640,18 @@ MSS void sliding_koopa(u8 x)
     if (!(SPR(wm_SprObjStatus, x) & 0x04))
         return;
     v = SPR(wm_SpriteSpeedX, x);
+    if (v && !(R8(wm_FrameA) & 0x03)        /* CODE_0389FF: el polvo (SW-S) */
+        && !(SPR(wm_OffscreenHorz, x) | SPR(wm_OffscreenVert, x))) {
+        for (y = 4; y--; ) {
+            if (!RX8(wm_SmokeSprite, y)) {  /* CODE_038A21 */
+                (RX8(wm_SmokeSprite, y) = 0x03);
+                (RX8(wm_SmokeXPos, y) = (u8)(SPR(wm_SpriteXLo, x) + 0x04));
+                (RX8(wm_SmokeYPos, y) = (u8)(SPR(wm_SpriteYLo, x) + 0x0A));
+                (RX8(wm_SmokeTimer, y) = 0x13);
+                break;
+            }
+        }
+    }
     s = SPR(wm_SpriteSlopeTbl, x);
     y = 0;                                  /* pegado a la pendiente al bajar, */
     if (v && s)                             /* despedido hacia arriba al subir */

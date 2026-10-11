@@ -134,10 +134,11 @@ def build(r, want_68k):
     r.note("build PC", True, "work/marioverify desde el codigo actual")
     if not want_68k:
         return True, False
-    if os.name != "nt":
-        code, out = sh([cc, "-shared", "-fPIC", "-O2", "-DNOOAM", "-Iplayer", "-o", LIB] + LIBSRC)
-        if code:
-            r.note("build PC (biblioteca)", False, out[-800:])
+    # tambien en Windows (ucrt64): sin esto el cruce usaba una biblioteca
+    # vieja y no veia los cambios del C (SW-S, 2026-10-10)
+    code, out = sh([cc, "-shared", "-fPIC", "-O2", "-DNOOAM", "-Iplayer", "-o", LIB] + LIBSRC)
+    if code:
+        r.note("build PC (biblioteca)", False, out[-800:])
     v = vbcc_dir()
     if not v:
         r.note("build 68000", False, "no encuentro vbcc (VBCC=...): se saltan las pruebas del 68000")

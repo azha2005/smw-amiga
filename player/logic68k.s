@@ -16,6 +16,491 @@
         include "player/picmacros.i"       ; tambien visible al verificador ABI
 
 ;----------------------------------------------------------------------
+; SW-S: los motores de puntos, humo y sprites extendidos menores, sin el
+; dibujo. Al principio del fichero: el C que llama a give_points,
+; contact_gfx... queda a menos de 32 KB (P102). La referencia es el C de msprite.c (#ifndef LOGIC68K), que la
+; biblioteca del PC compila y m68kverify --cross compara llamada a llamada;
+; la puerta contra la SNES es tools/sws_cmp.py (RAM de los tres motores).
+;----------------------------------------------------------------------
+
+; --- give_lives_tick ---
+; entrada:  a4 = datos del C
+; salida:   CODE_028AB1, el principio: las vidas pendientes, una cada $23
+; registros destruidos: ninguno
+; ciclos:   tools/l_funcs.py
+        public  _give_lives_tick
+_give_lives_tick:
+        tst.b   _ram+wm_GiveLives(a4)
+        beq.s   .r
+        tst.b   _ram+wm_GiveLifeTimer(a4)
+        beq.s   .g
+        subq.b  #1,_ram+wm_GiveLifeTimer(a4)
+.r:     rts
+.g:     subq.b  #1,_ram+wm_GiveLives(a4)
+        beq.s   .s
+        move.b  #$23,_ram+wm_GiveLifeTimer(a4)
+.s:     move.b  #$05,_ram+wm_SoundCh3(a4)
+        addq.b  #1,_ram+wm_StatusLives(a4)
+        rts
+
+; --- score_slot ---
+; entrada:  a4 = datos del C
+; salida:   d0.w = ranura de puntos (CODE_02AD34): la libre mas alta o la
+;           siguiente de la rueda (ScoreSprIndex)
+; registros destruidos: d0/a0 (d1 se conserva: lo usa ss_spawn)
+; ciclos:   tools/l_funcs.py
+        public  _score_slot
+_score_slot:
+        lea     _ram+wm_ScoreSprNum(a4),a0
+        moveq   #5,d0
+.l:     tst.b   (a0,d0.w)
+        beq.s   .r
+        dbf     d0,.l
+        subq.b  #1,_ram+wm_ScoreSprIndex(a4)
+        bpl.s   .o
+        move.b  #5,_ram+wm_ScoreSprIndex(a4)
+.o:     moveq   #0,d0
+        move.b  _ram+wm_ScoreSprIndex(a4),d0
+.r:     rts
+
+; --- give_points / score_spawn ---
+; entrada:  pila vbcc = u8 x, u8 a (give_points: sprite a + 5) o u8 x,
+;           u8 n (score_spawn); a4 = datos del C
+; salida:   el sprite de puntos sobre el sprite x (CODE_02ACEF)
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+        public  _give_points
+_give_points:
+        moveq   #0,d1
+        move.b  7(sp),d1
+        move.b  11(sp),d0
+        addq.b  #5,d0
+        bra.s   ss_spawn
+        public  _score_spawn
+_score_spawn:
+        moveq   #0,d1
+        move.b  7(sp),d1
+        move.b  11(sp),d0
+; d1.w = x, d0.b = n
+ss_spawn:
+        movem.l d2-d3,-(sp)
+        move.b  d0,d3
+        bsr.s   _score_slot                 ; d0.w = y
+        lea     _ram+wm_ScoreSprNum(a4),a0
+        move.b  d3,(a0,d0.w)
+        lea     _ram+wm_SpriteYHi(a4),a0
+        move.b  (a0,d1.w),d2
+        lsl.w   #8,d2
+        lea     _ram+wm_SpriteYLo(a4),a0
+        move.b  (a0,d1.w),d2
+        subq.w  #8,d2                       ; y - 8
+        move.b  d2,d3
+        sub.b   _ram+wm_Bg1VOfs(a4),d3
+        cmp.b   #$f0,d3                     ; CMP #$F0 deja C: el ADC #$10
+        blo.s   .n                          ; suma $11
+        add.w   #$11,d2
+.n:     lea     _ram+wm_ScoreSprYLo(a4),a0
+        move.b  d2,(a0,d0.w)
+        lsr.w   #8,d2
+        lea     _ram+wm_ScoreSprYHi(a4),a0
+        move.b  d2,(a0,d0.w)
+        lea     _ram+wm_SpriteXLo(a4),a0
+        lea     _ram+wm_ScoreSprXLo(a4),a1
+        move.b  (a0,d1.w),(a1,d0.w)
+        lea     _ram+wm_SpriteXHi(a4),a0
+        lea     _ram+wm_ScoreSprXHi(a4),a1
+        move.b  (a0,d1.w),(a1,d0.w)
+        lea     _ram+wm_ScoreSprSpeedY(a4),a0
+        move.b  #$30,(a0,d0.w)
+        movem.l (sp)+,d2-d3
+        rts
+
+; --- score_update ---
+; entrada:  a4 = datos del C
+; salida:   ScoreSprGfx sin el dibujo: las 6 ranuras de la 5 a la 0 suben,
+;           suman la puntuacion (o vidas / monedas) al pasar SpeedY por $2A
+;           y se borran
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+        public  _score_update
+_score_update:
+        cmp.b   #$c1,_ram+wm_LevelMode(a4)  ; (LevelMode & $40) y == $C1
+        beq     .ret
+        lea     _ram+wm_ScoreSprNum(a4),a0  ; lo normal: ninguno (el bucle
+        move.b  (a0)+,d0                    ; deja SprProcessIndex = 0)
+        rept    5
+        or.b    (a0)+,d0
+        endr
+        bne.s   .go
+        clr.b   _ram+wm_SprProcessIndex(a4)
+        rts
+.go:    movem.l d2-d3,-(sp)
+        moveq   #5,d1
+.lp:    move.b  d1,_ram+wm_SprProcessIndex(a4)
+        lea     _ram+wm_ScoreSprNum(a4),a0
+        move.b  (a0,d1.w),d3                ; d3 = n
+        beq     .nx
+        tst.b   _ram+wm_SpritesLocked(a4)
+        bne     .nx
+        lea     _ram+wm_ScoreSprSpeedY(a4),a1
+        move.b  (a1,d1.w),d2
+        bne.s   .v
+        clr.b   (a0,d1.w)
+        bra     .nx
+.v:     subq.b  #1,(a1,d1.w)
+        cmp.b   #$2a,d2
+        bne.s   .mv
+        moveq   #0,d0
+        move.b  d3,d0
+        lea     ss_coins-13(pc),a0
+        cmp.b   #$0d,d3
+        blo.s   .pts
+        cmp.b   #$11,d3
+        bhs.s   .coin
+        move.b  (a0,d0.w),d0                ; CODE_02AE03: 1-UP ...
+        add.b   d0,_ram+wm_GiveLives(a4)
+        clr.b   _ram+wm_GiveLifeTimer(a4)
+        bra.s   .mv
+.coin:  move.b  (a0,d0.w),d0                ; ADDR_05B329
+        move.b  #$01,_ram+wm_SoundCh3(a4)
+        add.b   d0,_ram+wm_CoinAdder(a4)
+        tst.b   _ram+wm_GreenStarCoins(a4)
+        beq.s   .pts
+        sub.b   d0,_ram+wm_GreenStarCoins(a4)
+        bpl.s   .pts
+        clr.b   _ram+wm_GreenStarCoins(a4)
+.pts:   moveq   #0,d0                       ; CODE_02AE12
+        move.b  _ram+wm_OWCharA(a4),d0
+        move.w  d0,d2
+        add.w   d0,d0
+        add.w   d2,d0                       ; 3 * jugador
+        lea     _ram+wm_MarioScoreHi(a4),a0
+        add.w   d0,a0
+        moveq   #0,d2
+        move.b  d3,d2
+        lea     ss_tab(pc),a1
+        add.w   d2,a1
+        move.b  (a1),d0
+        move.b  17(a1),d2
+        add.b   d0,(a0)                     ; X = el carry (move y moveq no
+        move.b  1(a0),d0                    ; lo tocan)
+        addx.b  d2,d0
+        move.b  d0,1(a0)
+        moveq   #0,d2
+        move.b  2(a0),d0
+        addx.b  d2,d0
+        move.b  d0,2(a0)
+.mv:    lea     _ram+wm_ScoreSprSpeedY(a4),a1
+        move.b  (a1,d1.w),d0
+        lsr.b   #4,d0
+        and.w   #$0f,d0
+        lea     ss_tab+34(pc),a0            ; PointSpeedY (y lo que sigue)
+        move.b  (a0,d0.w),d0
+        and.b   _ram+wm_FrameA(a4),d0
+        bne.s   .nx
+        lea     _ram+wm_ScoreSprYLo(a4),a0  ; _02AE38: sube, sin pasar del borde
+        move.b  (a0,d1.w),d0
+        move.b  d0,d2
+        sub.b   _ram+wm_Bg1VOfs(a4),d2
+        cmp.b   #4,d2
+        blo.s   .nx
+        subq.b  #1,(a0,d1.w)
+        tst.b   d0
+        bne.s   .nx
+        lea     _ram+wm_ScoreSprYHi(a4),a0
+        subq.b  #1,(a0,d1.w)
+.nx:    dbf     d1,.lp
+        movem.l (sp)+,d2-d3
+.ret:   rts
+
+; PointMultiplierLo (17), PointMultiplierHi (17), PointSpeedY (4) y
+; DATA_02AD9E (6), contiguas como en la ROM (CODE_02AE12 con n >= $11 lee
+; las de la tabla siguiente)
+ss_tab: dc.b    $00,$01,$02,$04,$08,$0A,$14,$28,$50,$64,$C8,$90,$20,$00,$00,$00,$00
+        dc.b    $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$01,$03,$00,$00,$00,$00
+        dc.b    $03,$01,$00,$00
+        dc.b    $B0,$B8,$C0,$C8,$D0,$D8
+ss_coins:
+        dc.b    $01,$02,$03,$05,$05,$0A,$0F,$14,$19     ; CoinsToGive
+        even
+
+; --- mex_slot ---
+; entrada:  a4 = datos del C
+; salida:   d0.w = ranura de sprite menor: la libre mas alta o la siguiente
+;           de la rueda (DelOldExSpr)
+; registros destruidos: d0/a0 (d1-d3 se conservan: lo usa smoke_update)
+; ciclos:   tools/l_funcs.py
+        public  _mex_slot
+_mex_slot:
+        lea     _ram+wm_MExSprNum(a4),a0
+        moveq   #11,d0
+.l:     tst.b   (a0,d0.w)
+        beq.s   .r
+        dbf     d0,.l
+        subq.b  #1,_ram+wm_DelOldExSpr(a4)
+        bpl.s   .o
+        move.b  #$0b,_ram+wm_DelOldExSpr(a4)
+.o:     moveq   #0,d0
+        move.b  _ram+wm_DelOldExSpr(a4),d0
+.r:     rts
+
+sm_dx:  dc.b    $04,$08,$04,$00             ; DATA_0298C2
+sm_dy:  dc.b    $FC,$04,$0C,$04             ; DATA_0298C6
+
+; --- mex_update ---
+; entrada:  a4 = datos del C
+; salida:   CODE_028B67 sin el dibujo: los 12 sprites menores, de la 11 a
+;           la 0. Solo los tipos de YI1: 1 = trozo de bloque (CODE_028F8B),
+;           2 y 5 = destello (CODE_028ED2); los demas quedan quietos
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+        public  _mex_update
+_mex_update:
+        lea     _ram+wm_MExSprNum(a4),a0    ; lo normal: ninguno
+        move.b  (a0)+,d0
+        rept    11
+        or.b    (a0)+,d0
+        endr
+        bne.s   .go
+        rts
+.go:    movem.l d2-d3/a2,-(sp)
+        moveq   #11,d1
+.lp:    lea     _ram+wm_MExSprNum(a4),a0
+        move.b  (a0,d1.w),d0
+        beq     .nx
+        move.b  d1,_ram+wm_ExSprIndexM(a4)
+        cmp.b   #1,d0
+        beq.s   .t1
+        cmp.b   #2,d0
+        beq.s   .t2
+        cmp.b   #5,d0
+        bne     .nx
+.t2:    lea     _ram+wm_MExSprTimer(a4),a1  ; CODE_028ED2
+        tst.b   (a1,d1.w)
+        beq     .kill
+        tst.b   _ram+wm_SpritesLocked(a4)
+        bne.s   .t2c
+        subq.b  #1,(a1,d1.w)
+.t2c:   lea     _ram+wm_MExSprXLo(a4),a1
+        move.b  (a1,d1.w),d0
+        sub.b   _ram+wm_Bg1HOfs(a4),d0
+        cmp.b   #$f0,d0
+        bhs     .kill
+        lea     _ram+wm_MExSprYLo(a4),a1
+        move.b  (a1,d1.w),d0
+        sub.b   _ram+wm_Bg1VOfs(a4),d0
+        cmp.b   #$f0,d0
+        bhs     .kill
+        bra     .nx
+.t1:    tst.b   _ram+wm_SpritesLocked(a4)   ; CODE_028F8B
+        bne.s   .cull
+        moveq   #3,d3
+        and.b   _ram+wm_FrameA(a4),d3
+        beq.s   .y
+        lea     _ram+wm_MExSprXSpeed(a4),a0
+        move.b  (a0,d1.w),d0
+        lea     _ram+wm_MExSprXLo(a4),a1
+        lea     _ram+wm_MExSprXHi(a4),a2
+        bsr     mx_add
+.y:     lea     _ram+wm_MExSprYSpeed(a4),a0
+        move.b  (a0,d1.w),d0
+        lea     _ram+wm_MExSprYLo(a4),a1
+        lea     _ram+wm_MExSprYHi(a4),a2
+        bsr     mx_add
+        tst.b   d3
+        bne.s   .cull
+        lea     _ram+wm_MExSprYSpeed(a4),a0
+        addq.b  #1,(a0,d1.w)
+.cull:  lea     _ram+wm_MExSprYLo(a4),a1
+        lea     _ram+wm_MExSprYHi(a4),a2
+        bsr     mx_get
+        move.b  _ram+wm_Bg1VOfs+1(a4),d0
+        lsl.w   #8,d0
+        move.b  _ram+wm_Bg1VOfs(a4),d0
+        sub.w   d0,d2                       ; y - Bg1VOfs
+        move.b  d2,d3
+        lsr.w   #8,d2
+        beq.s   .cx
+        tst.b   d2
+        bmi.s   .nx                         ; por encima: sigue vivo
+        bra.s   .kill
+.cx:    lea     _ram+wm_MExSprXLo(a4),a1
+        lea     _ram+wm_MExSprXHi(a4),a2
+        bsr     mx_get
+        move.b  _ram+wm_Bg1HOfs+1(a4),d0
+        lsl.w   #8,d0
+        move.b  _ram+wm_Bg1HOfs(a4),d0
+        sub.w   d0,d2
+        lsr.w   #8,d2
+        bne.s   .kill
+        cmp.b   #$f0,d3
+        bhs.s   .kill
+        bra.s   .nx
+.kill:  lea     _ram+wm_MExSprNum(a4),a0    ; CODE_028F87
+        clr.b   (a0,d1.w)
+.nx:    dbf     d1,.lp
+        movem.l (sp)+,d2-d3/a2
+        rts
+
+; d2.w = a2[x] << 8 | a1[x]   (x = d1.w)
+mx_get: move.b  (a2,d1.w),d2
+        lsl.w   #8,d2
+        move.b  (a1,d1.w),d2
+        rts
+; a2:a1[x] += d0.b con signo
+mx_add: ext.w   d0
+        bsr     mx_get
+        add.w   d0,d2
+        move.b  d2,(a1,d1.w)
+        lsr.w   #8,d2
+        move.b  d2,(a2,d1.w)
+        rts
+
+; --- smoke_update ---
+; entrada:  a4 = datos del C
+; salida:   CODE_0296C0 sin el dibujo: las 4 ranuras de humo. 1 = nube,
+;           2 = estrella de contacto, 3 = humo de derrape, 5 = destellos
+;           (crean sprites menores del tipo 2); los demas no hacen nada
+; registros destruidos: d0-d1/a0-a1
+; ciclos:   tools/l_funcs.py
+        public  _smoke_update
+_smoke_update:
+        lea     _ram+wm_SmokeSprite(a4),a0  ; lo normal: ninguno
+        move.b  (a0)+,d0
+        or.b    (a0)+,d0
+        or.b    (a0)+,d0
+        or.b    (a0),d0
+        bne.s   .go
+        rts
+.go:    movem.l d2-d3,-(sp)
+        moveq   #3,d1
+.lp:    lea     _ram+wm_SmokeSprite(a4),a0
+        move.b  (a0,d1.w),d2                ; d2 = n
+        beq     .nx
+        lea     _ram+wm_SmokeTimer(a4),a1
+        move.b  (a1,d1.w),d3                ; d3 = t
+        move.b  d2,d0
+        and.b   #$7f,d0
+        cmp.b   #1,d0
+        beq.s   .s1
+        cmp.b   #2,d0
+        beq.s   .s2
+        cmp.b   #3,d0
+        beq.s   .s3
+        cmp.b   #5,d0
+        beq     .s5
+        bra     .nx
+.s1:    tst.b   d3                          ; CODE_0296E3
+        beq     .kill
+        tst.b   d2
+        bmi.s   .d1
+        tst.b   _ram+wm_SpritesLocked(a4)
+        bne.s   .c1
+.d1:    subq.b  #1,(a1,d1.w)
+.c1:    lea     _ram+wm_SmokeXPos(a4),a0
+        move.b  (a0,d1.w),d0
+        sub.b   _ram+wm_Bg1HOfs(a4),d0
+        cmp.b   #$f4,d0
+        bhs     .kill
+        lea     _ram+wm_SmokeYPos(a4),a0
+        move.b  (a0,d1.w),d0
+        sub.b   _ram+wm_Bg1VOfs(a4),d0
+        cmp.b   #$e0,d0
+        bhs     .kill
+        bra     .nx
+.s2:    tst.b   d3                          ; CODE_029797
+        beq     .kill
+        tst.b   _ram+wm_SpritesLocked(a4)
+        bne.s   .c2
+        subq.b  #1,(a1,d1.w)
+.c2:    lea     _ram+wm_SmokeXPos(a4),a0
+        move.b  (a0,d1.w),d0
+        sub.b   _ram+wm_Bg1HOfs(a4),d0
+        cmp.b   #$f0,d0
+        bhs     .kill
+        bra     .nx
+.s3:    tst.b   d3                          ; CODE_029927
+        beq     .kill
+        tst.b   _ram+wm_SpritesLocked(a4)
+        bne     .nx
+        subq.b  #1,(a1,d1.w)
+        moveq   #7,d0
+        and.b   d3,d0
+        bne     .nx
+        lea     _ram+wm_SmokeYPos(a4),a0
+        subq.b  #1,(a0,d1.w)
+        bra     .nx
+.s5:    tst.b   d3                          ; CODE_0298CA
+        beq.s   .kill
+        tst.b   _ram+wm_SpritesLocked(a4)
+        bne.s   .nx
+        subq.b  #1,(a1,d1.w)
+        moveq   #3,d0
+        and.b   d3,d0
+        bne.s   .nx
+        bsr     _mex_slot                   ; d0.w = y (d1-d3 intactos)
+        lea     _ram+wm_MExSprNum(a4),a0
+        move.b  #$02,(a0,d0.w)
+        subq.b  #1,d3
+        lsr.b   #2,d3
+        and.w   #3,d3
+        lea     sm_dx(pc),a0
+        move.b  (a0,d3.w),d2
+        lea     _ram+wm_SmokeXPos(a4),a1
+        add.b   (a1,d1.w),d2
+        lea     _ram+wm_MExSprXLo(a4),a0
+        move.b  d2,(a0,d0.w)
+        lea     sm_dy(pc),a0
+        move.b  (a0,d3.w),d2
+        lea     _ram+wm_SmokeYPos(a4),a1
+        add.b   (a1,d1.w),d2
+        lea     _ram+wm_MExSprYLo(a4),a0
+        move.b  d2,(a0,d0.w)
+        lea     _ram+wm_MExSprTimer(a4),a0
+        move.b  #$17,(a0,d0.w)
+        bra.s   .nx
+.kill:  lea     _ram+wm_SmokeSprite(a4),a0  ; CODE_0296DF / CODE_029793
+        clr.b   (a0,d1.w)
+.nx:    dbf     d1,.lp
+        movem.l (sp)+,d2-d3
+        rts
+
+; --- contact_gfx ---
+; entrada:  pila vbcc = u8 x; a4 = datos del C
+; salida:   DisplayContactGfx: la estrellita (humo 2) a los pies de Mario si
+;           el sprite x esta en pantalla; sin ranura libre pisa la 0
+; registros destruidos: d0-d1/a0
+; ciclos:   tools/l_funcs.py
+        public  _contact_gfx
+_contact_gfx:
+        moveq   #0,d1
+        move.b  7(sp),d1
+        lea     _ram+wm_OffscreenHorz(a4),a0
+        move.b  (a0,d1.w),d0
+        lea     _ram+wm_OffscreenVert(a4),a0
+        or.b    (a0,d1.w),d0
+        bne.s   .r
+        lea     _ram+wm_SmokeSprite(a4),a0
+        moveq   #3,d1
+.l:     tst.b   (a0,d1.w)
+        beq.s   .f
+        dbf     d1,.l
+        moveq   #0,d1
+.f:     move.b  #$02,(a0,d1.w)
+        lea     _ram+wm_SmokeXPos(a4),a0
+        move.b  _ram+wm_MarioXPos(a4),(a0,d1.w)
+        moveq   #$14,d0
+        tst.b   _ram+wm_OnYoshi(a4)
+        beq.s   .y
+        moveq   #$1e,d0
+.y:     add.b   _ram+wm_MarioYPos(a4),d0
+        lea     _ram+wm_SmokeYPos(a4),a0
+        move.b  d0,(a0,d1.w)
+        lea     _ram+wm_SmokeTimer(a4),a0
+        move.b  #$08,(a0,d1.w)
+.r:     rts
+
+;----------------------------------------------------------------------
 ; G5L-R-L2: GetDrawInfoBnk1 (msprite.c) y las rutinas de graficos de
 ; player/spr_gfx.c (salvo chuck_gfx y shell_gfx, que siguen en C). Al
 ; principio del fichero: el C de msprite.c / spr_*.c que las llama queda
@@ -1084,7 +1569,7 @@ _camera_F6DB:
         WR16    wm_L2NextPosY,d7
         movem.l (sp)+,d2-d7/a2
         rts
-.vert:  jmp     _camera_F6DB_c
+.vert:  PICJUMP _camera_F6DB_c              ; P102: con SW-S queda lejos
 
 ;----------------------------------------------------------------------
 ; int spr_mario_contact_asm(u8 x) = spr_mario_contact de msprite.c: cajas
@@ -2339,12 +2824,7 @@ _mario_E2BD:
         move.b  #$0a,_ram+wm_PlayerDmaTiles(a4)
 .ret:   movem.l (sp)+,d2-d7
         rts
-.c:
-        ifd SPR_OAM
-        PICJUMP _mario_E2BD_c
-        else
-        jmp     _mario_E2BD_c
-        endif
+.c:     PICJUMP _mario_E2BD_c               ; lejos con SW-S (P102)
 
 f636n   set     0                           ; f636: (m & $F7) << 6 + (m & 8) << 11 + $2000
 f636hi: rept    256
@@ -2412,9 +2892,13 @@ lfo     set     lfo+1
         tst.b   _level_sprites(a4)
         beq.s   .b
         bsr     _sprites_all_asm
-.b:     bsr     _blocks_update
+        PICCALL _give_lives_tick            ; CODE_028AB1 (SW-S)
+.b:     PICCALL _mex_update                 ; CODE_028B67 (SW-S)
+        bsr     _blocks_update
+        PICCALL _smoke_update               ; CODE_0296C0 (en CODE_02902D, SW-S)
         tst.b   _level_sprites(a4)
         beq.s   .x
+        PICCALL _score_update               ; ScoreSprGfx (SW-S)
         bsr     _sprite_load_level
 .x:     rts
 
@@ -3839,6 +4323,7 @@ _mario_D5F2:
         beq     .d764
         tst.b   _ram+wm_IsSlipperyLevel(a4)
         bne     .d764
+        move.b  #1,_fe_cin(a4)              ; C = 1 (CMP #$02, SW-S)
         bsr     mr_fe4a
         bra     .d764
 
@@ -3883,7 +4368,8 @@ _mario_D5F2:
         bne.s   .d6b1
         tst.b   _ram+wm_PlayerSlopePose(a4)
         beq     .d764
-.fe:    bsr     mr_fe4a
+.fe:    clr.b   _fe_cin(a4)                 ; (sin B abajo: el C de antes)
+        bsr     mr_fe4a
         tst.b   _ram+wm_OnSlopeTypeA(a4)
         beq     .d764
         moveq   #0,d0
@@ -3938,6 +4424,7 @@ _mario_D5F2:
         tst.b   _ram+wm_IsSlipperyLevel(a4)
         bne.s   .x90
         move.b  #$0d,_ram+wm_PlayerTurningPose(a4)
+        clr.b   _fe_cin(a4)                 ; los ASL dejan C = 0
         bsr     mr_fe4a
 .x90:   add.b   #$90,d2
 .d713:  moveq   #0,d0                       ; _00D713: y
@@ -4084,19 +4571,29 @@ mr_fe4a:
         bne.s   .lp
 .r:     rts
 .f:     move.b  #$03,(a0,d1.w)              ; CODE_00FE72
+        move.l  d2,-(sp)
+        moveq   #1,d0                       ; el carry de los ADC: 1 si pasó
+        btst    #2,_ram+wm_JoyPadA(a4)      ; por el CMP #$10, si no el del
+        bne.s   .c                          ; que llama (_fe_cin, SW-S)
+        move.b  _fe_cin(a4),d0
+.c:     neg.b   d0                          ; X = el carry
+        moveq   #4,d2                       ; (moveq, move, lea y tst no
+        move.b  _ram+wm_MarioXPos(a4),d0    ; tocan X)
+        addx.b  d2,d0                       ; ADC #$04
         lea     _ram+wm_SmokeXPos(a4),a0
-        move.b  _ram+wm_MarioXPos(a4),d0
-        addq.b  #4,d0
         move.b  d0,(a0,d1.w)
+        moveq   #$1a,d2
         move.b  _ram+wm_MarioYPos(a4),d0
-        add.b   #$1a,d0
+        addx.b  d2,d0                       ; ADC #$1A
         tst.b   _ram+wm_OnYoshi(a4)
         beq.s   .y
-        add.b   #$10,d0
+        moveq   #$10,d2
+        addx.b  d2,d0                       ; ADC #$10
 .y:     lea     _ram+wm_SmokeYPos(a4),a0
         move.b  d0,(a0,d1.w)
         lea     _ram+wm_SmokeTimer(a4),a0
         move.b  #$13,(a0,d1.w)
+        move.l  (sp)+,d2
         rts
 
 ;----------------------------------------------------------------------
@@ -4594,3 +5091,4 @@ _banzai_bill:
         move.l  (sp)+,d2
         rts
         endc
+

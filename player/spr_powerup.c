@@ -64,7 +64,7 @@ void powerup_init(u8 x)
 static void pw_points(u8 x)
 {
     if (!SPR(wm_SpriteMiscTbl5, x))
-        mario_events |= MEV_SPRITE;         /* GivePoints (A = 4) */
+        give_points(x, 4);
     W8(wm_SoundCh1, 0x0A);
 }
 
@@ -121,7 +121,7 @@ static void pw_touch(u8 x)
         pw_points(x);
         break;
     case 5:                                 /* GiveMario1Up: los puntos llevan la vida */
-        mario_events |= MEV_SPRITE;
+        give_points(x, (u8)(8 + SPR(wm_SpriteMiscTbl7, x)));
         break;
     default:                                /* la pluma no es de YI1 (D12) */
         spr_unsup();

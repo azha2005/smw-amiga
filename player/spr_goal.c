@@ -173,7 +173,7 @@ void goal_tape(u8 x)
         } else {
             W8(wm_BonusStarsGained, tg_07F1AA[i]);
             if (tg_07F1AA[i] == 0x50)
-                mario_events |= MEV_SPRITE; /* GivePoints ($0A) */
+                give_points(x, 0x0A);
         }
     } else {
         SETSPR(wm_Tweaker1686, x, 0);       /* CODE_01C125 */
@@ -208,7 +208,7 @@ void goal_lvlend(u8 x)
         W8(wm_SoundCh3, 0x01);
         if (R8(wm_GreenStarCoins))
             W8(wm_GreenStarCoins, R8(wm_GreenStarCoins) - 1);
-        mario_events |= MEV_SPRITE;         /* GivePoints (min(SilverCoins, $0D)) */
+        give_points(x, R8(wm_SilverCoins) < 0x0D ? R8(wm_SilverCoins) : 0x0D);
         W8(wm_SilverCoins, R8(wm_SilverCoins) + 2);
         SETSPR(wm_SpriteStatus, x, 0x00);
     }
