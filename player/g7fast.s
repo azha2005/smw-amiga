@@ -1920,6 +1920,58 @@ g7f_ident:
         dc.b    0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
         even
 
+; (h, x del primer MOVE tras WAIT h) de $20 a $ce, sin repetir x seguidas
+; (g7_fast.HX: mismo orden de prueba que la especificacion)
+g7f_hx:
+        dc.w    $20,-81
+        dc.w    $24,-73
+        dc.w    $28,-65
+        dc.w    $2c,-57
+        dc.w    $30,-49
+        dc.w    $34,-41
+        dc.w    $38,-33
+        dc.w    $3c,-25
+        dc.w    $40,-17
+        dc.w    $44,-9
+        dc.w    $48,-1
+        dc.w    $4c,7
+        dc.w    $50,15
+        dc.w    $54,23
+        dc.w    $58,31
+        dc.w    $5c,39
+        dc.w    $60,47
+        dc.w    $64,55
+        dc.w    $68,63
+        dc.w    $6c,71
+        dc.w    $70,79
+        dc.w    $74,87
+        dc.w    $78,95
+        dc.w    $7c,103
+        dc.w    $80,111
+        dc.w    $84,119
+        dc.w    $88,127
+        dc.w    $8c,135
+        dc.w    $90,143
+        dc.w    $94,151
+        dc.w    $98,159
+        dc.w    $9c,167
+        dc.w    $a0,175
+        dc.w    $a4,183
+        dc.w    $a8,191
+        dc.w    $ac,199
+        dc.w    $b0,207
+        dc.w    $b4,215
+        dc.w    $b8,223
+        dc.w    $bc,231
+        dc.w    $c0,239
+        dc.w    $c2,255
+        dc.w    $c4,243
+        dc.w    $c8,247
+        dc.w    $cc,251
+        dc.w    $ce,255
+        dc.w    -1
+        even
+
         include "player/g7edf.s"
         ifnd    G7F_NOWIN
         include "player/g7win.s"
