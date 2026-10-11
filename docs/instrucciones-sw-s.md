@@ -1,5 +1,17 @@
 # SW-S — puntos y efectos: puntuación, estrellas, humo, trozos y monedas que saltan
 
+> **Estado (2026-10-10, noche):** pasos 1, 2 y 4 **hechos**
+> (`docs/informe-sw-s-1010.md`): la RAM y la OAM de los tres motores son
+> exactas contra la SNES (`sh tools/sws_gate.sh`). Falta el **paso 3, el
+> dibujo**, y el camino lo elige el usuario (`PROXIMO.md` §2). Hoy la OAM
+> de los efectos queda en `ram[$0200-$02FF]` (ExOamSlot): puntos en
+> `$B0 + 8x` (2 fichas 8×8), humo en `$20 + 4x` (la nube 16×16, el derrape 8×8) y la estrella
+> de contacto en `$F0-$FF` (4 fichas 8×8), menores en `$50 + 4x` (8×8).
+> Para (b), G5L tiene que leer esas entradas además de las de los sprites
+> (`spr_oam_first/n`), con la prioridad más baja y sin desplazar a un
+> enemigo si así se decide. Para (a), esperar G7. Después: SW1 en las
+> fotos de la lista y el A/B BENCH con el dibujo (control `-DNOSWS`).
+
 2026-10-10. Sale de SW1 (`informe-sw1-1010.md`, puntos 5 y 10, y los
 trozos del punto 4). **Mediana**: la lógica es chica, pero el dibujo
 compite por los sprites.

@@ -3222,13 +3222,22 @@ lfo     set     lfo+1
         tst.b   _level_sprites(a4)
         beq.s   .b
         bsr     _sprites_all_asm
+        ifnd NOSWS                          ; NOSWS: control del A/B de D1
         PICCALL _give_lives_tick            ; CODE_028AB1 (SW-S)
-.b:     PICCALL _mex_update                 ; CODE_028B67 (SW-S)
+        endc
+.b:
+        ifnd NOSWS
+        PICCALL _mex_update                 ; CODE_028B67 (SW-S)
+        endc
         bsr     _blocks_update
+        ifnd NOSWS
         PICCALL _smoke_update               ; CODE_0296C0 (en CODE_02902D, SW-S)
+        endc
         tst.b   _level_sprites(a4)
         beq.s   .x
+        ifnd NOSWS
         PICCALL _score_update               ; ScoreSprGfx (SW-S)
+        endc
         bsr     _sprite_load_level
 .x:     rts
 

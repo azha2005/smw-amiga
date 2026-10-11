@@ -119,6 +119,7 @@
 | `informe-sw1-1010.md` | 2026-10-10 | SW1: pantalla entera contra la SNES, una foto por segundo (yi1, 126 fotos); 9 clases de diferencias, 7 nuevas |
 | `instrucciones-l-der.md` | 2026-10-10 | L-DER: la deriva de la lógica de sprites contra la SNES |
 | `informe-l-der-1010.md` | 2026-10-10 | L-DER cerrada: la deriva era el replay (P130); `--logic` OK en 10 trazas |
+| `informe-sw-s-1010.md` | 2026-10-10 | SW-S: lógica y OAM de puntos, humo y sprites menores, exactas contra la SNES; A/B BENCH; falta el dibujo |
 | `instrucciones-sw-a.md` | 2026-10-10 | SW-A: tiles animados de la capa 1 (los postes del punto medio) |
 | `instrucciones-sw-p.md` | 2026-10-10 | SW-P: prioridad sprite/capa 1 por franja (la piraña) |
 | `instrucciones-sw-m.md` | 2026-10-10 | SW-M: la animación de paleta de la moneda de Yoshi |
@@ -126,6 +127,7 @@
 | `instrucciones-sw-b.md` | 2026-10-10 | SW-B: los cambios del mapa en la pantalla |
 | `instrucciones-sw-q.md` | 2026-10-10 | SW-Q: el bloque `?` volador y los power-ups en G5L |
 | `instrucciones-sw-s.md` | 2026-10-10 | SW-S: puntos, humo y trozos (lógica y dibujo) |
+| `instrucciones-d1-opt.md` | 2026-10-10 | D1: optimizar con todo activado (perfil de los tramos tarde, A/B por cambio) |
 | `instrucciones-g5l-r-s11.md` | 2026-10-10 | Cortar la espiral de la vuelta en `build_mid`, sin cambiar la imagen |
 | `instrucciones-g5l-r-m1.md` | 2026-10-10 | Medir por qué `build_mid` cuesta ≈ 2,8× en el hardware: pares por foto, VHPOSR, variantes opt-in |
 | `investigacion-demoscene-1010.md` | 2026-10-10 | fuentes de demos: speedcode, código automodificable, cadenas copper-blitter y carga/descompresión; §11 reordena tras L2: speedcode en `build_mid` según el perfil de estrés |
