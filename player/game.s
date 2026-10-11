@@ -1457,12 +1457,19 @@ loadstate:
         move.b  d0,$1692(a2)
         move.b  #$ff,$1430(a2)              ; Lowest/HighestSolidSprTile
         move.b  #$ff,$1431(a2)
+        ifd     G7_DOUBLE
+        lea     g7_oam_valid(pc),a1
+        clr.b   (a1)                       ; SYNC no carga OAM; aun no hay efectos nuevos
+        endc
         movem.l (sp)+,d2/a2-a3
         rts
 
 spr_keep:                                   ; m68kverify.py SPR_KEEP
         dc.w    $14C8,$009E,$00E4,$14E0,$00D8,$14D4,$00B6,$00AA,$00C2,$14F8,$14EC
 keepbuf: ds.b   SPR_KEEPN*12
+        ifd     G7_DOUBLE
+g7_oam_valid: dc.b 0
+        endc
         even
 
 ;----------------------------------------------------------------------
@@ -1478,6 +1485,10 @@ callframe:
         GBS     1
         endc
         jsr     (a0)
+        ifd     G7_DOUBLE
+        lea     g7_oam_valid(pc),a0
+        st      (a0)                       ; level_frame limpio y escribio la OAM
+        endc
         ifd     BENCH
         GBS     2
         lea     gb_lfd(pc),a0
@@ -1629,8 +1640,17 @@ DC_REC0     equ 50
 DC_REC0     equ 8
         endc
 R_COIN      equ DC_REC0                     ; .b FrameB de la foto (SW-M)
+        ifd     G7_DOUBLE
+R_SWS_VALID equ DC_REC0+1                   ; .b OAM producida por level_frame
+        endc
 R_TSEQ      equ DC_REC0+2                   ; .w limite de cambios de esta foto (SW-B)
+        ifd     G7_DOUBLE
+R_OAM       equ DC_REC0+4                   ; 256 B ExOamSlot ($0200-$02ff)
+R_OAMHI     equ R_OAM+256                   ; 64 B tamano/x alta ($0420-$045f)
+DC_REC      equ R_OAMHI+64
+        else
 DC_REC      equ DC_REC0+4
+        endc
 ; estado (dc_st), palabras; -1 = ninguna
 DC_FRONT    equ 0                           ; foto de la lista que se ve
 DC_PEND     equ 2                           ; publicada, se ve desde el VBL
@@ -2073,6 +2093,20 @@ dc_g5copy_end equ *
         move.b  _ram+$14(a4),R_COIN(a1)     ; FrameB de esta foto, no la RAM futura
         move.w  DC_NLOG(a2),R_FRAME(a1)
         move.w  _tile_write(a4),R_TSEQ(a1)   ; SW-B: incluye todos los cambios de k
+        ifd     G7_DOUBLE
+        move.b  g7_oam_valid(pc),R_SWS_VALID(a1)
+        ; La logica puede avanzar mientras el render espera al PF1:
+        ; las fichas de efectos pertenecen a esta foto, no a la RAM futura.
+        lea     _ram+$0200(a4),a0
+        lea     R_OAM(a1),a3
+        moveq   #63,d0
+.oam:   move.l  (a0)+,(a3)+
+        dbf     d0,.oam
+        lea     _ram+$0420(a4),a0
+        moveq   #15,d0
+.oamhi: move.l  (a0)+,(a3)+
+        dbf     d0,.oamhi
+        endc
         ifd     BENCH
         move.b  gb_rs(pc),R_RS(a1)          ; (st: el byte alto)
         endc

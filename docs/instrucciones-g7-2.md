@@ -4,6 +4,11 @@
 resuelta (`docs/informe-g7-1010.md`); hay un prototipo `G7_DOUBLE` de doble
 PF1 con cursores independientes. **Los efectos aún no se ven.**
 
+Avance del 2026-10-11: pasos 2–3 verificados y tres sondas del paso 4
+exactas; cota local negativa de color bajo G2T-A. Continuación detallada
+en `instrucciones-g7-color.md`; resultados en `informe-g7-2-1011.md`.
+El resto de este fichero conserva el procedimiento original.
+
 **Prerequisito:** conservar las pruebas de propiedad y SW1 de G7-1
 (`instrucciones-g7-1.md`). El doble PF1 prepara primero el copper de
 la lista libre y espera al anillo antes de escribir columnas/mapa.

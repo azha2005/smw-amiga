@@ -1338,3 +1338,16 @@ nueva después de la espera cambia el desfase de publicación. Cada PF1
 necesita V_P/V_CCOL/V_CBLK y `_tile_read` propios; D_MAP ya actualizado
 no implica que el otro PF1 esté dibujado. `g7_double_verify.py` cubre
 propiedad, espera/VBL y cursores; las capturas y BENCH cubren imagen y coste.
+
+
+**P133 — SYNC no carga la OAM de los efectos (G7-2, 2026-10-11).**
+
+`loadstate` restaura RAM de juego, pero no `$0200..$02ff/$0420..$045f`.
+Copiar esas zonas a la foto inicial y recorrerlas como fichas visibles
+puede convertir ceros sin inicializar en sprites en (0,0), ficha 0.
+No arreglarlo añadiendo una fuente ficticia al banco. La foto G7 conserva
+`R_SWS_VALID=0` después de SYNC y solo la habilita tras `level_frame`.
+La OAM cruda se captura igualmente para el cruce con RAM, pero el render
+de efectos no la consume mientras sea inválida. `g7_photo_verify.py`
+recorre cinco trazas y comprueba además que diez capturas nuevas no pisan
+FRONT/PEND/REND. Ver `informe-g7-2-1011.md`.

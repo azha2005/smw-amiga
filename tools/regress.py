@@ -613,6 +613,12 @@ def bm1_checks(r):
             commands.append(([PY, 'tools/restart_verify.py', '--dir', dest], 'CUSHION vivo: tres listas, diagnostico/retorno OK'))
         else:
             commands.append(([PY, 'tools/g7_double_verify.py', '--bin', dest + '/game.bin', '--lst', dest + '/game.lst'], 'G7 DOUBLE: OK'))
+            commands.extend([
+                ([PY, '-m', 'unittest', 'discover', '-s', 'tools', '-p', 'test_g7_color_plan.py'], 'OK'),
+                ([PY, 'tools/g7_sources.py'], 'G7 SOURCES: OK'),
+                ([PY, 'tools/g7_photo_verify.py', '--bin', dest + '/game.bin', '--lst', dest + '/game.lst'], 'G7 PHOTO: OK'),
+                ([PY, 'tools/g7_color_plan.py', '--bin', dest + '/game.bin', '--lst', dest + '/game.lst',
+                  '--from-k', '409', '--to-k', '409', '--out', 'work/rg_g7_color_409'], 'G7 COLOR PLAN: OK')])
         for args, expected in commands:
             code, out = sh(args, env=probe_env, timeout=1800)
             key = 'g7_double_' + mode + '_' + os.path.basename(args[1])

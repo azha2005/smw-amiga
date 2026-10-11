@@ -104,6 +104,7 @@ def main():
     ostats = {e: collections.Counter() for e in engines}
     oshown = collections.Counter()
     first = {}
+    photo_frames, photo_bad = 0, 0
     shown = collections.Counter()
     prev = None
     for k in range(gr.n):
@@ -126,6 +127,14 @@ def main():
         if sf is None:
             continue
         ram = gr.cpu.read(ram_at, 0x2000)
+        if 'R_OAM' in s:
+            slot = mem.r16(gr.dc + s['DC_NEW'])
+            record = addr('dc_rec') + slot * s['DC_REC']
+            captured = (gr.cpu.read(record + s['R_OAM'], 256)
+                        + gr.cpu.read(record + s['R_OAMHI'], 64))
+            expected = ram[0x200:0x300] + ram[0x420:0x460]
+            photo_frames += 1
+            photo_bad += captured != expected or mem.r16(record + s['R_FRAME']) != nlog
         rec = orec.get(f + a.key) if orec is not None else None
         for e in engines:
             if rec is None:
@@ -158,6 +167,10 @@ def main():
               '' if e not in first else ' (primero f %d)' % first[e]))
         ok &= c['distintos'] == 0
     print('SWS RAM: ' + ('OK' if ok else 'DISTINTA'))
+    if 'R_OAM' in s:
+        print('SWS PHOTO: %s (%d fotos, %d distintas)' % (
+            'OK' if photo_bad == 0 and photo_frames else 'DISTINTA', photo_frames, photo_bad))
+        ok &= photo_bad == 0 and photo_frames > 0
     if orec is None:
         return 0 if ok else 1
     ook = True

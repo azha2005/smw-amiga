@@ -1,6 +1,6 @@
 # PRÓXIMO — lo que sigue
 
-2026-10-10, cierre G7-0/G7-1. **SW-S: la lógica y la OAM de los puntos, el humo y los
+2026-10-11, cierre G7-2 parcial. **SW-S: la lógica y la OAM de los puntos, el humo y los
 sprites menores están en el 68000 (asm), exactas contra la SNES y activas
 por defecto** (`docs/informe-sw-s-1010.md`): la RAM y la OAM de los tres
 motores dan 0 distintos en yi1 y en 4 grabaciones. **El dibujo será por
@@ -16,19 +16,28 @@ vuelve a cruzar el C actual contra el asm en Windows (P131).
 | L-DER | cerrada (P130) | replay `run` | `docs/informe-l-der-1010.md` |
 | SW-S | **lógica y OAM hechas**; dibujo por bobs (G7, decidido) | lógica activa (`-DNOSWS` la apaga, solo para el A/B) | `docs/informe-sw-s-1010.md` |
 
-**G7-0 hecha:** el vivo libera 31.208 B de chip y 6.616 B de slow.
-Segundo PF1 + 12 KiB de fuentes caben, con 1.840 B de chip libres.
-**G7-1 implementada, opt-in** (`G7_DOUBLE`): preparar el copper antes
-de esperar al PF1 libre pasa SW1 completo (126 fotos, 0 píxeles).
-BENCH final: 269/6312 fotos omitidas frente a 217 del control;
-racha máxima 2 en ambos, con la espera incluida en la medición. **D1 sigue roja**; efectos sin dibujo.
-Detalles: `docs/informe-g7-1010.md`.
+**G7-0 hecha y G7-1 opt-in. G7-2 parcial:** la OAM de cada foto
+coincide en cinco trazas; las fuentes exactas ocupan 7.616 B de los
+12 KiB reservados. Tres sondas (k409, k5026, k6015) dan **0 píxeles
+distintos en WinUAE cycle-exact**. Todavía no hay cola de bobs en el juego.
+
+**Puerta de color negativa concreta:** k6047/fila161/x151..181 necesita
+nueve colores; con siete registros PF1, las ranuras del contrato G2T-A
+no alcanzan. Una enumeración independiente también permite remapear el
+terreno y no encuentra solución. Es un límite del contrato actual,
+no de todos los métodos posibles de Amiga. Informe y certificado:
+`docs/informe-g7-2-1011.md`, `work/g7-bound/window.png`.
+
+G7_DOUBLE vivo: 522.448 B chip / 511.656 B slow, 0 violaciones;
+el vivo por defecto conserva su binario. **D1 sigue roja**; 217→269
+omitidos fue el A/B histórico de G7-1, anterior a copiar OAM. No hay
+BENCH nuevo ni efectos activados.
 
 ## 1. La próxima sesión, en orden
 
 | tarjeta | responsable | ficheros / puerta | instrucciones |
 |---|---|---|---|
-| **G7-2/G7-3, efectos SW-S** | coordinador; **siguiente** | OAM en la foto, fuentes y color exactos, restauración y cola; SW1 y BENCH | `docs/instrucciones-g7-2.md` |
+| **G7-C → G7-3, efectos SW-S** | coordinador; **siguiente** | reproducir cota k6047, resolver alternativa exacta; después cargar fuentes, restauración/cola, SW1 y BENCH | `docs/instrucciones-g7-color.md` |
 | **D1, optimizar** | coordinador; en paralelo o después de G7 | con todo activado: 217 fotos perdidas, peor `build_mid` 15 604 ticks, `resto de scroll_frame` 18 798. Primero lo que más pesa, medido por foto perdida | `docs/instrucciones-d1-opt.md` |
 | SW-Q, resto | cuando haya grabaciones | una estrella real y flor/1-UP con más de una foto; A/B BENCH | `docs/informe-sw-q-recuperacion-1010.md` §"Qué sigue" |
 | SW-B, resto | — | barrida de `turn_block` con `HOLDEVERY=10` y A/B BENCH en WinUAE | `docs/informe-sw-b-1010.md` §"Continuación" |
@@ -45,11 +54,16 @@ regenerar los datos. Si se probó una opción de datos (`SW_ANIM_POSTS`,
 `mkscroll --g5` sin ella. El BENCH en WinUAE va con `tools/bm_build.sh`
 (con `tools/game_build.sh` el replay no entra en chip: pantalla roja, P126).
 
-## 2. Pendiente del usuario
+## 2. Decisiones y pendientes
 
-- **G7, si falta memoria:** si ninguna opción de G7-0 libera la chip sin
-  tocar algo visible, o si un color de un efecto no tiene lugar exacto en
-  PF1, se te consulta antes de seguir (`docs/instrucciones-g7.md`).
+- **G7-C, decidido por el usuario el 2026-10-11:** «Apoyo puntual de
+  sprites hardware para conservar los colores exactos». Investigar esa
+  alternativa antes de G7-3, como excepción puntual al dibujo por bobs.
+  No volver a pedir esta elección. Disponibilidad DMA, rearmado y colores
+  compartidos siguen pendientes de prueba cycle-exact; la autorización
+  no implica que la solución ya funcione. Seguir
+  `docs/instrucciones-g7-color.md`. Sesión cerrada a pedido del usuario;
+  no continuar la investigación hasta la próxima sesión.
 - Para probar en la Amiga el vivo con todo: `GDEFS=" " OUT=work/live sh
   tools/game_build.sh` → `work/live/game.adf` (BM1, A501).
 - **La regla de prioridad** (qué objetos se dibujan cuando no entran
