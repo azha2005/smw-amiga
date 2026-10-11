@@ -25,10 +25,13 @@
 | `instrucciones-g7-2.md` | procedimiento original de G7-2/G7-3: OAM, fuentes, color y cola |
 | `instrucciones-g7-color.md` | G7-C: reproducir la cota k6047, alternativa exacta medida y puertas antes de G7-3 |
 | `instrucciones-g7-3-retoma.md` | G7-3 parcial: corregir k409 físico y rechazos chuck, repetir cobertura y coste |
-| `instrucciones-g7-3c.md` | G7-3c: abaratar el productor por fila y portar ventana/EDF |
+| `instrucciones-g7-3c.md` | G7-3c: abaratar el productor por fila y portar ventana/EDF (hecha) |
+| `instrucciones-g7-edf.md` | G7-3c: interfaz y pasos del EDF en 68000 (hecha) |
+| `instrucciones-g7-s1.md` | G7-S1: efectos en sprites de hardware (solo si el usuario elige el híbrido) |
 | `informe-g7-3-1011.md` | 2026-10-11 | implementación opt-in, cuatro trazas CPU, puerta física roja y 13 rechazos pendientes |
 | `informe-g7-3b-1011.md` | 2026-10-11 | productor asm sin búsqueda (camino corto v2), igual en cinco trazas; coste por fila y por qué no cabe en el frame |
 | `informe-g7-s0-1011.md` | 2026-10-11 | medida: efectos en sprites de hardware (canales, color, frente; empaquetado en 16 px) |
+| `informe-g7-3c-1011.md` | 2026-10-11 | productor entero en 68000 (diario disperso, ventana, EDF), igual en cinco trazas; costes y por qué sigue sin caber |
 | `instrucciones-g7-hibrido.md` | cobertura PF1/hardware por tramos, controles y paleta exactos antes del renderer G7-3 |
 | `plan-tecnico.md` | cómo hacer lo que falta: optimización (§9), cada bloque pendiente (§10), más allá de YI1 (§11). Escrito el 2026-09-30; sus números de estado son de esa fecha |
 | `pitfalls.md` | texto completo de las trampas P1-P109 (índice en `AGENTS.md` §8) |
