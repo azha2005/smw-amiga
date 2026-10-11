@@ -1748,6 +1748,9 @@ class GameRun:
         if 'sg3_dma' in s:                       # (G5L-R ya no carga el banco)
             mem.w32(addr('sg3_dma'), self.DMA)
         self.cdma = addr('g5l_cdma_src')         # (en el juego: una copia en chip)
+        if 'G7_PACK_OFF' in s:
+            self.cdma=0x1A0000
+            cpu.write(self.cdma,Path('work/g5l/g5l_clean.dma').read_bytes())
         mem.w32(addr('g5l_cdma'), self.cdma)
         self.RBUF = 0x120000                      # búfer de las bandas (en el juego, chip)
         mem.w32(addr('g5l_rbuf'), self.RBUF)
@@ -1756,6 +1759,9 @@ class GameRun:
         if 'g7_original' in s:
             mem.w32(addr('g7_original'), G.BUF1)
             mem.w32(addr('g7_pf1'), 0x180000)
+            if 'G7_PACK_OFF' in s:
+                packed=Path('work/g7/sources.rle').read_bytes()
+                cpu.write(0x180000+s['BUF1']+s['G7_PACK_OFF'],packed)
         self.first, self.n = mem.r16(addr('replay') + 6), mem.r16(addr('replay') + 4)
         cpu.call(addr('game_step'), B)
         self.cops = (G.COPA, G.COPB)
@@ -2190,7 +2196,7 @@ def run_mk(a):
     Path('work/g5l.i').write_text(
         'g5l_table:\n        incbin "%s"\n        even\n'
         'G5L_CDMA_SIZE equ %d\n'
-        'g5l_cdma_src:\n        incbin "%s"\n        even\n'
+        'g5l_cdma_src:\n        ifnd G7_BOBS\n        incbin "%s"\n        even\n        endc\n'
         % ((OUT / 'g5l.bin').resolve().as_posix(), len(ctx['cdma']),
            (OUT / 'g5l_clean.dma').resolve().as_posix()), encoding='utf-8')
     print('g5l.bin: %d B' % len(blob))

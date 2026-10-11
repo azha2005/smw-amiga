@@ -55,7 +55,7 @@ from asmlint.registers import LIST_PATTERN, REGISTERS  # noqa: E402
 from asmlint.source import is_local, parse_statement  # noqa: E402
 
 FILES = ["player/game.s", "player/scroll.s", "player/logic68k.s", "player/mspr68k.s",
-         "player/sprbank.s", "player/d1trace.s", "player/tilechange.s"]
+         "player/sprbank.s", "player/d1trace.s", "player/tilechange.s", "player/g7bobs.s"]
 ABI_OUT, ABI_CLOB = "d0", "d0-d1/a0-a1"
 ALL = "d0-d7/a0-a6"
 

@@ -105,6 +105,9 @@ REPLAY=${REPLAY:-work/yi1_replay.bin}
 ORACLE=${ORACLE:-work/oracle_yi1.bin}
 mkdir -p "$OUT"
 [ -n "$NOCC" ] || sh tools/logicbench_build.sh
+case " $GDEFS " in
+    *" -DG7_BOBS "*) $PY tools/g7_sources.py; $PY tools/g7_pack.py; $PY tools/g7_compile.py ;;
+esac
 # NOCC tambien debe usar un C ya compilado con estas opciones (P36/P98).
 if grep -q '^_rex_gfx' work/cc/msprite.code.s; then CC_SPR=1; else CC_SPR=0; fi
 [ "$CC_SPR" = "$SPR_MODE" ] || { echo "ERROR: C y asm tienen distinto SPR_OAM; recompilar sin NOCC"; exit 1; }
@@ -190,6 +193,7 @@ case " $GDEFS " in
 esac
 $PY tools/mkadf.py --boot "$BOOT" --stage2 "$OUT/game.bin" --data "$YDAT" \
     --out "$OUT/game.adf"
+case " $GDEFS " in *" -DG7_BOBS "*) $PY tools/g7_adf.py --adf "$OUT/game.adf" ;; esac
 if [ -n "$SPR_BANK" ]; then
     $PY tools/sprgfx_load.py --bank "$SPR_BANK" --adf "$OUT/game.adf"
 fi

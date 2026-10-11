@@ -273,7 +273,7 @@ pero detenida por coste; primer microbench asm medido (18 794 ciclos solo en tra
 | 1. Medir y preparar | — | **cerrada** | 0 |
 | 2. 50 Hz (1) | — (S4 descartada, P89) | **cerrada** | 0 |
 | 3. 50 Hz (2) + diseños | G2/G3 acotadas y traza D1 integradas; L-OAM asm parcial (41,2 % YI1, estrés rojo), G5a-bis detenida fase A (ventanas vacías). G2T-A hecha (contrato fijado, A-T verde); B35 exacta en rama pero inviable (2,41 M ciclos máx.); primer microbench asm entregado y detenido (18 794 ciclos solo en transiciones); faltan nuevo diseño viable, rendimiento de B2bis, resolver coste Cpre/C y la ruta OAM de piraña; A2 y R7. A1/G8b adelantadas | **B35 parcial por coste; L-OAM roja** | **3 estimadas** (nuevo diseño viable de B35 + B2bis/C + L-OAM; el microbench no reduce la ruta crítica) |
-| 4. Motores y estructura | G4-A hecha (medida), G5L-N hecha, G4-1 hecha (Python), G4-2 hecha (68000, apagada: D1), G4-2o hecha (sigue apagado), G4-B hecha (los demás enemigos; apagada: D1 y chip), G9 hecha (dibujo exacto), L-DER hecha (era el replay, P130), SW-S lógica y OAM hechas (dibujo por G7, decisión del usuario), G7-0 hecha y G7-1 opt-in; G7-2 OAM/fuentes verificadas, color parcial con cota local negativa G2T-A; G7-3 pendiente, D1 optimizar, G4-3 (aparcada), G4 + G6, G5, C2 (vlink), S8 (cámara vertical), A0 + A2, P7/P9/P10, T1, I/E sueltas | **en curso** | 2-3 |
+| 4. Motores y estructura | G4-A hecha (medida), G5L-N hecha, G4-1 hecha (Python), G4-2 hecha (68000, apagada: D1), G4-2o hecha (sigue apagado), G4-B hecha (los demás enemigos; apagada: D1 y chip), G9 hecha (dibujo exacto), L-DER hecha (era el replay, P130), SW-S lógica y OAM hechas (dibujo por G7, decisión del usuario), G7-0 hecha y G7-1 opt-in; G7-2 OAM/fuentes verificadas, color parcial con cota local negativa G2T-A; G7-3 parcial opt-in (fidelidad física/rechazos pendientes), D1 optimizar, G4-3 (aparcada), G4 + G6, G5, C2 (vlink), S8 (cámara vertical), A0 + A2, P7/P9/P10, T1, I/E sueltas | **en curso** | 2-3 |
 | 5. Integraciones y 50 Hz con sprites | S5 (+ S3/S6) con G5 ya hecho, C3/C4/C5 (loader), segundo PF1 + G7 (bobs), H2-H4 (HUD), A3/A4 (música) | pendiente | 2-3 |
 | 6. El juego completo | Z2-Z6 (punto medio, meta, tiempo, fundidos, poste), T2/T3 (tubería), A5-A8 (efectos, comparación), H5, R7 | pendiente | 2 |
 | 7. Segunda ronda de 50 Hz | todo junto contra la compuerta D1 en estrés | pendiente | 1 |
@@ -348,6 +348,13 @@ O5 es el modo por defecto (`-DNODECOUPLE` = bucle viejo); si cambia
 ---
 
 ## 7. Cierre de sesión (obligatorio)
+
+2026-10-11 (G7-3): implementación parcial opt-in, cola/IRQ/restauración y
+fuentes por lista. Cierre pedido por límite de uso: cuatro trazas CPU
+completas en el prototipo; chuck conserva 13 rechazos y k409 físico
+tiene 1.484 píxeles distintos. Última corrección de lectura PF1 sin
+captura repetida. Default idéntico, D1 roja; SW1/BENCH pendientes.
+`docs/informe-g7-3-1011.md`, `docs/instrucciones-g7-3-retoma.md`.
 
 2026-10-11 (G7-C): testigo k6047 resuelto sin cambiar D8; siete sondas
 (incluidas k6046..6049 consecutivas y k6064..6066 con recargas), 1.180

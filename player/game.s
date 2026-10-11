@@ -67,6 +67,11 @@ DECOUPLE    equ 1
         endc
         endc
 
+        ifd     G7_BOBS
+        ifnd    G7_DOUBLE
+G7_DOUBLE equ 1
+        endc
+        endc
         ifd     G7_DOUBLE
         ifnd    BM_FIXED
         fail    "G7_DOUBLE requiere BM_FIXED (presupuesto medido sin Exec)"
@@ -427,8 +432,10 @@ entry:
         bne     gfail
         endc
         ifd     BM_FIXED
+        ifnd    G7_BOBS
         move.l  #BM_MOTOR_ADDR,a1
         jsr     (a1)
+        endc
         else
         move.l  a2,a1
         move.w  #TD_MOTOR,IO_COMMAND(a1)
@@ -463,6 +470,11 @@ entry:
         beq     gfail
         lea     g7_pf1(pc),a0
         move.l  d0,(a0)
+        ifd     G7_BOBS
+        bsr     g7b_load
+        tst.l   d0
+        bne     gfail
+        endc
         endc
         move.l  #CL_SIZE+CL_TAIL,d0         ; (+ la cola del diagnostico)
         move.l  #MEMF_CHIP|MEMF_CLEAR,d1
@@ -516,11 +528,27 @@ entry:
         move.l  d0,(a0)+
         move.l  d0,(a0)                     ; g5l_rbuf (sigue a g5l_cdma)
         add.l   #G5L_CDMA_SIZE,(a0)
+        ifd     G7_BOBS
+        move.l  d0,a0
+        GETBASE a1
+        move.l  hdr_data_off-binstart(a1),d0
+        add.l   hdr_data_len-binstart(a1),d0
+        lsr.l   #8,d0
+        lsr.l   #1,d0
+        move.w  #(G5L_CDMA_SIZE+511)/512,d1
+        move.l  #BM_READ_ADDR,a1
+        jsr     (a1)
+        tst.l   d0
+        bne     gfail
+        move.l  #BM_MOTOR_ADDR,a1
+        jsr     (a1)
+        else
         add.l   #g5l_cdma_src-binstart,a1
         move.l  d0,a0
         move.w  #G5L_CDMA_SIZE/4-1,d1
 .g5c:   move.l  (a1)+,(a0)+
         dbf     d1,.g5c
+        endc
         endc
         ifd     DECOUPLE
         move.l  #NSPRB*SPRBUF+16,d0         ; Mario (una por foto) + nulo
@@ -1687,6 +1715,15 @@ dc_vbl:
         movem.l d0-d7/a0-a6,-(sp)
         lea     CUSTOM,a4
         move.w  INTREQR(a4),d0
+        ifd     G7_BOBS
+        btst    #6,d0
+        beq.s   .noblit
+        move.w  #$0040,INTREQ(a4)
+        move.w  #$0040,INTREQ(a4)
+        bsr     g7b_irq
+        move.w  INTREQR(a4),d0
+.noblit:
+        endc
         btst    #5,d0                       ; VERTB
         beq.s   .cop
         move.w  #$0020,INTREQ(a4)
@@ -2301,6 +2338,10 @@ dc_hdr:
 ; entrada:  a3 = datos del scroll, a4 = CUSTOM, a5 = vars
 ;----------------------------------------------------------------------
 dc_loop:
+        ifd     G7_BOBS
+        move.w  g7b_error(pc),d0
+        bne.s   dc_loop                     ; rechazo explicito: conservar FRONT
+        endc
         lea     dc_st(pc),a2
         ifnd    REPLAY
         move.w  g_restart(pc),d0
@@ -2361,6 +2402,11 @@ dc_loop:
         move.w  DC_REND(a2),d0
         bsr     dc_recp
         move.w  R_S(a0),V_S(a5)
+        ifd     G7_BOBS
+        move.l  a0,-(sp)
+        bsr     g7b_clean
+        move.l  (sp)+,a0
+        endc
         moveq   #0,d0
         move.b  R_COIN(a0),d0
         bsr     coin_prepare
@@ -2422,6 +2468,9 @@ dc_loop:
         GBR     18
         endc
         bsr     g7_select                  ; DC_REND sigue siendo la foto tomada
+        ifd     G7_BOBS
+        bsr     g7b_restore
+        endc
         bsr     g7_columns
         lea     dc_st(pc),a2
         move.w  DC_REND(a2),d0
@@ -2437,6 +2486,11 @@ dc_loop:
         move.w  DC_REND(a2),d7
         bsr     dc_hdr
         ifd     G7_DOUBLE
+        ifd     G7_BOBS
+        bsr     g7b_draw
+        move.w  g7b_error(pc),d0
+        bne     dc_loop
+        endc
         bsr     g7_save
         bsr     bwait                      ; nunca publicar un blit pendiente
         endc
@@ -2554,6 +2608,9 @@ g7_init:
         move.w  V_CBLK(a5),(a1)+
         move.w  _tile_read(a0),(a1)+
         dbf     d2,.state
+        ifd     G7_BOBS
+        bsr     g7b_init
+        endc
         movem.l (sp)+,d2-d3/a2
         rts
 
@@ -2617,6 +2674,9 @@ g7_save:
         addq.l  #4,a0
 .list:  move.l  V_BUF1(a5),(a0)
         rts
+        ifd     G7_BOBS
+        include "player/g7bobs.s"
+        endc
         endc
 
         ifnd    REPLAY
@@ -2926,7 +2986,11 @@ gb_scroll_frame:
         move.l  V_COP2(a5),d0
 .sw:    move.l  d0,V_BACK(a5)
         GBS     10
+        ifd     G7_BOBS
+        bsr     g7b_wait
+        else
         bsr     bwait
+        endc
         GBS     11
         rts
 
@@ -3231,7 +3295,11 @@ gb_show:
         lea     dc_st(pc),a2
         bsr     dc_streak                   ; la racha abierta, al histograma
         endc
+        ifd     G7_BOBS
+        bsr     g7b_wait
+        else
         bsr     bwait
+        endc
         move.w  #$0020,DMACON(a4)           ; sin sprites
         lea     gb_out(pc),a2
         move.l  #$a55a5aa5,(a2)+
@@ -4494,4 +4562,18 @@ m1_buf: dcb.b   16*M1N,0
         cnop    0,4
         endc
 
+        ifd     G7_BOBS
+; Puentes al lado del productor, fuera del alcance PC de la cola (P102).
+_g7b_send_bridge:
+        PICJUMP _g7b_send
+_g7b_save_row_bridge:
+        PICJUMP _g7b_save_row
+_g7b_retry_bridge:
+        PICJUMP _g7b_retry
+_g7b_div16_bridge:
+        PICJUMP _g7b_div16
+        include "work/g7/prod.s"
+        cnop 0,4
+g7b_saved: ds.b G7_SNAP_SIZE*3
+        endc
 binend:

@@ -1351,3 +1351,15 @@ La OAM cruda se captura igualmente para el cruce con RAM, pero el render
 de efectos no la consume mientras sea inválida. `g7_photo_verify.py`
 recorre cinco trazas y comprueba además que diez capturas nuevas no pisan
 FRONT/PEND/REND. Ver `informe-g7-2-1011.md`.
+
+
+## P134 — visibilidad G7 y scratch de un solo objeto
+
+GV_NPL/GV_RX pertenecen al camino múltiple de G5L. En el camino de un
+objeto pueden valer cero o conservar datos viejos. Usarlos para ocultar
+los efectos G7 daba falsos positivos de píxeles y conteos visibles mal.
+`g7_hw_support.visibility` lee los flujos DMA reales y BPLCON2 por X.
+`hardware_hidden` delega allí; pruebas de un objeto sin scratch y armado
+VBL de una pareja Mario detenida en `test_g7_hw_support.py`.
+Recalcular cobertura offline anterior; no confundir ese cambio con una
+validación física del nuevo renderer. La sonda G7-3 k409 sigue roja.

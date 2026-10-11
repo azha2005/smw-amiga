@@ -92,6 +92,30 @@ class SupportTests(unittest.TestCase):
         self.assertFalse(image.any())
         self.assertFalse(any(a['spans'] for a in audit))
 
+    def test_visibility_reads_dma_without_slot_scratch(self):
+        self.g.sprite(0,100,102,5)
+        with patch.object(H.P.T,'segment_words',side_effect=self.words):
+            hidden=H.visibility(self.g,0,self.g.back)
+        self.assertTrue(hidden[100:102,136:152].all())
+        self.assertEqual(int(hidden.sum()),32)
+        self.g.mem.w32(self.g.back,0x01040000)
+        with patch.object(H.P.T,'segment_words',side_effect=self.words):
+            self.assertFalse(H.visibility(self.g,0,self.g.back).any())
+
+    def test_vbl_arm_overrides_stopped_mario_pair(self):
+        self.g.sprite(2,158,160,7)
+        for upper in (0,1):
+            ch=2+upper;source=0x1000+ch*168
+            pos,ctl=self.g.mem.r16(source),self.g.mem.r16(source+2)
+            at=self.g.back+self.g.s['CL_VBL']+96+16*upper
+            for i,(reg,value) in enumerate(((0x120+4*ch,0),(0x122+4*ch,source+4),
+                                          (0x140+8*ch,pos),(0x142+8*ch,ctl))):
+                self.g.mem.w32(at+4*i,(reg<<16)|value)
+            self.g.mem.w32(source,0)
+        image,audit=H.dma_image(self.g,0,self.g.back)
+        self.assertEqual(int(image[158,136]),1<<7)
+        self.assertEqual(audit[2]['spans'][0]['start'],158)
+
     def test_transparent_data_still_owns_dma(self):
         self.g.sprite(2,130,162,0)
         image, audit = H.dma_image(self.g,0,self.g.back)

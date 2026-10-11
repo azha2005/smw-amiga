@@ -322,33 +322,8 @@ def overlays(oam, bank):
 
 def hardware_hidden(g,rec,tab,gfx):
     """Mascara de hardware de esta foto; solo objetos delante de PF1."""
-    s,mem=g.s,g.mem
-    hidden=np.zeros((224,256),dtype=bool)
-    for x,y in L.mario_pixels(None,L.read_photo(mem,rec,s),gfx):
-        if 0<=x<256 and 0<=y<224:
-            hidden[y,x]=True
-    gv=g.addr('g5l_v')
-    n=mem.r16(gv+s['GV_NPL'])
-    assert n<=s['G5L_MAXPL']
-    for k in range(n):
-        rx=gv+s['GV_RX']+k*s['RXSZ']
-        if s.get('G5L_PRI_ON') and mem.r16(rx+s['RX_PRI'])<2:
-            continue                     # PF1 tapa estos canales
-        x0=mem.r16(rx+s['RX_X0']);y0=mem.r16(rx+s['RX_R0'])
-        if x0>=32768:x0-=65536
-        if y0>=32768:y0-=65536
-        v=tab.variant(mem.r32(rx+s['RX_VAR'])-g.addr('g5l_table'))
-        masks=[tab.mask(v,j) for j in range(len(v['groups']))]
-        for y in range(v['h']):
-            if not 0<=y0+y<224:continue
-            for c in range(v['cols']):
-                bits=0
-                for group in masks:bits|=group[y*v['cols']+c]
-                for dx in range(16):
-                    x=x0+16*c+dx
-                    if 0<=x<256 and bits>>(15-dx)&1:
-                        hidden[y0+y,x]=True
-    return hidden
+    import g7_hw_support as H
+    return H.visibility(g,rec,g.mem.r32(g.fr.vars+g.s['V_BACK']))
 
 
 def render_step(g):

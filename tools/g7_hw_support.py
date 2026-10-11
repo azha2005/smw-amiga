@@ -29,6 +29,13 @@ def dma_image(g, rec, back):
                 pt = spr + ch * s['MSPR_WORDS'] * 2
                 pos, ctl = mem.r16(pt), mem.r16(pt + 2)
                 pt += 4
+                # G7 puede armar una pareja Mario detenida desde los
+                # ocho NOP del VBL: PT a DATA y POS/CTL explicitos.
+                regs={g.mem.r16(back+s['CL_VBL']+off):g.mem.r16(back+s['CL_VBL']+off+2)
+                      for off in range(4,s['CL_VBLSZ'],4)}
+                if 0x140+8*ch in regs:
+                    pt=regs[0x120+4*ch]<<16|regs[0x122+4*ch]
+                    pos,ctl=regs[0x140+8*ch],regs[0x142+8*ch]
             else:
                 at = back + s['CL_VBL'] + 4 + 16 * (ch - 4)
                 pt = mem.r16(at + 2) << 16 | mem.r16(at + 6)
@@ -93,6 +100,61 @@ def sprite_palette(g, back, overrides=None):
                 priority=value&7
                 if x<256:front[row,max(0,x):]=priority
     return colors,front
+
+
+def visibility(g,rec,back):
+    """Mascara efectiva delante de PF1, tambien en el camino de un objeto.
+
+    GV_NPL/GV_RX solo describen el camino multiple; pueden conservar
+    registros viejos cuando se emite un solo objeto. Leer los flujos y
+    BPLCON2 que consumira el chipset evita depender de ese scratch.
+    """
+    _,audit=dma_image(g,rec,back)
+    priority=4
+    for off in range(0,g.s['CL_LINES'],4):
+        if g.mem.r16(back+off)==0x104:priority=g.mem.r16(back+off+2)&7
+    front=np.empty((224,256),dtype=np.uint8)
+    for row in range(224):
+        front[row]=priority
+        words,_=P.T.segment_words(g.mem,back,g.s['CL_LINES'],g.s['SEG'],row)
+        for x,r,v in P.T.timeline(words,row):
+            if r==0x104:
+                priority=v&7
+                if x<256:front[row,max(0,x):]=priority
+    hidden=np.zeros((224,256),dtype=bool)
+    shifts=np.arange(15,-1,-1)
+    for ch,flow in enumerate(audit):
+        for span in flow['spans']:
+            y0,y1,x=span['start'],span['stop'],span['x']
+            raw=g.cpu.read(span['data'],4*(y1-y0))
+            words=np.frombuffer(raw,dtype='>u2').reshape((-1,2))
+            bits=(words[:,0]|words[:,1])[:,None]>>shifts[None,:]&1
+            a,b=max(0,y0),min(224,y1);l,r=max(0,x),min(256,x+16)
+            if a<b and l<r:
+                hidden[a:b,l:r]|=bits[a-y0:b-y0,l-x:r-x].astype(bool)&(front[a:b,l:r]>ch//2)
+    return hidden
+
+
+def visible_image(g,rec,back):
+    """Color de la primera pareja opaca por pixel, con BPLCON2 efectivo."""
+    _,audit=dma_image(g,rec,back)
+    palette,front=sprite_palette(g,back)
+    image=np.zeros((224,256),dtype=np.uint16)
+    occupied=np.zeros((224,256),dtype=bool)
+    shifts=np.arange(15,-1,-1)
+    for pair in (0,2,4,6):
+        values=np.zeros((224,256),dtype=np.uint8)
+        for upper in (0,1):
+            for span in audit[pair+upper]['spans']:
+                a,b,x=span['start'],span['stop'],span['x']
+                words=np.frombuffer(g.cpu.read(span['data'],4*(b-a)),dtype='>u2').reshape((-1,2))
+                bits=sum(((words[:,p,None]>>shifts[None,:])&1)<<(2*upper+p) for p in (0,1))
+                y0,y1=max(0,a),min(224,b);l,r=max(0,x),min(256,x+16)
+                if y0<y1 and l<r:values[y0:y1,l:r]|=bits[y0-a:y1-a,l-x:r-x].astype(np.uint8)
+        mask=(values!=0)&(front>pair//2)&~occupied
+        yy,xx=np.where(mask)
+        image[yy,xx]=palette[yy,values[yy,xx],xx];occupied|=mask
+    return image,occupied
 
 
 def validate_plans(g, rec, back, primes, assigned, expected):

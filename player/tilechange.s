@@ -96,7 +96,11 @@ tile_apply:
         move.l  V_BUF1(a5),a0
         add.l   d1,a0
         add.w   d0,a0
+        ifd     G7_BOBS
+        bsr     g7b_wait
+        else
         bsr     bwait
+        endc
         move.l  #$09f00000,BLTCON0R(a4)
         move.l  #$ffffffff,BLTAFWMR(a4)
         clr.w   BLTAMODR(a4)
@@ -104,7 +108,11 @@ tile_apply:
         move.l  a2,BLTAPTR(a4)
         move.l  a0,BLTDPTR(a4)
         move.w  #(48<<6)|1,BLTSIZER(a4)
+        ifd     G7_BOBS
+        bsr     g7b_wait
+        else
         bsr     bwait
+        endc
         move.l  a2,BLTAPTR(a4)
         lea     SLOTS*2(a0),a0
         move.l  a0,BLTDPTR(a4)
