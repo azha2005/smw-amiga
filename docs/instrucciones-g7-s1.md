@@ -1,6 +1,6 @@
 # G7-S1 — efectos en sprites de hardware (híbrido con el PF1)
 
-2026-10-11. **Solo si el usuario elige el híbrido** (PROXIMO §1). Leer antes
+2026-10-11. **Elegida por el usuario el 2026-10-11** (opción (a), PROXIMO §1). Leer antes
 `docs/informe-g7-s0-1011.md` (la medida) y `docs/informe-g7-3c-1011.md`
 (el productor PF1, que queda para el resto). Orden de AGENTS.md: primero
 la especificación en Python con su verificador, después el 68000.
@@ -44,6 +44,6 @@ python tools/g7_sprite_room.py --bin work/g7fast/bins/yi1/game.bin \
 
 ## No hacer
 
-- No empezar sin la decisión del usuario. No activar G7_BOBS por defecto.
+- No activar G7_BOBS por defecto.
 - No usar tablas por número de frame. No aproximar colores.
 - No tocar el banco de sprites de Mario/Rex sin cruzarlo con G5L.

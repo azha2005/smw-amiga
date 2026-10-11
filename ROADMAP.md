@@ -356,7 +356,7 @@ ventana (`player/g7win.s`) y EDF (`player/g7edf.s`, portado por un
 subagente y verificado de nuevo), igual a la especificación en cinco trazas
 con `--check-clean`. Rechazos YI1 129 → 40, chuck 106 → 6, demás 0. YI1
 media 56 k, p99 1,04 M: no cabe en el frame. Default idéntico, D1 roja;
-decisión del usuario pendiente (híbrido recomendado).
+el usuario eligió el híbrido (a) y pidió priorizar el rendimiento al final del nivel (META-R).
 `docs/informe-g7-3c-1011.md`, `docs/instrucciones-g7-s1.md`.
 
 2026-10-11 (G7-3b): el usuario eligió rediseñar el productor antes de la

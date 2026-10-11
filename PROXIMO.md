@@ -7,28 +7,24 @@ diferencias, el diario repone la lista byte a byte). **Sigue opt-in
 `-DG7_BOBS`, no activa por defecto.** Fotos sin plan: YI1 40 (meta), chuck
 6, las demás 0. Informe: `docs/informe-g7-3c-1011.md`.
 
-## 1. Decisión pendiente del usuario
+## 1. Decisiones del usuario (2026-10-11)
 
-El productor PF1 **no cabe en el frame** (≈ 141.800 ciclos): YI1 media
-56 k, p99 1,04 M, máx. 3,0 M (sin DMA). Las filas por ventana/EDF cuestan
-100-200 k cada una, y el camino corto tiene un suelo de 8-10 k por fila.
-Opciones:
-
-- **(a) híbrido con sprites de hardware** (medido en G7-S0,
-  `docs/informe-g7-s0-1011.md`): deja 0,05-0,83 filas PF1 por foto de media
-  y 12-16 en el peor caso. Es la que más reduce el trabajo (recomendada);
-  instrucciones en `docs/instrucciones-g7-s1.md`;
-- (b) presupuesto de G7 por frame y fotos omitidas en ráfagas de efectos;
-- (c) otra vía.
-
-**No elegir por el usuario ni activar G7_BOBS.**
+- **G7: se elige (a), el híbrido con sprites de hardware**, frente a (b)
+  un presupuesto con fotos omitidas y (c) otra vía. Por ahora solo
+  queda anotado; se empieza en la próxima sesión. El productor PF1 (G7-3c)
+  queda para las filas que no entren en sprites. Hoy no cabe en el frame:
+  YI1 p99 1,04 M ciclos sin DMA (`docs/informe-g7-3c-1011.md`).
+- **Prioridad: mejorar el rendimiento al final del nivel** (zona de la
+  meta). Ahí se juntan el pico de scroll de los postes (P81) y las fotos
+  de efectos más caras o sin plan de G7.
 
 ## 2. La próxima sesión, en orden
 
 | tarjeta | estado / qué hacer | instrucciones |
 |---|---|---|
-| **G7-S1** | solo con (a): especificación de efectos en sprites con su verificador de píxeles, después el 68000 | `docs/instrucciones-g7-s1.md` |
-| G7-3, puertas | k409 físico, SW1, A/B BENCH, cycle-exact; con la decisión del §1 | `docs/instrucciones-g7-3-retoma.md` pasos 4-8 |
+| **META-R** | medir el reparto por componente en la meta (WinUAE cycle-exact) y proponer con números | `docs/instrucciones-meta-r.md` |
+| **G7-S1** | híbrido (a): especificación de efectos en sprites con su verificador de píxeles, después el 68000 | `docs/instrucciones-g7-s1.md` |
+| G7-3, puertas | k409 físico, SW1, A/B BENCH, cycle-exact | `docs/instrucciones-g7-3-retoma.md` pasos 4-8 |
 
 D1 sigue roja; después de G7, `docs/instrucciones-d1-opt.md`.
 
