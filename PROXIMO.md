@@ -14,6 +14,8 @@ diferencias, el diario repone la lista byte a byte). **Sigue opt-in
   queda anotado; se empieza en la próxima sesión. El productor PF1 (G7-3c)
   queda para las filas que no entren en sprites. Hoy no cabe en el frame:
   YI1 p99 1,04 M ciclos sin DMA (`docs/informe-g7-3c-1011.md`).
+- **Dibujar el Banzai Bill** (`$9F`): hoy tiene lógica pero es invisible.
+  Va como bob del PF1 y primero hay que hacerle lugar en chip.
 - **Prioridad: mejorar el rendimiento al final del nivel** (zona de la
   meta). Ahí se juntan el pico de scroll de los postes (P81) y las fotos
   de efectos más caras o sin plan de G7.
@@ -24,6 +26,7 @@ diferencias, el diario repone la lista byte a byte). **Sigue opt-in
 |---|---|---|
 | **META-R** | medir el reparto por componente en la meta (WinUAE cycle-exact) y proponer con números | `docs/instrucciones-meta-r.md` |
 | **G7-S1** | híbrido (a): especificación de efectos en sprites con su verificador de píxeles, después el 68000 | `docs/instrucciones-g7-s1.md` |
+| **BANZAI** | presupuesto de chip exacto (qué necesita el bob, qué libera C2/C3/C4); después especificación, verificador y 68000 | `docs/instrucciones-banzai.md` |
 | G7-3, puertas | k409 físico, SW1, A/B BENCH, cycle-exact | `docs/instrucciones-g7-3-retoma.md` pasos 4-8 |
 
 D1 sigue roja; después de G7, `docs/instrucciones-d1-opt.md`.

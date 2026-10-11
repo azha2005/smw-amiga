@@ -29,6 +29,7 @@
 | `instrucciones-g7-edf.md` | G7-3c: interfaz y pasos del EDF en 68000 (hecha) |
 | `instrucciones-g7-s1.md` | G7-S1: efectos en sprites de hardware (híbrido elegido por el usuario el 2026-10-11) |
 | `instrucciones-meta-r.md` | META-R: medir y mejorar el rendimiento al final del nivel |
+| `instrucciones-banzai.md` | BANZAI: dibujar el Banzai Bill como bob (memoria primero) |
 | `informe-g7-3-1011.md` | 2026-10-11 | implementación opt-in, cuatro trazas CPU, puerta física roja y 13 rechazos pendientes |
 | `informe-g7-3b-1011.md` | 2026-10-11 | productor asm sin búsqueda (camino corto v2), igual en cinco trazas; coste por fila y por qué no cabe en el frame |
 | `informe-g7-s0-1011.md` | 2026-10-11 | medida: efectos en sprites de hardware (canales, color, frente; empaquetado en 16 px) |
