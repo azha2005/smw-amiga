@@ -28,6 +28,7 @@
 | `instrucciones-g7-3c.md` | G7-3c: abaratar el productor por fila y portar ventana/EDF |
 | `informe-g7-3-1011.md` | 2026-10-11 | implementación opt-in, cuatro trazas CPU, puerta física roja y 13 rechazos pendientes |
 | `informe-g7-3b-1011.md` | 2026-10-11 | productor asm sin búsqueda (camino corto v2), igual en cinco trazas; coste por fila y por qué no cabe en el frame |
+| `informe-g7-s0-1011.md` | 2026-10-11 | medida: efectos en sprites de hardware (canales, color, frente; empaquetado en 16 px) |
 | `instrucciones-g7-hibrido.md` | cobertura PF1/hardware por tramos, controles y paleta exactos antes del renderer G7-3 |
 | `plan-tecnico.md` | cómo hacer lo que falta: optimización (§9), cada bloque pendiente (§10), más allá de YI1 (§11). Escrito el 2026-09-30; sus números de estado son de esa fecha |
 | `pitfalls.md` | texto completo de las trampas P1-P109 (índice en `AGENTS.md` §8) |
