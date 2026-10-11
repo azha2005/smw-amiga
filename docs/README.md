@@ -127,6 +127,7 @@
 | `instrucciones-sw-b.md` | 2026-10-10 | SW-B: los cambios del mapa en la pantalla |
 | `instrucciones-sw-q.md` | 2026-10-10 | SW-Q: el bloque `?` volador y los power-ups en G5L |
 | `instrucciones-sw-s.md` | 2026-10-10 | SW-S: puntos, humo y trozos (lógica y dibujo) |
+| `instrucciones-g7.md` | 2026-10-10 | G7: bobs en PF1, primero los efectos de SW-S (decisión del usuario); memoria, doble PF1, color, cola |
 | `instrucciones-d1-opt.md` | 2026-10-10 | D1: optimizar con todo activado (perfil de los tramos tarde, A/B por cambio) |
 | `instrucciones-g5l-r-s11.md` | 2026-10-10 | Cortar la espiral de la vuelta en `build_mid`, sin cambiar la imagen |
 | `instrucciones-g5l-r-m1.md` | 2026-10-10 | Medir por qué `build_mid` cuesta ≈ 2,8× en el hardware: pares por foto, VHPOSR, variantes opt-in |

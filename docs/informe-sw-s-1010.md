@@ -78,7 +78,7 @@ rebotan, humo, puntos, carga de sprites.
 
 ## Qué sigue
 
-El paso 3, **el dibujo** (decisión del usuario, `PROXIMO.md` §2):
+El paso 3, **el dibujo**. **El usuario eligió (a), bobs (G7), el 2026-10-10** (`docs/instrucciones-g7.md`). Las opciones eran:
 
 - **(a) bobs (G7)**, el camino del plan: los efectos son chicos y cortos;
   barato una vez que exista el restaurado de bobs.

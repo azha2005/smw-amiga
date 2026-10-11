@@ -3,8 +3,9 @@
 2026-10-10, noche. **SW-S: la lógica y la OAM de los puntos, el humo y los
 sprites menores están en el 68000 (asm), exactas contra la SNES y activas
 por defecto** (`docs/informe-sw-s-1010.md`): la RAM y la OAM de los tres
-motores dan 0 distintos en yi1 y en 4 grabaciones. **Falta el dibujo en
-la Amiga, y cómo hacerlo lo decidís vos** (§2). Además, la regresión
+motores dan 0 distintos en yi1 y en 4 grabaciones. **El dibujo será por
+bobs (G7): decisión del usuario del 2026-10-10.** Hasta que G7 funcione,
+los efectos no se ven. Además, la regresión
 vuelve a cruzar el C actual contra el asm en Windows (P131).
 
 | tarjeta | estado | por defecto | informe |
@@ -13,7 +14,7 @@ vuelve a cruzar el C actual contra el asm en Windows (P131).
 | SW-A, SW-P, SW-M, SW-B | hechas | **activas** (`SW_ANIM_POSTS=off`, `-DG5L_NOPRIORITY`, `-DCOINCONTROL`, `SW_TILES=0` las apagan) | `docs/informe-sw-ap-1010.md`, `-sw-m-retoma-`, `-sw-b-` |
 | SW-D | cerrada, sin cambio | — | `docs/informe-sw-d-retoma-1010.md` |
 | L-DER | cerrada (P130) | replay `run` | `docs/informe-l-der-1010.md` |
-| SW-S | **lógica y OAM hechas**; dibujo pendiente de tu decisión | lógica activa (`-DNOSWS` la apaga, solo para el A/B) | `docs/informe-sw-s-1010.md` |
+| SW-S | **lógica y OAM hechas**; dibujo por bobs (G7, decidido) | lógica activa (`-DNOSWS` la apaga, solo para el A/B) | `docs/informe-sw-s-1010.md` |
 
 **D1 sigue roja**: en el BENCH de hoy, 202 fotos perdidas sin SW-S y 217
 con SW-S (3,44 %). 50 Hz y colchón aceptados; optimizar después.
@@ -22,8 +23,8 @@ con SW-S (3,44 %). 50 Hz y colchón aceptados; optimizar después.
 
 | tarjeta | responsable | ficheros / puerta | instrucciones |
 |---|---|---|---|
-| **SW-S, dibujo** | coordinador, **cuando elijas el camino** (§2) | (a) bobs G7, o (b) G5L con prioridad baja; después SW1 en las fotos de la lista y A/B BENCH | `docs/instrucciones-sw-s.md` (paso 3) |
-| **D1, optimizar** | coordinador; **siguiente si el dibujo espera** | con todo activado: 217 fotos perdidas, peor `build_mid` 15 604 ticks, `resto de scroll_frame` 18 798. Primero lo que más pesa, medido por foto perdida | `docs/instrucciones-d1-opt.md` |
+| **G7, bobs (efectos de SW-S)** | coordinador; **siguiente** | G7-0 memoria (el segundo PF1 no entra: chip con 42 056 B de margen, slow con 7 776), doble PF1, fuentes y color en PF1, cola de bobs; después SW1 en las fotos de la lista y A/B BENCH | `docs/instrucciones-g7.md` |
+| **D1, optimizar** | coordinador; en paralelo o después de G7 | con todo activado: 217 fotos perdidas, peor `build_mid` 15 604 ticks, `resto de scroll_frame` 18 798. Primero lo que más pesa, medido por foto perdida | `docs/instrucciones-d1-opt.md` |
 | SW-Q, resto | cuando haya grabaciones | una estrella real y flor/1-UP con más de una foto; A/B BENCH | `docs/informe-sw-q-recuperacion-1010.md` §"Qué sigue" |
 | SW-B, resto | — | barrida de `turn_block` con `HOLDEVERY=10` y A/B BENCH en WinUAE | `docs/informe-sw-b-1010.md` §"Continuación" |
 | G4-3 | aparcada | Rex en los pares de Mario | `docs/instrucciones-g4-3.md` |
@@ -41,14 +42,9 @@ regenerar los datos. Si se probó una opción de datos (`SW_ANIM_POSTS`,
 
 ## 2. Pendiente del usuario
 
-- **SW-S, cómo dibujar los puntos, el humo y los trozos** (fidelidad):
-  - **(a) bobs (G7)**: el camino del plan. No compiten con nada, pero G7
-    (la cola de bobs con restaurado) todavía no existe: hasta entonces no
-    se ven.
-  - **(b) G5L**, como objetos más con la prioridad más baja: se ven ya,
-    pero con 2 objetos por foto un puntaje puede dejar sin dibujar a un
-    Rex. Variante: solo cuando sobra lugar en la foto (no desplaza a
-    ningún enemigo).
+- **G7, si falta memoria:** si ninguna opción de G7-0 libera la chip sin
+  tocar algo visible, o si un color de un efecto no tiene lugar exacto en
+  PF1, se te consulta antes de seguir (`docs/instrucciones-g7.md`).
 - Para probar en la Amiga el vivo con todo: `GDEFS=" " OUT=work/live sh
   tools/game_build.sh` → `work/live/game.adf` (BM1, A501).
 - **La regla de prioridad** (qué objetos se dibujan cuando no entran
